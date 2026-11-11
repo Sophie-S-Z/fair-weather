@@ -20,7 +20,7 @@ type Init = Extract<ToWorker, { t: 'init' }>;
  */
 export function createSimHost(spawn: () => Endpoint): SimHost {
   const listeners = new Set<(m: FromWorker) => void>();
-  const hashWaiters: ((h: { tick: number; value: string }) => void)[] = [];
+  let hashWaiters: { resolve(h: { tick: number; value: string }): void; reject(e: Error): void }[] = [];
   let log: { tick: number; list: Command[] }[] = [];
   /** Lists sent but not yet accepted, with the tick they are expected to run at. */
   let inFlight: { tick: number; list: Command[] }[] = [];
@@ -36,8 +36,18 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
   let lastFailure = -Infinity;
   let worker: Endpoint | null = null;
 
+  /** Rejects every pending hash request, so no caller waits on a worker that will not answer. */
+  function rejectHashes(reason: string): void {
+    const waiters = hashWaiters;
+    hashWaiters = [];
+    for (const h of waiters) h.reject(new Error(reason));
+  }
+
   function onFailure(lastGoodTick: number): void {
-    if (lastGoodTick <= lastFailure) return;
+    if (lastGoodTick <= lastFailure) {
+      rejectHashes(`the worker failed again at tick ${String(lastGoodTick)}; not restarting`);
+      return;
+    }
     lastFailure = lastGoodTick;
     restart();
   }
@@ -66,7 +76,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         checkpoint = { tick: m.tick, world: m.world };
         break;
       case 'hash':
-        hashWaiters.shift()?.({ tick: m.tick, value: m.value });
+        hashWaiters.shift()?.resolve({ tick: m.tick, value: m.value });
         return;
       case 'error':
         for (const cb of listeners) cb(m);
@@ -126,6 +136,9 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         seenTick = targetTick = cp?.tick ?? 0;
         seenEventsTick = seenTick - 1;
         lastFailure = -Infinity;
+        multiplier = 0;
+        skipAccepted = 0;
+        rejectHashes('a new init replaced the run');
         disconnect();
         worker = connect();
         break;
@@ -155,12 +168,12 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       return () => listeners.delete(cb);
     },
     requestHash() {
-      return new Promise((resolve) => {
-        hashWaiters.push(resolve);
+      return new Promise((resolve, reject) => {
+        hashWaiters.push({ resolve, reject });
         worker?.postMessage({ t: 'hash' } satisfies ToWorker);
       });
     },
     restart,
-    log: () => log,
+    log: () => log.map((e) => ({ tick: e.tick, list: [...e.list] })),
   };
 }

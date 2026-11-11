@@ -39,17 +39,22 @@ function play(host: SimHost, ticks: number): void {
   }, ticks);
 }
 
-test(
-  'host restart from checkpoint plus replay gives the same hash as an unbroken run',
+// Fault 1700: restart from 1600, no accepted list in [1600, 1700), the later lists are in flight.
+// Fault 3300: restart from 3200 replays the accepted list at the boundary tick 3200.
+test.each([
+  { fault: 1700, from: 1600, replayed: 0 },
+  { fault: 3300, from: 3200, replayed: 1 },
+])(
+  'host restart from checkpoint plus replay gives the same hash as an unbroken run (fault at $fault)',
   { timeout: 60_000 },
-  async () => {
+  async ({ fault, from, replayed }) => {
     const good = spawner(() => null);
     const unbroken = createSimHost(good.spawn);
     play(unbroken, golden.ticks);
     const want = await unbroken.requestHash();
     expect(want).toEqual({ tick: golden.ticks, value: golden.hash });
 
-    const faulty = spawner((n) => (n === 0 ? 1700 : null));
+    const faulty = spawner((n) => (n === 0 ? fault : null));
     const host = createSimHost(faulty.spawn);
     const seen: FromWorker[] = [];
     host.onMessage((m) => seen.push(m));
@@ -58,13 +63,18 @@ test(
 
     expect(got).toEqual(want);
     expect(faulty.spawned).toHaveLength(2);
-    const reinit = faulty.spawned[1]?.received[0];
-    expect(reinit?.t).toBe('init');
-    expect(reinit?.t === 'init' ? reinit.checkpoint?.tick : null).toBe(1600);
+    const second = faulty.spawned[1]?.received ?? [];
+    const reinit = second[0];
+    expect(reinit?.t === 'init' ? reinit.checkpoint?.tick : null).toBe(from);
+    // Accepted lists at or after the checkpoint are replayed, then the in-flight ones are re-sent.
+    const lists = goldenLists();
+    expect(lists.filter((e) => e.tick >= from && e.tick < fault)).toHaveLength(replayed);
+    const sentLists = second.flatMap((m) => (m.t === 'commands' ? [m.list] : []));
+    expect(sentLists).toEqual(lists.filter((e) => e.tick >= from).map((e) => e.list));
     // The log has each golden list once, at its tick, as in the unbroken run.
     expect(host.log()).toEqual(unbroken.log());
-    expect(host.log()).toEqual(goldenLists());
-    // Listeners see the error, and each snapshot tick once, in order: 1700 comes from the replay.
+    expect(host.log()).toEqual(lists);
+    // Listeners see the error, and each snapshot and events tick once, in order.
     expect(seen.filter((m) => m.t === 'error')).toHaveLength(1);
     const ticks = seen.flatMap((m) => (m.t === 'snapshot' ? [m.tick] : []));
     expect(ticks).toEqual(Array.from({ length: golden.ticks }, (_, i) => i + 1));
@@ -94,7 +104,27 @@ test('host does not restart again when the new worker fails no later than the la
     });
   });
   play(host, 100);
+  const hash = host.requestHash();
   await twoErrors;
+  await expect(hash).rejects.toThrow(/not restarting/);
   await new Promise((r) => setTimeout(r, 20));
   expect(s.spawned.length).toBe(2);
+});
+
+test('init resets speed and pending hash requests, and log returns a copy', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  play(host, 300);
+  host.post({ t: 'speed', multiplier: 1 });
+  const stale = host.requestHash();
+  play(host, 10); // a new init
+  await expect(stale).rejects.toThrow(/new init/);
+  // The new run starts paused: a restart sends no speed.
+  host.restart();
+  expect(s.spawned[2]?.received.some((m) => m.t === 'speed')).toBe(false);
+  const fresh = await host.requestHash();
+  expect(fresh.tick).toBe(10);
+  const log = host.log() as { tick: number; list: unknown[] }[];
+  log.length = 0;
+  expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 10));
 });

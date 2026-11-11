@@ -1,4 +1,5 @@
-import { dirname, basename } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, basename, resolve } from 'node:path';
 import { Compiler } from 'inkjs/compiler/Compiler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
@@ -31,6 +32,17 @@ export function compileInk(source: string, path: string): string {
 
 const INCLUDE = /^\s*INCLUDE\s+(.+?)\s*$/gm;
 
+/** Returns the absolute paths of every file `source` INCLUDEs, nested ones too. */
+export function inkIncludes(source: string, path: string, seen = new Set<string>()): string[] {
+  for (const m of source.matchAll(INCLUDE)) {
+    const file = resolve(dirname(path), m[1] ?? '');
+    if (seen.has(file)) continue;
+    seen.add(file);
+    if (existsSync(file)) inkIncludes(readFileSync(file, 'utf8'), file, seen);
+  }
+  return [...seen];
+}
+
 /** Turns `import story from '...ink'` into the compiled story JSON string. */
 export function inkPlugin(): Plugin {
   return {
@@ -38,9 +50,7 @@ export function inkPlugin(): Plugin {
     transform(code, id) {
       const path = id.split('?')[0] ?? id;
       if (!path.endsWith('.ink')) return null;
-      for (const m of code.matchAll(INCLUDE)) {
-        this.addWatchFile(`${dirname(path)}/${m[1] ?? ''}`);
-      }
+      for (const file of inkIncludes(code, path)) this.addWatchFile(file);
       return { code: `export default ${JSON.stringify(compileInk(code, path))};`, map: null };
     },
   };

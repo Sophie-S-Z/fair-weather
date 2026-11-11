@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { describe, expect, test } from 'vitest';
+import { inkPlugin } from '../../../tools/ink-plugin.ts';
 import { findPlaceholders, placeholderGuard } from '../../../tools/content-validate/placeholder-guard.ts';
 import { validateContent } from '../../../tools/content-validate/validate.ts';
 
@@ -17,7 +18,7 @@ function buildFixture(name: string, mode: string): Promise<unknown> {
     configFile: false,
     logLevel: 'silent',
     mode,
-    plugins: [placeholderGuard()],
+    plugins: [inkPlugin(), placeholderGuard()],
     build: { write: false },
   });
 }
@@ -39,6 +40,12 @@ describe('placeholderGuard', () => {
   });
   test('fails a production build whose Ink JSON holds #placeholder', async () => {
     await expect(buildFixture('ink', 'production')).rejects.toThrow(/#placeholder/);
+  });
+  test('fails a production build that imports an INCLUDEd .ink file with #placeholder', async () => {
+    await expect(buildFixture('ink-source', 'production')).rejects.toThrow(/part\.ink/);
+  });
+  test('builds the Ink placeholder fixture in development mode', async () => {
+    await expect(buildFixture('ink-source', 'development')).resolves.toBeDefined();
   });
   test('builds a clean fixture', async () => {
     await expect(buildFixture('clean', 'production')).resolves.toBeDefined();

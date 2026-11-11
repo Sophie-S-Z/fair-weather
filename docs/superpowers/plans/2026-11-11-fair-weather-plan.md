@@ -647,6 +647,9 @@ M1 uses placeholder art and placeholder text (ADR 0010) until the designer and t
 | `src/story/flags.ts` | Carry-forward flag type; defaults come from `content/flags.json` |
 | `src/story/twists.ts` | Named twist predicates (logic stays out of `content/`) |
 | `src/story/chapter-runner.ts` | Runs one chapter: verbs, beats, bets, twist retries, variants, exit |
+| `src/story/scenario.ts` | Builds a chapter scenario: overrides, the matching variant, ticks per day |
+| `src/story/tuning.ts` | The typed tuning the story reads |
+| `src/story/verbs.ts` | Verb and VerbInput types (ADR 0011) |
 | `src/story/bets.ts` | Opens a bet, runs the reveal at 8×, measures, logs |
 | `src/story/action-log.ts` | The accepted log plus verbs and bet results |
 | `tools/ink-plugin.ts` | Vite plugin: compiles `.ink` on import |

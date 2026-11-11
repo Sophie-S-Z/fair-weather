@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 const cases = [
   { name: 'rig-rest', shell: '0,0,0.5,0', what: 'at rest with a warm glow' },
   { name: 'rig-mid', shell: '0.5,0.5,0.5,0.5', what: 'at mid shell values' },
+  { name: 'rig-overlap', shell: '0,0,0,0&pair=1', what: 'in front of another Pim hides it' },
 ];
 
 for (const c of cases) {

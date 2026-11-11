@@ -1,14 +1,14 @@
 import { Container, Graphics, Mesh, MeshGeometry, Texture } from 'pixi.js';
 import type { Shell } from '../../sim/types.ts';
 import { bodyCenter, boilFrameAt, deform, tighten } from './deform.ts';
-import { fillOutline } from './fill.ts';
+import { bodyColor, fillOutline } from './fill.ts';
 import { RIG_POINTS, type Rig } from './rig.ts';
 import { buildStrip, stripIndices, taperedWidth } from './strip.ts';
 
 /** Ink line width in rig units. */
 const INK_WIDTH = 0.025;
-/** Body fill alpha at shell color 1 (spec 5.2: the accent fills the body). */
-const ACCENT_ALPHA = 0.6;
+/** How far the body moves from paper toward the accent at shell color 1 (spec 5.2). */
+const ACCENT_MIX = 0.6;
 /** Eye and blush radii in rig units (spec 5.1: two dot eyes, two blush marks). */
 const EYE_RADIUS = 0.026;
 const BLUSH_RADIUS = 0.038;
@@ -26,16 +26,16 @@ const DOT_UNITS = 300;
 const VERTICES = RIG_POINTS * 2;
 
 /**
- * One creature: the accent body fill, the ink line, then the eyes and blushes. Rig units are scaled
+ * One creature: a solid body fill, the ink line, then the eyes and blushes. Rig units are scaled
  * to `scale` pixels and y is flipped, so the container origin is the rig's base center. All three
- * parts batch, so a whole scene of creatures takes few draw calls. The body fill is rebuilt only
+ * parts batch, so a whole scene of creatures takes few draw calls. The body is opaque paper tinted
+ * toward the accent by shell color, so a creature in front hides the one behind. It is rebuilt only
  * when the shell changes, and it leaves out bristle and boil so it never folds over itself. The
  * face moves with the tightness pull, and the second blush mirrors the first across the eyes.
  */
 export function createLineView(
   rig: Rig,
-  ink: number,
-  accent: number,
+  colors: { ink: number; accent: number; paper: number },
   scale = 120,
 ): { container: Container; update(shell: Shell, seconds: number, reducedMotion: boolean): void } {
   const container = new Container();
@@ -50,6 +50,7 @@ export function createLineView(
     }),
     texture: Texture.WHITE,
   });
+  const { ink, accent, paper } = colors;
   line.tint = ink;
   line.geometry.batchMode = 'batch';
 
@@ -90,11 +91,11 @@ export function createLineView(
       if (key !== bodyShell) {
         bodyShell = key;
         drawDots(shell);
-        body.clear();
-        if (shell.color > 0) {
-          deform(rig, { ...shell, bristle: 0 }, 0, outline);
-          body.poly(fillOutline(outline), true).fill({ color: accent, alpha: shell.color * ACCENT_ALPHA });
-        }
+        deform(rig, { ...shell, bristle: 0 }, 0, outline);
+        body
+          .clear()
+          .poly(fillOutline(outline), true)
+          .fill(bodyColor(paper, accent, shell.color * ACCENT_MIX));
       }
     },
   };

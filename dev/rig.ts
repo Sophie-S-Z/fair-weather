@@ -1,4 +1,5 @@
-// Dev page: draws the Pim rig. ?shell=t,b,c,s sets the shell; ?frame=N renders boil frame N once.
+// Dev page: draws the Pim rig. ?shell=t,b,c,s sets the shell; ?frame=N renders boil frame N once;
+// ?pair=1 draws two overlapping Pims.
 import { Application } from 'pixi.js';
 import pimJson from '../content/rigs/PLACEHOLDER-pim.rig.json';
 import { RigSchema } from '../src/render/line/rig.ts';
@@ -10,6 +11,7 @@ const SIZE = 400;
 const SCALE = 240;
 const INK = 0x2b2a28;
 const ACCENT = 0xf7c59f;
+const PAPER = 0xffffff;
 
 const params = new URLSearchParams(location.search);
 const [tightness = 0, bristle = 0, color = 0, softness = 0] = (params.get('shell') ?? '')
@@ -23,25 +25,33 @@ const app = new Application();
 await app.init({
   width: SIZE,
   height: SIZE,
-  background: 0xffffff,
+  background: PAPER,
   preserveDrawingBuffer: true,
   antialias: true,
   autoStart: frameParam === null,
 });
 document.body.appendChild(app.canvas);
 
-const view = createLineView(RigSchema.parse(pimJson), INK, ACCENT, SCALE);
-// The rig's base center is its origin and it is 1 unit tall: center it vertically.
-view.container.position.set(SIZE / 2, SIZE / 2 + SCALE / 2);
-app.stage.addChild(view.container);
+// ?pair=1 draws a second Pim behind and to the left, to check that bodies hide what is behind them.
+const offsets = params.get('pair') === '1' ? [-SCALE * 0.3, SCALE * 0.15] : [0];
+const views = offsets.map((dx) => {
+  const view = createLineView(RigSchema.parse(pimJson), { ink: INK, accent: ACCENT, paper: PAPER }, SCALE);
+  // The rig's base center is its origin and it is 1 unit tall: center it vertically.
+  view.container.position.set(SIZE / 2 + dx, SIZE / 2 + SCALE / 2);
+  app.stage.addChild(view.container);
+  return view;
+});
+const draw = (seconds: number): void => {
+  for (const view of views) view.update(shell, seconds, false);
+};
 
 if (frameParam !== null) {
-  view.update(shell, (Number(frameParam) + 0.5) / BOIL_FPS, false);
+  draw((Number(frameParam) + 0.5) / BOIL_FPS);
   app.render();
 } else {
   app.ticker.add(() => {
-    view.update(shell, performance.now() / 1000, false);
+    draw(performance.now() / 1000);
   });
-  view.update(shell, 0, false);
+  draw(0);
 }
 document.body.dataset['ready'] = '1';

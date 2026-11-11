@@ -44,3 +44,14 @@ export function fillOutline(points: ArrayLike<number>): number[] {
   }
   return out;
 }
+
+/** The solid body color: `paper` blended toward `accent` by `t` in [0, 1], per RGB channel. */
+export function bodyColor(paper: number, accent: number, t: number): number {
+  let out = 0;
+  for (const shift of [16, 8, 0]) {
+    const p = (paper >> shift) & 0xff;
+    const a = (accent >> shift) & 0xff;
+    out |= Math.round(p + (a - p) * t) << shift;
+  }
+  return out;
+}

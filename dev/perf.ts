@@ -14,6 +14,7 @@ const H = 720;
 const WORLD_SCALE = 0.8; // scenario coordinates run to about 1600 by 900
 const INK = 0x2b2a28;
 const ACCENT = 0xf7c59f;
+const PAPER = 0xffffff;
 const WARMUP_MS = 1000;
 
 const params = new URLSearchParams(location.search);
@@ -27,7 +28,7 @@ declare global {
 }
 
 const app = new Application();
-await app.init({ width: W, height: H, background: 0xffffff, antialias: true, autoStart: false });
+await app.init({ width: W, height: H, background: PAPER, antialias: true, autoStart: false });
 document.body.appendChild(app.canvas);
 
 // Pixi 8 has no draw-call counter: count the WebGL2 draw calls per frame.
@@ -43,7 +44,7 @@ for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'draw
 
 const rig = RigSchema.parse(pimJson);
 const views = Array.from({ length: n }, () => {
-  const v = createLineView(rig, INK, ACCENT, 60);
+  const v = createLineView(rig, { ink: INK, accent: ACCENT, paper: PAPER }, 60);
   app.stage.addChild(v.container);
   return v;
 });

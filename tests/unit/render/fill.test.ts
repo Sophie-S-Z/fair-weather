@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
-import { crossing, fillOutline } from '../../../src/render/line/fill.ts';
+import { bodyColor, crossing, fillOutline } from '../../../src/render/line/fill.ts';
 import { RigSchema } from '../../../src/render/line/rig.ts';
 
 /** True when any two non-adjacent segments of the open outline cross. */
@@ -30,4 +30,10 @@ test("Pim's curl crosses itself, and the fill outline does not", () => {
   const pim = RigSchema.parse(pimJson).points;
   expect(selfCrosses(pim)).toBe(true);
   expect(selfCrosses(fillOutline(pim))).toBe(false);
+});
+
+test('bodyColor blends paper toward the accent per channel', () => {
+  expect(bodyColor(0xffffff, 0x000000, 0)).toBe(0xffffff);
+  expect(bodyColor(0xffffff, 0x000000, 1)).toBe(0x000000);
+  expect(bodyColor(0x000000, 0xff8040, 0.5)).toBe(0x804020);
 });

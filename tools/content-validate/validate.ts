@@ -74,19 +74,24 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
-  // Every camera shot a chapter beat names must be defined by a scene.
-  const shots = new Set<string>();
-  for (const f of filesIn(join(content, 'scenes'), '.json')) {
-    const parsed = SceneSchema.safeParse(JSON.parse(readFileSync(join(content, 'scenes', f), 'utf8')));
-    if (parsed.success) for (const name of Object.keys(parsed.data.cameras)) shots.add(name);
-  }
+  // A chapter's `scene` names a file in content/scenes/, and every camera shot its beats name
+  // must be one of that scene's cameras.
   for (const f of filesIn(join(content, 'chapters'), '.json')) {
     const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
     if (!parsed.success) continue;
+    const scenePath = join(content, 'scenes', `${parsed.data.scene}.json`);
+    if (!existsSync(scenePath)) {
+      errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);
+      continue;
+    }
+    const scene = SceneSchema.safeParse(JSON.parse(readFileSync(scenePath, 'utf8')));
+    if (!scene.success) continue; // reported above
     for (const beat of parsed.data.beats) {
       for (const action of beat.actions) {
-        if ('camera' in action && !shots.has(action.camera)) {
-          errors.push(`${f}: beat ${beat.id} names camera shot ${action.camera}, which no scene defines`);
+        if ('camera' in action && !(action.camera in scene.data.cameras)) {
+          errors.push(
+            `${f}: beat ${beat.id} names camera shot ${action.camera}, which scene ${parsed.data.scene} lacks`,
+          );
         }
       }
     }

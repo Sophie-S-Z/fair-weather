@@ -69,16 +69,33 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
   });
-  test('reports a chapter camera shot that no scene defines', () => {
+  /** A content root holding the repo's kith-meadow scene and ch1 changed by `edit`. */
+  function chapterRoot(edit: (chapter: { scene: string; beats: { actions: object[] }[] }) => void): string {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'chapters'), { recursive: true });
-    const chapter = JSON.parse(readFileSync(join(repoRoot, 'content', 'chapters', 'ch1.json'), 'utf8')) as {
+    mkdirSync(join(root, 'content', 'scenes'), { recursive: true });
+    const read = (path: string): string => readFileSync(join(repoRoot, 'content', path), 'utf8');
+    writeFileSync(join(root, 'content', 'scenes', 'kith-meadow.json'), read('scenes/kith-meadow.json'));
+    const chapter = JSON.parse(read('chapters/ch1.json')) as {
+      scene: string;
       beats: { actions: object[] }[];
     };
-    chapter.beats[0]?.actions.push({ camera: 'nowhere' });
+    edit(chapter);
     writeFileSync(join(root, 'content', 'chapters', 'ch1.json'), JSON.stringify(chapter));
-    const { errors } = validateContent(root);
-    expect(errors.some((e) => e.includes('camera shot nowhere'))).toBe(true);
+    return root;
+  }
+  test('accepts a chapter whose scene file has every camera shot it names', () => {
+    expect(
+      validateContent(chapterRoot(() => undefined)).errors.filter((e) => e.startsWith('ch1.json')),
+    ).toEqual([]);
+  });
+  test('reports a chapter camera shot that its scene lacks', () => {
+    const { errors } = validateContent(chapterRoot((c) => c.beats[0]?.actions.push({ camera: 'nowhere' })));
+    expect(errors.some((e) => e.includes('camera shot nowhere, which scene kith-meadow lacks'))).toBe(true);
+  });
+  test('reports a chapter that names a missing scene', () => {
+    const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));
+    expect(errors.some((e) => e.includes('scene no-such-scene has no file'))).toBe(true);
   });
   test('an Ink TODO note does not fail validation', () => {
     expect(validateContent(fixture('todo-content')).errors).toEqual([]);

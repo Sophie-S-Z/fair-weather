@@ -1,7 +1,7 @@
 {
   "id": "ch3",
   "season": "spring",
-  "scene": "crooked-tree",
+  "scene": "kith-meadow",
   "dayLengthSeconds": 45,
   "verbs": ["wake", "respond", "bet", "place"],
   "newVerb": "place",

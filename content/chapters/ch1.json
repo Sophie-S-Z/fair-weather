@@ -1,7 +1,7 @@
 {
   "id": "ch1",
   "season": "spring",
-  "scene": "meadow",
+  "scene": "kith-meadow",
   "dayLengthSeconds": 60,
   "verbs": ["wake", "respond"],
   "newVerb": "respond",

@@ -19,3 +19,9 @@ jobs:
         run: npm run validate-content
       - name: Build (development mode, placeholders allowed until writers deliver)
         run: npx vite build --mode development
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      # Chromium e2e only (axe, keyboard-only and auto-player runs). Visual stays a manual gate: its
+      # baselines are renders from the cloud container's Chromium build, not CI's.
+      - name: E2E (Chromium)
+        run: npx playwright test --project=e2e

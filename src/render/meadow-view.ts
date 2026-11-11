@@ -28,11 +28,11 @@ const SWAY_SECONDS = 3;
 /** How fast the camera closes on a new shot, per second. */
 const CAMERA_RATE = 3;
 /** Scenery line width in scene units, and the alpha of the far layer (spec 11.1 depth). */
-const SCENERY_WIDTH = 3;
+const SCENERY_WIDTH = 6;
 const FAR_ALPHA = 0.35;
 const TUFT_ALPHA = 0.5;
-/** High contrast doubles every line (spec 11.6). */
-const HIGH_CONTRAST_WIDTH = 2;
+/** High contrast thickens every line by half again, on top of the bold default (spec 11.6). */
+const HIGH_CONTRAST_WIDTH = 1.5;
 
 export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
@@ -203,7 +203,7 @@ function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number
  * Creatures, trees, and benches share one layer sorted by base y, so nearer things hide farther
  * ones (spec 11.1 depth). Every body shows its shell color as a muted warm tint (spec 5.2); only
  * the focus creature wears the accent (spec 11.1). Reduced motion stops the boil, the sway, and
- * camera moves; high contrast doubles every line.
+ * camera moves; high contrast thickens every line by half again.
  */
 export function createMeadowView(
   app: Application,

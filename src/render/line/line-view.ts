@@ -6,7 +6,7 @@ import { RIG_POINTS, type Rig } from './rig.ts';
 import { buildStrip, stripIndices, taperedWidth } from './strip.ts';
 
 /** Ink line width in rig units. */
-const INK_WIDTH = 0.025;
+const INK_WIDTH = 0.05;
 /** How far the body moves from paper toward the accent at shell color 1 (spec 5.2). */
 const ACCENT_MIX = 0.6;
 /** Eye and blush radii in rig units (spec 5.1: two dot eyes, two blush marks). */
@@ -34,7 +34,7 @@ const VERTICES = RIG_POINTS * 2;
  * itself. The face moves with the tightness pull, and the second blush mirrors the first across the eyes.
  *
  * `look` lets a view set the body color (paper tinted by shell color toward the accent by default)
- * and scale the ink width (high contrast doubles it). Both are plain per-frame values, so batching
+ * and scale the ink width (high contrast thickens it). Both are plain per-frame values, so batching
  * is unchanged.
  */
 export function createLineView(

@@ -299,7 +299,15 @@ describe('verbs', () => {
 describe('focus', () => {
   test('a focus action goes to the focus listeners, in beat order', () => {
     const f = fakePort();
-    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    // Pinned: ch0 also focuses Pim at dawn, which would fire on the first step.
+    const wakeOnly: Chapter = {
+      ...ch0,
+      beats: ch0.beats.map((b) => ({
+        ...b,
+        actions: b.id === 'dawn' ? b.actions.filter((a) => !('focus' in a)) : b.actions,
+      })),
+    };
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), wakeOnly, flags);
     const got: (string | null)[] = [];
     const off = runner.onFocus((id) => got.push(id));
     f.step();
@@ -312,6 +320,15 @@ describe('focus', () => {
     off();
     const cleared = { id: 'x', trigger: { at: 0 }, actions: [{ focus: null }] };
     expect(() => ChapterSchema.parse({ ...ch0, beats: [...ch0.beats, cleared] })).not.toThrow();
+  });
+
+  test('ch0 focuses Pim from its first beat', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    const got: (string | null)[] = [];
+    runner.onFocus((id) => got.push(id));
+    f.step();
+    expect(got).toEqual(['pim']);
   });
 });
 

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { inkPlugin } from './tools/ink-plugin.ts';
 
 export default defineConfig({
+  plugins: [inkPlugin()],
   test: {
     environment: 'node',
     projects: [

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Compiler } from 'inkjs/compiler/Compiler';
+import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { RigSchema } from '../../src/render/line/rig.ts';
@@ -65,9 +66,15 @@ export function validateContent(root: string): ValidationResult {
   }
   for (const f of filesIn(join(content, 'ink'), '.ink')) {
     try {
-      const options = new CompilerOptions(null, [], false, (message, type) => {
-        if (type === ErrorType.Error) errors.push(`${f}: ${message}`);
-      });
+      const options = new CompilerOptions(
+        f,
+        [],
+        false,
+        (message, type) => {
+          if (type === ErrorType.Error) errors.push(`${f}: ${message}`);
+        },
+        new PosixFileHandler(join(content, 'ink')),
+      );
       new Compiler(readFileSync(join(content, 'ink', f), 'utf8'), options).Compile();
     } catch (e) {
       errors.push(`${f}: ${(e as Error).message}`);

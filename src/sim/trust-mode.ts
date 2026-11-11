@@ -62,6 +62,34 @@ function decide(s: Strategy, k: number, me: Uint8Array, op: Uint8Array, next: ()
   }
 }
 
+/**
+ * Plays one match. Fills `a` and `b` with the moves actually played (1 = give, 0 = keep) and
+ * returns both scores. Give costs 1; the receiver gets 3.
+ */
+export function playMatch(
+  sa: Strategy,
+  sb: Strategy,
+  rounds: number,
+  noise: number,
+  next: () => number,
+  a: Uint8Array,
+  b: Uint8Array,
+): [number, number] {
+  let scoreA = 0;
+  let scoreB = 0;
+  for (let k = 0; k < rounds; k++) {
+    let ma = decide(sa, k, a, b, next);
+    let mb = decide(sb, k, b, a, next);
+    if (next() < noise) ma = 1 - ma;
+    if (next() < noise) mb = 1 - mb;
+    a[k] = ma;
+    b[k] = mb;
+    scoreA += 3 * mb - ma;
+    scoreB += 3 * ma - mb;
+  }
+  return [scoreA, scoreB];
+}
+
 export function runTournament(cfg: TournamentConfig): {
   winner: Strategy;
   counts: Record<Strategy, number>;
@@ -79,17 +107,9 @@ export function runTournament(cfg: TournamentConfig): {
       for (let j = i + 1; j < n; j++) {
         const si = pop[i] as Strategy;
         const sj = pop[j] as Strategy;
-        for (let k = 0; k < cfg.rounds; k++) {
-          let ma = decide(si, k, a, b, next);
-          let mb = decide(sj, k, b, a, next);
-          if (next() < cfg.noise) ma = 1 - ma;
-          if (next() < cfg.noise) mb = 1 - mb;
-          a[k] = ma;
-          b[k] = mb;
-          // Give costs 1; the receiver gets 3.
-          score[i] = (score[i] as number) - ma + 3 * mb;
-          score[j] = (score[j] as number) - mb + 3 * ma;
-        }
+        const [gi, gj] = playMatch(si, sj, cfg.rounds, cfg.noise, next, a, b);
+        score[i] = (score[i] as number) + gi;
+        score[j] = (score[j] as number) + gj;
       }
     }
     const tie = pop.map(() => next());

@@ -1,5 +1,5 @@
 // The M0 golden run: the m0 scenario, seed 1, and the fixed m0 command list for 4,000 ticks.
-// Shared by the unit golden-hash test and the browser golden test (plan task M0.10).
+// Shared by the golden-hash test and the sim-host tests (plan task M0.10).
 import tuningJson from '../../content/tuning.json';
 import scenarioJson from '../../content/scenarios/m0.json';
 import { step } from '../../src/sim/step.ts';
@@ -9,8 +9,8 @@ import { createWorld } from '../../src/sim/world.ts';
 import commandsJson from './m0-commands.json';
 import golden from './m0-hash.json';
 
-export const GOLDEN_SEED = golden.seed;
-export const GOLDEN_TICKS = golden.ticks;
+const GOLDEN_SEED = golden.seed;
+const GOLDEN_TICKS = golden.ticks;
 
 /** Plays the golden run and returns the final world. */
 export function runGolden(): World {

@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import commands from '../../golden/m0-commands.json';
-import golden from '../../golden/m0-hash.json';
-import { runGolden } from '../../golden/run-golden.ts';
-import { hashWorld } from '../../../src/sim/hash.ts';
-import type { Command } from '../../../src/sim/types.ts';
+import commands from './m0-commands.json';
+import golden from './m0-hash.json';
+import { runGolden } from './run-golden.ts';
+import { hashWorld } from '../../src/sim/hash.ts';
+import type { Command } from '../../src/sim/types.ts';
 
 // A new Command kind fails typecheck here until the golden list covers it.
 const ALL = {

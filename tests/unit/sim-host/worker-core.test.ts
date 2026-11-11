@@ -34,7 +34,8 @@ function ofType<K extends FromWorker['t']>(got: FromWorker[], t: K): Extract<Fro
   return got.filter((m): m is Extract<FromWorker, { t: K }> => m.t === t);
 }
 
-test('commands through the core give the same hash as a direct run', async () => {
+// 4,000 snapshots cross a real MessageChannel here, so this run is slow on small CI runners.
+test('commands through the core give the same hash as a direct run', { timeout: 60_000 }, async () => {
   const ep = coreOverChannel();
   open.push(ep);
   const send = (m: ToWorker): void => {

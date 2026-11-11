@@ -6,8 +6,9 @@ import { moveCreatures } from '../../../src/sim/move.ts';
 import { createRng } from '../../../src/sim/rng.ts';
 import { dist2 } from '../../../src/sim/math.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
-import type { Scenario, World } from '../../../src/sim/types.ts';
+import type { Scenario, Structure, World } from '../../../src/sim/types.ts';
 import { byId, createWorld, ensureTie, side } from '../../../src/sim/world.ts';
+import { scriptedRng } from './helpers.ts';
 
 const tuning = parseTuning(tuningJson);
 const scenario = scenarioJson as Scenario;
@@ -140,6 +141,17 @@ test('a bench attracts with the doubled chance the day after a meeting there', (
   expect(plain / 2000).toBeLessThan(0.3);
   expect(remembered / 2000).toBeGreaterThan(0.45);
   expect(remembered / 2000).toBeLessThan(0.55);
+});
+
+test('only structures of kind bench attract', () => {
+  const w = solo({ berries: 3 });
+  // A future structure kind; the cast stands in for a wider Structure['kind'] union.
+  w.structures.push({ id: 'lantern-1', kind: 'lantern', x: 1500, y: 800 } as unknown as Structure);
+  // With a bench check, draw 0 would pick the structure. Without, draws pick cell 0 and a point in it.
+  const rng = scriptedRng([0, 0.5, 0.5]);
+  moveCreatures(w, tuning, rng);
+  expect([w.creatures[0]!.goalX, w.creatures[0]!.goalY]).toEqual([100, 112.5]);
+  expect(rng.used()).toBe(3);
 });
 
 test('visits count one cell per tick, 8 by 4 over the scene', () => {

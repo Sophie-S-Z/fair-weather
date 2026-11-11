@@ -11,6 +11,7 @@ import {
   createWorld,
   ensureTie,
   friendCount,
+  friendsOf,
   getTie,
   side,
   tieKey,
@@ -130,4 +131,13 @@ test('activeCreatures drops away creatures; byId finds by id', () => {
   byId(w, 'wisp')!.state = 'away';
   expect(activeCreatures(w)).toHaveLength(29);
   expect(byId(w, 'nobody')).toBeUndefined();
+});
+
+test('friendsOf returns friends sorted by id, whatever the tie insertion order', () => {
+  const w = createWorld(1, tuning, scenario);
+  const pim = byId(w, 'pim')!;
+  for (const id of ['wisp', 'bell', 'moss', 'echo']) {
+    side(ensureTie(w, pim, byId(w, id)!, tuning), 'pim').warmth = 0.5;
+  }
+  expect(friendsOf(w, pim, tuning).map((c) => c.id)).toEqual(['bell', 'echo', 'moss', 'wisp']);
 });

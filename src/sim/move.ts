@@ -4,7 +4,7 @@ import type { Creature, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { friendsOf } from './world.ts';
+import { benchesOf, friendsOf } from './world.ts';
 
 const COLS = 8;
 const ROWS = 4;
@@ -17,7 +17,7 @@ function visitCell(c: Creature, tuning: Tuning): number {
 
 function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
   // 1. A bench (ADR 0003 item 9).
-  const benches = world.structures; // the only structure kind is a bench
+  const benches = benchesOf(world);
   if (benches.length > 0) {
     const mem = c.benchMemory;
     let remembered: Structure | undefined;

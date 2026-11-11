@@ -1,5 +1,5 @@
 // World setup and tie helpers (ADRs 0002, 0004, 0005).
-import type { Creature, Scenario, Shell, Side, Tie, World } from './types.ts';
+import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { clamp } from './math.ts';
@@ -97,11 +97,21 @@ export function byId(world: World, id: string): Creature | undefined {
   return world.creatures.find((c) => c.id === id);
 }
 
+/** The structures that count as benches (ADR 0003 item 9). */
+export function benchesOf(world: World): Structure[] {
+  // Structure['kind'] is only 'bench' today; the check keeps later kinds (spec 9.1) from counting.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
+  return world.structures.filter((s) => s.kind === 'bench');
+}
+
 export function activeCreatures(world: World): Creature[] {
   return world.creatures.filter((c) => c.state !== 'away');
 }
 
-/** Creatures, not away, that `c` counts as friends (warmth above friend.threshold, ADR 0002). */
+/**
+ * Creatures, not away, that `c` counts as friends (warmth above friend.threshold, ADR 0002),
+ * sorted by id in code-unit order so PRNG picks never depend on tie insertion order.
+ */
 export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[] {
   const out: Creature[] = [];
   for (const tie of world.ties.values()) {
@@ -110,7 +120,7 @@ export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[]
     const other = byId(world, tie.a === c.id ? tie.b : tie.a);
     if (other && other.state !== 'away') out.push(other);
   }
-  return out;
+  return out.sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
 }
 
 export function friendCount(world: World, c: Creature, tuning: Tuning): number {

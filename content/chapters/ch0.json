@@ -1,0 +1,74 @@
+{
+  "id": "ch0",
+  "season": "spring",
+  "scene": "meadow",
+  "dayLengthSeconds": 60,
+  "verbs": ["wake"],
+  "newVerb": "wake",
+  "overrides": {
+    "state": {
+      "pim": "sleep",
+      "krit": "sleep",
+      "echo": "sleep",
+      "moss": "sleep",
+      "wisp": "sleep",
+      "bell": "sleep"
+    }
+  },
+  "beats": [
+    {
+      "id": "dawn",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch0_dawn"
+        }
+      ]
+    },
+    {
+      "id": "first_wake",
+      "trigger": {
+        "verb": "wake"
+      },
+      "actions": [
+        {
+          "ink": "ch0_pim_wakes"
+        },
+        {
+          "camera": "pim-close"
+        }
+      ]
+    },
+    {
+      "id": "pim_looks_up",
+      "trigger": {
+        "event": "skyBid",
+        "who": "pim"
+      },
+      "actions": [
+        {
+          "ink": "ch0_pim_looks_up"
+        },
+        {
+          "pause": true
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": ["pimSkyBond"],
+  "variants": [],
+  "exit": {
+    "onBeat": "pim_looks_up"
+  },
+  "feeling": "[PLACEHOLDER] Wonder",
+  "notes": [
+    "[PLACEHOLDER] Why a first look matters: attention starts the trust game.",
+    "[PLACEHOLDER] Limit: Pim looking up is a model rule, not proof of awareness."
+  ]
+}

@@ -6,6 +6,8 @@ import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
+import { FlagsSchema } from '../../src/story/flags.ts';
+import { ChapterSchema } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
 
 export interface ValidationResult {
@@ -38,6 +40,21 @@ export function validateContent(root: string): ValidationResult {
     TuningSchema.parse(JSON.parse(readFileSync(tuningPath, 'utf8')));
   } catch (e) {
     errors.push(`tuning.json: ${(e as Error).message}`);
+  }
+  const flagsPath = join(content, 'flags.json');
+  if (existsSync(flagsPath)) {
+    try {
+      FlagsSchema.parse(JSON.parse(readFileSync(flagsPath, 'utf8')));
+    } catch (e) {
+      errors.push(`flags.json: ${(e as Error).message}`);
+    }
+  }
+  for (const f of filesIn(join(content, 'chapters'), '.json')) {
+    try {
+      ChapterSchema.parse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+    } catch (e) {
+      errors.push(`${f}: ${(e as Error).message}`);
+    }
   }
   for (const f of filesIn(join(content, 'rigs'), '.json')) {
     try {

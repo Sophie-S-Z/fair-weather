@@ -1,0 +1,101 @@
+{
+  "id": "ch2",
+  "season": "spring",
+  "scene": "meadow",
+  "dayLengthSeconds": 45,
+  "verbs": ["wake", "respond", "bet"],
+  "newVerb": "bet",
+  "overrides": {
+    "positions": {
+      "pim": {
+        "x": 400,
+        "y": 130
+      },
+      "krit": {
+        "x": 440,
+        "y": 130
+      }
+    }
+  },
+  "beats": [
+    {
+      "id": "meet_cast",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch2_intro"
+        }
+      ]
+    },
+    {
+      "id": "open_bet",
+      "trigger": {
+        "at": 10
+      },
+      "actions": [
+        {
+          "ink": "ch2_bet"
+        },
+        {
+          "openBet": true
+        },
+        {
+          "pause": true
+        }
+      ]
+    },
+    {
+      "id": "arrange_krit_pim",
+      "trigger": {
+        "at": 20
+      },
+      "actions": [
+        {
+          "arrange": ["krit", "pim"]
+        }
+      ]
+    },
+    {
+      "id": "exploit_seen",
+      "trigger": {
+        "event": "gift",
+        "who": "krit"
+      },
+      "actions": [
+        {
+          "ink": "ch2_exploit"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "ch2_most_berries",
+    "knot": "ch2_bet",
+    "options": ["pim", "krit", "echo", "moss", "bell"],
+    "metric": {
+      "kind": "maxBerries"
+    },
+    "afterDays": 7
+  },
+  "twist": {
+    "id": "kritExploitsPim",
+    "withinDays": 7,
+    "retryArrange": ["krit", "pim"]
+  },
+  "reads": ["pimSkyOpinion"],
+  "writes": ["pimScar"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Surprise, unease",
+  "notes": [
+    "[PLACEHOLDER] Reading the opener strategy: sharing with everyone has a cost against a keeper.",
+    "[PLACEHOLDER] Counter-view: exploitation in one meeting says little about a long game."
+  ]
+}

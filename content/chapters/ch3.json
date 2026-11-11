@@ -1,0 +1,82 @@
+{
+  "id": "ch3",
+  "season": "spring",
+  "scene": "crooked-tree",
+  "dayLengthSeconds": 45,
+  "verbs": ["wake", "respond", "bet", "place"],
+  "newVerb": "place",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "crooked_tree",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "crooked-tree"
+        },
+        {
+          "ink": "ch3_intro"
+        }
+      ]
+    },
+    {
+      "id": "bench_placed",
+      "trigger": {
+        "verb": "place"
+      },
+      "actions": [
+        {
+          "ink": "ch3_bench"
+        }
+      ]
+    },
+    {
+      "id": "warm_village",
+      "trigger": {
+        "at": 30
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch3_warm"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "benchWarmsVillage",
+    "withinDays": 7,
+    "retryArrange": ["pim", "echo"]
+  },
+  "reads": ["pimScar"],
+  "writes": ["benchPlaced", "friendThreads"],
+  "variants": [
+    {
+      "when": {
+        "flag": "pimScar",
+        "op": "eq",
+        "value": true
+      },
+      "overrides": {
+        "dials": {
+          "pim": {
+            "opener": 0.7
+          }
+        }
+      }
+    }
+  ],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Relief, warmth",
+  "notes": [
+    "[PLACEHOLDER] Repeated meetings make cooperation pay: the same pairs meet again.",
+    "[PLACEHOLDER] Limit: one bench is a toy stand-in for real places.",
+    "[PLACEHOLDER] Open question: how much of warmth is place and how much is people?"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "ch1",
+  "season": "spring",
+  "scene": "meadow",
+  "dayLengthSeconds": 60,
+  "verbs": ["wake", "respond"],
+  "newVerb": "respond",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "wave",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "pim-close"
+        },
+        {
+          "ink": "ch1_wave"
+        }
+      ]
+    },
+    {
+      "id": "reply",
+      "trigger": {
+        "verb": "respond"
+      },
+      "actions": [
+        {
+          "ink": "ch1_reply"
+        }
+      ]
+    },
+    {
+      "id": "opinion_formed",
+      "trigger": {
+        "event": "opinion",
+        "who": "pim"
+      },
+      "actions": [
+        {
+          "ink": "ch1_opinion"
+        },
+        {
+          "pause": true
+        }
+      ]
+    }
+  ],
+  "reads": ["pimSkyBond"],
+  "writes": ["pimSkyOpinion"],
+  "variants": [],
+  "exit": {
+    "onBeat": "opinion_formed"
+  },
+  "feeling": "[PLACEHOLDER] Tenderness",
+  "notes": [
+    "[PLACEHOLDER] The sky answers, stays still, or rumbles: three replies in a trust game.",
+    "[PLACEHOLDER] Limit: one wave is a tiny sample of trust."
+  ]
+}

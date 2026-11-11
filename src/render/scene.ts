@@ -9,7 +9,8 @@ const Polyline = z.array(z.number()).refine((a) => a.length >= 4 && a.length % 2
 const zoom = z.number().min(1);
 
 /**
- * A scene layout in scene units, y down (spec 11.1 item 3): far hills, grass tufts, trees,
+ * A scene layout in scene units, y down (spec 11.1 item 3): far hills, grass tufts, trees
+ * (a tapered trunk, branches, and a canopy of overlapping circles),
  * bench spots for the place verb, and named camera shots that beats ask for. A shot centers a
  * fixed point, or follows a creature by id. `credit` names who made the layout; a placeholder
  * layout says so, so the production guard sees it (ADR 0010).
@@ -24,8 +25,13 @@ export const SceneSchema = z.strictObject({
   trees: z.array(
     z.strictObject({
       id: z.string().min(1),
+      /** The trunk's center line, base first; `girth` is its width at the base. */
       trunk: Polyline,
-      crown: z.strictObject({ x: z.number(), y: z.number(), r: z.number().positive() }),
+      girth: z.number().positive(),
+      /** Branch center lines, each from where it leaves the trunk. */
+      branches: z.array(Polyline),
+      /** The leaves: overlapping circles [x, y, r] drawn as one scalloped outline. */
+      canopy: z.array(z.tuple([z.number(), z.number(), z.number().positive()])).min(1),
     }),
   ),
   benchSpots: z.array(Spot),

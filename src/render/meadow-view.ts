@@ -101,11 +101,86 @@ function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number):
   }
 }
 
-/** One tree: the trunk, then a paper crown over its top. The trunk's first point is its base. */
+/** A branch's width where it leaves the trunk and at its tip, as fractions of the trunk's girth. */
+const BRANCH_BASE = 0.42;
+const BRANCH_TIP = 0.14;
+/** The trunk narrows to this fraction of its girth at the top, and flares this much wider at the base. */
+const TRUNK_TOP = 0.42;
+const TRUNK_FLARE = 0.7;
+/** Canopy bumps at least this big get a leaf curl inside. */
+const LEAF_CURL_MIN = 24;
+/** The ground line under a tree reaches this many girths each side of the trunk. */
+const GROUND_REACH = 1.6;
+
+/** A closed smooth shape through flat x, y pairs: quadratic curves through the segment midpoints. */
+function smoothClosed(g: Graphics, p: readonly number[]): Graphics {
+  const n = p.length / 2;
+  const x = (i: number): number => p[(i % n) * 2] ?? 0;
+  const y = (i: number): number => p[(i % n) * 2 + 1] ?? 0;
+  g.moveTo((x(0) + x(1)) / 2, (y(0) + y(1)) / 2);
+  for (let i = 1; i <= n; i++) g.quadraticCurveTo(x(i), y(i), (x(i) + x(i + 1)) / 2, (y(i) + y(i + 1)) / 2);
+  return g.closePath();
+}
+
+/**
+ * The outline of a limb around its center line, as flat x, y pairs: up one side and down the
+ * other, from `from` wide at the first point to `to` wide at the last. `flare` widens the first
+ * point, so a trunk spreads into roots where it meets the ground.
+ */
+function limbOutline(line: readonly number[], from: number, to: number, flare = 0): number[] {
+  const n = line.length / 2;
+  const left: number[] = [];
+  const right: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 1);
+    const b = Math.min(n - 1, i + 1);
+    const dx = (line[b * 2] ?? 0) - (line[a * 2] ?? 0);
+    const dy = (line[b * 2 + 1] ?? 0) - (line[a * 2 + 1] ?? 0);
+    const len = Math.hypot(dx, dy) || 1;
+    const half = (from + ((to - from) * i) / Math.max(1, n - 1) + (i === 0 ? flare : 0)) / 2;
+    const [cx, cy] = [line[i * 2] ?? 0, line[i * 2 + 1] ?? 0];
+    left.push(cx - (dy / len) * half, cy + (dx / len) * half);
+    right.unshift(cx + (dy / len) * half, cy - (dx / len) * half);
+  }
+  return [...left, ...right];
+}
+
+/**
+ * One tree, as one Graphics: branches, then a tapered trunk that flares at its base, both paper
+ * with ink outlines, then a canopy of overlapping leaf-colored circles. Each circle is outlined,
+ * then all are filled again a line's half-width smaller, so only the outer scalloped edge stays.
+ * The trunk's first point is its base.
+ */
 function drawTree(g: Graphics, tree: SceneData['trees'][number], palette: Palette, w: number): void {
   g.clear();
-  smoothLine(g, tree.trunk).stroke(inkStroke(palette, w * 1.5));
-  g.circle(tree.crown.x, tree.crown.y, tree.crown.r).fill(palette.paper).stroke(inkStroke(palette, w));
+  const ink = inkStroke(palette, w);
+  for (const branch of tree.branches) {
+    smoothClosed(g, limbOutline(branch, tree.girth * BRANCH_BASE, tree.girth * BRANCH_TIP))
+      .fill(palette.paper)
+      .stroke(ink);
+  }
+  // The base points go in twice, so the outline passes through them and the trunk stands flat.
+  const trunk = limbOutline(tree.trunk, tree.girth, tree.girth * TRUNK_TOP, tree.girth * TRUNK_FLARE);
+  const n = trunk.length;
+  smoothClosed(g, [...trunk.slice(0, 2), ...trunk, ...trunk.slice(n - 2)])
+    .fill(palette.paper)
+    .stroke(ink);
+  // A short ground line under the base.
+  const [bx, by] = [tree.trunk[0] ?? 0, tree.trunk[1] ?? 0];
+  const reach = tree.girth * GROUND_REACH;
+  g.moveTo(bx - reach, by)
+    .lineTo(bx + reach, by)
+    .stroke(inkStroke(palette, w * 0.7, TUFT_ALPHA));
+  for (const [x, y, r] of tree.canopy) g.circle(x, y, r).fill(palette.leaf).stroke(ink);
+  for (const [x, y, r] of tree.canopy) g.circle(x, y, Math.max(0, r - w / 2)).fill(palette.leaf);
+  // A faint curl under each big bump hints at clumps of leaves.
+  for (const [x, y, r] of tree.canopy) {
+    if (r < LEAF_CURL_MIN) continue;
+    const c = r * 0.45;
+    g.moveTo(x - c * Math.cos(0.5), y + r * 0.1 + c * Math.sin(0.5))
+      .arc(x, y + r * 0.1, c, Math.PI - 0.5, 0.5, true)
+      .stroke(inkStroke(palette, w * 0.6, TUFT_ALPHA));
+  }
 }
 
 /** One bench: a seat, a back, and two legs, with its feet at (x, y). */

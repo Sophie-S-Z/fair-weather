@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
 import { RIG_POINTS, RigSchema } from '../../../src/render/line/rig.ts';
-import { BOIL_AMPLITUDE, deform } from '../../../src/render/line/deform.ts';
+import { BOIL_AMPLITUDE, boilFrameAt, deform } from '../../../src/render/line/deform.ts';
 import type { Shell } from '../../../src/sim/types.ts';
 
 const rig = RigSchema.parse(pimJson);
@@ -94,5 +94,12 @@ describe('deform', () => {
   it('writes into and returns the out buffer', () => {
     const out = new Float32Array(RIG_POINTS * 2);
     expect(deform(rig, zero, 3, out)).toBe(out);
+  });
+});
+
+describe('boilFrameAt', () => {
+  it('boils at 12 fps and reduced motion freezes the boil at frame 0', () => {
+    expect(boilFrameAt(1, false)).toBe(12);
+    expect(boilFrameAt(5, true)).toBe(0);
   });
 });

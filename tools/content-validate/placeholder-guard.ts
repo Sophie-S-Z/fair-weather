@@ -20,6 +20,9 @@ export function placeholderGuard(): Plugin {
     configResolved(config) {
       production = config.mode === 'production';
     },
+    buildStart() {
+      hits.length = 0;
+    },
     transform(code, id) {
       if (production) scan(id, code);
     },

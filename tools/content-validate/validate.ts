@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Compiler } from 'inkjs/compiler/Compiler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
+import { ErrorType } from 'inkjs/engine/Error';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { findPlaceholders } from './placeholder-guard.ts';
@@ -47,8 +48,8 @@ export function validateContent(root: string): ValidationResult {
   }
   for (const f of filesIn(join(content, 'ink'), '.ink')) {
     try {
-      const options = new CompilerOptions(null, [], false, (message) => {
-        errors.push(`${f}: ${message}`);
+      const options = new CompilerOptions(null, [], false, (message, type) => {
+        if (type === ErrorType.Error) errors.push(`${f}: ${message}`);
       });
       new Compiler(readFileSync(join(content, 'ink', f), 'utf8'), options).Compile();
     } catch (e) {

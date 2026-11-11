@@ -13,6 +13,7 @@ const W = 1280;
 const H = 720;
 const WORLD_SCALE = 0.8; // scenario coordinates run to about 1600 by 900
 const INK = 0x2b2a28;
+const WARMUP_MS = 1000;
 
 const params = new URLSearchParams(location.search);
 const n = Number(params.get('n') ?? 30);
@@ -67,10 +68,12 @@ host.post({ t: 'speed', multiplier: 1 });
 const times: number[] = [];
 let maxCalls = 0;
 let lastFrame = 0;
-const start = performance.now();
+let first = 0;
 
 function frame(now: number): void {
-  if (lastFrame > 0) times.push(now - lastFrame);
+  first ||= now;
+  const measuring = now - first >= WARMUP_MS;
+  if (measuring && lastFrame > 0) times.push(now - lastFrame);
   lastFrame = now;
   if (last) {
     const t = prev ? Math.min(1, (now - lastAt) / interval) : 1;
@@ -84,8 +87,8 @@ function frame(now: number): void {
   }
   calls = 0;
   app.render();
-  maxCalls = Math.max(maxCalls, calls);
-  if (now - start < seconds * 1000) {
+  if (measuring) maxCalls = Math.max(maxCalls, calls);
+  if (now - first < WARMUP_MS + seconds * 1000) {
     requestAnimationFrame(frame);
     return;
   }

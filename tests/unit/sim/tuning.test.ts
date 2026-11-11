@@ -14,7 +14,7 @@ test('the shipped file parses', () => {
 test('defaults equal the handoff and ADR values', () => {
   const t = parseTuning(tuningJson);
   expect(t.sim).toEqual({ stepsPerSecond: 10 });
-  expect(t.story).toEqual({ dayLengthSeconds: 40, honestyRetries: 3 });
+  expect(t.story).toEqual({ dayLengthSeconds: 40, honestyRetries: 3, skyBidReplySeconds: 6 });
   expect(t.scene).toEqual({ width: 1600, height: 900, gateX: 40, gateY: 450 });
   expect(t.move).toEqual({ speed: 40, accel: 80, arriveRadius: 8 });
   expect(t.meet).toEqual({ radius: 24, benchRepeatMultiplier: 2, durationTicks: 20 });

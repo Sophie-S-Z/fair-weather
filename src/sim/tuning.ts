@@ -12,7 +12,7 @@ const obj = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
 export const TuningSchema = obj({
   sim: obj({ stepsPerSecond: count }),
-  story: obj({ dayLengthSeconds: count, honestyRetries: count }),
+  story: obj({ dayLengthSeconds: count, honestyRetries: count, skyBidReplySeconds: pos }),
   scene: obj({ width: count, height: count, gateX: nonNeg, gateY: nonNeg }),
   move: obj({ speed: pos, accel: pos, arriveRadius: pos }),
   meet: obj({ radius: pos, benchRepeatMultiplier: pos, durationTicks: count }),

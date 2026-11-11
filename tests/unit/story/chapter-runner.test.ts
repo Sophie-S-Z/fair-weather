@@ -1,0 +1,554 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { Compiler } from 'inkjs/compiler/Compiler';
+import { describe, expect, test } from 'vitest';
+import ch0Json from '../../../content/chapters/ch0.json';
+import ch1Json from '../../../content/chapters/ch1.json';
+import ch2Json from '../../../content/chapters/ch2.json';
+import ch3Json from '../../../content/chapters/ch3.json';
+import tuningJson from '../../../content/tuning.json';
+import { hashWorld } from '../../../src/sim/hash.ts';
+import { step } from '../../../src/sim/step.ts';
+import { parseTuning } from '../../../src/sim/tuning.ts';
+import type { Command, Scenario, SimEvent, World } from '../../../src/sim/types.ts';
+import { createWorld } from '../../../src/sim/world.ts';
+import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
+import type { FromWorker, SimPort, ToWorker, WorldLite } from '../../../src/sim-host/protocol.ts';
+import { createChapterRunner, RUNNER_COMMANDS } from '../../../src/story/chapter-runner.ts';
+import type { ChapterRunner, Prompt } from '../../../src/story/chapter-runner.ts';
+import type { Flags } from '../../../src/story/flags.ts';
+import { createInk } from '../../../src/story/ink.ts';
+import type { InkRunner } from '../../../src/story/ink.ts';
+import { ChapterSchema } from '../../../src/story/schema.ts';
+import type { Chapter } from '../../../src/story/schema.ts';
+import { manualClock } from '../sim-host/harness.ts';
+
+const ch0 = ChapterSchema.parse(ch0Json);
+const ch1 = ChapterSchema.parse(ch1Json);
+const ch2 = ChapterSchema.parse(ch2Json);
+const ch3 = ChapterSchema.parse(ch3Json);
+
+// Ticks: sim.stepsPerSecond is 10. ch0 and ch1 days are 600 ticks; ch2 and ch3 days are 450.
+const flags: Flags = {
+  pimSkyBond: 0.9,
+  pimSkyOpinion: -1,
+  pimScar: true,
+  benchPlaced: false,
+  friendThreads: 0,
+};
+
+// Ink variables mirror the flags (spec 10.3), so every story declares them.
+const FLAG_VARS = [
+  'VAR pimSkyBond = 0',
+  'VAR pimSkyOpinion = 0',
+  'VAR pimScar = false',
+  'VAR benchPlaced = false',
+  'VAR friendThreads = 0',
+].join('\n');
+const VARS = `${FLAG_VARS}\nVAR pim_sky_warmth = 0`;
+
+function compile(source: string): string {
+  return new Compiler(`${VARS}\n${source}`).Compile().ToJson() ?? '';
+}
+
+/** An Ink story with one line per knot (text `<knot> line.` unless given), recording plays. */
+function inkOf(knots: string[], extra: Record<string, string> = {}): InkRunner & { played: string[] } {
+  const src = knots.map((k) => `=== ${k} ===\n${extra[k] ?? `${k} line.`}\n-> END\n`).join('');
+  const ink = createInk(compile(src));
+  const played: string[] = [];
+  return {
+    played,
+    setVar: (n, v) => {
+      ink.setVar(n, v);
+    },
+    play: (k) => {
+      played.push(k);
+      return ink.play(k);
+    },
+  };
+}
+const CH0_KNOTS = ['ch0_dawn', 'ch0_pim_wakes', 'ch0_pim_looks_up', 'ch0_close_call'];
+const CH1_KNOTS = ['ch1_wave', 'ch1_reply', 'ch1_opinion'];
+const CH2_KNOTS = ['ch2_intro', 'ch2_bet', 'ch2_exploit', 'ch2_close_call'];
+const CH3_KNOTS = ['ch3_intro', 'ch3_bench', 'ch3_warm', 'ch3_close_call'];
+
+const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+function lite(
+  o: {
+    berries?: Record<string, number>;
+    pimSky?: number;
+    metrics?: WorldLite['metrics'];
+    bench?: boolean;
+  } = {},
+): WorldLite {
+  const berries = o.berries ?? { pim: 1, krit: 1 };
+  return {
+    creatures: Object.entries(berries).map(([id, b]) => ({
+      id,
+      x: 0,
+      y: 0,
+      state: 'wander' as const,
+      shell,
+      berries: b,
+      skyWarmth: id === 'pim' ? (o.pimSky ?? 0) : 0,
+    })),
+    light: null,
+    fog: { w: 0, h: 0, cells: new Float32Array(0) },
+    metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
+    structures: o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : [],
+  };
+}
+
+/**
+ * A SimPort the test drives. `step` posts one step the way the worker does: `accepted` for the
+ * commands sent since the last step, `events` at tick T, then `snapshot` at T + 1.
+ */
+function fakePort(): {
+  port: SimPort;
+  sent: { tick: number; cmd: Command }[];
+  speeds: number[];
+  tick(): number;
+  step(events?: SimEvent[], l?: WorldLite): void;
+  steps(n: number, l?: WorldLite): void;
+} {
+  const listeners = new Set<(m: FromWorker) => void>();
+  const sent: { tick: number; cmd: Command }[] = [];
+  const speeds: number[] = [];
+  let queued: Command[] = [];
+  let tick = 0;
+  const push = (m: FromWorker): void => {
+    for (const cb of [...listeners]) cb(m);
+  };
+  const port: SimPort = {
+    send(list) {
+      for (const cmd of list) sent.push({ tick, cmd });
+      queued.push(...list);
+    },
+    onMessage(cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    speed(m) {
+      speeds.push(m);
+    },
+    requestHash: () => Promise.reject(new Error('no hash')),
+  };
+  const stepOnce = (events: SimEvent[] = [], l: WorldLite = lite()): void => {
+    if (queued.length > 0) push({ t: 'accepted', tick, list: queued });
+    queued = [];
+    push({ t: 'events', tick, list: events });
+    tick += 1;
+    push({ t: 'snapshot', tick, lite: l });
+  };
+  return {
+    port,
+    sent,
+    speeds,
+    tick: () => tick,
+    step: stepOnce,
+    steps(n, l) {
+      for (let i = 0; i < n; i++) stepOnce([], l);
+    },
+  };
+}
+
+function record(runner: ChapterRunner): Prompt[] {
+  const prompts: Prompt[] = [];
+  runner.onPrompt((p) => prompts.push(p));
+  return prompts;
+}
+const lines = (ps: Prompt[]): string[] => ps.flatMap((p) => (p.kind === 'line' ? [p.text] : []));
+const gift = (from: string, to: string, move: 'give' | 'keep'): SimEvent => ({
+  t: 'gift',
+  from,
+  to,
+  move,
+  seenAs: move,
+});
+const settled = async (p: Promise<unknown>): Promise<boolean> => {
+  let done = false;
+  void p.then(
+    () => (done = true),
+    () => (done = true),
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  return done;
+};
+
+describe('verbs', () => {
+  test('a locked verb returns false and sends nothing', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    f.step();
+    expect(runner.verb({ verb: 'place', x: 100, y: 100 })).toBe(false);
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(false);
+    expect(f.sent).toEqual([]);
+    expect(runner.log.filter((e) => e.kind === 'verb')).toEqual([]);
+  });
+
+  test('an unlocked verb sends its command, fires its beat once, and is logged', () => {
+    const f = fakePort();
+    const ink = inkOf(CH0_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    const shots: string[] = [];
+    runner.onCamera((s) => shots.push(s));
+    f.step();
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
+    expect(runner.verb({ verb: 'wake', who: 'krit' })).toBe(true);
+    expect(f.sent.map((s) => s.cmd)).toEqual([
+      { t: 'wake', who: 'pim' },
+      { t: 'wake', who: 'krit' },
+    ]);
+    expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_wakes']);
+    expect(shots).toEqual(['meadow-wide', 'pim-close']);
+    expect(runner.log.filter((e) => e.kind === 'verb')).toEqual([
+      { kind: 'verb', tick: 1, input: { verb: 'wake', who: 'pim' } },
+      { kind: 'verb', tick: 1, input: { verb: 'wake', who: 'krit' } },
+    ]);
+  });
+
+  test('respond with no sky bid to answer returns false and sends nothing', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
+    f.step();
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(false);
+    expect(f.sent).toEqual([]);
+  });
+});
+
+describe('sky bids', () => {
+  test('the player answers a sky bid; an unanswered one gets away after 6 sim seconds', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
+    f.step([{ t: 'skyBid', who: 'pim' }]); // events tick 0
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
+    f.steps(3);
+    f.step([{ t: 'skyBid', who: 'pim' }]); // events tick 4: the reply is due at tick 64
+    f.steps(58); // snapshot tick 63
+    expect(f.sent.map((s) => s.cmd)).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
+    f.step(); // snapshot tick 64
+    expect(f.sent.map((s) => s.cmd)).toEqual([
+      { t: 'respond', to: 'pim', reply: 'toward' },
+      { t: 'respond', to: 'pim', reply: 'away' },
+    ]);
+    f.steps(100);
+    expect(f.sent).toHaveLength(2);
+  });
+});
+
+describe('beats', () => {
+  test('a time beat fires once at its tick', () => {
+    const f = fakePort();
+    const ink = inkOf(CH2_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch2, flags);
+    const prompts = record(runner);
+    f.step(); // snapshot tick 1 is chapter time 0
+    expect(lines(prompts)).toEqual(['ch2_intro line.']);
+    f.steps(99); // tick 100: 99 ticks in
+    expect(prompts.filter((p) => p.kind === 'bet')).toEqual([]);
+    f.step(); // tick 101: 10 s in
+    expect(prompts.filter((p) => p.kind === 'bet')).toEqual([
+      { kind: 'bet', question: 'ch2_bet line.', options: ['pim', 'krit', 'echo', 'moss', 'bell', 'wisp'] },
+    ]);
+    f.steps(98); // tick 199
+    expect(f.sent).toEqual([]);
+    f.step(); // tick 200
+    expect(f.sent).toEqual([]);
+    f.step(); // tick 201: 20 s in
+    expect(f.sent).toEqual([{ tick: 201, cmd: { t: 'arrangeMeeting', a: 'krit', b: 'pim' } }]);
+    f.steps(500);
+    expect(prompts.filter((p) => p.kind === 'bet')).toHaveLength(1);
+    expect(f.sent).toHaveLength(1);
+    expect(ink.played).toEqual(['ch2_intro', 'ch2_bet']);
+    expect(f.speeds).toEqual([1, 0]); // start, then the bet beat's pause
+  });
+
+  test('an event beat fires on the matching event and an onBeat exit resolves done', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH0_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    const prompts = record(runner);
+    f.step([], lite({ pimSky: 0.25 }));
+    f.step([{ t: 'skyBid', who: 'krit' }], lite({ pimSky: 0.25 }));
+    expect(ink.played).toEqual(['ch0_dawn']);
+    expect(await settled(runner.done)).toBe(false);
+    f.step([{ t: 'skyBid', who: 'pim' }], lite({ pimSky: 0.25 }));
+    expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_looks_up']);
+    expect(lines(prompts)).toEqual(['ch0_dawn line.', 'ch0_pim_looks_up line.']);
+    expect(f.speeds).toEqual([1, 0]);
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.25 });
+  });
+
+  test('an unknown beat tag rejects done and sends nothing, even after a good tag', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH0_KNOTS, {
+      ch0_dawn: 'A. #beat:arrange_meeting(krit,pim)\nB. #beat:drop_table()',
+    });
+    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    f.step();
+    await expect(runner.done).rejects.toThrow('beat:drop_table()');
+    expect(f.sent).toEqual([]);
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(false);
+  });
+});
+
+describe('bets', () => {
+  test('a bet sets speed 8, waits afterDays, measures, sets speed 1, and logs answer and result', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), ch2, flags);
+    const prompts = record(runner);
+    f.steps(101); // the bet opens at tick 101
+    runner.answerBet('nobody'); // not an option: ignored
+    expect(f.speeds).toEqual([1, 0]);
+    runner.answerBet('pim');
+    expect(f.speeds).toEqual([1, 0, 8]);
+    const kritWins = lite({ berries: { pim: 2, krit: 5, echo: 3 } });
+    f.steps(3149, kritWins); // tick 3250: 7 days of 450 ticks is 3150
+    expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([]);
+    expect(f.speeds).toEqual([1, 0, 8]);
+    f.step([], kritWins); // tick 3251
+    expect(f.speeds).toEqual([1, 0, 8, 1]);
+    expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([
+      { kind: 'reveal', answer: 'pim', result: 'krit' },
+    ]);
+    expect(runner.log.filter((e) => e.kind === 'bet')).toEqual([
+      { kind: 'bet', tick: 3251, id: 'ch2_most_berries', answer: 'pim', result: 'krit' },
+    ]);
+    runner.answerBet('krit'); // the bet is over
+    expect(f.speeds).toEqual([1, 0, 8, 1]);
+  });
+});
+
+describe('twists', () => {
+  test('a twist that never happens triggers exactly 3 retries, then the close-call knot', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH3_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch3, flags);
+    const prompts = record(runner);
+    const still = lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 } });
+    f.steps(12600, still); // windows end at ticks 3151, 6301, 9451, 12601
+    expect(f.sent).toEqual([
+      { tick: 3151, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
+      { tick: 6301, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
+      { tick: 9451, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
+    ]);
+    expect(ink.played).not.toContain('ch3_close_call');
+    expect(await settled(runner.done)).toBe(false);
+    f.step([], still); // tick 12601
+    expect(ink.played.at(-1)).toBe('ch3_close_call');
+    expect(lines(prompts).at(-1)).toBe('ch3_close_call line.');
+    expect(runner.log.filter((e) => e.kind === 'twist')).toEqual([
+      { kind: 'twist', tick: 12601, id: 'benchWarmsVillage', fired: false, retries: 3 },
+    ]);
+    await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: false, friendThreads: 1 });
+    f.steps(5000, still);
+    expect(f.sent).toHaveLength(3);
+  });
+
+  test('the bench twist fires on the sim metrics and the flags come from the snapshot', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
+    f.steps(10, lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 } }));
+    expect(runner.verb({ verb: 'place', x: 300, y: 200 })).toBe(true);
+    f.steps(10, lite({ metrics: { averageWarmth: 0.15, friendPairs: 4 }, bench: true }));
+    expect(await settled(runner.done)).toBe(false); // pairs rose by 3, warmth only by 0.05
+    f.step([], lite({ metrics: { averageWarmth: 0.25, friendPairs: 4 }, bench: true }));
+    await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: true, friendThreads: 4 });
+    expect(f.sent.map((s) => s.cmd)).toEqual([{ t: 'place', kind: 'bench', x: 300, y: 200 }]);
+    expect(runner.log.filter((e) => e.kind === 'twist')).toEqual([
+      { kind: 'twist', tick: 21, id: 'benchWarmsVillage', fired: true, retries: 0 },
+    ]);
+  });
+
+  test('Krit exploiting Pim needs the give and the keep in one step; then pimScar is true', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH2_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch2, { ...flags, pimScar: false });
+    f.steps(10);
+    f.step([gift('pim', 'krit', 'give')]);
+    f.step([gift('krit', 'pim', 'keep')]); // a different meeting: no twist
+    expect(await settled(runner.done)).toBe(false);
+    f.step([gift('pim', 'krit', 'give'), gift('krit', 'pim', 'keep')]);
+    await expect(runner.done).resolves.toEqual({ ...flags, pimScar: true });
+    expect(ink.played).toEqual(['ch2_intro', 'ch2_exploit']);
+    expect(f.sent).toEqual([]);
+  });
+});
+
+describe('skip', () => {
+  test("skip() returns the chapter's writes filled from content/flags.json and resolves done", async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
+    f.steps(5);
+    const skipped = runner.skip();
+    expect(skipped).toEqual({
+      pimSkyBond: 0.9,
+      pimSkyOpinion: -1,
+      pimScar: true,
+      benchPlaced: true,
+      friendThreads: 3,
+    });
+    await expect(runner.done).resolves.toEqual(skipped);
+    expect(runner.verb({ verb: 'place', x: 1, y: 1 })).toBe(false);
+    f.steps(20000);
+    expect(f.sent).toEqual([]);
+  });
+});
+
+describe('honesty', () => {
+  test('over a full chapter the runner sends only commands from its allowed list', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH2_KNOTS, { ch2_intro: 'Look up. #beat:prompt_sky_bid(pim)' });
+    const runner = createChapterRunner(f.port, ink, ch2, flags);
+    f.step();
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
+    f.step([{ t: 'skyBid', who: 'pim' }]);
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
+    f.step([{ t: 'skyBid', who: 'pim' }]); // left for the auto-reply
+    expect(runner.verb({ verb: 'place', x: 1, y: 1 })).toBe(false); // locked in chapter 2
+    f.steps(100);
+    runner.answerBet('krit');
+    f.steps(12500); // the bet reveals, every retry runs, then the close call ends the chapter
+    await expect(runner.done).resolves.toEqual({ ...flags, pimScar: false });
+
+    for (const { cmd } of f.sent) expect(RUNNER_COMMANDS.has(cmd.t)).toBe(true);
+    expect(f.sent.map((s) => s.cmd)).toEqual([
+      { t: 'promptSkyBid', who: 'pim' },
+      { t: 'wake', who: 'pim' },
+      { t: 'respond', to: 'pim', reply: 'toward' },
+      { t: 'respond', to: 'pim', reply: 'away' },
+      { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
+      { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
+      { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
+      { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
+    ]);
+    expect(f.speeds).toEqual([1, 0, 8, 1]);
+    expect(ink.played.at(-1)).toBe('ch2_close_call');
+    const accepted = runner.log.flatMap((e) => (e.kind === 'accepted' ? e.list : []));
+    expect(accepted).toEqual(f.sent.map((s) => s.cmd));
+  });
+});
+
+// The runner over the real worker core: what it sends replays to the same world.
+describe('over the worker core', () => {
+  const SEED = 7;
+  const dial = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
+  const scenario: Scenario = {
+    valleyId: 'kith',
+    season: 'spring',
+    creatures: [
+      { id: 'pim', speciesId: 'kith', name: 'Pim', x: 160, y: 130, berries: 2, dials: dial },
+      { id: 'krit', speciesId: 'kith', name: 'Krit', x: 416, y: 130, berries: 2, dials: dial },
+    ],
+    bushes: [],
+    structures: [],
+  };
+  const m0Source = readFileSync(
+    fileURLToPath(new URL('../../../content/ink/m0.ink', import.meta.url)),
+    'utf8',
+  );
+  const m0 = new Compiler(`${FLAG_VARS}\n${m0Source}`).Compile().ToJson() ?? '';
+  const config: Chapter = {
+    ...ch0,
+    id: 'm0',
+    verbs: [],
+    newVerb: null,
+    overrides: {},
+    beats: [{ id: 'talk', trigger: { at: 0 }, actions: [{ ink: 'm0_test' }] }],
+    writes: [],
+    exit: { afterDays: 1 },
+  };
+
+  function corePort(): {
+    port: SimPort;
+    accepted: { tick: number; list: Command[] }[];
+    advance(ticks: number): void;
+    lite(): WorldLite;
+  } {
+    const listeners = new Set<(m: FromWorker) => void>();
+    const accepted: { tick: number; list: Command[] }[] = [];
+    let last: WorldLite | null = null;
+    const core = createWorkerCore(
+      (m) => {
+        if (m.t === 'accepted') accepted.push({ tick: m.tick, list: m.list });
+        if (m.t === 'snapshot') last = m.lite;
+        for (const cb of [...listeners]) cb(m);
+      },
+      manualClock(),
+      { dev: true },
+    );
+    const send = (m: ToWorker): void => {
+      core(m);
+    };
+    send({ t: 'init', seed: SEED, tuning: tuningJson, scenario });
+    const port: SimPort = {
+      send: (list) => {
+        send({ t: 'commands', list });
+      },
+      onMessage(cb) {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+      speed() {},
+      requestHash() {
+        return new Promise((resolve) => {
+          const off = port.onMessage((m) => {
+            if (m.t !== 'hash') return;
+            off();
+            resolve({ tick: m.tick, value: m.value });
+          });
+          send({ t: 'hash' });
+        });
+      },
+    };
+    return {
+      port,
+      accepted,
+      advance: (ticks) => {
+        send({ t: 'advance', ticks });
+      },
+      lite: () => {
+        if (!last) throw new Error('no snapshot yet');
+        return last;
+      },
+    };
+  }
+
+  test('Ink reads a sim value, its tag arranges a meeting, and the accepted log replays', async () => {
+    const f = corePort();
+    f.port.send([{ t: 'shine', x: 160, y: 130 }]); // the light lens warms Pim's sky
+    f.advance(60);
+    const runner = createChapterRunner(f.port, createInk(m0), config, flags);
+    const prompts = record(runner);
+    f.advance(1); // tick 61: chapter time 0
+    const pim = f.lite().creatures.find((c) => c.id === 'pim');
+    expect(pim?.skyWarmth).toBeGreaterThan(0);
+    const shown = Math.round((pim?.skyWarmth ?? NaN) * 100) / 100;
+    expect(lines(prompts)[0]).toContain(String(shown));
+    f.advance(600); // one 60-second day: the afterDays exit
+    await expect(runner.done).resolves.toEqual(flags);
+    expect(runner.log.filter((e) => e.kind === 'accepted')).toEqual([
+      { kind: 'accepted', tick: 61, list: [{ t: 'arrangeMeeting', a: 'krit', b: 'pim' }] },
+    ]);
+
+    const total = 661;
+    const tuning = parseTuning(tuningJson);
+    const w: World = createWorld(SEED, tuning, scenario);
+    for (let tick = 0; tick < total; tick++) {
+      step(
+        w,
+        f.accepted.filter((a) => a.tick === tick).flatMap((a) => a.list),
+        tuning,
+      );
+    }
+    const hash = await f.port.requestHash();
+    expect(hash.tick).toBe(total);
+    expect(hashWorld(w)).toBe(hash.value);
+  });
+
+  test('empty Ink lines are skipped', () => {
+    const ink = createInk(compile('=== k ===\nOne.\n\n{false: hidden}\nTwo.\n-> END\n'));
+    expect(ink.play('k').lines).toEqual(['One.', 'Two.']);
+  });
+});

@@ -39,9 +39,6 @@
       },
       "actions": [
         {
-          "ink": "ch2_bet"
-        },
-        {
           "openBet": true
         },
         {

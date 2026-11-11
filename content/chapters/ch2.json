@@ -15,6 +15,14 @@
         "x": 440,
         "y": 130
       }
+    },
+    "dials": {
+      "pim": {
+        "opener": 1
+      },
+      "krit": {
+        "opener": 0
+      }
     }
   },
   "beats": [

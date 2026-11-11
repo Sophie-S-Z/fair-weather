@@ -1,0 +1,23 @@
+[
+  { "tick": 0, "cmd": { "t": "shine", "x": 400, "y": 300 } },
+  { "tick": 50, "cmd": { "t": "paintFog", "x": 1000, "y": 500, "r": 160, "amount": 0.6 } },
+  { "tick": 120, "cmd": { "t": "blow", "x": 200, "y": 450, "dx": 600, "dy": 0 } },
+  { "tick": 200, "cmd": { "t": "place", "kind": "bench", "x": 800, "y": 450 } },
+  { "tick": 260, "cmd": { "t": "place", "kind": "bush", "x": 500, "y": 700 } },
+  { "tick": 300, "cmd": { "t": "thread", "a": "pim", "b": "krit", "on": true } },
+  { "tick": 420, "cmd": { "t": "whisper", "target": "echo", "about": "moss", "sign": -1 } },
+  { "tick": 500, "cmd": { "t": "respond", "to": "pim", "reply": "toward" } },
+  { "tick": 650, "cmd": { "t": "arrangeMeeting", "a": "wisp", "b": "bell" } },
+  { "tick": 800, "cmd": { "t": "shine", "x": 1200, "y": 600 } },
+  { "tick": 900, "cmd": { "t": "respond", "to": "krit", "reply": "against" } },
+  { "tick": 1000, "cmd": { "t": "whisper", "target": "villager-3", "about": "pim", "sign": 1 } },
+  { "tick": 1200, "cmd": { "t": "setSeason", "season": "summer" } },
+  { "tick": 1200, "cmd": { "t": "paintFog", "x": 1000, "y": 500, "r": 120, "amount": -0.4 } },
+  { "tick": 1500, "cmd": { "t": "blow", "x": 1400, "y": 200, "dx": -300, "dy": 400 } },
+  { "tick": 1800, "cmd": { "t": "thread", "a": "pim", "b": "krit", "on": false } },
+  { "tick": 2000, "cmd": { "t": "respond", "to": "echo", "reply": "away" } },
+  { "tick": 2400, "cmd": { "t": "arrangeMeeting", "a": "villager-1", "b": "villager-24" } },
+  { "tick": 2800, "cmd": { "t": "setSeason", "season": "autumn" } },
+  { "tick": 3200, "cmd": { "t": "place", "kind": "bench", "x": 300, "y": 200 } },
+  { "tick": 3600, "cmd": { "t": "setSeason", "season": "winter" } }
+]

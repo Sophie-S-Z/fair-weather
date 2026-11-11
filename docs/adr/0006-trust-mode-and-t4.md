@@ -1,6 +1,6 @@
 # ADR 0006: Trust mode and the T4 thresholds
 
-**Status:** Proposed. The user must pick option A or option B.
+**Status:** Accepted (option A, chosen by the user on 2026-11-11)
 
 ## Context
 
@@ -26,3 +26,7 @@ Other populations gave the same shape with other cut points. So the low-noise cl
 ## Consequences
 
 - With A, spec T4 changes its numbers. The plan updates the spec text in the same commit as the test.
+
+## Measured with the shipped code
+
+`src/sim/trust-mode.ts` with the project PRNG, 25-member population above, seeds 1 to 50, 50 generations, 10 rounds unless noted. Copykitten won 76%, 78%, 84%, 88%, 88%, 86% of seeds at 1%, 2%, 3%, 5%, 7%, 9% noise (10%: 88%). Always-keep won 100% at 30% and 40% noise, and 100% at 1 and 2 rounds (5% noise; 92% at 3 rounds). At 0% noise copycat won 50%, grudger 28%, copykitten 12%, so Case's 0% claim is another cut point that moves with the population; the test checks only that always-keep never wins at 0% noise.

@@ -1,0 +1,8 @@
+docs/
+HANDOFF.md
+content/ink/
+package-lock.json
+tests/**/*-snapshots/
+dist/
+.superpowers/
+content/rigs/*.rig.json

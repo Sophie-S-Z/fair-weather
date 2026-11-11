@@ -1,0 +1,9 @@
+{
+  "id": "spring",
+  "ink": "#2b2a28",
+  "paper": "#fffdf8",
+  "accent": "#f08a3c",
+  "background": "#f5efe3",
+  "light": { "color": "#ffd88a", "alpha": 0.45 },
+  "fog": { "color": "#dfe2e8", "alpha": 0.85 }
+}

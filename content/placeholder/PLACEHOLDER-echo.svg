@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 43 90 C 30 89 22 80 22 68 C 22 52 38 34 47 16 C 48 14 52 14 53 16 C 62 34 78 52 78 68 C 78 80 70 89 57 90" />
+  <circle id="eye-l" cx="44.5" cy="48" r="2" />
+  <circle id="eye-r" cx="55.5" cy="48" r="2" />
+  <circle id="blush" cx="62" cy="54" r="3" />
+  <line id="neck" x1="22" y1="60" x2="78" y2="60" />
+  <line id="base" x1="22" y1="88" x2="78" y2="88" />
+</svg>

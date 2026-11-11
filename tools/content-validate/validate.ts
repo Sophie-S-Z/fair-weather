@@ -6,6 +6,8 @@ import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { RigSchema } from '../../src/render/line/rig.ts';
+import { PaletteSchema } from '../../src/render/palette.ts';
+import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
@@ -31,7 +33,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Checks tuning, rigs, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Checks tuning, rigs, palettes, scenes, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -57,11 +59,17 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`${f}: ${(e as Error).message}`);
     }
   }
-  for (const f of filesIn(join(content, 'rigs'), '.json')) {
-    try {
-      RigSchema.parse(JSON.parse(readFileSync(join(content, 'rigs', f), 'utf8')));
-    } catch (e) {
-      errors.push(`${f}: ${(e as Error).message}`);
+  for (const [dir, schema] of [
+    ['rigs', RigSchema],
+    ['palettes', PaletteSchema],
+    ['scenes', SceneSchema],
+  ] as const) {
+    for (const f of filesIn(join(content, dir), '.json')) {
+      try {
+        schema.parse(JSON.parse(readFileSync(join(content, dir, f), 'utf8')));
+      } catch (e) {
+        errors.push(`${f}: ${(e as Error).message}`);
+      }
     }
   }
   for (const f of filesIn(join(content, 'ink'), '.ink')) {

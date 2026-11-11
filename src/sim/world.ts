@@ -10,37 +10,40 @@ function zeroShell(): Shell {
   return { tightness: 0, bristle: 0, color: 0, softness: 0 };
 }
 
+/** A fresh creature from a scenario entry: at rest, no ties, opinions, or memories. */
+export function newCreature(s: Scenario['creatures'][number]): Creature {
+  const shell = s.shell ? { ...s.shell } : zeroShell();
+  return {
+    id: s.id,
+    speciesId: s.speciesId,
+    name: s.name,
+    x: s.x,
+    y: s.y,
+    vx: 0,
+    vy: 0,
+    goalX: s.x,
+    goalY: s.y,
+    berries: s.berries,
+    state: 'wander',
+    stateUntilTick: 0,
+    forageReadyTick: 0,
+    dials: { ...s.dials },
+    shell,
+    restShell: { ...shell },
+    skyWarmth: 0,
+    skyLightToday: 0,
+    opinions: {},
+    hungryDusks: 0,
+    visits: new Array<number>(VISIT_CELLS).fill(0),
+    benchMemory: null,
+    diary: [],
+  };
+}
+
 export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): World {
   const fogW = Math.ceil(tuning.scene.width / tuning.fog.cellSize);
   const fogH = Math.ceil(tuning.scene.height / tuning.fog.cellSize);
-  const creatures: Creature[] = scenario.creatures.map((s) => {
-    const shell = s.shell ? { ...s.shell } : zeroShell();
-    return {
-      id: s.id,
-      speciesId: s.speciesId,
-      name: s.name,
-      x: s.x,
-      y: s.y,
-      vx: 0,
-      vy: 0,
-      goalX: s.x,
-      goalY: s.y,
-      berries: s.berries,
-      state: 'wander',
-      stateUntilTick: 0,
-      forageReadyTick: 0,
-      dials: { ...s.dials },
-      shell,
-      restShell: { ...shell },
-      skyWarmth: 0,
-      skyLightToday: 0,
-      opinions: {},
-      hungryDusks: 0,
-      visits: new Array<number>(VISIT_CELLS).fill(0),
-      benchMemory: null,
-      diary: [],
-    };
-  });
+  const creatures = scenario.creatures.map(newCreature);
   return {
     seed,
     rngState: seed >>> 0,

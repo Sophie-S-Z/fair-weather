@@ -30,7 +30,19 @@ import { manualClock } from '../sim-host/harness.ts';
 
 const ch0 = ChapterSchema.parse(ch0Json);
 const ch1 = ChapterSchema.parse(ch1Json);
-const ch2 = ChapterSchema.parse(ch2Json);
+// The runner tests count ticks from fixed beat times (the bet at 10 s, the arrange at 20 s), so
+// they pin those times instead of following ch2's tuning in content.
+const ch2Content = ChapterSchema.parse(ch2Json);
+const ch2: Chapter = {
+  ...ch2Content,
+  beats: ch2Content.beats.map((b) =>
+    b.id === 'open_bet'
+      ? { ...b, trigger: { at: 10 } }
+      : b.id === 'arrange_krit_pim'
+        ? { ...b, trigger: { at: 20 } }
+        : b,
+  ),
+};
 const ch3 = ChapterSchema.parse(ch3Json);
 
 // Ticks: sim.stepsPerSecond is 10. ch0 and ch1 days are 600 ticks; ch2 and ch3 days are 450.

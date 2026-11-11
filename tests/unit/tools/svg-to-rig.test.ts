@@ -7,6 +7,8 @@ import { rigToJson, svgToRig } from '../../../tools/svg-to-rig/svg-to-rig.ts';
 const svgPath = 'content/placeholder/PLACEHOLDER-pim.svg';
 const rigPath = 'content/rigs/PLACEHOLDER-pim.rig.json';
 const svg = readFileSync(svgPath, 'utf8');
+/** The y1 of the svg's `<line id=...>` marker. */
+const lineY = (id: string): number => Number(new RegExp(`id="${id}"[^>]*y1="([^"]+)"`).exec(svg)?.[1]);
 
 /** Indexed read that fails loudly instead of returning undefined. */
 function at<T>(a: readonly T[], i: number): T {
@@ -77,7 +79,7 @@ describe('svgToRig', () => {
     const xs = walk.map((p) => p.x);
     const height = Math.max(...ys) - Math.min(...ys);
     const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
-    const baseY = 86;
+    const baseY = lineY('base');
     const last = at(arc, N);
     const pos: number[] = [];
     for (let i = 0; i < 128; i++) {
@@ -107,7 +109,10 @@ describe('svgToRig', () => {
 
   test('assigns regions by neck and base lines', () => {
     const rig = svgToRig(svg, 'pim');
-    // neck y1=50, base y1=86, bbox height about 82: the neck is at rig y about 0.44, the base at 0.
+    // Rig y is (base - y) / height. The left eye gives the height, so the neck line sits at this rig y.
+    const eyeCy = Number(/id="eye-l"[^>]*cy="([^"]+)"/.exec(svg)?.[1]);
+    const height = (lineY('base') - eyeCy) / rig.markers.eyeL[1];
+    const neck = (lineY('base') - lineY('neck')) / height;
     const counts = [0, 0, 0];
     for (let i = 0; i < 128; i++) {
       const y = at(rig.points, 2 * i + 1);
@@ -116,9 +121,9 @@ describe('svgToRig', () => {
       if (r === 2) expect(y).toBeLessThan(0);
       if (r === 1) {
         expect(y).toBeGreaterThanOrEqual(-1e-4);
-        expect(y).toBeLessThan(0.45);
+        expect(y).toBeLessThan(neck + 0.01);
       }
-      if (r === 0) expect(y).toBeGreaterThan(0.43);
+      if (r === 0) expect(y).toBeGreaterThan(neck - 0.01);
     }
     expect(counts.every((c) => c > 0)).toBe(true);
   });

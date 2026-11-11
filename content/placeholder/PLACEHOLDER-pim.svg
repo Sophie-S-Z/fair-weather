@@ -1,10 +1,10 @@
 <!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
   <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-    d="M 30 90 C 14 80 20 60 40 54 C 60 48 72 40 70 26 C 68 12 50 6 38 16 C 26 26 36 44 50 50 C 64 56 84 62 80 78 C 76 94 52 96 46 86 C 42 79 54 74 58 80" />
-  <circle id="eye-l" cx="44" cy="30" r="1.8" />
-  <circle id="eye-r" cx="56" cy="30" r="1.8" />
-  <circle id="blush" cx="60" cy="38" r="2.6" />
-  <line id="neck" x1="30" y1="50" x2="70" y2="50" />
-  <line id="base" x1="30" y1="86" x2="70" y2="86" />
+    d="M 44 89 C 33 90 27 84 28 76 C 29 69 32 64 35 61 C 38 58 24 55 24 41 C 24 29 34 22 44 21 C 48 21 51 19 52 15 C 53 11 50 8 47 10 C 44 12 46 16 49 18 C 51 20 54 21 57 21 C 67 22 76 30 76 41 C 76 55 62 58 65 61 C 68 64 71 69 72 76 C 73 84 67 90 56 89" />
+  <circle id="eye-l" cx="45" cy="42" r="2" />
+  <circle id="eye-r" cx="55" cy="42" r="2" />
+  <circle id="blush" cx="62" cy="48" r="3" />
+  <line id="neck" x1="30" y1="62" x2="70" y2="62" />
+  <line id="base" x1="30" y1="88" x2="70" y2="88" />
 </svg>

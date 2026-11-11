@@ -160,6 +160,13 @@ test('effective warmth blends warmth toward the opinion: 0.4 with opinion -0.6 g
   expect(effectiveWarmth(-1, -1, t)).toBe(-1);
 });
 
+test('a missing opinion means no belief: the reply uses the stored warmth', () => {
+  const p = pair();
+  side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = -0.41;
+  expect(p.b.opinions.a).toBeUndefined();
+  expect(bidOf(resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }))).reply).toBe('against'); // effective -0.41
+});
+
 test('after a meeting with no rumor, effective warmth equals the stored warmth', () => {
   const p = pair();
   resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0, bidderGift: 0 }));

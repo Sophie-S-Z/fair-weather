@@ -30,6 +30,7 @@ export function replyChance(
 /**
  * Warmth blended toward the opinion, clamped (ADR 0002 item 4, amended). After a meeting the
  * opinion equals the warmth, so experience is not counted twice; a rumor pulls toward itself.
+ * A missing opinion means no belief: callers pass the warmth, so it does not pull.
  */
 export function effectiveWarmth(warmth: number, opinion: number, t: Tuning): number {
   return clamp(warmth + t.opinion.weight * (opinion - warmth), -1, 1);
@@ -191,7 +192,7 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   const replier = bidder === a ? b : a;
   const bidderSide = side(tie, bidder.id);
   const replierSide = side(tie, replier.id);
-  const w = effectiveWarmth(replierSide.warmth, replier.opinions[bidder.id] ?? 0, t);
+  const w = effectiveWarmth(replierSide.warmth, replier.opinions[bidder.id] ?? replierSide.warmth, t);
   const reply = pickReply(w, replier, boost('toward', 'against'), draw.reply, t);
   const replySeen: BidReply =
     reply === 'toward' && draw.replyFog < t.fog.bidFlipFactor * fog ? 'away' : reply;

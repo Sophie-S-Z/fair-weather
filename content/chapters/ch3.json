@@ -1,5 +1,6 @@
 {
   "id": "ch3",
+  "title": "The Bench",
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 45,
@@ -110,7 +111,7 @@
     {
       "id": "warm_village",
       "trigger": {
-        "at": 30
+        "twist": true
       },
       "actions": [
         {

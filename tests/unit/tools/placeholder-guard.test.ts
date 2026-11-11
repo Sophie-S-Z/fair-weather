@@ -93,6 +93,16 @@ describe('validateContent', () => {
     const { errors } = validateContent(chapterRoot((c) => c.beats[0]?.actions.push({ camera: 'nowhere' })));
     expect(errors.some((e) => e.includes('camera shot nowhere, which scene kith-meadow lacks'))).toBe(true);
   });
+  test('reports a creature id that the m0 scenario lacks', () => {
+    const root = chapterRoot((c) => c.beats[0]?.actions.push({ promptSkyBid: 'pym' }));
+    mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+    writeFileSync(
+      join(root, 'content', 'scenarios', 'm0.json'),
+      readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
+    );
+    const errors = validateContent(root).errors.filter((e) => e.startsWith('ch1.json'));
+    expect(errors).toEqual(['ch1.json: names creature pym, which scenario m0 lacks']);
+  });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));
     expect(errors.some((e) => e.includes('scene no-such-scene has no file'))).toBe(true);

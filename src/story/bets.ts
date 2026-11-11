@@ -4,7 +4,7 @@ import type { MetricSpec } from '../sim/metrics.ts';
 
 /**
  * maxBerries: among the bet's `options` only, so the answer is always one the player could pick,
- * the id with the most berries; ties go to the lower id by code unit, as in src/sim/metrics.ts;
+ * the id with the most berries; ties go to the lower id by code unit (the one bet measure);
  * '' when no option is in the snapshot. averageWarmth and friendPairs: from lite.metrics.
  */
 export function measureBet(m: MetricSpec, lite: WorldLite, options: readonly string[]): string | number {

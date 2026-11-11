@@ -12,13 +12,14 @@ import { get, makeWorld, scriptedRng, tuning as t } from './helpers.ts';
 const run = (w: ReturnType<typeof makeWorld>, cmd: Parameters<typeof applyCommand>[1]) =>
   applyCommand(w, cmd, t, scriptedRng([]));
 
-test('wake turns a sleeper into a wanderer and ignores others', () => {
+test('wake turns a sleeper into a wanderer with a wake event, and ignores others with none', () => {
   const w = makeWorld([{ id: 'a' }, { id: 'b' }]);
   get(w, 'a').state = 'sleep';
-  expect(run(w, { t: 'wake', who: 'a' })).toEqual([]);
+  expect(run(w, { t: 'wake', who: 'a' })).toEqual([{ t: 'wake', who: 'a' }]);
   expect(get(w, 'a').state).toBe('wander');
+  expect(run(w, { t: 'wake', who: 'a' })).toEqual([]); // already awake: no event
   get(w, 'b').state = 'meet';
-  run(w, { t: 'wake', who: 'b' });
+  expect(run(w, { t: 'wake', who: 'b' })).toEqual([]);
   expect(get(w, 'b').state).toBe('meet');
   get(w, 'a').state = 'away';
   run(w, { t: 'wake', who: 'a' });

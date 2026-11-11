@@ -14,6 +14,7 @@ import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
+import type { Chapter, Overrides } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
 
 export interface ValidationResult {
@@ -36,7 +37,27 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Checks tuning, rigs, palettes, scenes, cast, chapter camera names, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Every creature id a chapter names: beats, bet options, the twist retry pair, and overrides. */
+function creatureRefs(c: Chapter): string[] {
+  const ids: string[] = [];
+  const fromOverrides = (o: Overrides): void => {
+    ids.push(...Object.keys(o.positions ?? {}), ...Object.keys(o.dials ?? {}), ...Object.keys(o.state ?? {}));
+  };
+  for (const beat of c.beats) {
+    if ('event' in beat.trigger && beat.trigger.who !== undefined) ids.push(beat.trigger.who);
+    for (const a of beat.actions) {
+      if ('focus' in a && a.focus !== null) ids.push(a.focus);
+      else if ('arrange' in a) ids.push(...a.arrange);
+      else if ('promptSkyBid' in a) ids.push(a.promptSkyBid);
+    }
+  }
+  ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []));
+  fromOverrides(c.overrides);
+  for (const v of c.variants) fromOverrides(v.overrides);
+  return ids;
+}
+
+/** Checks tuning, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -82,11 +103,24 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
+  // Chapters start from the m0 scenario (src/main.ts), so every creature id they name must be in it.
+  const scenarioPath = join(content, 'scenarios', 'm0.json');
+  const creatures = existsSync(scenarioPath)
+    ? new Set(
+        (JSON.parse(readFileSync(scenarioPath, 'utf8')) as { creatures: { id: string }[] }).creatures.map(
+          (c) => c.id,
+        ),
+      )
+    : null;
   // A chapter's `scene` names a file in content/scenes/, and every camera shot its beats name
   // must be one of that scene's cameras.
   for (const f of filesIn(join(content, 'chapters'), '.json')) {
     const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
     if (!parsed.success) continue;
+    if (creatures) {
+      for (const id of new Set(creatureRefs(parsed.data)))
+        if (!creatures.has(id)) errors.push(`${f}: names creature ${id}, which scenario m0 lacks`);
+    }
     const scenePath = join(content, 'scenes', `${parsed.data.scene}.json`);
     if (!existsSync(scenePath)) {
       errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);

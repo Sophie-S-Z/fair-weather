@@ -35,6 +35,21 @@ describe('ChapterSchema', () => {
     expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
   });
 
+  test('a chapter with a twist fails unless a beat tells it on the twist trigger', () => {
+    const ch = load('chapters/ch3') as { beats: { trigger: object }[] };
+    const beats = ch.beats.map((b) => ('twist' in b.trigger ? { ...b, trigger: { at: 30 } } : b));
+    expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
+  });
+
+  test('titles are the spec 6.2 names', () => {
+    expect(ids.map((id) => ChapterSchema.parse(load(`chapters/${id}`)).title)).toEqual([
+      'First Light',
+      'The Wave',
+      'Five Neighbors',
+      'The Bench',
+    ]);
+  });
+
   test('notes outside 2 to 4 fail', () => {
     const ch = load('chapters/ch0');
     expect(ChapterSchema.safeParse({ ...(ch as object), notes: ['one'] }).success).toBe(false);

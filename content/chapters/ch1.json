@@ -1,5 +1,6 @@
 {
   "id": "ch1",
+  "title": "The Wave",
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 60,
@@ -39,7 +40,7 @@
       ]
     }
   ],
-  "reads": ["pimSkyBond"],
+  "reads": [],
   "writes": ["pimSkyOpinion"],
   "variants": [],
   "exit": {

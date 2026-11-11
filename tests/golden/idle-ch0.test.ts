@@ -1,5 +1,6 @@
-// Chapter 0 still ends after a long idle start (M1.12 fix round 1): the cast sleeps, and a sleeper
-// never gets hungry or leaves, so Pim is there for the sky bid that ends the chapter.
+// Chapter 0 still ends after a long idle start (M1.12 fix round 1): everyone sleeps, and a sleeper
+// never gets hungry or leaves, so Pim is there for the sky bid that ends the chapter. The Pim
+// beats wait for the sim's wake event for Pim, so waking someone else tells nothing.
 import { expect, test } from 'vitest';
 import ch0Json from '../../content/chapters/ch0.json';
 import flagsJson from '../../content/flags.json';
@@ -18,7 +19,7 @@ import { ChapterSchema } from '../../src/story/schema.ts';
 const ch0 = ChapterSchema.parse(ch0Json);
 const IDLE_DAYS = 20;
 
-test(`ch0: after ${String(IDLE_DAYS)} idle days, waking a villager still ends the chapter`, async () => {
+test(`ch0: after ${String(IDLE_DAYS)} idle days, waking Pim still ends the chapter, and waking a villager does not`, async () => {
   const flags = parseFlags(flagsJson);
   const listeners = new Set<(m: FromWorker) => void>();
   // Set from callbacks, so an object: a plain `let` would look constant to the code below.
@@ -55,12 +56,22 @@ test(`ch0: after ${String(IDLE_DAYS)} idle days, waking a villager still ends th
   const pim = seen.lite?.creatures.find((c) => c.id === 'pim');
   expect(pim?.state).toBe('sleep');
 
-  // The wake goes to an awake villager, so Pim is still asleep when the beat prompts its sky bid.
+  expect(seen.lite?.creatures.every((c) => c.state === 'sleep')).toBe(true);
+
   expect(runner.verb({ verb: 'wake', who: 'villager-1' })).toBe(true);
   for (let i = 0; i < 100 && !seen.over; i++) {
     core({ t: 'advance', ticks: 1 });
     await Promise.resolve();
   }
+  expect(seen.over).toBe(false);
+  expect(seen.lite?.creatures.find((c) => c.id === 'pim')?.state).toBe('sleep');
+
+  expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
+  for (let i = 0; i < 100 && !seen.over; i++) {
+    core({ t: 'advance', ticks: 1 });
+    await Promise.resolve();
+  }
   expect(seen.over).toBe(true);
+  expect(seen.lite?.creatures.find((c) => c.id === 'pim')?.state).not.toBe('sleep');
   expect(runner.log.some((e) => e.kind === 'verb')).toBe(true);
 });

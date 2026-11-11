@@ -56,7 +56,8 @@ describe('buildScenario', () => {
     expect(pimOf(s)).toMatchObject({ x: 400, y: 130 });
     expect(s.creatures.find((c) => c.id === 'krit')).toMatchObject({ x: 440, y: 130 });
     const sleeping = buildScenario(ch0, flags, base).creatures.filter((c) => c.state === 'sleep');
-    expect(sleeping.map((c) => c.id)).toEqual(['pim', 'krit', 'echo', 'moss', 'wisp', 'bell']);
+    // Everyone sleeps at ch0's dawn (ch0_dawn says so), villagers too.
+    expect(sleeping.map((c) => c.id)).toEqual(base.creatures.map((c) => c.id));
   });
 
   test("ch3's variant gives a scarred Pim opener 0.7, and leaves an unscarred Pim alone", () => {

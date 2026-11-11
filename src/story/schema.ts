@@ -1,7 +1,7 @@
 // Chapter config schema (spec 10.1). One JSON file per chapter in content/chapters/.
 import { z } from 'zod';
 import type { MetricSpec } from '../sim/metrics.ts';
-import type { SimEvent } from '../sim/types.ts';
+import type { CreatureState, Season, SimEvent } from '../sim/types.ts';
 import { FLAG_KEYS } from './flags.ts';
 import { VERBS } from './verbs.ts';
 
@@ -21,8 +21,27 @@ const EVENT_KIND_SET: Record<SimEvent['t'], true> = {
   return: true,
   art: true,
   skyBid: true,
+  wake: true,
 };
 const EVENT_KINDS = Object.keys(EVENT_KIND_SET) as [SimEvent['t'], ...SimEvent['t'][]];
+// The same for seasons and creature states (story may not import sim values, so a Record here).
+const SEASON_SET: Record<Season, true> = {
+  spring: true,
+  summer: true,
+  lateSummer: true,
+  autumn: true,
+  winter: true,
+  thaw: true,
+};
+const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
+const STATE_SET: Record<CreatureState, true> = {
+  wander: true,
+  meet: true,
+  sleep: true,
+  leave: true,
+  away: true,
+};
+const creatureState = z.enum(Object.keys(STATE_SET) as [CreatureState, ...CreatureState[]]);
 
 export const MetricSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('maxBerries') }),
@@ -75,11 +94,11 @@ export const OverridesSchema = z.strictObject({
       }),
     )
     .optional(),
-  state: z.record(id, z.enum(['wander', 'meet', 'sleep', 'leave', 'away'])).optional(),
+  state: z.record(id, creatureState).optional(),
   weather: z
     .strictObject({
       light: z.strictObject({ x: z.number(), y: z.number() }).nullable().optional(),
-      season: z.enum(['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw']).optional(),
+      season: season.optional(),
     })
     .optional(),
 });
@@ -92,7 +111,9 @@ export const ExitSpecSchema = z.union([
 
 const ChapterObject = z.strictObject({
   id,
-  season: z.enum(['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw']),
+  /** The chapter's name (spec 6.2), shown in the heading. */
+  title: z.string().min(1),
+  season,
   scene: id,
   dayLengthSeconds: z.number().positive(),
   verbs: z.array(verb),
@@ -131,6 +152,10 @@ export const ChapterSchema = ChapterObject.refine(
     return !('onBeat' in exit) || c.beats.some((b) => b.id === exit.onBeat);
   },
   { message: 'exit.onBeat must name a beat in this chapter', path: ['exit', 'onBeat'] },
-);
+).refine((c) => !c.twist || c.beats.some((b) => 'twist' in b.trigger), {
+  // Honesty (spec 10.2): the twist is told when the sim shows it, never on a timer or a verb.
+  message: 'a chapter with a twist needs a beat with the { twist: true } trigger',
+  path: ['beats'],
+});
 export type Chapter = z.infer<typeof ChapterObject>;
 export type Overrides = z.infer<typeof OverridesSchema>;

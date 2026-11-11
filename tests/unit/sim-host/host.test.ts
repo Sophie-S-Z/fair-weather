@@ -142,6 +142,20 @@ test('a pending checkpoint request is sent again to the restarted worker', async
   expect(cp.tick).toBe(0);
 });
 
+test('requestCheckpoint resolves with its own answer, not a daily checkpoint that arrives first', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const port = s.spawned[0]?.port;
+  // A dusk checkpoint (no id) reaches the host before the requested one.
+  const pending = host.requestCheckpoint();
+  port?.dispatchEvent(
+    new MessageEvent('message', { data: { t: 'checkpoint', tick: 999, world: { tick: 999 } } }),
+  );
+  const cp = await pending;
+  expect(cp.tick).toBe(0);
+});
+
 test('requestCheckpoint resolves with the world now', async () => {
   const s = spawner(() => null);
   const host = createSimHost(s.spawn);

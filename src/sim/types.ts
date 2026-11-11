@@ -1,6 +1,7 @@
 // Core sim types (spec 9, ADRs 0002 to 0005). Types, plus the fixed dial order.
 export type { Tuning } from './tuning.ts';
-export type Season = 'spring' | 'summer' | 'lateSummer' | 'autumn' | 'winter' | 'thaw';
+export const SEASONS = ['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'] as const;
+export type Season = (typeof SEASONS)[number];
 export type CreatureState = 'wander' | 'meet' | 'sleep' | 'leave' | 'away';
 export type BidReply = 'toward' | 'away' | 'against';
 export type GiftMove = 'give' | 'keep';
@@ -144,7 +145,8 @@ export type SimEvent =
   | { t: 'imitate'; who: string; from: string; dial: DialKey }
   | { t: 'arrive' | 'leave' | 'return'; who: string }
   | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' }
-  | { t: 'skyBid'; who: string };
+  | { t: 'skyBid'; who: string }
+  | { t: 'wake'; who: string };
 export interface Scenario {
   valleyId: string;
   season: Season;

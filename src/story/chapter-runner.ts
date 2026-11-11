@@ -4,7 +4,8 @@
 // the player only as listed in RUNNER_COMMANDS; it never edits a sim result.
 //
 // Nothing runs before the first snapshot: events that arrive earlier wait for it, and verb()
-// returns false. The exit resolves on a snapshot, so written flags read a world that has applied
+// returns false. The exit resolves on a snapshot taken after the step that applied the last
+// command the chapter sent (its `accepted` tick), so written flags read a world that has applied
 // every command the chapter sent before it.
 import flagsJson from '../../content/flags.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
@@ -39,7 +40,8 @@ export interface ChapterRunner {
   onFocus(cb: (id: string | null) => void): () => void;
   /**
    * False when the verb is locked, no snapshot has arrived yet, the chapter is over (or the verb's
-   * beat ended it with an error), or `respond` has no sky bid to answer.
+   * beat ended it with an error), `respond` has no sky bid to answer, or `place` was already used
+   * in this chapter (spec 6.2: one bench).
    */
   verb(v: VerbInput): boolean;
   /** Ignored unless 'bet' is unlocked, a bet is open with no answer yet, and `option` is listed. */
@@ -96,13 +98,18 @@ function actor(e: SimEvent): string {
 
 /**
  * Where each written flag comes from at the exit; undefined falls back to content/flags.json.
- * pimSkyOpinion is the sign of Pim's sky warmth (how Pim feels about the sky): above 0 gives 1,
- * below 0 gives -1, exactly 0 gives 0.
+ * Both Pim flags come from Pim's sky warmth (how Pim feels about the sky, -1 to 1).
+ * pimSkyBond maps it onto 0 to 1 as (warmth + 1) / 2, so an untouched Pim gives 0.5, the skip
+ * default, and only a real change (an over-poke) moves it. pimSkyOpinion is its sign: above 0
+ * gives 1, below 0 gives -1, exactly 0 gives 0.
  */
 const FLAG_SOURCES: {
   [K in FlagKey]: (lite: WorldLite | null, twistFired: boolean | undefined) => Flags[K] | undefined;
 } = {
-  pimSkyBond: (lite) => lite?.creatures.find((c) => c.id === 'pim')?.skyWarmth,
+  pimSkyBond: (lite) => {
+    const warmth = lite?.creatures.find((c) => c.id === 'pim')?.skyWarmth;
+    return warmth === undefined ? undefined : (warmth + 1) / 2;
+  },
   pimSkyOpinion: (lite) => {
     const warmth = lite?.creatures.find((c) => c.id === 'pim')?.skyWarmth;
     if (warmth === undefined) return undefined;
@@ -146,6 +153,10 @@ export function createChapterRunner(
   let twist: { before: WorldLite; deadline: number; retries: number } | null = null;
   let twistFired: boolean | undefined;
   let exitReady = false;
+  let placed = false; // one place per chapter
+  /** Commands sent with no `accepted` yet, and the tick the last accepted list ran at. */
+  let unaccepted = 0;
+  let lastAcceptedTick = -1;
   let finished = false;
   let result: Flags | null = null;
 
@@ -159,6 +170,7 @@ export function createChapterRunner(
   function send(cmd: Command): void {
     if (finished) return;
     assertRunnerCommand(cmd);
+    unaccepted += 1;
     port.send([cmd]);
   }
   function speed(multiplier: number): void {
@@ -234,6 +246,8 @@ export function createChapterRunner(
   }
   function maybeFinish(): void {
     if (finished || !exitReady || bet.phase === 'open' || bet.phase === 'running') return;
+    // Wait for the snapshot after the step that ran the last command sent, so flags see it.
+    if (unaccepted > 0 || tick <= lastAcceptedTick) return;
     finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired)));
   }
 
@@ -326,8 +340,11 @@ export function createChapterRunner(
   function handle(m: FromWorker): void {
     if (finished) return;
     try {
-      if (m.t === 'accepted') log.push({ kind: 'accepted', tick: m.tick, list: m.list });
-      else if (m.t === 'events') onEvents(m.tick, m.list);
+      if (m.t === 'accepted') {
+        unaccepted = Math.max(0, unaccepted - m.list.length);
+        lastAcceptedTick = m.tick;
+        log.push({ kind: 'accepted', tick: m.tick, list: m.list });
+      } else if (m.t === 'events') onEvents(m.tick, m.list);
       else if (m.t === 'snapshot') onSnapshot(m.tick, m.lite);
     } catch (e) {
       fail(e);
@@ -352,10 +369,12 @@ export function createChapterRunner(
     },
     verb(v) {
       if (finished || origin === null || !config.verbs.includes(v.verb)) return false;
+      if (v.verb === 'place' && placed) return false;
       const cmd = verbCommand(v, skyBids[0]?.who);
       if (!cmd) return false;
       try {
         if (cmd.t === 'respond') skyBids.shift();
+        if (cmd.t === 'place') placed = true;
         send(cmd);
         log.push({ kind: 'verb', tick, input: v });
         for (const beat of config.beats) {

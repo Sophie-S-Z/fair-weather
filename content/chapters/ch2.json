@@ -1,5 +1,6 @@
 {
   "id": "ch2",
+  "title": "Five Neighbors",
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 45,
@@ -91,7 +92,7 @@
     "withinDays": 7,
     "retryArrange": ["krit", "pim"]
   },
-  "reads": ["pimSkyOpinion"],
+  "reads": [],
   "writes": ["pimScar"],
   "variants": [],
   "exit": {

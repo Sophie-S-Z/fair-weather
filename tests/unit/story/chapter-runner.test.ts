@@ -44,6 +44,11 @@ const ch2: Chapter = {
   ),
 };
 const ch3 = ChapterSchema.parse(ch3Json);
+/** ch0 with its first_wake beat on the wake verb, for the tests of verb-triggered beats. */
+const ch0ByVerb: Chapter = {
+  ...ch0,
+  beats: ch0.beats.map((b) => (b.id === 'first_wake' ? { ...b, trigger: { verb: 'wake' } } : b)),
+};
 
 // Ticks: sim.stepsPerSecond is 10. ch0 and ch1 days are 600 ticks; ch2 and ch3 days are 450.
 const flags: Flags = {
@@ -212,7 +217,7 @@ describe('verbs', () => {
   test('an unlocked verb sends its command, fires its beat once, and is logged', () => {
     const f = fakePort();
     const ink = inkOf(CH0_KNOTS);
-    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    const runner = createChapterRunner(f.port, ink, ch0ByVerb, flags);
     const shots: string[] = [];
     runner.onCamera((s) => shots.push(s));
     f.step();
@@ -242,7 +247,7 @@ describe('verbs', () => {
 
   test('a skip inside a beat stops the rest of the beat, and the verb reports false', async () => {
     const f = fakePort();
-    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0ByVerb, flags);
     const shots: string[] = [];
     runner.onCamera((s) => shots.push(s));
     runner.onPrompt((p) => {
@@ -253,6 +258,34 @@ describe('verbs', () => {
     expect(cmds(f)).toEqual([{ t: 'wake', who: 'pim' }]); // no promptSkyBid after the skip
     expect(shots).toEqual(['meadow-wide']); // no pim-close
     await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.5 });
+  });
+
+  test("ch0's first_wake beat waits for the sim's wake event for Pim, not the verb", () => {
+    const f = fakePort();
+    const ink = inkOf(CH0_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    f.step();
+    expect(runner.verb({ verb: 'wake', who: 'krit' })).toBe(true);
+    f.step([{ t: 'wake', who: 'krit' }]);
+    expect(ink.played).toEqual(['ch0_dawn']); // waking Krit tells nothing about Pim
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
+    expect(ink.played).toEqual(['ch0_dawn']); // the sim has not woken Pim yet
+    f.step([{ t: 'wake', who: 'pim' }]);
+    expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_wakes']);
+    expect(cmds(f)).toEqual([
+      { t: 'wake', who: 'krit' },
+      { t: 'wake', who: 'pim' },
+      { t: 'promptSkyBid', who: 'pim' },
+    ]);
+  });
+
+  test('place works once per chapter (spec 6.2: one bench); the second returns false and sends nothing', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
+    f.step();
+    expect(runner.verb({ verb: 'place', x: 100, y: 100 })).toBe(true);
+    expect(runner.verb({ verb: 'place', x: 200, y: 100 })).toBe(false);
+    expect(cmds(f).filter((c) => c.t === 'place')).toEqual([{ t: 'place', kind: 'bench', x: 100, y: 100 }]);
   });
 
   test('a verb before the first snapshot returns false', () => {
@@ -272,6 +305,9 @@ describe('focus', () => {
     f.step();
     expect(got).toEqual([]);
     runner.verb({ verb: 'wake', who: 'krit' });
+    f.step([{ t: 'wake', who: 'krit' }]);
+    expect(got).toEqual([]);
+    f.step([{ t: 'wake', who: 'pim' }]);
     expect(got).toEqual(['pim']);
     off();
     const cleared = { id: 'x', trigger: { at: 0 }, actions: [{ focus: null }] };
@@ -349,6 +385,19 @@ describe('sky bids', () => {
     f.step([], lite({ pimSky: 0.08 }));
     await expect(runner.done).resolves.toEqual({ ...flags, pimSkyOpinion: 1 });
   });
+
+  test('a snapshot posted before the worker accepted the reply does not end the chapter', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
+    f.step();
+    f.step([{ t: 'skyBid', who: 'pim' }]);
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
+    // A stale snapshot: the worker stepped before the reply reached it, so no `accepted` yet.
+    f.push({ t: 'snapshot', tick: 3, lite: lite({ pimSky: 0 }) });
+    expect(await settled(runner.done)).toBe(false);
+    f.step([], lite({ pimSky: 0.1 })); // accepted for tick 2, then the snapshot after that step
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyOpinion: 1 });
+  });
 });
 
 describe('beats', () => {
@@ -389,7 +438,7 @@ describe('beats', () => {
     expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_looks_up']);
     expect(lines(prompts)).toEqual(['ch0_dawn line.', 'ch0_pim_looks_up line.']);
     expect(f.speeds).toEqual([1, 0]);
-    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.25 });
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.625 }); // (0.25 + 1) / 2
   });
 
   test('events before the first snapshot wait for it', async () => {
@@ -401,7 +450,7 @@ describe('beats', () => {
     expect(await settled(runner.done)).toBe(false);
     f.push({ t: 'snapshot', tick: 1, lite: lite({ pimSky: 0.3 }) });
     expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_looks_up']);
-    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.3 });
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.65 });
   });
 
   test('an unknown beat tag rejects done and sends nothing, even after a good tag', async () => {

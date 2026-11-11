@@ -16,5 +16,5 @@ Krit took Pim's berries and gave nothing back. #placeholder
 -> END
 
 === ch2_close_call ===
-Krit almost took Pim's berries, then walked away. #placeholder
+Krit did not take Pim's berries this time. #placeholder
 -> END

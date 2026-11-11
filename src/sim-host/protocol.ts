@@ -23,7 +23,8 @@ export interface WorldLite {
 /**
  * Main thread to worker. `tuning` is raw tuning JSON, parsed in the worker. `checkpoint` is a
  * structured clone of a World from a `checkpoint` message. A new worker starts paused.
- * `checkpoint` asks for a `checkpoint` message with the world now, between steps.
+ * `checkpoint` asks for a `checkpoint` message with the world now, between steps; the answer
+ * carries the request's `id`, and a daily checkpoint (at dusk) carries none.
  * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
  */
 export type ToWorker =
@@ -31,7 +32,7 @@ export type ToWorker =
   | { t: 'commands'; list: Command[] }
   | { t: 'speed'; multiplier: number }
   | { t: 'hash' }
-  | { t: 'checkpoint' }
+  | { t: 'checkpoint'; id?: number }
   | { t: 'advance'; ticks: number };
 
 /**
@@ -43,7 +44,7 @@ export type FromWorker =
   | { t: 'accepted'; tick: number; list: Command[] }
   | { t: 'snapshot'; tick: number; lite: WorldLite }
   | { t: 'events'; tick: number; list: SimEvent[] }
-  | { t: 'checkpoint'; tick: number; world: World }
+  | { t: 'checkpoint'; tick: number; world: World; id?: number }
   | { t: 'hash'; tick: number; value: string }
   | { t: 'error'; message: string; lastGoodTick: number };
 

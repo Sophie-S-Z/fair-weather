@@ -11,5 +11,5 @@ The same friends keep meeting, and the village feels warm. #placeholder
 -> END
 
 === ch3_close_call ===
-The bench is there, but the friends have not met yet. #placeholder
+The bench is there, but the village has not warmed yet. #placeholder
 -> END

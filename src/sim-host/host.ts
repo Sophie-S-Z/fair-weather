@@ -8,7 +8,7 @@ export interface SimHost extends SimPort {
   post(m: ToWorker): void;
   /** Starts a new worker from the last checkpoint and replays every accepted list after it. */
   restart(): void;
-  /** Asks the worker for its world now; the answer is a structured clone. */
+  /** Asks the worker for its world now; the answer is a structured clone. A daily checkpoint never answers it. */
   requestCheckpoint(): Promise<{ tick: number; world: World }>;
   log(): readonly { tick: number; list: Command[] }[];
 }
@@ -23,7 +23,12 @@ type Init = Extract<ToWorker, { t: 'init' }>;
 export function createSimHost(spawn: () => Endpoint): SimHost {
   const listeners = new Set<(m: FromWorker) => void>();
   let hashWaiters: { resolve(h: { tick: number; value: string }): void; reject(e: Error): void }[] = [];
-  let checkpointWaiters: { resolve(c: { tick: number; world: World }): void; reject(e: Error): void }[] = [];
+  let checkpointWaiters: {
+    id: number;
+    resolve(c: { tick: number; world: World }): void;
+    reject(e: Error): void;
+  }[] = [];
+  let nextCheckpointId = 1;
   let log: { tick: number; list: Command[] }[] = [];
   /** Lists sent but not yet accepted, with the tick they are expected to run at. */
   let inFlight: { tick: number; list: Command[] }[] = [];
@@ -81,7 +86,10 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         seenEventsTick = m.tick;
         break;
       case 'checkpoint':
-        checkpointWaiters.shift()?.resolve({ tick: m.tick, world: m.world });
+        if (m.id !== undefined) {
+          const i = checkpointWaiters.findIndex((c) => c.id === m.id);
+          if (i >= 0) checkpointWaiters.splice(i, 1)[0]?.resolve({ tick: m.tick, world: m.world });
+        }
         if (checkpoint && m.tick <= checkpoint.tick) return;
         checkpoint = { tick: m.tick, world: m.world };
         break;
@@ -133,7 +141,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     }
     if (targetTick > at) w.postMessage({ t: 'advance', ticks: targetTick - at } satisfies ToWorker);
     for (let i = 0; i < hashWaiters.length; i++) w.postMessage({ t: 'hash' } satisfies ToWorker);
-    for (let i = 0; i < checkpointWaiters.length; i++) w.postMessage({ t: 'checkpoint' } satisfies ToWorker);
+    for (const c of checkpointWaiters) w.postMessage({ t: 'checkpoint', id: c.id } satisfies ToWorker);
     if (multiplier > 0) w.postMessage({ t: 'speed', multiplier } satisfies ToWorker);
   }
 
@@ -200,8 +208,9 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
           reject(new Error(gaveUp));
           return;
         }
-        checkpointWaiters.push({ resolve, reject });
-        worker?.postMessage({ t: 'checkpoint' } satisfies ToWorker);
+        const id = nextCheckpointId++;
+        checkpointWaiters.push({ id, resolve, reject });
+        worker?.postMessage({ t: 'checkpoint', id } satisfies ToWorker);
       });
     },
     restart,

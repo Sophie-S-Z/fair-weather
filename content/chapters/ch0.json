@@ -1,5 +1,6 @@
 {
   "id": "ch0",
+  "title": "First Light",
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 60,
@@ -12,7 +13,31 @@
       "echo": "sleep",
       "moss": "sleep",
       "wisp": "sleep",
-      "bell": "sleep"
+      "bell": "sleep",
+      "villager-1": "sleep",
+      "villager-2": "sleep",
+      "villager-3": "sleep",
+      "villager-4": "sleep",
+      "villager-5": "sleep",
+      "villager-6": "sleep",
+      "villager-7": "sleep",
+      "villager-8": "sleep",
+      "villager-9": "sleep",
+      "villager-10": "sleep",
+      "villager-11": "sleep",
+      "villager-12": "sleep",
+      "villager-13": "sleep",
+      "villager-14": "sleep",
+      "villager-15": "sleep",
+      "villager-16": "sleep",
+      "villager-17": "sleep",
+      "villager-18": "sleep",
+      "villager-19": "sleep",
+      "villager-20": "sleep",
+      "villager-21": "sleep",
+      "villager-22": "sleep",
+      "villager-23": "sleep",
+      "villager-24": "sleep"
     }
   },
   "beats": [
@@ -33,7 +58,8 @@
     {
       "id": "first_wake",
       "trigger": {
-        "verb": "wake"
+        "event": "wake",
+        "who": "pim"
       },
       "actions": [
         {

@@ -10,6 +10,9 @@ export type InputContext = {
   creatures: () => readonly { id: string; state: string }[];
   benchSpots: () => readonly BenchSpot[];
   cursor: () => Point;
+  /** The one owner of the current tool: keyboard, pointer, and HUD all read it here. */
+  tool: () => Verb | null;
+  setTool: (v: Verb) => void;
   act: (v: VerbInput) => void;
   togglePause: () => void;
   select: (id: string | null) => void;
@@ -27,13 +30,13 @@ const ARROWS: Record<string, Point> = {
 const REPLY_KEYS: Record<string, BidReply> = { g: 'toward', h: 'away', r: 'against' };
 
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
-  let tool: Verb | null = null;
   let reply: BidReply = 'toward';
   let picked: string | null = null;
 
   const activeTool = (): Verb | null => {
     const tools = keyboardTools(ctx.tools());
-    return tool !== null && tools.includes(tool) ? tool : (tools[0] ?? null);
+    const t = ctx.tool();
+    return t !== null && tools.includes(t) ? t : (tools[0] ?? null);
   };
 
   const onKey = (e: Event): void => {
@@ -44,9 +47,11 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
 
     const key = k.key;
+    // Native activation of buttons and links must fire once, not also act here.
+    if ((key === 'Enter' || key === ' ') && (tag === 'BUTTON' || tag === 'A')) return;
     if (key >= '1' && key <= '3') {
       const t2 = keyboardTools(ctx.tools())[Number(key) - 1];
-      if (t2 !== undefined) tool = t2;
+      if (t2 !== undefined) ctx.setTool(t2);
     } else if (key in ARROWS) {
       const d = ARROWS[key] as Point;
       const c = ctx.cursor();

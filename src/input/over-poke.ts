@@ -1,4 +1,5 @@
 // Over-poke detector (spec 9): more than `count` pokes inside `windowSeconds` fires once, then resets.
+/** `clock` returns milliseconds; `windowSeconds` is in seconds. */
 export function createOverPoke(
   windowSeconds: number,
   count: number,

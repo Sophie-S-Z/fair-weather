@@ -76,7 +76,7 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
 /**
  * Applies one command. Returns [] and changes nothing for an unknown or away creature id, a
  * non-finite number, an unknown tag or value, a pair naming one creature twice, a fog radius
- * of 0 or less, or a gust with no direction. Only `blow` draws from the PRNG.
+ * of 0 or less, or a gust whose length squared is 0 or overflows. Only `blow` draws from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   switch (cmd.t) {
@@ -88,10 +88,13 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       if (!finite(cmd.x, cmd.y, cmd.r, cmd.amount) || cmd.r <= 0) return [];
       paintFog(world, cmd.x, cmd.y, cmd.r, cmd.amount, t);
       return [];
-    case 'blow':
-      if (!finite(cmd.x, cmd.y, cmd.dx, cmd.dy) || (cmd.dx === 0 && cmd.dy === 0)) return [];
+    case 'blow': {
+      // A length squared of 0 (also by underflow) or Infinity gives no direction to push along.
+      const len2 = cmd.dx * cmd.dx + cmd.dy * cmd.dy;
+      if (!finite(cmd.x, cmd.y, cmd.dx, cmd.dy, len2) || len2 === 0) return [];
       blow(world, cmd.x, cmd.y, cmd.dx, cmd.dy, t, rng);
       return [];
+    }
     case 'place': {
       if (!finite(cmd.x, cmd.y)) return [];
       const kind: string = cmd.kind; // commands cross the worker boundary, so check at runtime

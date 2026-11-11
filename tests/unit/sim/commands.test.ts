@@ -180,6 +180,8 @@ const badCommands: [string, Command][] = [
   ['paintFog, r 0', { t: 'paintFog', x: 100, y: 100, r: 0, amount: 0.5 }],
   ['blow, NaN', { t: 'blow', x: 100, y: 400, dx: NaN, dy: 0 }],
   ['blow, no direction', { t: 'blow', x: 100, y: 400, dx: 0, dy: 0 }],
+  ['blow, length squared underflows to 0', { t: 'blow', x: 100, y: 400, dx: 0, dy: 5e-324 }],
+  ['blow, length squared overflows', { t: 'blow', x: 100, y: 400, dx: 1e200, dy: 0 }],
   ['place, NaN', { t: 'place', kind: 'bench', x: NaN, y: 0 }],
   ['place, Infinity', { t: 'place', kind: 'bush', x: 0, y: -Infinity }],
   ['place, unknown kind', { t: 'place', kind: 'lantern' as 'bench', x: 0, y: 0 }],

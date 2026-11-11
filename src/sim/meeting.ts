@@ -1,15 +1,5 @@
 // Meeting rules (spec 9.3, ADR 0002, ADR 0003; light boosts per ADR 0004 item 9).
-import type {
-  Behavior,
-  BidReply,
-  Creature,
-  DiaryEntry,
-  GiftMove,
-  Side,
-  SimEvent,
-  Tie,
-  World,
-} from './types.ts';
+import type { Behavior, BidReply, Creature, DiaryEntry, GiftMove, Side, SimEvent, World } from './types.ts';
 import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
@@ -37,9 +27,12 @@ export function replyChance(
   return clamp(sigmoid(x) + boost, 0, 1);
 }
 
-/** Warmth plus the weighted opinion, clamped (ADR 0002 item 4). */
-function effectiveWarmth(tie: Tie, from: Creature, to: Creature, t: Tuning): number {
-  return clamp(side(tie, from.id).warmth + t.opinion.weight * (from.opinions[to.id] ?? 0), -1, 1);
+/**
+ * Warmth blended toward the opinion, clamped (ADR 0002 item 4, amended). After a meeting the
+ * opinion equals the warmth, so experience is not counted twice; a rumor pulls toward itself.
+ */
+export function effectiveWarmth(warmth: number, opinion: number, t: Tuning): number {
+  return clamp(warmth + t.opinion.weight * (opinion - warmth), -1, 1);
 }
 
 function metToday(world: World, a: Creature, b: Creature): boolean {
@@ -106,6 +99,7 @@ function pickGift(
   draw: number,
   t: Tuning,
 ): GiftMove {
+  // Below gift.cost a creature cannot pay for a gift, so it keeps (and berries never go negative).
   if (giver.berries < t.gift.cost) return 'keep';
   const p = clamp(baseGiveChance(giverSide, giver, firstMeeting, t) + boost, 0, 1);
   return draw < p ? 'give' : 'keep';
@@ -197,7 +191,7 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   const replier = bidder === a ? b : a;
   const bidderSide = side(tie, bidder.id);
   const replierSide = side(tie, replier.id);
-  const w = effectiveWarmth(tie, replier, bidder, t);
+  const w = effectiveWarmth(replierSide.warmth, replier.opinions[bidder.id] ?? 0, t);
   const reply = pickReply(w, replier, boost('toward', 'against'), draw.reply, t);
   const replySeen: BidReply =
     reply === 'toward' && draw.replyFog < t.fog.bidFlipFactor * fog ? 'away' : reply;

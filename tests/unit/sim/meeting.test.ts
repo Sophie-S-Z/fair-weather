@@ -3,7 +3,13 @@ import { expect, test } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
 import { createGrid } from '../../../src/sim/grid.ts';
 import { sigmoid } from '../../../src/sim/math.ts';
-import { findMeetings, hunger, replyChance, resolveMeeting } from '../../../src/sim/meeting.ts';
+import {
+  effectiveWarmth,
+  findMeetings,
+  hunger,
+  replyChance,
+  resolveMeeting,
+} from '../../../src/sim/meeting.ts';
 import { createRng } from '../../../src/sim/rng.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Creature, Dials, Scenario, SimEvent, World } from '../../../src/sim/types.ts';
@@ -135,20 +141,36 @@ test('a meeting uses exactly seven draws', () => {
   expect(rng.used()).toBe(7);
 });
 
-test('a non-toward reply is against only below warmth -0.4', () => {
-  let p = pair();
-  side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = -0.41;
-  expect(bidOf(resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }))).reply).toBe('against');
-  p = pair();
-  side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = -0.4;
-  expect(bidOf(resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }))).reply).toBe('away');
+test('a non-toward reply is against only when effective warmth is below -0.4', () => {
+  const at = (warmth: number, opinion: number) => {
+    const p = pair();
+    side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = warmth;
+    p.b.opinions.a = opinion;
+    return bidOf(resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }))).reply;
+  };
+  expect(at(-0.41, -0.41)).toBe('against'); // effective -0.41
+  expect(at(-0.4, -0.4)).toBe('away'); // effective -0.4, not below
+  expect(at(-0.41, 0)).toBe('away'); // stored warmth below -0.4, effective -0.205
+  expect(at(-0.3, -0.6)).toBe('against'); // stored warmth above -0.4, effective -0.45
 });
 
-test('the reply uses the replier effective warmth (warmth + 0.5 x opinion)', () => {
+test('effective warmth blends warmth toward the opinion: 0.4 with opinion -0.6 gives -0.1', () => {
+  expect(effectiveWarmth(0.4, -0.6, t)).toBeCloseTo(-0.1, 12);
+  expect(effectiveWarmth(0.9, 1, t)).toBeCloseTo(0.95, 12);
+  expect(effectiveWarmth(-1, -1, t)).toBe(-1);
+});
+
+test('after a meeting with no rumor, effective warmth equals the stored warmth', () => {
   const p = pair();
-  side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = -0.2;
-  p.b.opinions.a = -0.5; // effective -0.45, below -0.4
-  expect(bidOf(resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }))).reply).toBe('against');
+  resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0, bidderGift: 0 }));
+  for (const [x, y] of [
+    [p.a, p.b],
+    [p.b, p.a],
+  ] as const) {
+    const stored = warmth(p.w, x, y);
+    expect(stored).not.toBe(0);
+    expect(effectiveWarmth(stored, x.opinions[y.id]!, t)).toBe(stored);
+  }
 });
 
 test('the reply is toward when the draw is below the reply chance', () => {
@@ -264,6 +286,7 @@ test('warmth changes match the table: +0.10, -0.05, -0.15, +0.15, -0.20', () => 
   // against
   p = pair();
   side(ensureTie(p.w, p.a, p.b, t), 'b').warmth = -0.5;
+  p.b.opinions.a = -0.5; // effective -0.5, so the reply is against
   resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0.99 }));
   expect(warmth(p.w, p.a, p.b)).toBeCloseTo(-0.15, 12);
   expect(warmth(p.w, p.b, p.a)).toBe(-0.5);
@@ -371,7 +394,7 @@ test('warmth stays in [-1, 1] after 100 hostile meetings', () => {
   const rng = createRng(11);
   let lowest = 0;
   for (let i = 0; i < 100; i++) {
-    p.a.berries = 3; // a keeps giving into b's keeps
+    p.a.berries = 3; // a gives into b's keeps until its slights pass round(3 x Forgiveness)
     p.b.berries = 0;
     resolveMeeting(p.w, p.a, p.b, t, rng);
     lowest = Math.min(lowest, side(tie, 'a').warmth);

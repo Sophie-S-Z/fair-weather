@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Compiler } from 'inkjs/compiler/Compiler';
 import { expect, test } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
@@ -30,7 +31,9 @@ const scenario: Scenario = {
 function compile(source: string): string {
   return new Compiler(source).Compile().ToJson() ?? '';
 }
-const m0 = compile(readFileSync('content/ink/m0.ink', 'utf8'));
+const m0 = compile(
+  readFileSync(fileURLToPath(new URL('../../../content/ink/m0.ink', import.meta.url)), 'utf8'),
+);
 
 /** A SimPort over the real worker core and a manual clock; `advance` moves ticks. */
 function fakePort(): {
@@ -153,4 +156,20 @@ test('honesty: the run with the director equals a direct run with the same accep
   expect(w.tick).toBe(total);
   expect(f.accepted.some((a) => a.list.some((c) => c.t === 'arrangeMeeting'))).toBe(true);
   expect(hashWorld(w)).toBe(hash.value);
+});
+
+test('a bad beat tag after a good one throws and sends nothing', async () => {
+  const f = fakePort();
+  const ink = createInk(
+    compile('=== k ===\nA. #beat:arrange_meeting(krit,pim)\nB. #beat:drop_table()\n-> END\n'),
+  );
+  const director = createDirector(f.port, ink);
+  f.advance(1);
+  await expect(director.runBeat({ knot: 'k', vars: {} })).rejects.toThrow('beat:drop_table()');
+  expect(f.sent).toEqual([]);
+});
+
+test('empty Ink lines are skipped', () => {
+  const ink = createInk(compile('=== k ===\nOne.\n\n{false: hidden}\nTwo.\n-> END\n'));
+  expect(ink.play('k').lines).toEqual(['One.', 'Two.']);
 });

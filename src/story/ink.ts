@@ -18,7 +18,8 @@ export function createInk(json: string): InkRunner {
       const tags: string[] = [];
       while (story.canContinue) {
         const text = story.Continue();
-        if (text !== null) lines.push(text.trim());
+        const line = text?.trim();
+        if (line) lines.push(line);
         tags.push(...(story.currentTags ?? []));
       }
       return { lines, tags };

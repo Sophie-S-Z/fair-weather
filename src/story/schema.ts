@@ -36,6 +36,8 @@ export const BeatSchema = z.strictObject({
     z.strictObject({ at: z.number().nonnegative() }),
     z.strictObject({ event: z.enum(EVENT_KINDS), who: id.optional() }),
     z.strictObject({ verb }),
+    // Fires once when the chapter's twist check succeeds, so a beat never tells of a twist the sim did not show.
+    z.strictObject({ twist: z.literal(true) }),
   ]),
   actions: z.array(
     z.union([
@@ -44,6 +46,7 @@ export const BeatSchema = z.strictObject({
       z.strictObject({ arrange: z.tuple([id, id]) }),
       z.strictObject({ pause: z.literal(true) }),
       z.strictObject({ openBet: z.literal(true) }),
+      z.strictObject({ promptSkyBid: id }),
     ]),
   ),
 });
@@ -54,6 +57,7 @@ export const FlagConditionSchema = z.strictObject({
   op: z.enum(['eq', 'gte', 'lte']),
   value: z.union([z.number(), z.boolean()]),
 });
+export type FlagCondition = z.infer<typeof FlagConditionSchema>;
 
 export const OverridesSchema = z.strictObject({
   positions: z.record(id, z.strictObject({ x: z.number(), y: z.number() })).optional(),
@@ -107,6 +111,8 @@ const ChapterObject = z.strictObject({
       id: z.enum(['kritExploitsPim', 'benchWarmsVillage']),
       withinDays: z.number().positive(),
       retryArrange: z.tuple([id, id]),
+      /** The window opens on the first use of this verb; without it, at chapter start. */
+      opensOn: z.strictObject({ verb }).optional(),
     })
     .optional(),
   reads: z.array(flagKey),
@@ -125,3 +131,4 @@ export const ChapterSchema = ChapterObject.refine(
   { message: 'exit.onBeat must name a beat in this chapter', path: ['exit', 'onBeat'] },
 );
 export type Chapter = z.infer<typeof ChapterObject>;
+export type Overrides = z.infer<typeof OverridesSchema>;

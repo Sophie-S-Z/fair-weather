@@ -41,6 +41,9 @@
         },
         {
           "camera": "pim-close"
+        },
+        {
+          "promptSkyBid": "pim"
         }
       ]
     },

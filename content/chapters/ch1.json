@@ -18,6 +18,9 @@
         },
         {
           "ink": "ch1_wave"
+        },
+        {
+          "promptSkyBid": "pim"
         }
       ]
     },
@@ -31,28 +34,13 @@
           "ink": "ch1_reply"
         }
       ]
-    },
-    {
-      "id": "opinion_formed",
-      "trigger": {
-        "event": "opinion",
-        "who": "pim"
-      },
-      "actions": [
-        {
-          "ink": "ch1_opinion"
-        },
-        {
-          "pause": true
-        }
-      ]
     }
   ],
   "reads": ["pimSkyBond"],
   "writes": ["pimSkyOpinion"],
   "variants": [],
   "exit": {
-    "onBeat": "opinion_formed"
+    "onBeat": "reply"
   },
   "feeling": "[PLACEHOLDER] Tenderness",
   "notes": [

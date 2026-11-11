@@ -7,7 +7,6 @@ test.each([
   ['beat:camera(pim-close)', { camera: 'pim-close' }],
   ['beat:pause', { pause: true }],
   ['beat:open_bet', { openBet: true }],
-  ['beat:prompt_sky_bid(pim)', { promptSkyBid: 'pim' }],
 ])('parseBeatTag reads %s', (tag, action) => {
   expect(parseBeatTag(tag)).toEqual(action);
 });
@@ -19,6 +18,7 @@ test.each([
   'beat:camera()',
   'beat:pause()',
   'beat:open_bet(x)',
+  'beat:prompt_sky_bid(pim)',
   'placeholder',
 ])('parseBeatTag rejects %s', (t) => {
   expect(parseBeatTag(t)).toBeNull();

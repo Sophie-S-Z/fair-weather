@@ -1,4 +1,5 @@
 // Core sim types (spec 9, ADRs 0002 to 0005). Types, plus the fixed dial order.
+export type { Tuning } from './tuning.ts';
 export type Season = 'spring' | 'summer' | 'lateSummer' | 'autumn' | 'winter' | 'thaw';
 export type CreatureState = 'wander' | 'meet' | 'sleep' | 'leave' | 'away';
 export type BidReply = 'toward' | 'away' | 'against';

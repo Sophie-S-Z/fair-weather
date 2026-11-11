@@ -14,11 +14,16 @@ import type { Command, Scenario, SimEvent, World } from '../../../src/sim/types.
 import { createWorld } from '../../../src/sim/world.ts';
 import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
 import type { FromWorker, SimPort, ToWorker, WorldLite } from '../../../src/sim-host/protocol.ts';
-import { createChapterRunner, RUNNER_COMMANDS } from '../../../src/story/chapter-runner.ts';
+import {
+  assertRunnerCommand,
+  createChapterRunner,
+  RUNNER_COMMANDS,
+} from '../../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../../src/story/chapter-runner.ts';
 import type { Flags } from '../../../src/story/flags.ts';
 import { createInk } from '../../../src/story/ink.ts';
 import type { InkRunner } from '../../../src/story/ink.ts';
+import { buildScenario } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter } from '../../../src/story/schema.ts';
 import { manualClock } from '../sim-host/harness.ts';
@@ -68,7 +73,7 @@ function inkOf(knots: string[], extra: Record<string, string> = {}): InkRunner &
   };
 }
 const CH0_KNOTS = ['ch0_dawn', 'ch0_pim_wakes', 'ch0_pim_looks_up', 'ch0_close_call'];
-const CH1_KNOTS = ['ch1_wave', 'ch1_reply', 'ch1_opinion'];
+const CH1_KNOTS = ['ch1_wave', 'ch1_reply'];
 const CH2_KNOTS = ['ch2_intro', 'ch2_bet', 'ch2_exploit', 'ch2_close_call'];
 const CH3_KNOTS = ['ch3_intro', 'ch3_bench', 'ch3_warm', 'ch3_close_call'];
 
@@ -107,7 +112,7 @@ function fakePort(): {
   port: SimPort;
   sent: { tick: number; cmd: Command }[];
   speeds: number[];
-  tick(): number;
+  push(m: FromWorker): void;
   step(events?: SimEvent[], l?: WorldLite): void;
   steps(n: number, l?: WorldLite): void;
 } {
@@ -144,7 +149,7 @@ function fakePort(): {
     port,
     sent,
     speeds,
-    tick: () => tick,
+    push,
     step: stepOnce,
     steps(n, l) {
       for (let i = 0; i < n; i++) stepOnce([], l);
@@ -158,6 +163,7 @@ function record(runner: ChapterRunner): Prompt[] {
   return prompts;
 }
 const lines = (ps: Prompt[]): string[] => ps.flatMap((p) => (p.kind === 'line' ? [p.text] : []));
+const cmds = (f: ReturnType<typeof fakePort>): Command[] => f.sent.map((s) => s.cmd);
 const gift = (from: string, to: string, move: 'give' | 'keep'): SimEvent => ({
   t: 'gift',
   from,
@@ -196,8 +202,9 @@ describe('verbs', () => {
     f.step();
     expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
     expect(runner.verb({ verb: 'wake', who: 'krit' })).toBe(true);
-    expect(f.sent.map((s) => s.cmd)).toEqual([
+    expect(cmds(f)).toEqual([
       { t: 'wake', who: 'pim' },
+      { t: 'promptSkyBid', who: 'pim' }, // the first_wake beat
       { t: 'wake', who: 'krit' },
     ]);
     expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_wakes']);
@@ -212,7 +219,30 @@ describe('verbs', () => {
     const f = fakePort();
     const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
     f.step();
+    expect(cmds(f)).toEqual([{ t: 'promptSkyBid', who: 'pim' }]); // the wave beat
     expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(false);
+    expect(cmds(f)).toEqual([{ t: 'promptSkyBid', who: 'pim' }]);
+  });
+
+  test('a skip inside a beat stops the rest of the beat, and the verb reports false', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    const shots: string[] = [];
+    runner.onCamera((s) => shots.push(s));
+    runner.onPrompt((p) => {
+      if (p.kind === 'line' && p.text === 'ch0_pim_wakes line.') runner.skip();
+    });
+    f.step();
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(false);
+    expect(cmds(f)).toEqual([{ t: 'wake', who: 'pim' }]); // no promptSkyBid after the skip
+    expect(shots).toEqual(['meadow-wide']); // no pim-close
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.5 });
+  });
+
+  test('a verb before the first snapshot returns false', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(false);
     expect(f.sent).toEqual([]);
   });
 });
@@ -220,20 +250,37 @@ describe('verbs', () => {
 describe('sky bids', () => {
   test('the player answers a sky bid; an unanswered one gets away after 6 sim seconds', () => {
     const f = fakePort();
-    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
+    const open: Chapter = { ...ch1, exit: { afterDays: 10 } }; // ch1 itself ends on the first reply
+    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), open, flags);
+    const responds = (): Command[] => cmds(f).filter((c) => c.t === 'respond');
     f.step([{ t: 'skyBid', who: 'pim' }]); // events tick 0
     expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
     f.steps(3);
     f.step([{ t: 'skyBid', who: 'pim' }]); // events tick 4: the reply is due at tick 64
     f.steps(58); // snapshot tick 63
-    expect(f.sent.map((s) => s.cmd)).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
+    expect(responds()).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
     f.step(); // snapshot tick 64
-    expect(f.sent.map((s) => s.cmd)).toEqual([
+    expect(responds()).toEqual([
       { t: 'respond', to: 'pim', reply: 'toward' },
       { t: 'respond', to: 'pim', reply: 'away' },
     ]);
     f.steps(100);
-    expect(f.sent).toHaveLength(2);
+    expect(responds()).toHaveLength(2);
+  });
+
+  test("chapter 1 ends on the snapshot after the first reply, with Pim's opinion from its sky warmth", async () => {
+    const f = fakePort();
+    const ink = inkOf(CH1_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch1, flags);
+    f.step([], lite({ pimSky: -0.02 }));
+    f.step([{ t: 'skyBid', who: 'pim' }], lite({ pimSky: -0.02 }));
+    f.step([{ t: 'opinion', holder: 'pim', about: 'krit', value: 0.4 }], lite({ pimSky: -0.02 }));
+    expect(await settled(runner.done)).toBe(false); // an opinion about a creature does not end it
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
+    expect(ink.played).toEqual(['ch1_wave', 'ch1_reply']);
+    expect(await settled(runner.done)).toBe(false); // the reply is not applied yet
+    f.step([], lite({ pimSky: 0.08 }));
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyOpinion: 1 });
   });
 });
 
@@ -243,25 +290,23 @@ describe('beats', () => {
     const ink = inkOf(CH2_KNOTS);
     const runner = createChapterRunner(f.port, ink, ch2, flags);
     const prompts = record(runner);
-    f.step(); // snapshot tick 1 is chapter time 0
+    f.step(); // chapter time 0 is tick 0, the first step
     expect(lines(prompts)).toEqual(['ch2_intro line.']);
-    f.steps(99); // tick 100: 99 ticks in
+    f.steps(98); // tick 99
     expect(prompts.filter((p) => p.kind === 'bet')).toEqual([]);
-    f.step(); // tick 101: 10 s in
+    f.step(); // tick 100: 10 s in
     expect(prompts.filter((p) => p.kind === 'bet')).toEqual([
       { kind: 'bet', question: 'ch2_bet line.', options: ['pim', 'krit', 'echo', 'moss', 'bell', 'wisp'] },
     ]);
-    f.steps(98); // tick 199
+    f.steps(99); // tick 199
     expect(f.sent).toEqual([]);
-    f.step(); // tick 200
-    expect(f.sent).toEqual([]);
-    f.step(); // tick 201: 20 s in
-    expect(f.sent).toEqual([{ tick: 201, cmd: { t: 'arrangeMeeting', a: 'krit', b: 'pim' } }]);
+    f.step(); // tick 200: 20 s in
+    expect(f.sent).toEqual([{ tick: 200, cmd: { t: 'arrangeMeeting', a: 'krit', b: 'pim' } }]);
     f.steps(500);
     expect(prompts.filter((p) => p.kind === 'bet')).toHaveLength(1);
     expect(f.sent).toHaveLength(1);
     expect(ink.played).toEqual(['ch2_intro', 'ch2_bet']);
-    expect(f.speeds).toEqual([1, 0]); // start, then the bet beat's pause
+    expect(f.speeds).toEqual([1, 0]); // start, then openBet's pause
   });
 
   test('an event beat fires on the matching event and an onBeat exit resolves done', async () => {
@@ -280,6 +325,18 @@ describe('beats', () => {
     await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.25 });
   });
 
+  test('events before the first snapshot wait for it', async () => {
+    const f = fakePort();
+    const ink = inkOf(CH0_KNOTS);
+    const runner = createChapterRunner(f.port, ink, ch0, flags);
+    f.push({ t: 'events', tick: 0, list: [{ t: 'skyBid', who: 'pim' }] });
+    expect(ink.played).toEqual([]);
+    expect(await settled(runner.done)).toBe(false);
+    f.push({ t: 'snapshot', tick: 1, lite: lite({ pimSky: 0.3 }) });
+    expect(ink.played).toEqual(['ch0_dawn', 'ch0_pim_looks_up']);
+    await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.3 });
+  });
+
   test('an unknown beat tag rejects done and sends nothing, even after a good tag', async () => {
     const f = fakePort();
     const ink = inkOf(CH0_KNOTS, {
@@ -291,6 +348,21 @@ describe('beats', () => {
     expect(f.sent).toEqual([]);
     expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(false);
   });
+
+  test('unsubscribed prompt and camera listeners hear nothing more', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    const prompts: Prompt[] = [];
+    const shots: string[] = [];
+    const offPrompt = runner.onPrompt((p) => prompts.push(p));
+    const offCamera = runner.onCamera((s) => shots.push(s));
+    f.step();
+    offPrompt();
+    offCamera();
+    runner.verb({ verb: 'wake', who: 'pim' });
+    expect(lines(prompts)).toEqual(['ch0_dawn line.']);
+    expect(shots).toEqual(['meadow-wide']);
+  });
 });
 
 describe('bets', () => {
@@ -298,25 +370,59 @@ describe('bets', () => {
     const f = fakePort();
     const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), ch2, flags);
     const prompts = record(runner);
-    f.steps(101); // the bet opens at tick 101
+    f.steps(100); // the bet opens at tick 100
     runner.answerBet('nobody'); // not an option: ignored
     expect(f.speeds).toEqual([1, 0]);
     runner.answerBet('pim');
     expect(f.speeds).toEqual([1, 0, 8]);
+    runner.answerBet('krit'); // an answer is already in: ignored
+    expect(f.speeds).toEqual([1, 0, 8]);
     const kritWins = lite({ berries: { pim: 2, krit: 5, echo: 3 } });
-    f.steps(3149, kritWins); // tick 3250: 7 days of 450 ticks is 3150
+    f.steps(3149, kritWins); // tick 3249: 7 days of 450 ticks is 3150
     expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([]);
     expect(f.speeds).toEqual([1, 0, 8]);
-    f.step([], kritWins); // tick 3251
+    f.step([], kritWins); // tick 3250
     expect(f.speeds).toEqual([1, 0, 8, 1]);
     expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([
       { kind: 'reveal', answer: 'pim', result: 'krit' },
     ]);
     expect(runner.log.filter((e) => e.kind === 'bet')).toEqual([
-      { kind: 'bet', tick: 3251, id: 'ch2_most_berries', answer: 'pim', result: 'krit' },
+      { kind: 'bet', tick: 3250, id: 'ch2_most_berries', answer: 'pim', result: 'krit' },
     ]);
     runner.answerBet('krit'); // the bet is over
     expect(f.speeds).toEqual([1, 0, 8, 1]);
+  });
+
+  test('an answer given inside the bet prompt keeps speed 8 until the reveal', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), ch2, flags);
+    const prompts: Prompt[] = [];
+    runner.onPrompt((p) => {
+      prompts.push(p);
+      if (p.kind === 'bet') runner.answerBet('echo');
+    });
+    f.steps(100);
+    expect(f.speeds).toEqual([1, 0, 8]);
+    f.steps(3150, lite({ berries: { echo: 9, pim: 1 } })); // tick 3250
+    expect(f.speeds).toEqual([1, 0, 8, 1]);
+    expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([
+      { kind: 'reveal', answer: 'echo', result: 'echo' },
+    ]);
+  });
+
+  test('an answer before the bet opens, or with bet locked, is ignored', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), ch2, flags);
+    f.steps(50);
+    runner.answerBet('pim'); // not open yet
+    expect(f.speeds).toEqual([1]);
+
+    const g = fakePort();
+    const locked: Chapter = { ...ch2, verbs: ['wake', 'respond'] };
+    const lockedRunner = createChapterRunner(g.port, inkOf(CH2_KNOTS), locked, flags);
+    g.steps(100); // the bet opens
+    lockedRunner.answerBet('pim');
+    expect(g.speeds).toEqual([1, 0]);
   });
 });
 
@@ -327,8 +433,11 @@ describe('twists', () => {
     const runner = createChapterRunner(f.port, ink, ch3, flags);
     const prompts = record(runner);
     const still = lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 } });
-    f.steps(12600, still); // windows end at ticks 3151, 6301, 9451, 12601
+    f.step([], still);
+    expect(runner.verb({ verb: 'place', x: 300, y: 200 })).toBe(true); // ch3 opens the window on place
+    f.steps(12599, still); // windows end at ticks 3151, 6301, 9451, 12601
     expect(f.sent).toEqual([
+      { tick: 1, cmd: { t: 'place', kind: 'bench', x: 300, y: 200 } },
       { tick: 3151, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
       { tick: 6301, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
       { tick: 9451, cmd: { t: 'arrangeMeeting', a: 'pim', b: 'echo' } },
@@ -343,7 +452,15 @@ describe('twists', () => {
     ]);
     await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: false, friendThreads: 1 });
     f.steps(5000, still);
-    expect(f.sent).toHaveLength(3);
+    expect(f.sent).toHaveLength(4);
+  });
+
+  test('with opensOn, the window stays shut until that verb', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
+    f.steps(20000, lite({ metrics: { averageWarmth: 0.5, friendPairs: 9 } }));
+    expect(f.sent).toEqual([]);
+    expect(await settled(runner.done)).toBe(false);
   });
 
   test('the bench twist fires on the sim metrics and the flags come from the snapshot', async () => {
@@ -355,19 +472,20 @@ describe('twists', () => {
     expect(await settled(runner.done)).toBe(false); // pairs rose by 3, warmth only by 0.05
     f.step([], lite({ metrics: { averageWarmth: 0.25, friendPairs: 4 }, bench: true }));
     await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: true, friendThreads: 4 });
-    expect(f.sent.map((s) => s.cmd)).toEqual([{ t: 'place', kind: 'bench', x: 300, y: 200 }]);
+    expect(cmds(f)).toEqual([{ t: 'place', kind: 'bench', x: 300, y: 200 }]);
     expect(runner.log.filter((e) => e.kind === 'twist')).toEqual([
       { kind: 'twist', tick: 21, id: 'benchWarmsVillage', fired: true, retries: 0 },
     ]);
   });
 
-  test('Krit exploiting Pim needs the give and the keep in one step; then pimScar is true', async () => {
+  test('Krit exploiting Pim needs the give and the keep in one step; only then the exploit beat plays', async () => {
     const f = fakePort();
     const ink = inkOf(CH2_KNOTS);
     const runner = createChapterRunner(f.port, ink, ch2, { ...flags, pimScar: false });
     f.steps(10);
     f.step([gift('pim', 'krit', 'give')]);
     f.step([gift('krit', 'pim', 'keep')]); // a different meeting: no twist
+    expect(ink.played).toEqual(['ch2_intro']); // a gift from Krit alone tells nothing
     expect(await settled(runner.done)).toBe(false);
     f.step([gift('pim', 'krit', 'give'), gift('krit', 'pim', 'keep')]);
     await expect(runner.done).resolves.toEqual({ ...flags, pimScar: true });
@@ -397,9 +515,21 @@ describe('skip', () => {
 });
 
 describe('honesty', () => {
+  test('the one send check throws on a command outside the allowed list', () => {
+    expect(() => {
+      assertRunnerCommand({ t: 'shine', x: 1, y: 1 });
+    }).toThrow("may not send 'shine'");
+    expect(() => {
+      assertRunnerCommand({ t: 'overPoke' });
+    }).toThrow("may not send 'overPoke'");
+    expect(() => {
+      assertRunnerCommand({ t: 'arrangeMeeting', a: 'krit', b: 'pim' });
+    }).not.toThrow();
+  });
+
   test('over a full chapter the runner sends only commands from its allowed list', async () => {
     const f = fakePort();
-    const ink = inkOf(CH2_KNOTS, { ch2_intro: 'Look up. #beat:prompt_sky_bid(pim)' });
+    const ink = inkOf(CH2_KNOTS);
     const runner = createChapterRunner(f.port, ink, ch2, flags);
     f.step();
     expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(true);
@@ -412,9 +542,8 @@ describe('honesty', () => {
     f.steps(12500); // the bet reveals, every retry runs, then the close call ends the chapter
     await expect(runner.done).resolves.toEqual({ ...flags, pimScar: false });
 
-    for (const { cmd } of f.sent) expect(RUNNER_COMMANDS.has(cmd.t)).toBe(true);
-    expect(f.sent.map((s) => s.cmd)).toEqual([
-      { t: 'promptSkyBid', who: 'pim' },
+    expect(cmds(f).filter((c) => !RUNNER_COMMANDS.has(c.t))).toEqual([]);
+    expect(cmds(f)).toEqual([
       { t: 'wake', who: 'pim' },
       { t: 'respond', to: 'pim', reply: 'toward' },
       { t: 'respond', to: 'pim', reply: 'away' },
@@ -426,7 +555,7 @@ describe('honesty', () => {
     expect(f.speeds).toEqual([1, 0, 8, 1]);
     expect(ink.played.at(-1)).toBe('ch2_close_call');
     const accepted = runner.log.flatMap((e) => (e.kind === 'accepted' ? e.list : []));
-    expect(accepted).toEqual(f.sent.map((s) => s.cmd));
+    expect(accepted).toEqual(cmds(f));
   });
 });
 
@@ -434,7 +563,7 @@ describe('honesty', () => {
 describe('over the worker core', () => {
   const SEED = 7;
   const dial = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
-  const scenario: Scenario = {
+  const base: Scenario = {
     valleyId: 'kith',
     season: 'spring',
     creatures: [
@@ -449,29 +578,34 @@ describe('over the worker core', () => {
     'utf8',
   );
   const m0 = new Compiler(`${FLAG_VARS}\n${m0Source}`).Compile().ToJson() ?? '';
+  // A one-day chapter on ch0's 60-second day; the talk beat comes once the light has warmed Pim.
   const config: Chapter = {
     ...ch0,
     id: 'm0',
     verbs: [],
     newVerb: null,
     overrides: {},
-    beats: [{ id: 'talk', trigger: { at: 0 }, actions: [{ ink: 'm0_test' }] }],
+    beats: [{ id: 'talk', trigger: { at: 6 }, actions: [{ ink: 'm0_test' }] }],
     writes: [],
     exit: { afterDays: 1 },
   };
+  const scenario = buildScenario(config, flags, base);
 
   function corePort(): {
     port: SimPort;
     accepted: { tick: number; list: Command[] }[];
+    checkpoints: number[];
     advance(ticks: number): void;
     lite(): WorldLite;
   } {
     const listeners = new Set<(m: FromWorker) => void>();
     const accepted: { tick: number; list: Command[] }[] = [];
+    const checkpoints: number[] = [];
     let last: WorldLite | null = null;
     const core = createWorkerCore(
       (m) => {
         if (m.t === 'accepted') accepted.push({ tick: m.tick, list: m.list });
+        if (m.t === 'checkpoint') checkpoints.push(m.tick);
         if (m.t === 'snapshot') last = m.lite;
         for (const cb of [...listeners]) cb(m);
       },
@@ -505,6 +639,7 @@ describe('over the worker core', () => {
     return {
       port,
       accepted,
+      checkpoints,
       advance: (ticks) => {
         send({ t: 'advance', ticks });
       },
@@ -515,24 +650,28 @@ describe('over the worker core', () => {
     };
   }
 
-  test('Ink reads a sim value, its tag arranges a meeting, and the accepted log replays', async () => {
+  test('Ink reads a sim value, its tag arranges a meeting, the exit meets dusk, and the log replays', async () => {
     const f = corePort();
-    f.port.send([{ t: 'shine', x: 160, y: 130 }]); // the light lens warms Pim's sky
-    f.advance(60);
     const runner = createChapterRunner(f.port, createInk(m0), config, flags);
     const prompts = record(runner);
-    f.advance(1); // tick 61: chapter time 0
+    f.port.send([{ t: 'shine', x: 160, y: 130 }]); // the light lens warms Pim's sky
+    f.advance(60); // tick 60: 6 s in, the talk beat
     const pim = f.lite().creatures.find((c) => c.id === 'pim');
     expect(pim?.skyWarmth).toBeGreaterThan(0);
     const shown = Math.round((pim?.skyWarmth ?? NaN) * 100) / 100;
     expect(lines(prompts)[0]).toContain(String(shown));
-    f.advance(600); // one 60-second day: the afterDays exit
+    f.advance(539); // tick 599: one tick short of a day
+    expect(await settled(runner.done)).toBe(false);
+    expect(f.checkpoints).toEqual([]);
+    f.advance(1); // tick 600: the first dusk checkpoint and the afterDays exit
+    expect(f.checkpoints).toEqual([600]);
     await expect(runner.done).resolves.toEqual(flags);
     expect(runner.log.filter((e) => e.kind === 'accepted')).toEqual([
-      { kind: 'accepted', tick: 61, list: [{ t: 'arrangeMeeting', a: 'krit', b: 'pim' }] },
+      { kind: 'accepted', tick: 0, list: [{ t: 'shine', x: 160, y: 130 }] },
+      { kind: 'accepted', tick: 60, list: [{ t: 'arrangeMeeting', a: 'krit', b: 'pim' }] },
     ]);
 
-    const total = 661;
+    const total = 600;
     const tuning = parseTuning(tuningJson);
     const w: World = createWorld(SEED, tuning, scenario);
     for (let tick = 0; tick < total; tick++) {

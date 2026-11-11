@@ -50,7 +50,10 @@
   "twist": {
     "id": "benchWarmsVillage",
     "withinDays": 7,
-    "retryArrange": ["pim", "echo"]
+    "retryArrange": ["pim", "echo"],
+    "opensOn": {
+      "verb": "place"
+    }
   },
   "reads": ["pimScar"],
   "writes": ["benchPlaced", "friendThreads"],

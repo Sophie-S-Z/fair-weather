@@ -2,9 +2,11 @@
 // exit. Time is sim ticks from `snapshot` messages, never the wall clock, so a run over a direct
 // port is deterministic. Honesty rule (spec 10.2): the runner arranges meetings and answers for
 // the player only as listed in RUNNER_COMMANDS; it never edits a sim result.
-import { z } from 'zod';
+//
+// Nothing runs before the first snapshot: events that arrive earlier wait for it, and verb()
+// returns false. The exit resolves on a snapshot, so written flags read a world that has applied
+// every command the chapter sent before it.
 import flagsJson from '../../content/flags.json';
-import tuningJson from '../../content/tuning.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, SimEvent } from '../sim/types.ts';
 import type { ActionLog } from './action-log.ts';
@@ -14,7 +16,9 @@ import { measureBet } from './bets.ts';
 import { FLAG_KEYS, parseFlags } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
+import { chapterTicksPerDay } from './scenario.ts';
 import type { Chapter, ChapterBeat } from './schema.ts';
+import { tuning } from './tuning.ts';
 import { checkTwist } from './twists.ts';
 import type { VerbInput } from './verbs.ts';
 
@@ -23,12 +27,20 @@ export type Prompt =
   | { kind: 'bet'; question: string; options: string[] }
   | { kind: 'reveal'; answer: string; result: string };
 
+/**
+ * The runner calls `port.speed(1)` when it starts. It leaves the speed where the chapter ends it
+ * (a pause, or a bet's reveal speed after a skip): the end speed belongs to the next runner.
+ */
 export interface ChapterRunner {
   onPrompt(cb: (p: Prompt) => void): () => void;
   /** Camera shots named by beats; render owns the camera. */
   onCamera(cb: (shot: string) => void): () => void;
-  /** False when the verb is locked, the chapter is over, or `respond` has no sky bid to answer. */
+  /**
+   * False when the verb is locked, no snapshot has arrived yet, the chapter is over (or the verb's
+   * beat ended it with an error), or `respond` has no sky bid to answer.
+   */
   verb(v: VerbInput): boolean;
+  /** Ignored unless 'bet' is unlocked, a bet is open with no answer yet, and `option` is listed. */
   answerBet(option: string): void;
   skip(): Flags;
   done: Promise<Flags>;
@@ -45,18 +57,11 @@ export const RUNNER_COMMANDS: ReadonlySet<Command['t']> = new Set<Command['t']>(
   'place',
 ]);
 
-// Story may not import src/sim as values (spec 14.2), so it parses the tuning keys it reads here;
-// src/sim/tuning.ts validates the whole file.
-const tuning = z
-  .object({
-    sim: z.object({ stepsPerSecond: z.number().int().positive() }),
-    story: z.object({
-      honestyRetries: z.number().int().positive(),
-      skyBidReplySeconds: z.number().positive(),
-    }),
-    bet: z.object({ revealSpeed: z.number().positive() }),
-  })
-  .parse(tuningJson);
+/** The one honesty check: throws on a command outside RUNNER_COMMANDS. */
+export function assertRunnerCommand(cmd: Command): void {
+  if (!RUNNER_COMMANDS.has(cmd.t)) throw new Error(`The chapter runner may not send '${cmd.t}'`);
+}
+
 const DEFAULT_FLAGS = parseFlags(flagsJson);
 
 /** The command a player verb sends; `respond` answers `skyBidder`, the oldest unanswered sky bid. */
@@ -84,7 +89,11 @@ function actor(e: SimEvent): string {
   }
 }
 
-/** Where each written flag comes from at the exit; undefined falls back to content/flags.json. */
+/**
+ * Where each written flag comes from at the exit; undefined falls back to content/flags.json.
+ * pimSkyOpinion is the sign of Pim's sky warmth (how Pim feels about the sky): above 0 gives 1,
+ * below 0 gives -1, exactly 0 gives 0.
+ */
 const FLAG_SOURCES: {
   [K in FlagKey]: (lite: WorldLite | null, twistFired: boolean | undefined) => Flags[K] | undefined;
 } = {
@@ -110,20 +119,22 @@ export function createChapterRunner(
   flags: Flags,
 ): ChapterRunner {
   const sps = tuning.sim.stepsPerSecond;
-  const ticksPerDay = sps * config.dayLengthSeconds;
+  const ticksPerDay = chapterTicksPerDay(config);
   const log: ActionLog = [];
   const promptListeners = new Set<(p: Prompt) => void>();
   const cameraListeners = new Set<(shot: string) => void>();
 
-  let origin: number | null = null; // tick of the first snapshot: chapter time 0
+  let origin: number | null = null; // chapter time 0, set by the first snapshot
   let tick = 0;
   let latest: WorldLite | null = null;
   let stepEvents: SimEvent[] = []; // the events of the step that the next snapshot follows
+  const early: { tick: number; list: SimEvent[] }[] = []; // events before the first snapshot
   const firedBeats = new Set<string>();
   const skyBids: { who: string; tick: number }[] = [];
   let bet: { phase: 'idle' | 'open' | 'revealed' } | { phase: 'running'; answer: string; until: number } = {
     phase: 'idle',
   };
+  // The open twist window; twistFired is set once the twist fired or the close call played.
   let twist: { before: WorldLite; deadline: number; retries: number } | null = null;
   let twistFired: boolean | undefined;
   let exitReady = false;
@@ -138,10 +149,15 @@ export function createChapterRunner(
   });
 
   function send(cmd: Command): void {
-    if (!RUNNER_COMMANDS.has(cmd.t)) throw new Error(`The chapter runner may not send '${cmd.t}'`);
+    if (finished) return;
+    assertRunnerCommand(cmd);
     port.send([cmd]);
   }
+  function speed(multiplier: number): void {
+    if (!finished) port.speed(multiplier);
+  }
   function prompt(p: Prompt): void {
+    if (finished) return;
     for (const cb of [...promptListeners]) cb(p);
   }
 
@@ -166,10 +182,11 @@ export function createChapterRunner(
   }
 
   function act(a: ChapterBeat['actions'][number] | BeatAction): void {
+    if (finished) return;
     if ('ink' in a) say(a.ink);
     else if ('arrange' in a) send({ t: 'arrangeMeeting', a: a.arrange[0], b: a.arrange[1] });
     else if ('camera' in a) for (const cb of [...cameraListeners]) cb(a.camera);
-    else if ('pause' in a) port.speed(0);
+    else if ('pause' in a) speed(0);
     else if ('promptSkyBid' in a) send({ t: 'promptSkyBid', who: a.promptSkyBid });
     else openBet();
   }
@@ -179,6 +196,7 @@ export function createChapterRunner(
     if (bet.phase !== 'idle') return;
     bet = { phase: 'open' };
     const question = play(config.bet.knot).join(' ');
+    speed(0); // before the prompt, so an answer given inside the prompt callback keeps its speed
     prompt({ kind: 'bet', question, options: [...config.bet.options] });
   }
 
@@ -210,6 +228,12 @@ export function createChapterRunner(
     finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired)));
   }
 
+  /** Opens the twist window once, at `tick`; retries count from here. */
+  function openTwist(): void {
+    if (!config.twist || !latest || twist || twistFired !== undefined) return;
+    twist = { before: latest, deadline: tick + config.twist.withinDays * ticksPerDay, retries: 0 };
+  }
+
   function checkTwistWindow(t: number, lite: WorldLite): void {
     if (!twist || !config.twist) return;
     const { id, withinDays, retryArrange } = config.twist;
@@ -228,7 +252,11 @@ export function createChapterRunner(
     }
     log.push({ kind: 'twist', tick: t, id, fired: twistFired, retries: twist.retries });
     twist = null;
-    if (!twistFired) say(`${config.id}_close_call`);
+    if (twistFired) {
+      for (const beat of config.beats) if (!firedBeats.has(beat.id) && 'twist' in beat.trigger) runBeat(beat);
+    } else {
+      say(`${config.id}_close_call`);
+    }
     if ('onTwist' in config.exit) exitReady = true;
   }
 
@@ -236,9 +264,8 @@ export function createChapterRunner(
     latest = lite;
     tick = t;
     if (origin === null) {
-      origin = t;
-      if (config.twist)
-        twist = { before: lite, deadline: t + config.twist.withinDays * ticksPerDay, retries: 0 };
+      origin = t - 1; // the tick the first step ran: chapter time 0
+      if (!config.twist?.opensOn) openTwist();
     }
     const replyTicks = tuning.story.skyBidReplySeconds * sps;
     for (let bid = skyBids[0]; bid && t >= bid.tick + replyTicks; bid = skyBids[0]) {
@@ -249,7 +276,7 @@ export function createChapterRunner(
       const answer = bet.answer;
       const measured = String(measureBet(config.bet.metric, lite));
       bet = { phase: 'revealed' };
-      port.speed(1);
+      speed(1);
       log.push({ kind: 'bet', tick: t, id: config.bet.id, answer, result: measured });
       prompt({ kind: 'reveal', answer, result: measured });
     }
@@ -259,10 +286,18 @@ export function createChapterRunner(
       if (firedBeats.has(beat.id) || !('at' in beat.trigger)) continue;
       if (t - origin >= Math.round(beat.trigger.at * sps)) runBeat(beat);
     }
+    // Events from before the first snapshot run after chapter time 0's beats.
+    for (const e of early.splice(0)) onEvents(e.tick, e.list);
+    stepEvents = [];
     if ('afterDays' in config.exit && t - origin >= config.exit.afterDays * ticksPerDay) exitReady = true;
+    maybeFinish();
   }
 
   function onEvents(t: number, list: SimEvent[]): void {
+    if (origin === null) {
+      early.push({ tick: t, list });
+      return;
+    }
     stepEvents = list;
     for (const e of list) {
       if (e.t === 'skyBid') skyBids.push({ who: e.who, tick: t });
@@ -280,14 +315,13 @@ export function createChapterRunner(
       if (m.t === 'accepted') log.push({ kind: 'accepted', tick: m.tick, list: m.list });
       else if (m.t === 'events') onEvents(m.tick, m.list);
       else if (m.t === 'snapshot') onSnapshot(m.tick, m.lite);
-      maybeFinish();
     } catch (e) {
       fail(e);
     }
   }
 
   const off = port.onMessage(handle);
-  port.speed(1);
+  port.speed(1); // the chapter starts at normal speed
 
   return {
     onPrompt(cb) {
@@ -299,7 +333,7 @@ export function createChapterRunner(
       return () => cameraListeners.delete(cb);
     },
     verb(v) {
-      if (finished || !config.verbs.includes(v.verb)) return false;
+      if (finished || origin === null || !config.verbs.includes(v.verb)) return false;
       const cmd = verbCommand(v, skyBids[0]?.who);
       if (!cmd) return false;
       try {
@@ -310,16 +344,17 @@ export function createChapterRunner(
           if (!firedBeats.has(beat.id) && 'verb' in beat.trigger && beat.trigger.verb === v.verb)
             runBeat(beat);
         }
-        maybeFinish();
+        if (config.twist?.opensOn?.verb === v.verb) openTwist();
       } catch (e) {
         fail(e);
       }
-      return true;
+      return !finished;
     },
     answerBet(option) {
-      if (finished || bet.phase !== 'open' || !config.bet?.options.includes(option)) return;
+      if (finished || !config.verbs.includes('bet') || bet.phase !== 'open') return;
+      if (!config.bet?.options.includes(option)) return;
       bet = { phase: 'running', answer: option, until: tick + config.bet.afterDays * ticksPerDay };
-      port.speed(tuning.bet.revealSpeed);
+      speed(tuning.bet.revealSpeed);
     },
     skip() {
       const skipped = withWrites((key) => DEFAULT_FLAGS[key]);

@@ -40,9 +40,6 @@
       "actions": [
         {
           "openBet": true
-        },
-        {
-          "pause": true
         }
       ]
     },
@@ -60,8 +57,7 @@
     {
       "id": "exploit_seen",
       "trigger": {
-        "event": "gift",
-        "who": "krit"
+        "twist": true
       },
       "actions": [
         {

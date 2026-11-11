@@ -26,6 +26,15 @@ export default defineConfig({
         test: {
           name: 'golden',
           include: ['tests/golden/**/*.test.ts'],
+          exclude: ['tests/golden/ch*.test.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 't3',
+          include: ['tests/golden/ch*.test.ts'],
+          testTimeout: 600_000,
         },
       },
     ],

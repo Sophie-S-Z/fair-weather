@@ -14,6 +14,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:prop
+      - run: npm run test:t3
       - name: Validate content
         run: npm run validate-content
       - name: Build (development mode, placeholders allowed until writers deliver)

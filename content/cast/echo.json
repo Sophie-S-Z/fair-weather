@@ -1,4 +1,9 @@
 {
   "id": "echo",
-  "scale": 1.2
+  "scale": 1.2,
+  "timbre": {
+    "wave": "triangle",
+    "attack": 0.03,
+    "decay": 1.0
+  }
 }

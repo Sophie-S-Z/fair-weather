@@ -5,6 +5,8 @@ import { Compiler } from 'inkjs/compiler/Compiler';
 import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
+import { AudioSchema } from '../../src/audio/schema.ts';
+import { VoiceSchema } from '../../src/audio/voices.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
@@ -60,11 +62,19 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`${f}: ${(e as Error).message}`);
     }
   }
+  if (existsSync(join(content, 'audio.json'))) {
+    try {
+      AudioSchema.parse(JSON.parse(readFileSync(join(content, 'audio.json'), 'utf8')));
+    } catch (e) {
+      errors.push(`audio.json: ${(e as Error).message}`);
+    }
+  }
   for (const [dir, schema] of [
     ['rigs', RigSchema],
     ['palettes', PaletteSchema],
     ['scenes', SceneSchema],
     ['cast', CastSchema],
+    ['cast', VoiceSchema],
   ] as const) {
     for (const f of filesIn(join(content, dir), '.json')) {
       try {

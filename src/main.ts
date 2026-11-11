@@ -11,6 +11,9 @@ import ch1 from '../content/chapters/ch1.json';
 import ch2 from '../content/chapters/ch2.json';
 import ch3 from '../content/chapters/ch3.json';
 import inkStory from '../content/ink/main.ink';
+import { createAudioEngine } from './audio/engine.ts';
+import { soundFor } from './audio/event-sounds.ts';
+import { VoiceSchema, type Timbre } from './audio/voices.ts';
 import { createHints } from './input/hints.ts';
 import { createKeyboard } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
@@ -22,7 +25,7 @@ import { PaletteSchema } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
-import type { Scenario } from './sim/types.ts';
+import type { Scenario, Season } from './sim/types.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
 import { createInk } from './story/ink.ts';
@@ -69,6 +72,13 @@ const cast = new Map<string, Cast>(
     return [c.id, c];
   }),
 );
+// Audio reads its own field (`timbre`) from the same cast files; render's CastSchema ignores it.
+const timbres = new Map<string, Timbre>(
+  Object.values(castFiles).map((json) => {
+    const v = VoiceSchema.parse(json);
+    return [v.id, v.timbre];
+  }),
+);
 const palette = PaletteSchema.parse(springJson);
 const scene = SceneSchema.parse(meadowJson);
 const chapters = [ch0, ch1, ch2, ch3].map((c) => ChapterSchema.parse(c));
@@ -99,6 +109,33 @@ document.addEventListener('visibilitychange', () => {
   send(hidden ? 0 : wanted);
 });
 const port: SimPort = { ...host, speed };
+
+// Sound (spec 11.5): the engine makes no AudioContext until the first unmute.
+let season: Season = 'spring';
+const engine = createAudioEngine(() => new AudioContext(), {
+  season: () => season,
+  voice(who) {
+    const timbre = timbres.get(who);
+    const length = rigs.get(who)?.length;
+    return timbre && length !== undefined ? { timbre, lineLength: length } : undefined;
+  },
+});
+settings.subscribe((s) => {
+  engine.setEnabled(s.sound);
+});
+host.onMessage((m) => {
+  if (m.t === 'events') {
+    for (const e of m.list) {
+      const cue = soundFor(e);
+      if (cue) engine.play(cue);
+    }
+  } else if (m.t === 'snapshot') {
+    const cells = m.lite.fog.cells;
+    let sum = 0;
+    for (const c of cells) sum += c;
+    engine.setFog(cells.length > 0 ? sum / cells.length : 0);
+  }
+});
 
 const devChapter = Number(new URLSearchParams(location.search).get('chapter'));
 const firstChapter =
@@ -148,6 +185,7 @@ const game: GameService = {
   },
   startChapter(chapter, flags) {
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);
+    season = scenario.season;
     host.post({ t: 'init', seed: 1, tuning: tuningJson, scenario });
     return createChapterRunner(port, ink, chapter, flags);
   },

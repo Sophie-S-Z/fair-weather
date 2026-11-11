@@ -42,21 +42,17 @@ export function createSettingsStore(
     analytics: false,
   };
   const store = writable<Settings>(settings);
+  let first = true;
   store.subscribe((s) => {
+    if (first) {
+      first = false;
+      return;
+    }
     try {
       storage.save({ ...s, analytics: false });
     } catch {
       // Blocked storage must not break the game.
     }
   });
-  const { subscribe, set, update } = store;
-  return {
-    subscribe,
-    set: (s) => {
-      set({ ...s, analytics: false });
-    },
-    update: (f) => {
-      update((s) => ({ ...f(s), analytics: false }));
-    },
-  };
+  return store;
 }

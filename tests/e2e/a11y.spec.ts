@@ -20,6 +20,9 @@ test('high contrast has no serious axe issues', async ({ page }) => {
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByLabel('High contrast').check();
   expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 test('Tab reaches every enabled button in order; Enter works', async ({ page }) => {
@@ -32,7 +35,17 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Settings' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-  await page.getByRole('button', { name: 'Back' }).focus();
+  const order = [
+    page.getByLabel('Text size'),
+    page.getByLabel('High contrast'),
+    page.getByLabel('Reduced motion'),
+    page.getByLabel('Sound'),
+    page.getByRole('button', { name: 'Back' }),
+  ];
+  for (const el of order) {
+    await page.keyboard.press('Tab');
+    await expect(el).toBeFocused();
+  }
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });

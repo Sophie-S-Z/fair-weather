@@ -46,4 +46,36 @@ describe('settings store', () => {
       analytics: false,
     });
   });
+
+  it('does not save until something changes, so the system default keeps applying', () => {
+    const { storage, box } = memory();
+    const store = createSettingsStore(storage, true);
+    expect(box.saved).toBeUndefined();
+    store.update((s) => ({ ...s, sound: true }));
+    expect(box.saved).toMatchObject({ reducedMotion: true, sound: true });
+  });
+
+  it('gives defaults when load throws', () => {
+    const storage: SettingsStorage = {
+      load: () => {
+        throw new Error('blocked');
+      },
+      save: () => undefined,
+    };
+    expect(get(createSettingsStore(storage, false)).textScale).toBe(1);
+  });
+
+  it('does not throw when save throws', () => {
+    const storage: SettingsStorage = {
+      load: () => undefined,
+      save: () => {
+        throw new Error('blocked');
+      },
+    };
+    const store = createSettingsStore(storage, false);
+    expect(() => {
+      store.update((s) => ({ ...s, sound: true }));
+    }).not.toThrow();
+    expect(get(store).sound).toBe(true);
+  });
 });

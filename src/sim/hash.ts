@@ -3,6 +3,7 @@
 // bytes, strings as UTF-16 code units, records and maps sorted by key. A structured clone
 // (ADR 0009) keeps Maps and Float32Arrays, so it hashes the same.
 import type { World } from './types.ts';
+import { byCodeUnit } from './math.ts';
 
 const FNV_PRIME = 0x01000193;
 const LANE_A = 0x811c9dc5; // the FNV-1a 32-bit offset basis
@@ -19,10 +20,6 @@ const ARRAY = 7;
 const RECORD = 8;
 const MAP = 9;
 const FLOAT32_ARRAY = 10;
-
-function byCodeUnit(x: string, y: string): number {
-  return x < y ? -1 : x > y ? 1 : 0;
-}
 
 function isPlainRecord(v: object): boolean {
   const proto: unknown = Object.getPrototypeOf(v);

@@ -2,7 +2,7 @@
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
-import { clamp } from './math.ts';
+import { byCodeUnit, clamp } from './math.ts';
 
 const VISIT_CELLS = 32; // 8 columns by 4 rows (ADR 0005)
 
@@ -123,18 +123,21 @@ export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[]
     const other = byId(world, tie.a === c.id ? tie.b : tie.a);
     if (other && other.state !== 'away') out.push(other);
   }
-  return out.sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+  return out.sort((x, y) => byCodeUnit(x.id, y.id));
 }
 
 export function friendCount(world: World, c: Creature, tuning: Tuning): number {
   return friendsOf(world, c, tuning).length;
 }
 
-/** Mean warmth over tie sides whose two creatures are not away (ADR 0004 item 6). */
+/**
+ * Mean warmth over tie sides whose two creatures are not away (ADR 0004 item 6). Summed in tie-key
+ * order, as hash.ts does, so two worlds with the same hash give the same float.
+ */
 export function averageWarmth(world: World): number {
   let sum = 0;
   let n = 0;
-  for (const tie of world.ties.values()) {
+  for (const [, tie] of [...world.ties].sort(([x], [y]) => byCodeUnit(x, y))) {
     const a = byId(world, tie.a);
     const b = byId(world, tie.b);
     if (!a || !b || a.state === 'away' || b.state === 'away') continue;

@@ -37,3 +37,8 @@ export function dist2(ax: number, ay: number, bx: number, by: number): number {
   const dy = ay - by;
   return dx * dx + dy * dy;
 }
+
+/** Sort comparator for strings in UTF-16 code-unit order (ADR 0001 item 6, ADR 0002). */
+export function byCodeUnit(x: string, y: string): number {
+  return x < y ? -1 : x > y ? 1 : 0;
+}

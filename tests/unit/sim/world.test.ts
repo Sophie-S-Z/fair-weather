@@ -141,3 +141,17 @@ test('friendsOf returns friends sorted by id, whatever the tie insertion order',
   }
   expect(friendsOf(w, pim, tuning).map((c) => c.id)).toEqual(['bell', 'echo', 'moss', 'wisp']);
 });
+
+test('averageWarmth does not depend on tie insertion order', () => {
+  const pairs = [
+    ['pim', 'krit', 0.1],
+    ['pim', 'echo', 0.2],
+    ['krit', 'echo', 0.3],
+  ] as const;
+  const build = (order: readonly (typeof pairs)[number][]) => {
+    const w = createWorld(1, tuning, scenario);
+    for (const [a, b, warmth] of order) ensureTie(w, byId(w, a)!, byId(w, b)!, tuning).ab.warmth = warmth;
+    return averageWarmth(w);
+  };
+  expect(build(pairs)).toBe(build([...pairs].reverse()));
+});

@@ -4,6 +4,13 @@ import { devices, expect, test, type Locator, type Page } from '@playwright/test
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
 
 const live = (page: Page) => page.locator('[aria-live="polite"]');
+/** Presses Tab until the status line names `name`: ch0's Pim beats wait for the sim to wake Pim. */
+const tabTo = async (page: Page, name: string) => {
+  // The status line is a live region (role=status), so a screen reader hears each pick.
+  const picked = page.getByRole('status').filter({ hasText: new RegExp(`^Picked: ${name}(,|$)`) });
+  for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+  await expect(picked).toBeVisible();
+};
 const scene = (page: Page) => page.getByRole('application', { name: 'The meadow' });
 const dev = (page: Page) =>
   page.evaluate(
@@ -26,8 +33,7 @@ test('by keyboard: wake in chapter 0, then a slow reply still finishes chapter 1
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
   await expect(live(page)).toContainText('The dawn');
-  await page.keyboard.press('Tab');
-  await expect(page.getByText(/^Picked: /)).toBeVisible();
+  await tabTo(page, 'Pim');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Chapter 1' })).toBeVisible({ timeout: 20_000 });
   await expect(live(page)).toContainText('When Pim waves');
@@ -45,12 +51,38 @@ test('by keyboard: wake in chapter 0, then a slow reply still finishes chapter 1
   await expect(ch2).toBeVisible();
 });
 
-test('Skip chapter moves to the next chapter', async ({ page }) => {
+test('Skip chapter moves to the next chapter, whose heading names it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { name: 'Chapter 0: First Light' })).toBeVisible();
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  await expect(page.getByRole('heading', { name: 'Chapter 1: The Wave' })).toBeVisible();
+});
+
+test("the player's 2x survives the next chapter's start", async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+  await page.getByRole('button', { name: '2×' }).click();
   await page.getByRole('button', { name: 'Skip chapter' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '2×' })).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(2);
+});
+
+test('chapter 3: one bench, the tray shows it used, and a reply with no wave gets a line', async ({
+  page,
+}) => {
+  await page.goto('/?chapter=3');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(live(page)).toContainText('A crooked tree'); // the runner takes verbs after a snapshot
+  const bench = page.getByRole('group', { name: 'Tools' }).getByRole('button', { name: /Bench/ });
+  await page.keyboard.press('Enter');
+  await expect(live(page)).toContainText('A bench sits under the tree');
+  await expect(bench).toContainText('used');
+  await page.keyboard.press('2');
+  await page.keyboard.press('Enter');
+  await expect(live(page)).toContainText('Nobody is waving at the sky');
 });
 
 test('the notes drawer opens with a button, takes focus, and closes with Escape', async ({ page }) => {
@@ -159,13 +191,22 @@ test('Continue is enabled after a chapter has started, and resumes it', async ({
 
 const FAST = '10';
 const SCENE_ASPECT = 1600 / 900; // content/scenes/kith-meadow.json; the view fits it in the canvas
+/** Pim's feet in content/scenarios/m0.json; Pim sleeps there at ch0's dawn, so the search starts there. */
+const PIM_START = { x: 160, y: 130 };
 const endTitle = (page: Page) => page.getByRole('heading', { name: 'End of the first spring' });
 const chapter = (page: Page, n: number) => page.getByRole('heading', { name: `Chapter ${String(n)}` });
 
-/** Canvas points on a grid over the fitted scene, top row first, where no HUD element is on top. */
-async function scenePoints(page: Page, step: number): Promise<{ x: number; y: number }[]> {
+/**
+ * Canvas points on a grid over the fitted scene where no HUD element is on top, nearest first to
+ * the scene point `near` (the wide shot shows the whole scene, so scene units map onto the fit).
+ */
+async function scenePoints(
+  page: Page,
+  step: number,
+  near: { x: number; y: number },
+): Promise<{ x: number; y: number }[]> {
   return page.evaluate(
-    ({ step, aspect }) => {
+    ({ step, aspect, near }) => {
       const canvas = document.querySelector('canvas');
       if (!canvas) return [];
       const r = canvas.getBoundingClientRect();
@@ -177,17 +218,21 @@ async function scenePoints(page: Page, step: number): Promise<{ x: number; y: nu
       for (let y = top + step / 2; y < top + h; y += step)
         for (let x = left + step / 2; x < left + w; x += step)
           if (document.elementFromPoint(x, y) === canvas) out.push({ x, y });
-      return out;
+      const nx = left + (near.x / 1600) * w;
+      const ny = top + (near.y / 900) * h;
+      return out.sort((a, b) => Math.hypot(a.x - nx, a.y - ny) - Math.hypot(b.x - nx, b.y - ny));
     },
-    { step, aspect: SCENE_ASPECT },
+    { step, aspect: SCENE_ASPECT, near },
   );
 }
 
 /**
- * Clicks or taps across the scene until the status line names a picked creature, and so wakes it
- * with the Wake tool. It pauses first when it can, as a slow player might, so no sim days pass
- * while it looks (a sleeper left hungry for days goes away). It gives up when the chapter heading
- * `title` goes away or a dialog opens, so it never clicks into the next screen.
+ * Clicks or taps across the scene, nearest Pim's spot first, until the status line names Pim as
+ * picked, and so wakes each creature it hits with the Wake tool (ch0's Pim beats wait for Pim's
+ * wake). It pauses first when it can, as a slow player might, so no sim days pass while it looks.
+ * The status has no state while paused (no snapshot), so "Picked: Pim" alone counts. It gives up
+ * when the chapter heading `title` goes away or a dialog opens, so it never clicks into the next
+ * screen.
  */
 async function pickByPointer(page: Page, touch: boolean, step: number, title: string): Promise<boolean> {
   const press = (x: number, y: number) => (touch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y));
@@ -196,16 +241,18 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
   const pausing = (await pause.isEnabled()) && (await pause.getAttribute('aria-pressed')) === 'false';
   if (pausing) await toggle(pause);
   let found = false;
-  for (const { x, y } of await scenePoints(page, step)) {
+  for (const { x, y } of await scenePoints(page, step, PIM_START)) {
     await press(x, y);
     const now = await page.evaluate(
-      (t) => ({
-        picked: [...document.querySelectorAll('p')].some((p) => p.textContent.startsWith('Picked: ')),
+      ({ t, w }) => ({
+        picked: [...document.querySelectorAll('p')].some((p) =>
+          new RegExp(`^Picked: ${w}(,|$)`).test(p.textContent),
+        ),
         gone:
           document.querySelector('h1')?.textContent !== t ||
           document.querySelector('[role="dialog"]') !== null,
       }),
-      title,
+      { t: title, w: 'Pim' },
     );
     found = now.picked;
     if (now.picked || now.gone) break;
@@ -220,8 +267,8 @@ async function tryClick(button: Locator): Promise<void> {
 }
 
 /**
- * The auto-player: it reads the screen and acts with the active tool, as a player would. It wakes
- * one creature per chapter, answers every bet with its last option, holds still for every wave, and
+ * The auto-player: it reads the screen and acts with the active tool, as a player would. It clicks
+ * until it wakes Pim in chapter 0, answers every bet with its last option, holds still for every wave, and
  * sets one bench at the spot nearest the middle of the scene.
  */
 async function autoPlay(page: Page): Promise<void> {
@@ -285,12 +332,11 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await page.goto(`/?fast=${FAST}`);
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
-  // Chapter 0: Tab picks a sleeper, Enter wakes it.
+  // Chapter 0: Tab picks Pim, Enter wakes Pim.
   await expect(chapter(page, 0)).toBeVisible();
   await expect(scene(page)).toBeFocused();
   await expect(live(page)).toContainText('The dawn'); // the first snapshot is in, so Tab has creatures
-  await page.keyboard.press('Tab');
-  await expect(page.getByText(/^Picked: /)).toBeVisible();
+  await tabTo(page, 'Pim');
   await page.keyboard.press('Enter');
   // Chapter 1: the digit picks Respond, R picks Rumble, Enter answers the wave.
   await expect(chapter(page, 1)).toBeVisible({ timeout: 60_000 });
@@ -335,13 +381,13 @@ test.describe('on a phone', () => {
     isMobile: async ({ browserName }, use) => use(browserName !== 'firefox'),
   });
 
-  test('a tap wakes a creature and finishes chapter 0', async ({ page }) => {
+  test('a tap wakes Pim and finishes chapter 0', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto(`/?fast=${FAST}`);
     await page.getByRole('button', { name: 'Begin' }).tap();
     await expect(chapter(page, 0)).toBeVisible();
     await expect(live(page)).toContainText('The dawn'); // the scene is drawn, so there is a creature to tap
-    expect(await pickByPointer(page, true, 8, 'Chapter 0')).toBe(true);
+    expect(await pickByPointer(page, true, 8, 'Chapter 0: First Light')).toBe(true);
     await expect(chapter(page, 1)).toBeVisible({ timeout: 60_000 });
   });
 });
@@ -370,7 +416,7 @@ test.describe('with reduced motion', () => {
     await expect(chapter(page, 0)).toBeVisible();
     await expect(scene(page)).toBeFocused();
     await expect(live(page)).toContainText('The dawn');
-    await page.keyboard.press('Tab');
+    await tabTo(page, 'Pim');
     await page.keyboard.press('Enter');
     await expect(chapter(page, 1)).toBeVisible({ timeout: 60_000 });
     const [a, b] = await pausedFrames(page);

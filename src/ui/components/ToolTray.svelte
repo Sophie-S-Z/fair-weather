@@ -4,6 +4,7 @@
 
   let {
     tools,
+    used = [],
     active,
     reply,
     ghost,
@@ -11,6 +12,8 @@
     onReply,
   }: {
     tools: readonly Verb[];
+    /** Tools used up in this chapter; their buttons say so. */
+    used?: readonly Verb[];
     active: Verb | null;
     /** The reply Enter sends with the respond tool. */
     reply: BidReply;
@@ -41,7 +44,7 @@
           }}
         >
           <kbd>{i + 1}</kbd>
-          {LABELS[tool]}
+          {LABELS[tool]}{used.includes(tool) ? ' ([PLACEHOLDER] used)' : ''}
         </button>
       </span>
     {/each}

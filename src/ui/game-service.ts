@@ -33,8 +33,9 @@ export interface GameService {
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
   onSnapshot(cb: (lite: WorldLite) => void): () => void;
   /**
-   * Sim speed (ADR 0011); 0 pauses. While the tab is hidden the sim gets 0 and this speed waits for
-   * the tab to be visible. `currentSpeed` is the last one asked for, by the runner or the screen.
+   * The player's sim speed (ADR 0011): 0 pauses, 1 or 2 is the player's multiplier, which the sim
+   * applies on top of the runner's speed (src/ui/speed.ts). While the tab is hidden the sim gets 0.
+   * `currentSpeed` is the runner's speed times the player's multiplier.
    */
   speed(multiplier: number): void;
   currentSpeed(): number;

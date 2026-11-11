@@ -18,6 +18,8 @@ export type InputContext = {
   setReply: (r: BidReply) => void;
   act: (v: VerbInput) => void;
   togglePause: () => void;
+  /** The one owner of the picked creature: Tab, a click, and the HUD all read and write it here. */
+  picked: () => string | null;
   select: (id: string | null) => void;
   moveCursor: (p: Point) => void;
 };
@@ -33,8 +35,6 @@ const ARROWS: Record<string, Point> = {
 const REPLY_KEYS: Record<string, BidReply> = { g: 'toward', h: 'away', r: 'against' };
 
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
-  let picked: string | null = null;
-
   const activeTool = (): Verb | null => {
     const tools = keyboardTools(ctx.tools());
     const t = ctx.tool();
@@ -65,14 +65,15 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
         .filter((c) => c.state !== 'away')
         .map((c) => c.id);
       if (ids.length === 0) return;
+      const picked = ctx.picked();
       const i = picked === null ? -1 : ids.indexOf(picked);
       const n = ids.length;
       const next = k.shiftKey ? (i <= 0 ? n - 1 : i - 1) : (i + 1) % n;
-      picked = ids[next] as string;
-      ctx.select(picked);
+      ctx.select(ids[next] as string);
       k.preventDefault();
     } else if (key === 'Enter') {
       const v = activeTool();
+      const picked = ctx.picked();
       if (v === 'wake' && picked !== null) ctx.act({ verb: 'wake', who: picked });
       else if (v === 'respond') ctx.act({ verb: 'respond', reply: ctx.reply() });
       else if (v === 'place') ctx.act({ verb: 'place', ...snapToBench(ctx.cursor(), ctx.benchSpots()) });

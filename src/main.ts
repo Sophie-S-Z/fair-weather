@@ -28,6 +28,7 @@ import type { SaveV1 } from './persist/format.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
+import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
@@ -37,8 +38,12 @@ import { ChapterSchema } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
+import { createSpeedControl } from './ui/speed.ts';
 
 const KEY = 'fair-weather.settings';
+/** Every player gets the same valley in M1; seed links come in M4. */
+const SEED = 1;
+const tuning = parseTuning(tuningJson);
 
 const storage: SettingsStorage = {
   load() {
@@ -101,21 +106,17 @@ function send(multiplier: number): void {
   if (import.meta.env.DEV) dev.speeds.push(multiplier);
   host.speed(multiplier * fast);
 }
-// No time passes unseen: while the tab is hidden the sim gets speed 0, whatever the runner or the
-// screen asks for; the speed they asked for last is sent when the tab is visible again.
-let wanted = 0;
-let hidden = document.visibilityState === 'hidden';
-function speed(multiplier: number): void {
-  wanted = multiplier;
-  send(hidden ? 0 : multiplier);
-}
+// The runner's speed times the player's 1x or 2x; 0 while the tab is hidden (src/ui/speed.ts).
+const speedControl = createSpeedControl(send, document.visibilityState === 'hidden');
 document.addEventListener('visibilitychange', () => {
-  const now = document.visibilityState === 'hidden';
-  if (now === hidden) return;
-  hidden = now;
-  send(hidden ? 0 : wanted);
+  speedControl.setHidden(document.visibilityState === 'hidden');
 });
-const port: SimPort = { ...host, speed };
+const port: SimPort = {
+  ...host,
+  speed: (m) => {
+    speedControl.runner(m);
+  },
+};
 
 // Sound (spec 11.5): the engine makes no AudioContext until the first unmute.
 let season: Season = 'spring';
@@ -194,7 +195,7 @@ const game: GameService = {
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
     const view = createMeadowView(app, scene, rigs, palette, {
-      lensRadius: tuningJson.light.lensRadius,
+      lensRadius: tuning.light.lensRadius,
       cast,
     });
     const local = (x: number, y: number): [number, number] => {
@@ -246,7 +247,7 @@ const game: GameService = {
     resuming = null;
     host.post({
       t: 'init',
-      seed: 1,
+      seed: SEED,
       tuning: tuningJson,
       scenario,
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
@@ -258,12 +259,12 @@ const game: GameService = {
         async ({ world }) =>
           (await slotsReady).save('auto', {
             version: 1,
-            seed: 1,
+            seed: SEED,
             tuningHash,
             ink: inkState,
             flags,
             chapterId: chapter.id,
-            log: [],
+            log: [], // the action log is kept from M2 (spec 10.4; the myth reads it)
             checkpoint: world,
           }),
         () => undefined, // the worker gave up; the chapter plays without this save
@@ -276,14 +277,16 @@ const game: GameService = {
       if (m.t === 'snapshot') cb(m.lite);
     });
   },
-  speed,
-  currentSpeed: () => wanted,
+  speed: (m) => {
+    speedControl.player(m);
+  },
+  currentSpeed: () => speedControl.current(),
   input: {
     createKeyboard,
     createPointer,
     createHints: () => createHints(),
     createOverPoke: () =>
-      createOverPoke(tuningJson.overPoke.windowSeconds, tuningJson.overPoke.count, () => performance.now()),
+      createOverPoke(tuning.overPoke.windowSeconds, tuning.overPoke.count, () => performance.now()),
   },
 };
 

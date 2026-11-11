@@ -14,6 +14,7 @@ function setup(over: Partial<InputContext> = {}) {
   let paused = 0;
   let tool: Verb | null = null;
   let reply: BidReply = 'toward';
+  let picked: string | null = null;
   const ctx: InputContext = {
     tools: () => ['wake', 'respond', 'place'],
     creatures: () => [
@@ -36,7 +37,11 @@ function setup(over: Partial<InputContext> = {}) {
     cursor: () => cursor,
     act: (v) => acts.push(v),
     togglePause: () => paused++,
-    select: (id) => sel.push(id),
+    picked: () => picked,
+    select: (id) => {
+      picked = id;
+      sel.push(id);
+    },
     moveCursor: (p) => (cursor = p),
     ...over,
   };
@@ -144,6 +149,20 @@ describe('keyboard extras', () => {
     expect(e.defaultPrevented).toBe(false);
     expect(s.paused()).toBe(0);
     expect(s.acts).toEqual([]);
+  });
+  it('Enter acts on the creature the shared pick holds, also when a click changed it', () => {
+    let shared: string | null = null;
+    const s = setup({
+      picked: () => shared,
+      select: (id) => (shared = id),
+    });
+    s.press('Tab'); // picks 'a'
+    shared = 'c'; // a click picked 'c' through the same owner
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'wake', who: 'c' }]);
+    shared = null; // the next chapter clears the pick
+    s.press('Enter');
+    expect(s.acts).toHaveLength(1);
   });
   it('Shift+Tab from none selects the last awake creature', () => {
     const s = setup();

@@ -36,6 +36,8 @@
     leave: 'leaving',
     away: 'away',
   };
+  /** Said when the player answers the sky and no one is waving at it (the runner sends nothing). */
+  const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
   /** 'villager-3' reads as 'Villager 3'. */
@@ -46,6 +48,8 @@
   let index = $state(0);
   let tools: Verb[] = $state([]);
   let tool: Verb | null = $state(null);
+  /** Tools used up in this chapter (a bench is placed once, spec 6.2). */
+  let used: Verb[] = $state([]);
   let reply: BidReply = $state('toward');
   /** The last few story lines, hints, and results; new ones are announced. */
   let lines: { id: number; text: string }[] = $state([]);
@@ -102,7 +106,12 @@
   function act(v: VerbInput): void {
     hints.activity();
     if (!runner) return;
-    if (runner.verb(v)) hints.used(v.verb);
+    if (runner.verb(v)) {
+      hints.used(v.verb);
+      if (v.verb === 'place') used = [...used, 'place'];
+    } else if (v.verb === 'respond') {
+      say(NO_BID);
+    }
     if (v.verb === 'wake' && overPoke.poke()) runner.overPoke();
   }
 
@@ -144,6 +153,7 @@
     bet = null;
     betRunning = false;
     picked = null;
+    used = [];
     prev = next = null;
     tools = chapter.verbs.filter((v) => v !== 'bet').slice(0, 3);
     const verb = chapter.newVerb;
@@ -251,6 +261,7 @@
         setReply: (r: BidReply) => (reply = r),
         act,
         togglePause,
+        picked: () => picked,
         select: (id: string | null) => (picked = id),
         moveCursor: (p: { x: number; y: number }) => (cursor = p),
       };
@@ -321,16 +332,18 @@
       </main>
     {:else}
       <main class="hud">
-        <h1 class="title">Chapter {index}</h1>
+        <h1 class="title">Chapter {index}: {game.chapters[index]?.title ?? ''}</h1>
         <div class="drawer">
           <Drawer notes={game.chapters[index]?.notes ?? []} />
         </div>
         <div class="bottom">
           <BeatLine {lines} />
-          {#if status}<p class="status">{status}</p>{/if}
+          <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
+          <p class="status" class:empty={!status} role="status">{status}</p>
           <div bind:this={trayEl}>
             <ToolTray
               {tools}
+              {used}
               active={tool}
               {reply}
               {ghost}
@@ -406,6 +419,10 @@
     margin: 0;
     padding: 0 0.5rem;
     background: var(--bg);
+  }
+  .status.empty {
+    padding: 0;
+    background: none;
   }
   .time {
     position: absolute;

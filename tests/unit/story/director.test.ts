@@ -138,7 +138,9 @@ test('an unparseable beat tag throws an Error naming the tag', async () => {
   expect(f.sent).toEqual([]);
 });
 
-test('honesty: the run with the director equals a direct run with the same accepted log', async () => {
+// Replay determinism only. The honesty rule (spec 10.2) is guarded by
+// 'the director never sends a command that the beat tags did not name' above.
+test('replay determinism: the run with the director equals a direct run with the same accepted log', async () => {
   const f = fakePort();
   const director = createDirector(f.port, createInk(m0));
   warmPim(f);

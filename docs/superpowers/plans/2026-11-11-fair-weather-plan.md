@@ -583,7 +583,7 @@ test('host restart from checkpoint plus replay gives the same hash as an unbroke
 
 **Interfaces:**
 - Consumes: `SimPort`, `WorldLite`.
-- Produces: `type BeatAction = { kind: 'arrange_meeting'; a: string; b: string }` (M1 adds more kinds); `parseBeatTag(tag: string): BeatAction | null` (grammar `beat:<name>(<arg>,<arg>)`, ids `[a-z0-9_]+`; anything else returns `null`); `createInk(json: string): { setVar(name: string, value: number | string | boolean): void; play(knot: string): { lines: string[]; tags: string[] } }`; `createDirector(port: SimPort, ink: InkRunner): { runBeat(beat: { knot: string; vars: Record<string, (lite: WorldLite) => number> }): Promise<{ lines: string[] }> }`.
+- Produces: `type BeatAction = { kind: 'arrange_meeting'; a: string; b: string }` (M1 adds more kinds); `parseBeatTag(tag: string): BeatAction | null` (grammar `beat:<name>(<arg>,<arg>)`, ids `[a-z0-9_-]+`; anything else returns `null`); `createInk(json: string): { setVar(name: string, value: number | string | boolean): void; play(knot: string): { lines: string[]; tags: string[] } }`; `createDirector(port: SimPort, ink: InkRunner): { runBeat(beat: { knot: string; vars: Record<string, (lite: WorldLite) => number> }): Promise<{ lines: string[] }> }`.
 - `content/ink/m0.ink` holds one knot `m0_test` that prints `{pim_sky_warmth}` and carries the tags `#placeholder` and `#beat:arrange_meeting(krit,pim)`.
 
 - [ ] **Step 1: Write the failing tests.**

@@ -9,6 +9,14 @@ test('parseBeatTag reads arrange_meeting', () => {
   });
 });
 
+test('parseBeatTag accepts ids with hyphens', () => {
+  expect(parseBeatTag('beat:arrange_meeting(villager-1,pim)')).toEqual({
+    kind: 'arrange_meeting',
+    a: 'villager-1',
+    b: 'pim',
+  });
+});
+
 test.each([
   'beat:arrange_meeting(krit)',
   'beat:drop_table()',

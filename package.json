@@ -13,7 +13,7 @@
     "test": "vitest run --project unit",
     "test:prop": "vitest run --project property",
     "test:golden": "vitest run --project golden --passWithNoTests",
-    "test:e2e": "playwright test --project=e2e --project=visual",
+    "test:e2e": "playwright test --project=e2e --project=e2e-firefox --project=e2e-webkit --project=visual",
     "test:perf": "playwright test --project=perf",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",

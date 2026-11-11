@@ -34,6 +34,8 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
   /** Replayed lists whose `accepted` the new worker will post again. */
   let skipAccepted = 0;
   let lastFailure = -Infinity;
+  /** Set once the host gives up restarting; new hash requests reject with it until init or restart. */
+  let gaveUp: string | null = null;
   let worker: Endpoint | null = null;
 
   /** Rejects every pending hash request, so no caller waits on a worker that will not answer. */
@@ -45,7 +47,8 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
 
   function onFailure(lastGoodTick: number): void {
     if (lastGoodTick <= lastFailure) {
-      rejectHashes(`the worker failed again at tick ${String(lastGoodTick)}; not restarting`);
+      gaveUp = `the worker failed again at tick ${String(lastGoodTick)}; not restarting`;
+      rejectHashes(gaveUp);
       return;
     }
     lastFailure = lastGoodTick;
@@ -107,6 +110,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
 
   function restart(): void {
     if (!init) return;
+    gaveUp = null;
     disconnect();
     worker = connect();
     const w = worker;
@@ -136,6 +140,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         seenTick = targetTick = cp?.tick ?? 0;
         seenEventsTick = seenTick - 1;
         lastFailure = -Infinity;
+        gaveUp = null;
         multiplier = 0;
         skipAccepted = 0;
         rejectHashes('a new init replaced the run');
@@ -169,6 +174,10 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     },
     requestHash() {
       return new Promise((resolve, reject) => {
+        if (gaveUp !== null) {
+          reject(new Error(gaveUp));
+          return;
+        }
         hashWaiters.push({ resolve, reject });
         worker?.postMessage({ t: 'hash' } satisfies ToWorker);
       });

@@ -88,6 +88,7 @@ export interface BehaviorBoost {
   y: number;
   untilDay: number;
 }
+/** A gust in flight. The sim only adds and expires gusts in M0; they are kept for M1 render and sim use. */
 export interface Gust {
   x: number;
   y: number;

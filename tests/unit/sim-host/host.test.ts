@@ -109,6 +109,8 @@ test('host does not restart again when the new worker fails no later than the la
   await expect(hash).rejects.toThrow(/not restarting/);
   await new Promise((r) => setTimeout(r, 20));
   expect(s.spawned.length).toBe(2);
+  // Once the host has given up, a new hash request rejects at once instead of waiting forever.
+  await expect(host.requestHash()).rejects.toThrow(/not restarting/);
 });
 
 test('init resets speed and pending hash requests, and log returns a copy', async () => {

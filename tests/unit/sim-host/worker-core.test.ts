@@ -112,6 +112,28 @@ test('speed 0 pauses stepping', () => {
   expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([1, 2, 3, 4]);
 });
 
+test('init resets the speed to 0, so a re-initialized core starts paused', () => {
+  const { send, got, clock } = directCore();
+  send(initGolden);
+  send({ t: 'speed', multiplier: 1 });
+  send(initGolden);
+  clock.tick(1000);
+  expect(ofType(got, 'snapshot')).toHaveLength(0);
+  expect(clock.timers()).toBe(0);
+});
+
+test('a commands message whose list is not an array is ignored', () => {
+  const { send, got } = directCore();
+  send(initGolden);
+  for (const list of [null, 'ab', { t: 'shine', x: 1, y: 1 }]) {
+    send({ t: 'commands', list } as unknown as ToWorker);
+  }
+  send({ t: 'advance', ticks: 1 });
+  expect(ofType(got, 'accepted')).toEqual([]);
+  expect(ofType(got, 'error')).toEqual([]);
+  expect(ofType(got, 'snapshot')).toHaveLength(1);
+});
+
 test('a thrown error posts error with lastGoodTick', () => {
   const { send, got, clock } = directCore();
   const broken = { ...createWorld(golden.seed, tuning, scenario), tick: 7 } as Partial<World>;

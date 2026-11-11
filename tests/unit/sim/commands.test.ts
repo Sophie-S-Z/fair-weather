@@ -195,6 +195,9 @@ const badCommands: [string, Command][] = [
   ['place, unknown kind', { t: 'place', kind: 'lantern' as 'bench', x: 0, y: 0 }],
   ['setSeason, unknown season', { t: 'setSeason', season: 'monsoon' as 'winter' }],
   ['unknown tag', { t: 'rain' } as unknown as Command],
+  ['null', null as unknown as Command],
+  ['a number', 5 as unknown as Command],
+  ['a string', 'shine' as unknown as Command],
 ];
 
 test.each(badCommands)('bad input (%s) returns [] and changes nothing', (_name, cmd) => {

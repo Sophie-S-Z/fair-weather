@@ -96,6 +96,7 @@ export function createWorkerCore(
       tuning = parseTuning(m.tuning);
       world = m.checkpoint ?? createWorld(m.seed, tuning, m.scenario);
       pending = [];
+      multiplier = 0; // a new world starts paused (ADR 0009 item 2)
       failed = false;
       pace();
       return;
@@ -109,6 +110,7 @@ export function createWorkerCore(
     if (!world || !tuning) throw new Error(`'${m.t}' before 'init'`);
     switch (m.t) {
       case 'commands':
+        if (!Array.isArray(m.list)) return; // the list crosses the worker boundary
         pending.push(...m.list);
         post({ t: 'accepted', tick: world.tick, list: m.list });
         return;

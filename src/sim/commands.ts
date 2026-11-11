@@ -79,12 +79,14 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
 }
 
 /**
- * Applies one command. Returns [] and changes nothing for an unknown or away creature id, a
- * non-finite number, a shine, fog, gust start, or place point outside the scene, an unknown tag
+ * Applies one command. Returns [] and changes nothing for a command that is not an object, an
+ * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point outside the scene, an unknown tag
  * or value, a pair naming one creature twice, a fog radius of 0 or less, or a gust whose length
  * squared is 0 or overflows. Only `blow` draws from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
+  const raw: unknown = cmd; // commands cross the worker boundary, so check at runtime
+  if (typeof raw !== 'object' || raw === null) return [];
   switch (cmd.t) {
     case 'shine':
       if (!onScene(cmd.x, cmd.y, t)) return [];

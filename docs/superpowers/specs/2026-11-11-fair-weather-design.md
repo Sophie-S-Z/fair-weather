@@ -93,7 +93,7 @@ The main flow works for a first-time player. Three deeper layers wait for the cu
 A designer draws every creature and hero in one continuous line, after Ralph Ammer's Oneliner game. One model sheet keeps the cast consistent and cute:
 
 - Two dot eyes set close together.
-- One small blush mark.
+- Two small blush marks, one under each eye, so the face stays symmetric.
 - Rounded line ends.
 - A head about as big as the body.
 - At most one prop per character.

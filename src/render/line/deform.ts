@@ -5,9 +5,10 @@ import { RIG_POINTS, type Rig } from './rig.ts';
 export const BOIL_AMPLITUDE = 0.004;
 /** Boil frames per second (spec 11.2). */
 export const BOIL_FPS = 12;
-const TIGHTNESS_PULL = 0.15;
+/** How far tightness 1 pulls a point toward the body center: the creature hunches in on itself. */
+const TIGHTNESS_PULL = 0.25;
 /** Bristle zigzag height at bristle 1, in rig units: a fine zigzag (spec 5.2). */
-export const BRISTLE_AMPLITUDE = 0.006;
+export const BRISTLE_AMPLITUDE = 0.012;
 const SOFTNESS_MAX_PASSES = 3;
 
 const scratch = new Float32Array(RIG_POINTS * 2);
@@ -22,6 +23,26 @@ function hashUnit(frame: number, index: number, axis: number): number {
   return ((h >>> 0) / 0xffffffff) * 2 - 1;
 }
 
+/** The mean of the rig's body points (region 1), or the origin when it has none. */
+export function bodyCenter(rig: Rig): [number, number] {
+  let cx = 0;
+  let cy = 0;
+  let count = 0;
+  for (let i = 0; i < RIG_POINTS; i++) {
+    if (rig.region[i] !== 1) continue;
+    cx += rig.points[2 * i] ?? 0;
+    cy += rig.points[2 * i + 1] ?? 0;
+    count++;
+  }
+  return count > 0 ? [cx / count, cy / count] : [0, 0];
+}
+
+/** Point (x, y) pulled toward the body center (cx, cy) by the tightness (spec 5.2). */
+export function tighten(cx: number, cy: number, tightness: number, x: number, y: number): [number, number] {
+  const pull = TIGHTNESS_PULL * tightness;
+  return [x + (cx - x) * pull, y + (cy - y) * pull];
+}
+
 /**
  * Bends the rig by the shell values and the boil frame, writing x, y pairs into `out` (spec 5.2, 11.2).
  * Order: tightness, softness, bristle, boil. Color does not move points.
@@ -31,27 +52,13 @@ export function deform(rig: Rig, shell: Shell, boilFrame: number, out: Float32Ar
   const src = rig.points;
   for (let k = 0; k < n * 2; k++) out[k] = src[k] ?? 0;
 
-  // Tightness: pull every point toward the mean of the body points.
+  // Tightness: pull every point toward the body center.
   if (shell.tightness > 0) {
-    let cx = 0;
-    let cy = 0;
-    let count = 0;
+    const [cx, cy] = bodyCenter(rig);
     for (let i = 0; i < n; i++) {
-      if (rig.region[i] !== 1) continue;
-      cx += out[2 * i] ?? 0;
-      cy += out[2 * i + 1] ?? 0;
-      count++;
-    }
-    if (count > 0) {
-      cx /= count;
-      cy /= count;
-      const pull = TIGHTNESS_PULL * shell.tightness;
-      for (let i = 0; i < n; i++) {
-        const x = out[2 * i] ?? 0;
-        const y = out[2 * i + 1] ?? 0;
-        out[2 * i] = x + (cx - x) * pull;
-        out[2 * i + 1] = y + (cy - y) * pull;
-      }
+      const [x, y] = tighten(cx, cy, shell.tightness, out[2 * i] ?? 0, out[2 * i + 1] ?? 0);
+      out[2 * i] = x;
+      out[2 * i + 1] = y;
     }
   }
 

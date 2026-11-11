@@ -8,6 +8,10 @@ import { ChapterSchema } from '../../src/story/schema.ts';
 import { runChapterHeadless, SEEDS, summarize } from './run-chapter.ts';
 import type { ScriptedPlayer } from './run-chapter.ts';
 
+// ch2.json sets Krit's opener to 0.02. At the pair's first meeting Krit gives with chance equal to
+// his opener (ADR 0003 item 6); after a give/give first meeting neither holds a slight, both give
+// from then on, and the twist can never fire. So close calls come to about 200 x Krit's opener:
+// 0.1 gave 17-19, 0.05 gave 10-14, 0.02 gives 2-4 (M1.11 report, fix round 1).
 const ch2 = ChapterSchema.parse(ch2Json);
 
 /** Answers the bet with its first option; leaves sky bids to the runner's automatic 'away'. */
@@ -18,7 +22,7 @@ const player = (onReveal: () => void): ScriptedPlayer => ({
   },
 });
 
-test('T3 ch2: the twist happens honestly in at least 95% of 200 seeds', async () => {
+test('T3 ch2: the close call plays in fewer than 10 of 200 seeds', async () => {
   const runs = [];
   let reveals = 0;
   for (const seed of SEEDS)

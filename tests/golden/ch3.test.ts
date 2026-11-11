@@ -26,7 +26,7 @@ const player = (): ScriptedPlayer => {
 
 // ch3 reads pimScar, which ch2 writes: run both inputs (ch2's twist sets it in nearly every run).
 for (const pimScar of [true, false]) {
-  test(`T3 ch3 (pimScar ${String(pimScar)}): the twist happens honestly in at least 95% of 200 seeds`, async () => {
+  test(`T3 ch3 (pimScar ${String(pimScar)}): the close call plays in fewer than 10 of 200 seeds`, async () => {
     const flags = { ...parseFlags(flagsJson), pimScar };
     const runs = [];
     for (const seed of SEEDS) runs.push(await runChapterHeadless(ch3, seed, player(), flags));

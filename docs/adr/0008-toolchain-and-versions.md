@@ -10,7 +10,7 @@ The handoff says to look up current stable versions and pin exact versions. We l
 
 1. **Pin rule:** pin the newest stable release that is at least 7 days old on the install day. A release from the last 7 days has had little use. Check the list again on the install day.
 2. **TypeScript 6, not 7.** TypeScript 7.0.2 is the newest release. `typescript-eslint` 8.72 supports only `>=4.8.4 <6.1.0`. So we pin TypeScript 6.0.3. Move to 7 when `typescript-eslint` supports it.
-3. **Node:** 22 LTS (`.nvmrc` = 22). Vite 8 needs Node 20.19 or later.
+3. **Node:** 22 LTS (`.nvmrc` = 22). Vite 8 needs Node 20.19 or later. `engines` asks for 22.18 or later, the first 22 release that strips TypeScript types by default, which the `node tools/...` scripts need.
 4. **M0 packages** (candidates on 2026-11-11):
 
 | Package | Version | Released |

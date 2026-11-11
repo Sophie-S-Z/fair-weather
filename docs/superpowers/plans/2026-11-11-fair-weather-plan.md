@@ -91,16 +91,16 @@ Exit check (spec 21.4): T2 passes, and 30 rigs hold 60 fps on the user's desktop
 - Produces: npm scripts `dev`, `build`, `preview`, `test`, `test:prop`, `test:golden`, `test:e2e`, `test:perf`, `lint`, `typecheck`, `format`, `validate-content`, `rig`.
 
 - [ ] **Step 1: Check the versions again.** Run `npm view <pkg> time --json` for each package in ADR 0008. Pick the newest stable release at least 7 days old. If a pick differs from ADR 0008, update the ADR table in the same commit.
-- [ ] **Step 2: Create `package.json`** with `"type": "module"`, `"private": true`, `"engines": { "node": ">=22.12" }`, exact versions (no `^`), and these scripts:
+- [ ] **Step 2: Create `package.json`** with `"type": "module"`, `"private": true`, `"engines": { "node": ">=22.18" }`, exact versions (no `^`), and these scripts:
 
 ```json
 {
   "dev": "vite",
   "build": "vite build",
   "preview": "vite preview",
-  "test": "vitest run --project unit",
+  "test": "vitest run --project unit --project golden",
   "test:prop": "vitest run --project property",
-  "test:golden": "vitest run --project golden --passWithNoTests",
+  "test:golden": "vitest run --project golden",
   "test:e2e": "playwright test --project=e2e --project=visual",
   "test:perf": "playwright test --project=perf",
   "lint": "eslint . && prettier --check .",

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,6 +68,17 @@ describe('validateContent', () => {
     writeFileSync(join(root, 'content', 'chapters', 'bad.json'), JSON.stringify({ id: 'bad' }));
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
+  });
+  test('reports a chapter camera shot that no scene defines', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'chapters'), { recursive: true });
+    const chapter = JSON.parse(readFileSync(join(repoRoot, 'content', 'chapters', 'ch1.json'), 'utf8')) as {
+      beats: { actions: object[] }[];
+    };
+    chapter.beats[0]?.actions.push({ camera: 'nowhere' });
+    writeFileSync(join(root, 'content', 'chapters', 'ch1.json'), JSON.stringify(chapter));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.includes('camera shot nowhere'))).toBe(true);
   });
   test('an Ink TODO note does not fail validation', () => {
     expect(validateContent(fixture('todo-content')).errors).toEqual([]);

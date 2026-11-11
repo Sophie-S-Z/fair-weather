@@ -1,11 +1,12 @@
 // Dev page: the Meadow view over a fixed sim snapshot, drawn once at boil frame 0, with Pim in
-// focus, a light lens, a fog patch, and a bench under the crooked tree. ?contrast=1 sets high
+// focus, a light lens, a fog patch, and a bench in the west meadow. ?contrast=1 sets high
 // contrast. body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
 import scenarioJson from '../content/scenarios/m0.json';
 import springJson from '../content/palettes/spring.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
+import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { createMeadowView } from '../src/render/meadow-view.ts';
 import { PaletteSchema } from '../src/render/palette.ts';
@@ -20,13 +21,20 @@ import type { Settings } from '../src/ui/settings.ts';
 const W = 1280;
 const H = 720;
 const SEED = 1;
-const TICK = 120;
+const TICK = 180;
 
 const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
 const rigs = new Map<string, Rig>(
   Object.values(rigFiles).map((json) => {
     const rig = RigSchema.parse(json);
     return [rig.id, rig];
+  }),
+);
+const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
+const cast = new Map<string, Cast>(
+  Object.values(castFiles).map((json) => {
+    const c = CastSchema.parse(json);
+    return [c.id, c];
   }),
 );
 const palette = PaletteSchema.parse(springJson);
@@ -38,12 +46,12 @@ const world = createWorld(SEED, tuning, scenarioJson as Scenario);
 const setup: Command[] = [
   { t: 'shine', x: 820, y: 330 },
   { t: 'paintFog', x: 1300, y: 700, r: 180, amount: 0.9 },
-  { t: 'place', kind: 'bench', x: 600, y: 430 },
 ];
 step(world, setup, tuning);
 while (world.tick < TICK - 1) step(world, [], tuning);
 const prev = toLite(world, tuning);
-step(world, [], tuning);
+// The bench is placed on the last tick, before a crowd gathers on it, so the baseline shows it.
+step(world, [{ t: 'place', kind: 'bench', x: 290, y: 700 }], tuning);
 const next = toLite(world, tuning);
 
 const app = new Application();
@@ -74,7 +82,7 @@ const settings: Settings = {
   sound: false,
   analytics: false,
 };
-const view = createMeadowView(app, scene, rigs, palette);
+const view = createMeadowView(app, scene, rigs, palette, { lensRadius: tuning.light.lensRadius, cast });
 view.setFocus('pim');
 view.update(prev, next, 0.5, settings);
 app.render();

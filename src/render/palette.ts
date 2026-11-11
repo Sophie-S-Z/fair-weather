@@ -7,12 +7,16 @@ const Hex = z
   .transform((s) => parseInt(s.slice(1), 16));
 const Wash = z.strictObject({ color: Hex, alpha: z.number().min(0).max(1) });
 
-/** A season's colors (spec 11.3): ink lines, paper bodies, one accent, the page, and the light and fog washes. */
+/**
+ * A season's colors (spec 11.3): ink lines, paper bodies, the accent for the focus creature, a
+ * muted warm tint for shell color on everyone else (spec 5.2), the page, and the light and fog washes.
+ */
 export const PaletteSchema = z.strictObject({
   id: z.string().min(1),
   ink: Hex,
   paper: Hex,
   accent: Hex,
+  warmth: Hex,
   background: Hex,
   light: Wash,
   fog: Wash,

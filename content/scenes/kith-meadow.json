@@ -1,5 +1,6 @@
 {
   "id": "kith-meadow",
+  "credit": "[PLACEHOLDER] engineering layout",
   "width": 1600,
   "height": 900,
   "hills": [
@@ -24,21 +25,53 @@
     {
       "id": "crooked-tree",
       "trunk": [544, 420, 552, 380, 534, 340, 560, 300, 586, 268],
-      "crown": { "x": 590, "y": 232, "r": 56 }
+      "crown": {
+        "x": 590,
+        "y": 232,
+        "r": 56
+      }
     },
     {
       "id": "tall-tree",
       "trunk": [1312, 400, 1310, 350, 1314, 300],
-      "crown": { "x": 1312, "y": 262, "r": 44 }
+      "crown": {
+        "x": 1312,
+        "y": 262,
+        "r": 44
+      }
     }
   ],
   "benchSpots": [
-    { "id": "under-crooked-tree", "x": 600, "y": 430 },
-    { "id": "east-meadow", "x": 1050, "y": 540 },
-    { "id": "west-meadow", "x": 290, "y": 700 }
+    {
+      "id": "under-crooked-tree",
+      "x": 600,
+      "y": 430
+    },
+    {
+      "id": "east-meadow",
+      "x": 1050,
+      "y": 540
+    },
+    {
+      "id": "west-meadow",
+      "x": 290,
+      "y": 700
+    }
   ],
   "cameras": {
-    "meadow-wide": { "x": 800, "y": 450, "zoom": 1 },
-    "crooked-tree": { "x": 580, "y": 340, "zoom": 2 }
+    "meadow-wide": {
+      "x": 800,
+      "y": 450,
+      "zoom": 1
+    },
+    "crooked-tree": {
+      "x": 580,
+      "y": 340,
+      "zoom": 2
+    },
+    "pim-close": {
+      "follow": "pim",
+      "zoom": 2.5
+    }
   }
 }

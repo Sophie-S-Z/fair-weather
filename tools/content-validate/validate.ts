@@ -5,6 +5,7 @@ import { Compiler } from 'inkjs/compiler/Compiler';
 import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
+import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
@@ -33,7 +34,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Checks tuning, rigs, palettes, scenes, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Checks tuning, rigs, palettes, scenes, cast, chapter camera names, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -63,12 +64,30 @@ export function validateContent(root: string): ValidationResult {
     ['rigs', RigSchema],
     ['palettes', PaletteSchema],
     ['scenes', SceneSchema],
+    ['cast', CastSchema],
   ] as const) {
     for (const f of filesIn(join(content, dir), '.json')) {
       try {
         schema.parse(JSON.parse(readFileSync(join(content, dir, f), 'utf8')));
       } catch (e) {
         errors.push(`${f}: ${(e as Error).message}`);
+      }
+    }
+  }
+  // Every camera shot a chapter beat names must be defined by a scene.
+  const shots = new Set<string>();
+  for (const f of filesIn(join(content, 'scenes'), '.json')) {
+    const parsed = SceneSchema.safeParse(JSON.parse(readFileSync(join(content, 'scenes', f), 'utf8')));
+    if (parsed.success) for (const name of Object.keys(parsed.data.cameras)) shots.add(name);
+  }
+  for (const f of filesIn(join(content, 'chapters'), '.json')) {
+    const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+    if (!parsed.success) continue;
+    for (const beat of parsed.data.beats) {
+      for (const action of beat.actions) {
+        if ('camera' in action && !shots.has(action.camera)) {
+          errors.push(`${f}: beat ${beat.id} names camera shot ${action.camera}, which no scene defines`);
+        }
       }
     }
   }

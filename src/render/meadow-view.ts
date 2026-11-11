@@ -2,24 +2,26 @@ import { Container, Graphics, type Application } from 'pixi.js';
 import type { Structure } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
-import { lerpTransform, toScene, viewTransform, type ViewTransform } from './camera.ts';
+import { lerpTransform, toScene, viewTransform, type Shot, type ViewTransform } from './camera.ts';
+import type { Cast } from './cast.ts';
 import { createFog } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
+import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
 import type { Rig } from './line/rig.ts';
 import type { Palette } from './palette.ts';
 import { interpolateCreatures, type DrawnCreature, type SceneData } from './scene.ts';
 
-/** A creature's height in scene units (a rig is 1 unit tall). */
-export const CREATURE_HEIGHT = 80;
-/** How far from a creature's body center a click still picks it, in scene units. */
-export const PICK_RADIUS = 40;
-/** The light glow's radius: the sim's lens radius (tuning light.lensRadius). */
-export const LENS_RADIUS = 120;
-/** The rig for every creature that has no rig of its own. */
+/** A villager's height in scene units. Other bodies are sized to a villager's area (see bodyHeight). */
+export const CREATURE_HEIGHT = 64;
+/** The rig for every creature that has no rig of its own, and the size reference. */
 export const VILLAGER_RIG = 'villager';
-/** The focus creature's accent is at least this, so it reads even with shell color 0 (spec 11.1). */
-const FOCUS_ACCENT = 0.5;
+/** Area sizing stays within these factors, so a thin ribbon does not grow huge. */
+const AREA_FACTOR_MIN = 0.85;
+const AREA_FACTOR_MAX = 1.5;
+/** The focus creature's body is this far from paper toward the accent, more with shell color (spec 11.1). */
+const FOCUS_MIX = 0.55;
+const FOCUS_MIX_COLOR = 0.35;
 /** Sway: a small rock about the feet, in radians, and its period in seconds (spec 11.2). */
 const SWAY_ANGLE = 0.04;
 const SWAY_SECONDS = 3;
@@ -42,6 +44,26 @@ export interface MeadowView {
   setShot(name: string | null): void;
 }
 
+/** The area inside a rig's outline, in rig units (loops cut out, as for the body fill). */
+export function rigArea(rig: Rig): number {
+  const p = fillOutline(rig.points);
+  let twice = 0;
+  for (let k = 0; k + 1 < p.length; k += 2) {
+    const j = (k + 2) % p.length;
+    twice += (p[k] ?? 0) * (p[j + 1] ?? 0) - (p[j] ?? 0) * (p[k + 1] ?? 0);
+  }
+  return Math.abs(twice) / 2;
+}
+
+/**
+ * A body's height in scene units: as tall as gives it a villager's area (clamped), times its cast
+ * scale. So a round body is not drawn heavier than a thin one, and the named cast read as the stars.
+ */
+export function bodyHeight(rig: Rig, villagerArea: number, castScale: number): number {
+  const factor = Math.sqrt(villagerArea / rigArea(rig));
+  return CREATURE_HEIGHT * Math.min(Math.max(factor, AREA_FACTOR_MIN), AREA_FACTOR_MAX) * castScale;
+}
+
 /** A phase in [0, 1) from a creature id, so creatures sway out of step. */
 function phaseOf(id: string): number {
   let h = 0;
@@ -59,11 +81,13 @@ function smoothLine(g: Graphics, p: readonly number[]): Graphics {
   return g.lineTo(at(p.length - 2), at(p.length - 1));
 }
 
-/** Paper, far hills, grass tufts, and trees, in scene units. */
+const inkStroke = (palette: Palette, width: number, alpha = 1) =>
+  ({ color: palette.ink, width, alpha, cap: 'round', join: 'round' }) as const;
+
+/** Paper, far hills, and grass tufts: the layer behind everything, in scene units. */
 function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
-  const ink = { color: palette.ink, cap: 'round', join: 'round' } as const;
   g.clear().rect(0, 0, scene.width, scene.height).fill(palette.background);
-  for (const hill of scene.hills) smoothLine(g, hill).stroke({ ...ink, width: w, alpha: FAR_ALPHA });
+  for (const hill of scene.hills) smoothLine(g, hill).stroke(inkStroke(palette, w, FAR_ALPHA));
   for (const [x, y] of scene.tufts) {
     g.moveTo(x - 6, y)
       .lineTo(x - 9, y - 8)
@@ -71,70 +95,90 @@ function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number):
       .lineTo(x, y - 11)
       .moveTo(x + 6, y)
       .lineTo(x + 9, y - 8)
-      .stroke({ ...ink, width: w * 0.7, alpha: TUFT_ALPHA });
-  }
-  for (const tree of scene.trees) {
-    smoothLine(g, tree.trunk).stroke({ ...ink, width: w * 1.5 });
-    g.circle(tree.crown.x, tree.crown.y, tree.crown.r)
-      .fill(palette.paper)
-      .stroke({ ...ink, width: w });
+      .stroke(inkStroke(palette, w * 0.7, TUFT_ALPHA));
   }
 }
 
-/** Benches from the snapshot: a seat, a back, and two legs, with feet at (x, y). */
-function drawBenches(g: Graphics, benches: readonly Structure[], palette: Palette, w: number): void {
+/** One tree: the trunk, then a paper crown over its top. The trunk's first point is its base. */
+function drawTree(g: Graphics, tree: SceneData['trees'][number], palette: Palette, w: number): void {
   g.clear();
-  for (const { x, y } of benches) {
-    g.moveTo(x - 22, y - 10)
-      .lineTo(x + 22, y - 10)
-      .moveTo(x - 20, y - 20)
-      .lineTo(x + 20, y - 20)
-      .moveTo(x - 16, y - 10)
-      .lineTo(x - 16, y)
-      .moveTo(x + 16, y - 10)
-      .lineTo(x + 16, y)
-      .stroke({ color: palette.ink, width: w, cap: 'round', join: 'round' });
-  }
+  smoothLine(g, tree.trunk).stroke(inkStroke(palette, w * 1.5));
+  g.circle(tree.crown.x, tree.crown.y, tree.crown.r).fill(palette.paper).stroke(inkStroke(palette, w));
+}
+
+/** One bench: a seat, a back, and two legs, with its feet at (x, y). */
+function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number): void {
+  g.clear()
+    .moveTo(x - 22, y - 10)
+    .lineTo(x + 22, y - 10)
+    .moveTo(x - 20, y - 20)
+    .lineTo(x + 20, y - 20)
+    .moveTo(x - 16, y - 10)
+    .lineTo(x - 16, y)
+    .moveTo(x + 16, y - 10)
+    .lineTo(x + 16, y)
+    .stroke(inkStroke(palette, w));
 }
 
 /**
  * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent. It draws
  * snapshots only and never changes the world. Creatures use their own rig, or the villager rig.
- * Reduced motion stops the boil, the sway, and camera moves; high contrast doubles every line.
+ * Creatures, trees, and benches share one layer sorted by base y, so nearer things hide farther
+ * ones (spec 11.1 depth). Every body shows its shell color as a muted warm tint (spec 5.2); only
+ * the focus creature wears the accent (spec 11.1). Reduced motion stops the boil, the sway, and
+ * camera moves; high contrast doubles every line.
  */
 export function createMeadowView(
   app: Application,
   scene: SceneData,
   rigs: Map<string, Rig>,
   palette: Palette,
+  options: { lensRadius: number; cast: Map<string, Cast> },
 ): MeadowView {
   const world = new Container();
   const ground = new Graphics();
-  const benches = new Graphics();
-  const creatures = new Container({ sortableChildren: true });
-  const light = createLight(palette, LENS_RADIUS);
+  const actors = new Container({ sortableChildren: true });
+  const light = createLight(palette, options.lensRadius);
   const fog = createFog(palette, scene.width);
-  world.addChild(ground, light.graphics, benches, creatures, fog.graphics);
+  world.addChild(ground, light.graphics, actors, fog.sprite);
   app.stage.addChild(world);
 
+  const trees = scene.trees.map((tree) => {
+    const g = new Graphics({ label: tree.id, zIndex: tree.trunk[1] ?? 0 });
+    actors.addChild(g);
+    return { tree, g };
+  });
+  const benches = new Map<string, Graphics>();
+
   const colors = { ink: palette.ink, accent: palette.accent, paper: palette.paper };
-  const views = new Map<string, ReturnType<typeof createLineView>>();
-  let drawn: DrawnCreature[] = [];
+  const villager = rigs.get(VILLAGER_RIG);
+  const villagerArea = villager ? rigArea(villager) : 1;
+  const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number }>();
+  let drawn: (DrawnCreature & { height: number })[] = [];
   let camera: ViewTransform | null = null;
   let focus: string | null = null;
   let shot: string | null = null;
-  let groundKey = '';
-  let benchKey = '';
+  let lineWidth = 0;
 
-  function viewFor(id: string): ReturnType<typeof createLineView> | undefined {
-    let view = views.get(id);
-    const rig = rigs.get(id) ?? rigs.get(VILLAGER_RIG);
-    if (!view && rig) {
-      view = createLineView(rig, colors, CREATURE_HEIGHT);
-      views.set(id, view);
-      creatures.addChild(view.container);
+  function viewFor(id: string): { view: ReturnType<typeof createLineView>; height: number } | undefined {
+    let entry = views.get(id);
+    const rig = rigs.get(id) ?? villager;
+    if (!entry && rig) {
+      const height = bodyHeight(rig, villagerArea, options.cast.get(id)?.scale ?? 1);
+      entry = { view: createLineView(rig, colors, height), height };
+      entry.view.container.label = id;
+      views.set(id, entry);
+      actors.addChild(entry.view.container);
     }
-    return view;
+    return entry;
+  }
+
+  /** The shot's scene point: fixed, or the body center of the creature it follows. */
+  function framing(): Shot | undefined {
+    const s = shot === null ? undefined : scene.cameras[shot];
+    if (!s || !('follow' in s)) return s;
+    const c = drawn.find((d) => d.id === s.follow);
+    return c ? { x: c.x, y: c.y - c.height / 2, zoom: s.zoom } : undefined;
   }
 
   return {
@@ -142,34 +186,32 @@ export function createMeadowView(
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
       const motion = !settings.reducedMotion;
       const widthScale = settings.highContrast ? HIGH_CONTRAST_WIDTH : 1;
-
-      const framing = shot === null ? undefined : scene.cameras[shot];
-      const target = viewTransform(scene.width, scene.height, app.screen.width, app.screen.height, framing);
-      const k = 1 - Math.exp((-CAMERA_RATE * app.ticker.deltaMS) / 1000);
-      camera = camera && motion ? lerpTransform(camera, target, k) : target;
-      world.scale.set(camera.scale);
-      world.position.set(camera.x, camera.y);
-
       const w = SCENERY_WIDTH * widthScale;
-      if (groundKey !== String(w)) {
-        groundKey = String(w);
+
+      if (w !== lineWidth) {
+        lineWidth = w;
         drawGround(ground, scene, palette, w);
+        for (const { tree, g } of trees) drawTree(g, tree, palette, w);
+        for (const g of benches.values()) g.destroy();
+        benches.clear();
       }
-      const placed = next.structures; // every structure is a bench in M1
-      const key = `${String(w)}:${placed.map((s) => `${String(s.x)},${String(s.y)}`).join(';')}`;
-      if (key !== benchKey) {
-        benchKey = key;
-        drawBenches(benches, placed, palette, w);
+      for (const s of next.structures) {
+        if (benches.has(s.id)) continue;
+        const g = new Graphics({ label: s.id, zIndex: s.y });
+        drawBench(g, s, palette, w);
+        benches.set(s.id, g);
+        actors.addChild(g);
       }
       light.update(next.light);
-      fog.update(next.fog);
+      fog.update(next.fog, settings.highContrast);
 
-      drawn = interpolateCreatures(prev, next, alpha).filter((c) => c.state !== 'away');
-      for (const view of views.values()) view.container.visible = false;
-      for (const c of drawn) {
-        const view = viewFor(c.id);
-        if (!view) continue;
-        const { container } = view;
+      drawn = [];
+      for (const { view } of views.values()) view.container.visible = false;
+      for (const c of interpolateCreatures(prev, next, alpha)) {
+        const entry = c.state === 'away' ? undefined : viewFor(c.id);
+        if (!entry) continue;
+        drawn.push({ ...c, height: entry.height });
+        const { container } = entry.view;
         container.visible = true;
         container.position.set(c.x, c.y);
         container.zIndex = c.y;
@@ -178,18 +220,28 @@ export function createMeadowView(
         container.rotation = motion
           ? SWAY_ANGLE * Math.sin(2 * Math.PI * (seconds / SWAY_SECONDS + phase))
           : 0;
-        const accent = c.id === focus ? FOCUS_ACCENT + (1 - FOCUS_ACCENT) * c.shell.color : 0;
-        view.update(c.shell, seconds, settings.reducedMotion, { accent, widthScale });
+        const body =
+          c.id === focus
+            ? bodyColor(palette.paper, palette.accent, FOCUS_MIX + FOCUS_MIX_COLOR * c.shell.color)
+            : bodyColor(palette.paper, palette.warmth, c.shell.color);
+        entry.view.update(c.shell, seconds, settings.reducedMotion, { body, widthScale });
       }
+
+      const target = viewTransform(scene.width, scene.height, app.screen.width, app.screen.height, framing());
+      const k = 1 - Math.exp((-CAMERA_RATE * app.ticker.deltaMS) / 1000);
+      camera = camera && motion ? lerpTransform(camera, target, k) : target;
+      world.scale.set(camera.scale);
+      world.position.set(camera.x, camera.y);
     },
     pick(x, y) {
       if (!camera) return null;
       const [sx, sy] = toScene(camera, x, y);
       let best: string | null = null;
-      let bestD = PICK_RADIUS;
+      let bestD = Infinity;
       for (const c of drawn) {
-        const d = Math.hypot(c.x - sx, c.y - CREATURE_HEIGHT / 2 - sy);
-        if (d <= bestD) {
+        // A body's center is half its height above its feet; its hit radius is half its height.
+        const d = Math.hypot(c.x - sx, c.y - c.height / 2 - sy);
+        if (d <= c.height / 2 && d < bestD) {
           bestD = d;
           best = c.id;
         }

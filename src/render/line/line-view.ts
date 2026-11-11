@@ -33,8 +33,9 @@ const VERTICES = RIG_POINTS * 2;
  * when the shell or the accent changes, and it leaves out bristle and boil so it never folds over
  * itself. The face moves with the tightness pull, and the second blush mirrors the first across the eyes.
  *
- * `look` lets a view override the accent amount (0 to 1; the shell color by default) and scale the
- * ink width (high contrast doubles it). Both are plain per-frame values, so batching is unchanged.
+ * `look` lets a view set the body color (paper tinted by shell color toward the accent by default)
+ * and scale the ink width (high contrast doubles it). Both are plain per-frame values, so batching
+ * is unchanged.
  */
 export function createLineView(
   rig: Rig,
@@ -46,7 +47,7 @@ export function createLineView(
     shell: Shell,
     seconds: number,
     reducedMotion: boolean,
-    look?: { accent: number; widthScale: number },
+    look?: { body: number; widthScale: number },
   ): void;
 } {
   const container = new Container();
@@ -98,19 +99,16 @@ export function createLineView(
     container,
     update(shell, seconds, reducedMotion, look) {
       widthScale = look?.widthScale ?? 1;
-      const tint = look?.accent ?? shell.color;
+      const fill = look?.body ?? bodyColor(paper, accent, shell.color * ACCENT_MIX);
       deform(rig, shell, boilFrameAt(seconds, reducedMotion), points);
       buildStrip(points, width, line.geometry.positions);
       line.geometry.getBuffer('aPosition').update();
-      const key = `${String(shell.tightness)},${String(shell.bristle)},${String(shell.color)},${String(shell.softness)},${String(tint)}`;
+      const key = `${String(shell.tightness)},${String(shell.bristle)},${String(shell.color)},${String(shell.softness)},${String(fill)}`;
       if (key !== bodyShell) {
         bodyShell = key;
         drawDots(shell);
         deform(rig, { ...shell, bristle: 0 }, 0, outline);
-        body
-          .clear()
-          .poly(fillOutline(outline), true)
-          .fill(bodyColor(paper, accent, tint * ACCENT_MIX));
+        body.clear().poly(fillOutline(outline), true).fill(fill);
       }
     },
   };

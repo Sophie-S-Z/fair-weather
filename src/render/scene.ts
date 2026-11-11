@@ -6,12 +6,17 @@ const Spot = z.strictObject({ id: z.string().min(1), x: z.number(), y: z.number(
 /** Flat x, y pairs. */
 const Polyline = z.array(z.number()).refine((a) => a.length >= 4 && a.length % 2 === 0, 'x, y pairs');
 
+const zoom = z.number().min(1);
+
 /**
  * A scene layout in scene units, y down (spec 11.1 item 3): far hills, grass tufts, trees,
- * bench spots for the place verb, and named camera shots that beats ask for.
+ * bench spots for the place verb, and named camera shots that beats ask for. A shot centers a
+ * fixed point, or follows a creature by id. `credit` names who made the layout; a placeholder
+ * layout says so, so the production guard sees it (ADR 0010).
  */
 export const SceneSchema = z.strictObject({
   id: z.string().min(1),
+  credit: z.string().optional(),
   width: z.number().positive(),
   height: z.number().positive(),
   hills: z.array(Polyline),
@@ -24,7 +29,13 @@ export const SceneSchema = z.strictObject({
     }),
   ),
   benchSpots: z.array(Spot),
-  cameras: z.record(z.string(), z.strictObject({ x: z.number(), y: z.number(), zoom: z.number().min(1) })),
+  cameras: z.record(
+    z.string(),
+    z.union([
+      z.strictObject({ x: z.number(), y: z.number(), zoom }),
+      z.strictObject({ follow: z.string().min(1), zoom }),
+    ]),
+  ),
 });
 
 export type SceneData = z.infer<typeof SceneSchema>;

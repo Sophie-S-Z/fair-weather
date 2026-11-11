@@ -1,16 +1,15 @@
 <script lang="ts">
   import type { Writable } from 'svelte/store';
+  import type { GameService } from './game-service.ts';
   import type { Settings } from './settings.ts';
   import Title from './Title.svelte';
   import SettingsScreen from './Settings.svelte';
+  import Game from './screens/Game.svelte';
 
-  let {
-    settings,
-    hasSave,
-    onBegin,
-  }: { settings: Writable<Settings>; hasSave: boolean; onBegin: () => void } = $props();
+  let { settings, hasSave, game }: { settings: Writable<Settings>; hasSave: boolean; game: GameService } =
+    $props();
 
-  let screen: 'title' | 'settings' = $state('title');
+  let screen: 'title' | 'settings' | 'game' = $state('title');
 
   $effect(() => {
     const root = document.documentElement;
@@ -20,13 +19,17 @@
   });
 </script>
 
-<main>
-  {#if screen === 'title'}
-    <Title {hasSave} {onBegin} onSettings={() => (screen = 'settings')} />
-  {:else}
-    <SettingsScreen {settings} onBack={() => (screen = 'title')} />
-  {/if}
-</main>
+{#if screen === 'game'}
+  <Game {game} {settings} onExit={() => (screen = 'title')} />
+{:else}
+  <main>
+    {#if screen === 'title'}
+      <Title {hasSave} onBegin={() => (screen = 'game')} onSettings={() => (screen = 'settings')} />
+    {:else}
+      <SettingsScreen {settings} onBack={() => (screen = 'title')} />
+    {/if}
+  </main>
+{/if}
 
 <style>
   :global(:root) {

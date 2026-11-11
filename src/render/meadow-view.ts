@@ -38,6 +38,8 @@ export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
   /** The creature under a screen point, or null. */
   pick(x: number, y: number): string | null;
+  /** The scene point under a screen point, through the camera of the last update. */
+  toScene(x: number, y: number): [number, number];
   /** The creature the current beat is about: the only one drawn in the accent (spec 11.1). */
   setFocus(id: string | null): void;
   /** A camera shot from the scene's `cameras`, or null for the whole scene. */
@@ -247,6 +249,9 @@ export function createMeadowView(
         }
       }
       return best;
+    },
+    toScene(x, y) {
+      return camera ? toScene(camera, x, y) : [x, y];
     },
     setFocus(id) {
       focus = id;

@@ -16,3 +16,4 @@ Hard constraint 5 bans AI-generated text, art, music, and myths in the shipped g
 ## Consequences
 
 - A production build cannot ship until a human replaces all placeholder art and text.
+- Since the game screen imports the Ink story (M1.8), `npm run build` fails while any placeholder is referenced. Until writers deliver, CI builds in development mode (`npx vite build --mode development`), which keeps placeholders. `npm run build` stays the ship gate.

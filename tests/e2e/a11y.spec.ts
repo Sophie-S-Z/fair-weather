@@ -49,3 +49,13 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });
+
+test('the game screen with a bet open has no serious axe issues', async ({ page }) => {
+  await page.goto('/?chapter=2');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { name: 'Chapter 2' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: '2×' }).click();
+  await expect(page.getByRole('dialog', { name: 'A bet' })).toBeVisible({ timeout: 20_000 });
+  expect(await seriousViolations(page)).toEqual([]);
+});

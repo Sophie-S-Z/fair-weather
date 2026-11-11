@@ -117,6 +117,13 @@ test('pick returns the nearest creature within the hit radius and null elsewhere
   expect(view.pick(1200 * 0.5, (800 - heightOf('villager-1') / 2) * 0.5)).toBeNull();
 });
 
+test('toScene maps a screen point through the camera', () => {
+  const view = createMeadowView(fakeApp(800, 450), scene, rigs, palette, options);
+  const world = snapshot([['pim', 400, 400]]);
+  view.update(world, world, 1, settings);
+  expect(view.toScene(300, 200)).toEqual([600, 400]);
+});
+
 test('pick follows the interpolated position', () => {
   const view = createMeadowView(fakeApp(800, 450), scene, rigs, palette, options);
   view.update(snapshot([['pim', 200, 400]]), snapshot([['pim', 600, 400]]), 0.5, settings);

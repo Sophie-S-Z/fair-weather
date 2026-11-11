@@ -42,6 +42,8 @@ export interface ChapterRunner {
   verb(v: VerbInput): boolean;
   /** Ignored unless 'bet' is unlocked, a bet is open with no answer yet, and `option` is listed. */
   answerBet(option: string): void;
+  /** The player poked too often (input detects it): sends `overPoke`. Ignored before the first snapshot. */
+  overPoke(): void;
   skip(): Flags;
   done: Promise<Flags>;
   readonly log: ActionLog;
@@ -55,6 +57,7 @@ export const RUNNER_COMMANDS: ReadonlySet<Command['t']> = new Set<Command['t']>(
   'wake',
   'respond',
   'place',
+  'overPoke',
 ]);
 
 /** The one honesty check: throws on a command outside RUNNER_COMMANDS. */
@@ -355,6 +358,9 @@ export function createChapterRunner(
       if (!config.bet?.options.includes(option)) return;
       bet = { phase: 'running', answer: option, until: tick + config.bet.afterDays * ticksPerDay };
       speed(tuning.bet.revealSpeed);
+    },
+    overPoke() {
+      if (origin !== null) send({ t: 'overPoke' });
     },
     skip() {
       const skipped = withWrites((key) => DEFAULT_FLAGS[key]);

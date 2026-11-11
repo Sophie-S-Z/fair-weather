@@ -247,6 +247,21 @@ describe('verbs', () => {
   });
 });
 
+describe('over-poke', () => {
+  test('overPoke sends the overPoke command once a snapshot has arrived, and never after the end', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    runner.overPoke();
+    expect(f.sent).toEqual([]);
+    f.step();
+    runner.overPoke();
+    expect(cmds(f)).toEqual([{ t: 'overPoke' }]);
+    runner.skip();
+    runner.overPoke();
+    expect(cmds(f)).toEqual([{ t: 'overPoke' }]);
+  });
+});
+
 describe('sky bids', () => {
   test('the player answers a sky bid; an unanswered one gets away after 6 sim seconds', () => {
     const f = fakePort();
@@ -520,8 +535,11 @@ describe('honesty', () => {
       assertRunnerCommand({ t: 'shine', x: 1, y: 1 });
     }).toThrow("may not send 'shine'");
     expect(() => {
+      assertRunnerCommand({ t: 'paintFog', x: 1, y: 1, r: 1, amount: 1 });
+    }).toThrow("may not send 'paintFog'");
+    expect(() => {
       assertRunnerCommand({ t: 'overPoke' });
-    }).toThrow("may not send 'overPoke'");
+    }).not.toThrow();
     expect(() => {
       assertRunnerCommand({ t: 'arrangeMeeting', a: 'krit', b: 'pim' });
     }).not.toThrow();

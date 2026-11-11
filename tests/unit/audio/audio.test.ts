@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAudioEngine } from '../../../src/audio/engine.ts';
+import { createAudioEngine, enableOnGesture } from '../../../src/audio/engine.ts';
 import { soundFor } from '../../../src/audio/event-sounds.ts';
 import { pitchFor, scaleTones } from '../../../src/audio/scale.ts';
 import type { Season } from '../../../src/sim/types.ts';
@@ -85,6 +85,13 @@ describe('pitchFor', () => {
   });
 });
 
+describe('pitchFor values', () => {
+  it('gives the spring root for the shortest line and two octaves up for the longest', () => {
+    expect(pitchFor(2, 'spring')).toBeCloseTo(261.63 * Math.pow(2, 21 / 12), 2);
+    expect(pitchFor(5, 'spring')).toBeCloseTo(261.63, 2);
+  });
+});
+
 describe('soundFor', () => {
   it('maps spec 11.5 events', () => {
     const bid = (reply: 'toward' | 'away' | 'against') =>
@@ -92,9 +99,9 @@ describe('soundFor', () => {
     expect(bid('toward')).toMatchObject({ kind: 'harmony', who: 'pim' });
     expect(bid('away')).toMatchObject({ kind: 'fade' });
     expect(bid('against')).toMatchObject({ kind: 'clash' });
-    expect(soundFor({ t: 'opinion', holder: 'a', about: 'b', value: -0.8 })).toEqual({ kind: 'clink' });
-    expect(soundFor({ t: 'opinion', holder: 'a', about: 'b', value: 0.4 })).toBeNull();
-    expect(soundFor({ t: 'return', who: 'pim' })).toEqual({ kind: 'bowl' });
+    // Broken trust, forgiveness and warm cluster have no M1 sim source: null until M2 emits them.
+    expect(soundFor({ t: 'opinion', holder: 'a', about: 'b', value: -0.8 })).toBeNull();
+    expect(soundFor({ t: 'return', who: 'pim' })).toBeNull();
     expect(soundFor({ t: 'arrive', who: 'pim' })).toBeNull();
   });
 });
@@ -102,7 +109,7 @@ describe('soundFor', () => {
 describe('createAudioEngine', () => {
   it('makes no context while sound is off, and plays nothing', () => {
     const { made, engine } = setup();
-    engine.play({ kind: 'clink' });
+    engine.play({ kind: 'fade', who: 'pim' });
     engine.setEnabled(false);
     expect(made).toHaveLength(0);
   });
@@ -134,7 +141,29 @@ describe('createAudioEngine', () => {
     engine.setFog(1);
     expect(c.filters[0]?.frequency.value).toBeLessThan(clear);
     engine.setEnabled(false);
-    engine.play({ kind: 'clink' });
+    engine.play({ kind: 'fade', who: 'pim' });
     expect(c.oscillators).toHaveLength(5);
+  });
+});
+
+describe('enableOnGesture', () => {
+  it('creates no context until the first gesture, then enables once', () => {
+    const { made, engine } = setup();
+    const target = new EventTarget();
+    enableOnGesture(engine, target, () => true);
+    expect(made).toHaveLength(0);
+    target.dispatchEvent(new Event('pointerdown'));
+    expect(made).toHaveLength(1);
+    target.dispatchEvent(new Event('keydown'));
+    expect(made).toHaveLength(1);
+    expect(made[0]?.oscillators).toHaveLength(3);
+  });
+
+  it('does nothing if sound was turned off before the gesture', () => {
+    const { made, engine } = setup();
+    const target = new EventTarget();
+    enableOnGesture(engine, target, () => false);
+    target.dispatchEvent(new Event('keydown'));
+    expect(made).toHaveLength(0);
   });
 });

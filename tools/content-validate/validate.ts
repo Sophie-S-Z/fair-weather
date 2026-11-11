@@ -62,12 +62,10 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`${f}: ${(e as Error).message}`);
     }
   }
-  if (existsSync(join(content, 'audio.json'))) {
-    try {
-      AudioSchema.parse(JSON.parse(readFileSync(join(content, 'audio.json'), 'utf8')));
-    } catch (e) {
-      errors.push(`audio.json: ${(e as Error).message}`);
-    }
+  try {
+    AudioSchema.parse(JSON.parse(readFileSync(join(content, 'audio.json'), 'utf8')));
+  } catch (e) {
+    errors.push(`audio.json: ${(e as Error).message}`);
   }
   for (const [dir, schema] of [
     ['rigs', RigSchema],

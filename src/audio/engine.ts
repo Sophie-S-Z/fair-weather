@@ -17,8 +17,6 @@ export interface AudioEngine {
   setFog(amount: number): void;
 }
 
-const BOWL: Timbre = { wave: 'sine', attack: 0.02, decay: 3 };
-const CLINK: Timbre = { wave: 'sine', attack: 0.002, decay: 0.35 };
 const WELCOME: Timbre = { wave: 'sine', attack: 0.15, decay: 1.6 };
 
 export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOptions): AudioEngine {
@@ -50,16 +48,6 @@ export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOp
         playNote(ctx, bus, f, timbre, t, 0.08);
         playNote(ctx, bus, f * cue.ratio, timbre, t, 0.08);
         break;
-      case 'clink':
-        playNote(ctx, bus, 2093, CLINK, t, 0.08);
-        playNote(ctx, bus, 3135, CLINK, t + 0.03, 0.05);
-        break;
-      case 'bowl': {
-        const root = (scaleTones(opts.season())[0] as number) * 2;
-        playNote(ctx, bus, root, BOWL, t);
-        playNote(ctx, bus, root * 2.76, BOWL, t, 0.04);
-        break;
-      }
     }
   }
 
@@ -91,4 +79,18 @@ export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOp
       applyFog();
     },
   };
+}
+
+/**
+ * A saved "sound on" must not create the context at page load: this enables the engine on the first
+ * user gesture (pointerdown or keydown) if sound is still on then.
+ */
+export function enableOnGesture(engine: AudioEngine, target: EventTarget, isOn: () => boolean): void {
+  const go = (): void => {
+    target.removeEventListener('pointerdown', go);
+    target.removeEventListener('keydown', go);
+    if (isOn()) engine.setEnabled(true);
+  };
+  target.addEventListener('pointerdown', go);
+  target.addEventListener('keydown', go);
 }

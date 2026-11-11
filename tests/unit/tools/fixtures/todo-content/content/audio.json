@@ -1,0 +1,13 @@
+{
+  "lineRange": [2, 5],
+  "steps": [0, 2, 4, 7, 9],
+  "octaves": 2,
+  "seasons": {
+    "spring": { "root": 261.63 },
+    "summer": { "root": 293.66 },
+    "lateSummer": { "root": 246.94 },
+    "autumn": { "root": 220 },
+    "winter": { "root": 174.61 },
+    "thaw": { "root": 196 }
+  }
+}

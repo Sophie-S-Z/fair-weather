@@ -11,7 +11,7 @@ import ch1 from '../content/chapters/ch1.json';
 import ch2 from '../content/chapters/ch2.json';
 import ch3 from '../content/chapters/ch3.json';
 import inkStory from '../content/ink/main.ink';
-import { createAudioEngine } from './audio/engine.ts';
+import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
 import { createHints } from './input/hints.ts';
@@ -120,7 +120,16 @@ const engine = createAudioEngine(() => new AudioContext(), {
     return timbre && length !== undefined ? { timbre, lineLength: length } : undefined;
   },
 });
+let soundOn = false;
+let firstSettings = true;
 settings.subscribe((s) => {
+  soundOn = s.sound;
+  if (firstSettings) {
+    firstSettings = false;
+    // A saved "on" waits for the first gesture; the browser would keep a context made now suspended.
+    if (s.sound) enableOnGesture(engine, document, () => soundOn);
+    return;
+  }
   engine.setEnabled(s.sound);
 });
 host.onMessage((m) => {

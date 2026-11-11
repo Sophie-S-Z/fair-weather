@@ -71,6 +71,10 @@ export default tseslint.config(
             "MemberExpression[object.name='Math'][property.name!=/^(sqrt|floor|ceil|round|trunc|abs|min|max|sign|imul)$/]",
           message: 'src/sim may use only exact Math members (ADR 0001).',
         },
+        {
+          selector: "BinaryExpression[operator='**'], AssignmentExpression[operator='**=']",
+          message: 'src/sim may not use **: it is Math.pow, which is not exact in every engine (ADR 0001).',
+        },
       ],
     },
   },

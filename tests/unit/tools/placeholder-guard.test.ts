@@ -55,6 +55,13 @@ describe('validateContent', () => {
   test('an Ink TODO note does not fail validation', () => {
     expect(validateContent(fixture('todo-content')).errors).toEqual([]);
   });
+  test('counts each placeholder occurrence, not each file', () => {
+    expect(validateContent(fixture('count-content')).counts).toEqual({
+      'PLACEHOLDER-': 0,
+      '#placeholder': 2,
+      '[PLACEHOLDER]': 1,
+    });
+  });
   test('the CLI exits 1 on a bad content root and 0 on the repo', () => {
     const run = (root: string) =>
       spawnSync('node', ['tools/content-validate/validate.ts', root], { cwd: repoRoot, encoding: 'utf8' });

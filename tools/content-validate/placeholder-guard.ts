@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
 
-const MARKERS = ['PLACEHOLDER-', '#placeholder', '[PLACEHOLDER]'] as const;
+export const MARKERS = ['PLACEHOLDER-', '#placeholder', '[PLACEHOLDER]'] as const;
 
 /** Returns each ADR 0010 placeholder marker that appears in `text`. */
 export function findPlaceholders(text: string): string[] {

@@ -6,7 +6,7 @@ import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
-import { findPlaceholders } from './placeholder-guard.ts';
+import { MARKERS } from './placeholder-guard.ts';
 
 export interface ValidationResult {
   errors: string[];
@@ -28,7 +28,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Checks tuning, rigs, and Ink under `root/content`, and counts placeholders by kind. */
+/** Checks tuning, rigs, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -57,12 +57,11 @@ export function validateContent(root: string): ValidationResult {
     }
   }
 
-  const counts: Record<string, number> = { 'PLACEHOLDER-': 0, '#placeholder': 0, '[PLACEHOLDER]': 0 };
+  const counts: Record<string, number> = Object.fromEntries(MARKERS.map((m) => [m, 0]));
   for (const file of walk(content)) {
     const text = file.endsWith('.json') || file.endsWith('.ink') ? readFileSync(file, 'utf8') : '';
-    for (const marker of findPlaceholders(`${file.slice(content.length)}\n${text}`)) {
-      counts[marker] = (counts[marker] ?? 0) + 1;
-    }
+    const haystack = `${file.slice(content.length)}\n${text}`;
+    for (const marker of MARKERS) counts[marker] = (counts[marker] ?? 0) + haystack.split(marker).length - 1;
   }
   return { errors, counts };
 }

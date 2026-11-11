@@ -3,6 +3,7 @@ import { createKeyboard, type InputContext } from '../../../src/input/keyboard.t
 import { createHints, type HintTimer } from '../../../src/input/hints.ts';
 import { createOverPoke } from '../../../src/input/over-poke.ts';
 import { createPointer } from '../../../src/input/pointer.ts';
+import type { BidReply } from '../../../src/sim/types.ts';
 import type { Verb, VerbInput } from '../../../src/story/verbs.ts';
 
 function setup(over: Partial<InputContext> = {}) {
@@ -12,6 +13,7 @@ function setup(over: Partial<InputContext> = {}) {
   let cursor = { x: 100, y: 100 };
   let paused = 0;
   let tool: Verb | null = null;
+  let reply: BidReply = 'toward';
   const ctx: InputContext = {
     tools: () => ['wake', 'respond', 'place'],
     creatures: () => [
@@ -26,6 +28,10 @@ function setup(over: Partial<InputContext> = {}) {
     tool: () => tool,
     setTool: (v) => {
       tool = v;
+    },
+    reply: () => reply,
+    setReply: (r) => {
+      reply = r;
     },
     cursor: () => cursor,
     act: (v) => acts.push(v),
@@ -42,7 +48,7 @@ function setup(over: Partial<InputContext> = {}) {
     t.dispatchEvent(e);
     return e;
   };
-  return { press, acts, sel, dispose, cursor: () => cursor, paused: () => paused, t };
+  return { press, acts, sel, dispose, cursor: () => cursor, paused: () => paused, reply: () => reply, t };
 }
 
 describe('keyboard', () => {
@@ -69,6 +75,7 @@ describe('keyboard', () => {
     s.press('2');
     s.press('Enter');
     s.press('r');
+    expect(s.reply()).toBe('against');
     s.press('Enter');
     s.press('3');
     s.press('Enter');
@@ -275,6 +282,28 @@ describe('hints', () => {
     h.unlock('respond');
     f.advance(10000);
     expect(got).toEqual(['wake', 'respond']);
+    h.dispose();
+  });
+  it('a used verb never gets its ghost hand; the next pending verb still does', () => {
+    const f = fakeTimers();
+    const h = createHints(10000, f.timer);
+    const got: string[] = [];
+    h.onHint((v) => got.push(v));
+    h.unlock('wake');
+    h.unlock('respond');
+    f.advance(5000);
+    h.used('wake');
+    f.advance(9999);
+    expect(got).toEqual([]);
+    f.advance(1);
+    expect(got).toEqual(['respond']);
+    h.unlock('wake');
+    f.advance(60000);
+    expect(got).toEqual(['respond']);
+    h.used('place');
+    h.unlock('place');
+    f.advance(60000);
+    expect(got).toEqual(['respond']);
     h.dispose();
   });
 });

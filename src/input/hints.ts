@@ -1,9 +1,12 @@
-// One ghost-hand hint per new verb, after idleMs of no player activity. Never repeats a verb.
+// One ghost-hand hint per new verb, after idleMs of no player activity. Never repeats a verb, and
+// never shows one the player has already used.
 import type { Verb } from '../story/verbs.ts';
 
 export type Hints = {
   unlock(v: Verb): void;
   activity(): void;
+  /** The player used `v`: its hint is dropped and never shows. Also counts as activity. */
+  used(v: Verb): void;
   onHint(cb: (v: Verb) => void): void;
   dispose(): void;
 };
@@ -52,6 +55,13 @@ export function createHints(idleMs = 10000, timer: HintTimer = realTimer): Hints
       arm();
     },
     activity: arm,
+    used(v) {
+      known.add(v);
+      shown.add(v);
+      const i = pending.indexOf(v);
+      if (i >= 0) pending.splice(i, 1);
+      arm();
+    },
     onHint(cb) {
       listeners.push(cb);
     },

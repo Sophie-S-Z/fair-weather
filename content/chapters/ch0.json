@@ -37,6 +37,9 @@
       },
       "actions": [
         {
+          "focus": "pim"
+        },
+        {
           "ink": "ch0_pim_wakes"
         },
         {

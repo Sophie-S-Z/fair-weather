@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   let {
     question,
@@ -19,8 +19,11 @@
   onMount(() => {
     const back = document.activeElement;
     card.querySelector('button')?.focus();
+    // After the update that closes the card, so the screen behind it is no longer inert.
     return () => {
-      if (back instanceof HTMLElement && back.isConnected) back.focus();
+      void tick().then(() => {
+        if (back instanceof HTMLElement && back.isConnected) back.focus();
+      });
     };
   });
 

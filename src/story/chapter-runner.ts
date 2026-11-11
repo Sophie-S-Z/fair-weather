@@ -35,6 +35,8 @@ export interface ChapterRunner {
   onPrompt(cb: (p: Prompt) => void): () => void;
   /** Camera shots named by beats; render owns the camera. */
   onCamera(cb: (shot: string) => void): () => void;
+  /** The creature a beat is about (the accent, spec 11.1), or null for none. */
+  onFocus(cb: (id: string | null) => void): () => void;
   /**
    * False when the verb is locked, no snapshot has arrived yet, the chapter is over (or the verb's
    * beat ended it with an error), or `respond` has no sky bid to answer.
@@ -126,6 +128,7 @@ export function createChapterRunner(
   const log: ActionLog = [];
   const promptListeners = new Set<(p: Prompt) => void>();
   const cameraListeners = new Set<(shot: string) => void>();
+  const focusListeners = new Set<(id: string | null) => void>();
 
   let origin: number | null = null; // chapter time 0, set by the first snapshot
   let tick = 0;
@@ -134,6 +137,8 @@ export function createChapterRunner(
   const early: { tick: number; list: SimEvent[] }[] = []; // events before the first snapshot
   const firedBeats = new Set<string>();
   const skyBids: { who: string; tick: number }[] = [];
+  /** A bid that got the automatic 'away' is prompted again at `tick`, so the player gets another chance. */
+  const rePrompts: { who: string; tick: number }[] = [];
   let bet: { phase: 'idle' | 'open' | 'revealed' } | { phase: 'running'; answer: string; until: number } = {
     phase: 'idle',
   };
@@ -189,6 +194,7 @@ export function createChapterRunner(
     if ('ink' in a) say(a.ink);
     else if ('arrange' in a) send({ t: 'arrangeMeeting', a: a.arrange[0], b: a.arrange[1] });
     else if ('camera' in a) for (const cb of [...cameraListeners]) cb(a.camera);
+    else if ('focus' in a) for (const cb of [...focusListeners]) cb(a.focus);
     else if ('pause' in a) speed(0);
     else if ('promptSkyBid' in a) send({ t: 'promptSkyBid', who: a.promptSkyBid });
     else openBet();
@@ -270,14 +276,19 @@ export function createChapterRunner(
       origin = t - 1; // the tick the first step ran: chapter time 0
       if (!config.twist?.opensOn) openTwist();
     }
+    for (let r = rePrompts[0]; r && t >= r.tick; r = rePrompts[0]) {
+      rePrompts.shift();
+      send({ t: 'promptSkyBid', who: r.who });
+    }
     const replyTicks = tuning.story.skyBidReplySeconds * sps;
     for (let bid = skyBids[0]; bid && t >= bid.tick + replyTicks; bid = skyBids[0]) {
       skyBids.shift();
       send({ t: 'respond', to: bid.who, reply: 'away' });
+      rePrompts.push({ who: bid.who, tick: t + Math.round(tuning.story.skyBidRepeatSeconds * sps) });
     }
     if (bet.phase === 'running' && config.bet && t >= bet.until) {
       const answer = bet.answer;
-      const measured = String(measureBet(config.bet.metric, lite));
+      const measured = String(measureBet(config.bet.metric, lite, config.bet.options));
       bet = { phase: 'revealed' };
       speed(1);
       log.push({ kind: 'bet', tick: t, id: config.bet.id, answer, result: measured });
@@ -334,6 +345,10 @@ export function createChapterRunner(
     onCamera(cb) {
       cameraListeners.add(cb);
       return () => cameraListeners.delete(cb);
+    },
+    onFocus(cb) {
+      focusListeners.add(cb);
+      return () => focusListeners.delete(cb);
     },
     verb(v) {
       if (finished || origin === null || !config.verbs.includes(v.verb)) return false;

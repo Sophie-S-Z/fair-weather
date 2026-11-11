@@ -77,15 +77,27 @@ const ink = createInk(inkStory);
 const host = createSimHost(
   () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
 );
-let current = 0;
-/** Dev only: every speed sent, so e2e can see the tab-hidden pause. */
-const speeds: number[] = [];
-if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = { speeds };
-function speed(multiplier: number): void {
-  current = multiplier;
-  if (import.meta.env.DEV) speeds.push(multiplier);
+/** Dev only: every speed sent to the sim, and frames drawn, so e2e can see the tab-hidden pause. */
+const dev = { speeds: [] as number[], frames: 0 };
+if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = dev;
+function send(multiplier: number): void {
+  if (import.meta.env.DEV) dev.speeds.push(multiplier);
   host.speed(multiplier);
 }
+// No time passes unseen: while the tab is hidden the sim gets speed 0, whatever the runner or the
+// screen asks for; the speed they asked for last is sent when the tab is visible again.
+let wanted = 0;
+let hidden = document.visibilityState === 'hidden';
+function speed(multiplier: number): void {
+  wanted = multiplier;
+  send(hidden ? 0 : multiplier);
+}
+document.addEventListener('visibilitychange', () => {
+  const now = document.visibilityState === 'hidden';
+  if (now === hidden) return;
+  hidden = now;
+  send(hidden ? 0 : wanted);
+});
 const port: SimPort = { ...host, speed };
 
 const devChapter = Number(new URLSearchParams(location.search).get('chapter'));
@@ -113,6 +125,7 @@ const game: GameService = {
     };
     return {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
+        if (import.meta.env.DEV) dev.frames += 1;
         view.update(prev, next, alpha, s);
         app.ticker.update(); // advances the view's clock and renders
       },
@@ -136,7 +149,6 @@ const game: GameService = {
   startChapter(chapter, flags) {
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);
     host.post({ t: 'init', seed: 1, tuning: tuningJson, scenario });
-    current = 0;
     return createChapterRunner(port, ink, chapter, flags);
   },
   onSnapshot(cb) {
@@ -145,7 +157,7 @@ const game: GameService = {
     });
   },
   speed,
-  currentSpeed: () => current,
+  currentSpeed: () => wanted,
   input: {
     createKeyboard,
     createPointer,

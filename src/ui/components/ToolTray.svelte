@@ -5,11 +5,17 @@
   let {
     tools,
     active,
+    reply,
+    ghost,
     onPick,
     onReply,
   }: {
     tools: readonly Verb[];
     active: Verb | null;
+    /** The reply Enter sends with the respond tool. */
+    reply: BidReply;
+    /** The tool the ghost hand taps, or null. */
+    ghost: Verb | null;
     onPick: (v: Verb) => void;
     onReply: (r: BidReply) => void;
   } = $props();
@@ -25,16 +31,19 @@
 <div class="tray">
   <div role="group" aria-label="Tools">
     {#each tools as tool, i (tool)}
-      <button
-        type="button"
-        aria-pressed={tool === active}
-        onclick={() => {
-          onPick(tool);
-        }}
-      >
-        <kbd>{i + 1}</kbd>
-        {LABELS[tool]}
-      </button>
+      <span class="slot">
+        {#if tool === ghost}<span class="ghost" aria-hidden="true"></span>{/if}
+        <button
+          type="button"
+          aria-pressed={tool === active}
+          onclick={() => {
+            onPick(tool);
+          }}
+        >
+          <kbd>{i + 1}</kbd>
+          {LABELS[tool]}
+        </button>
+      </span>
     {/each}
   </div>
   {#if active === 'respond'}
@@ -42,6 +51,7 @@
       {#each REPLIES as r (r.reply)}
         <button
           type="button"
+          aria-pressed={r.reply === reply}
           onclick={() => {
             onReply(r.reply);
           }}><kbd>{r.key}</kbd> {r.label}</button
@@ -73,5 +83,31 @@
     border-radius: 0.2rem;
     padding: 0 0.3em;
     margin-right: 0.25em;
+  }
+  .slot {
+    position: relative;
+  }
+  /* The ghost hand: a faint fingertip that taps the new verb's tool, once per verb (spec 12.6). */
+  .ghost {
+    position: absolute;
+    left: 50%;
+    top: -1.75rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: -0.625rem;
+    border: 3px solid var(--muted);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    opacity: 0.6;
+    pointer-events: none;
+    animation: tap 1.2s ease-in-out 3;
+  }
+  :global(:root[data-motion='reduced']) .ghost {
+    animation: none;
+  }
+  @keyframes tap {
+    50% {
+      transform: rotate(-45deg) translate(-0.5rem, 0.5rem);
+    }
   }
 </style>

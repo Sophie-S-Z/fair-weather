@@ -14,6 +14,9 @@
       },
       "actions": [
         {
+          "focus": "pim"
+        },
+        {
           "camera": "pim-close"
         },
         {

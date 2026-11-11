@@ -42,6 +42,8 @@ export const BeatSchema = z.strictObject({
   actions: z.array(
     z.union([
       z.strictObject({ camera: z.string() }),
+      // The creature the beat is about: the only one drawn in the accent (spec 11.1); null clears it.
+      z.strictObject({ focus: id.nullable() }),
       z.strictObject({ ink: knot }),
       z.strictObject({ arrange: z.tuple([id, id]) }),
       z.strictObject({ pause: z.literal(true) }),

@@ -2,8 +2,8 @@
   import type { Writable } from 'svelte/store';
   import type { GameService } from './game-service.ts';
   import type { Settings } from './settings.ts';
-  import Title from './Title.svelte';
-  import SettingsScreen from './Settings.svelte';
+  import Title from './screens/Title.svelte';
+  import SettingsScreen from './screens/Settings.svelte';
   import Game from './screens/Game.svelte';
 
   let { settings, hasSave, game }: { settings: Writable<Settings>; hasSave: boolean; game: GameService } =

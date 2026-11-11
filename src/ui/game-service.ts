@@ -28,7 +28,10 @@ export interface GameService {
   /** Builds the chapter's scenario, starts a new sim run, and returns its runner. */
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
   onSnapshot(cb: (lite: WorldLite) => void): () => void;
-  /** Sim speed (ADR 0011); 0 pauses. `currentSpeed` is the last one sent by the runner or the screen. */
+  /**
+   * Sim speed (ADR 0011); 0 pauses. While the tab is hidden the sim gets 0 and this speed waits for
+   * the tab to be visible. `currentSpeed` is the last one asked for, by the runner or the screen.
+   */
   speed(multiplier: number): void;
   currentSpeed(): number;
   input: {

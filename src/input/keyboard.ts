@@ -13,6 +13,9 @@ export type InputContext = {
   /** The one owner of the current tool: keyboard, pointer, and HUD all read it here. */
   tool: () => Verb | null;
   setTool: (v: Verb) => void;
+  /** The reply Enter sends with the respond tool; G, H, and R set it. Owned by the caller, so the HUD shows it. */
+  reply: () => BidReply;
+  setReply: (r: BidReply) => void;
   act: (v: VerbInput) => void;
   togglePause: () => void;
   select: (id: string | null) => void;
@@ -26,11 +29,10 @@ const ARROWS: Record<string, Point> = {
   ArrowUp: { x: 0, y: -CURSOR_STEP },
   ArrowDown: { x: 0, y: CURSOR_STEP },
 };
-/** While the respond tool is active: G glow back, H hold still, R rumble. Default glow back. */
+/** While the respond tool is active: G glow back, H hold still, R rumble. */
 const REPLY_KEYS: Record<string, BidReply> = { g: 'toward', h: 'away', r: 'against' };
 
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
-  let reply: BidReply = 'toward';
   let picked: string | null = null;
 
   const activeTool = (): Verb | null => {
@@ -72,13 +74,13 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
     } else if (key === 'Enter') {
       const v = activeTool();
       if (v === 'wake' && picked !== null) ctx.act({ verb: 'wake', who: picked });
-      else if (v === 'respond') ctx.act({ verb: 'respond', reply });
+      else if (v === 'respond') ctx.act({ verb: 'respond', reply: ctx.reply() });
       else if (v === 'place') ctx.act({ verb: 'place', ...snapToBench(ctx.cursor(), ctx.benchSpots()) });
     } else if (key === ' ') {
       ctx.togglePause();
       k.preventDefault();
     } else if (key.toLowerCase() in REPLY_KEYS && activeTool() === 'respond') {
-      reply = REPLY_KEYS[key.toLowerCase()] as BidReply;
+      ctx.setReply(REPLY_KEYS[key.toLowerCase()] as BidReply);
     }
   };
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Writable } from 'svelte/store';
-  import type { Settings } from './settings.ts';
+  import type { Settings } from '../settings.ts';
 
   let { settings, onBack }: { settings: Writable<Settings>; onBack: () => void } = $props();
 

@@ -247,6 +247,22 @@ describe('verbs', () => {
   });
 });
 
+describe('focus', () => {
+  test('a focus action goes to the focus listeners, in beat order', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    const got: (string | null)[] = [];
+    const off = runner.onFocus((id) => got.push(id));
+    f.step();
+    expect(got).toEqual([]);
+    runner.verb({ verb: 'wake', who: 'krit' });
+    expect(got).toEqual(['pim']);
+    off();
+    const cleared = { id: 'x', trigger: { at: 0 }, actions: [{ focus: null }] };
+    expect(() => ChapterSchema.parse({ ...ch0, beats: [...ch0.beats, cleared] })).not.toThrow();
+  });
+});
+
 describe('over-poke', () => {
   test('overPoke sends the overPoke command once a snapshot has arrived, and never after the end', () => {
     const f = fakePort();
@@ -281,6 +297,26 @@ describe('sky bids', () => {
     ]);
     f.steps(100);
     expect(responds()).toHaveLength(2);
+  });
+
+  test('after the automatic away, the same creature bids again 4 sim seconds later, so a slow player can still answer', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH1_KNOTS), ch1, flags);
+    f.step(); // snapshot tick 1: the wave beat prompts Pim's bid
+    expect(cmds(f)).toEqual([{ t: 'promptSkyBid', who: 'pim' }]);
+    f.step([{ t: 'skyBid', who: 'pim' }]); // events tick 1: away is due at tick 61
+    f.steps(59); // snapshot tick 61
+    expect(cmds(f).slice(1)).toEqual([{ t: 'respond', to: 'pim', reply: 'away' }]);
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(false);
+    f.steps(39); // snapshot tick 100
+    expect(cmds(f)).toHaveLength(2);
+    f.step(); // snapshot tick 101 = 61 + 40
+    expect(cmds(f).slice(2)).toEqual([{ t: 'promptSkyBid', who: 'pim' }]);
+    f.step([{ t: 'skyBid', who: 'pim' }]);
+    expect(runner.verb({ verb: 'respond', reply: 'toward' })).toBe(true);
+    f.step();
+    expect(await settled(runner.done)).toBe(true);
+    expect(cmds(f).slice(3)).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
   });
 
   test("chapter 1 ends on the snapshot after the first reply, with Pim's opinion from its sky warmth", async () => {
@@ -565,6 +601,7 @@ describe('honesty', () => {
       { t: 'wake', who: 'pim' },
       { t: 'respond', to: 'pim', reply: 'toward' },
       { t: 'respond', to: 'pim', reply: 'away' },
+      { t: 'promptSkyBid', who: 'pim' }, // the bid again after the silence
       { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
       { t: 'arrangeMeeting', a: 'krit', b: 'pim' },
       { t: 'arrangeMeeting', a: 'krit', b: 'pim' },

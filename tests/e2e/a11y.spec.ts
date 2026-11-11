@@ -59,3 +59,14 @@ test('the game screen with a bet open has no serious axe issues', async ({ page 
   await expect(page.getByRole('dialog', { name: 'A bet' })).toBeVisible({ timeout: 20_000 });
   expect(await seriousViolations(page)).toEqual([]);
 });
+
+test('the game screen in high contrast has no serious axe issues', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('High contrast').check();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+  await page.getByRole('button', { name: 'Notes' }).click();
+  expect(await seriousViolations(page)).toEqual([]);
+});

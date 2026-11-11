@@ -21,20 +21,28 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
   };
 }
 
-test('maxBerries returns the id with the most berries', () => {
-  expect(measureBet({ kind: 'maxBerries' }, lite({ pim: 2, krit: 7, echo: 3 }))).toBe('krit');
+const CAST = ['pim', 'krit', 'echo', 'moss'];
+
+test('maxBerries returns the option with the most berries', () => {
+  expect(measureBet({ kind: 'maxBerries' }, lite({ pim: 2, krit: 7, echo: 3 }), CAST)).toBe('krit');
+});
+
+test('maxBerries counts only the options: a villager with more berries is never the answer', () => {
+  const l = lite({ pim: 2, krit: 5, 'villager-16': 9 });
+  expect(measureBet({ kind: 'maxBerries' }, l, CAST)).toBe('krit');
 });
 
 test('maxBerries breaks a tie toward the lower id', () => {
-  expect(measureBet({ kind: 'maxBerries' }, lite({ pim: 4, krit: 4, moss: 1 }))).toBe('krit');
+  expect(measureBet({ kind: 'maxBerries' }, lite({ pim: 4, krit: 4, moss: 1 }), CAST)).toBe('krit');
 });
 
-test('maxBerries is empty with no creatures', () => {
-  expect(measureBet({ kind: 'maxBerries' }, lite({}))).toBe('');
+test('maxBerries is empty when no option is in the snapshot', () => {
+  expect(measureBet({ kind: 'maxBerries' }, lite({}), CAST)).toBe('');
+  expect(measureBet({ kind: 'maxBerries' }, lite({ 'villager-1': 3 }), CAST)).toBe('');
 });
 
 test('averageWarmth and friendPairs read the snapshot metrics', () => {
   const l = lite({ pim: 1 }, 0.35, 4);
-  expect(measureBet({ kind: 'averageWarmth' }, l)).toBe(0.35);
-  expect(measureBet({ kind: 'friendPairs' }, l)).toBe(4);
+  expect(measureBet({ kind: 'averageWarmth' }, l, CAST)).toBe(0.35);
+  expect(measureBet({ kind: 'friendPairs' }, l, CAST)).toBe(4);
 });

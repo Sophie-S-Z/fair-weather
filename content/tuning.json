@@ -1,6 +1,6 @@
 {
   "sim": { "stepsPerSecond": 10 },
-  "story": { "dayLengthSeconds": 40, "honestyRetries": 3, "skyBidReplySeconds": 6 },
+  "story": { "dayLengthSeconds": 40, "honestyRetries": 3, "skyBidReplySeconds": 6, "skyBidRepeatSeconds": 4 },
   "scene": { "width": 1600, "height": 900, "gateX": 40, "gateY": 450 },
   "move": { "speed": 40, "accel": 80, "arriveRadius": 8 },
   "meet": { "radius": 24, "benchRepeatMultiplier": 2, "durationTicks": 20 },

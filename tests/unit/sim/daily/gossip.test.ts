@@ -129,3 +129,14 @@ test('gossip: away creatures neither share nor listen', () => {
   expect(gossip(w, t, scriptedRng([]))).toEqual([]);
   expect(get(w, 'L').opinions.X).toBeUndefined();
 });
+
+test('gossip, simple: once a subject is adopted, the other sign about it takes no draws', () => {
+  const w = makeWorld([{ id: 'L', ear: 0.05 }, { id: 'N' }, { id: 'P' }, { id: 'X' }]);
+  befriend(w, 'L', 'N');
+  befriend(w, 'L', 'P');
+  get(w, 'P').opinions.X = 0.8;
+  get(w, 'N').opinions.X = -0.8;
+  const rng = scriptedRng([0.1]); // positive first: P's draw adopts; the negative share is skipped
+  expect(gossip(w, t, rng)).toEqual([{ t: 'opinion', holder: 'L', about: 'X', value: 0.8 }]);
+  expect(rng.used()).toBe(1);
+});

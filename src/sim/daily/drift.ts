@@ -1,6 +1,6 @@
 // Warmth drift and slight decay at dusk (spec 9.4, ADR 0004 item 1).
 import type { Tuning } from '../tuning.ts';
-import type { DailyRule } from './index.ts';
+import type { DailyRule } from './rule.ts';
 import { exp2neg } from '../math.ts';
 import { byId } from '../world.ts';
 

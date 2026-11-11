@@ -1,11 +1,10 @@
 // Imitation every imitation.everyDays dusks (spec 9.4, ADR 0004 item 8).
 import type { Creature, DialKey, SimEvent, World } from '../types.ts';
+import { DIAL_KEYS } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { createGrid } from '../grid.ts';
 import { friendCount } from '../world.ts';
-
-const DIALS: readonly DialKey[] = ['opener', 'forgiveness', 'memory', 'ear', 'wanderlust'];
 
 /**
  * On dusks where day % everyDays === everyDays - 1, each active creature compares itself with one
@@ -45,7 +44,7 @@ export function imitate(world: World, t: Tuning, rng: Rng): SimEvent[] {
     const n = rng.pick(neighbors);
     if ((fitness.get(n) ?? 0) <= own) return;
     if (rng.next() >= rate) return;
-    const dial = rng.pick(DIALS);
+    const dial = rng.pick(DIAL_KEYS);
     copies.push({ who: c, from: n, dial, value: n.dials[dial] });
   });
   return copies.map(({ who, from, dial, value }) => {

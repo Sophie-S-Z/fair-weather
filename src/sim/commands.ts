@@ -1,12 +1,11 @@
 // Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4).
-import type { BidReply, Command, Creature, DialKey, Season, SimEvent, World } from './types.ts';
+import type { BidReply, Command, Creature, Season, SimEvent, World } from './types.ts';
+import { DIAL_KEYS } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { byId, ensureTie, side } from './world.ts';
 
-const GUST_TICKS = 10; // how long a gust stays in fields.gusts, for render
-const DIALS: readonly DialKey[] = ['opener', 'forgiveness', 'memory', 'ear', 'wanderlust'];
 const SEASONS: readonly Season[] = ['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'];
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
 
@@ -58,7 +57,7 @@ function paintFog(world: World, x: number, y: number, r: number, amount: number,
  * wanderlust], then the amount draw: the dial moves by (2 x draw - 1) x wind.spread, clamped to [0, 1].
  */
 function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tuning, rng: Rng): void {
-  world.fields.gusts.push({ x, y, dx, dy, untilTick: world.tick + GUST_TICKS });
+  world.fields.gusts.push({ x, y, dx, dy, untilTick: world.tick + t.wind.gustTicks });
   const len2 = dx * dx + dy * dy;
   const len = Math.sqrt(len2);
   const half = t.wind.width / 2;
@@ -69,7 +68,7 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
     c.vx += (dx / len) * t.wind.push;
     c.vy += (dy / len) * t.wind.push;
     if (rng.next() >= t.wind.dialShiftChance) continue;
-    const dial = rng.pick(DIALS);
+    const dial = rng.pick(DIAL_KEYS);
     c.dials[dial] = clamp(c.dials[dial] + (2 * rng.next() - 1) * t.wind.spread, 0, 1);
   }
 }

@@ -42,7 +42,7 @@ test('defaults equal the handoff and ADR values', () => {
     hungerBristle: 0.05,
     giftSoftness: 0.05,
   });
-  expect(t.wind).toEqual({ width: 80, push: 60, dialShiftChance: 0.2, spread: 0.15 });
+  expect(t.wind).toEqual({ width: 80, push: 60, dialShiftChance: 0.2, spread: 0.15, gustTicks: 10 });
   expect(t.fog).toEqual({ cellSize: 40, bidFlipFactor: 0.5, giftMisreadFactor: 0.5 });
   expect(t.population).toEqual({
     returnEveryDays: 7,
@@ -51,6 +51,8 @@ test('defaults equal the handoff and ADR values', () => {
     leaveMinFriends: 2,
     returnChanceWeekly: 0.25,
     returnMinAvgWarmth: 0.2,
+    newcomerSpecies: 'kith',
+    newcomerDial: 0.5,
   });
   expect(t.bid).toEqual({ gain: 4, openerWeight: 0.5, hungerWeight: 0.3, againstBelowWarmth: -0.4 });
   expect(t.gift).toEqual({ cost: 1, value: 3, valueWinter: 2, maxSlightsPerForgiveness: 3 });

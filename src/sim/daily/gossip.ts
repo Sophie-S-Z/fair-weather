@@ -41,8 +41,9 @@ function compareShares(x: { about: string; sign: number }, y: { about: string; s
  * change who hears what. A listener that already holds the same sign keeps its own value.
  *
  * PRNG draws: listeners in `world.creatures` order; for each listener, the opinions it hears in
- * order of subject id (code units), positive before negative; for each such opinion that the
- * listener does not already hold with that sign and that at least one of its friends holds,
+ * order of subject id (code units), positive before negative; for each such opinion whose
+ * subject the listener has not already adopted this dusk, that the listener does not already
+ * hold with that sign, and that at least one of its friends holds,
  * when the listener's Ear is below gossip.simpleEarBelow, one draw per holder among its friends,
  * in id order. Complex contagion takes no draws. A listener adopts at most one opinion per
  * subject: the first that succeeds.
@@ -69,7 +70,7 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
     const done = new Set<string>();
     for (const { about, sign } of shares) {
       const holders = friends.filter((f) => holds(f, about, sign, t));
-      if (holds(listener, about, sign, t) || holders.length === 0) continue;
+      if (done.has(about) || holds(listener, about, sign, t) || holders.length === 0) continue;
       let takes = false;
       if (listener.dials.ear < t.gossip.simpleEarBelow) {
         for (let i = 0; i < holders.length; i++) {
@@ -78,7 +79,7 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
       } else {
         takes = holders.length / friends.length >= listener.dials.ear;
       }
-      if (!takes || done.has(about)) continue;
+      if (!takes) continue;
       done.add(about);
       let sum = 0;
       for (const h of holders) sum += h.opinions[about] ?? 0;

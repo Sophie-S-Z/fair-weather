@@ -1,5 +1,5 @@
 // Shell values at dusk (ADR 0004 item 11).
-import type { DailyRule } from './index.ts';
+import type { DailyRule } from './rule.ts';
 import { friendCount, activeCreatures } from '../world.ts';
 
 /** Color moves toward the friend count; tightness, bristle, and softness relax toward rest. No draws. */

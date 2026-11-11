@@ -1,5 +1,5 @@
 // Eating at dusk (ADR 0004 item 3).
-import type { DailyRule } from './index.ts';
+import type { DailyRule } from './rule.ts';
 import { clamp } from '../math.ts';
 import { activeCreatures } from '../world.ts';
 

@@ -2,7 +2,7 @@
 import type { SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
-import type { DailyRule } from './index.ts';
+import type { DailyRule } from './rule.ts';
 import { clamp } from '../math.ts';
 import { activeCreatures, averageWarmth, friendCount, newCreature } from '../world.ts';
 
@@ -36,15 +36,16 @@ export const newcomer: DailyRule = (world, t) => {
   const spare = active === 0 ? total : total / active;
   if (spare <= t.population.newcomerSparePerCreature || world.creatures.length >= t.cap.story) return [];
   const n = world.nextId;
+  const d = t.population.newcomerDial;
   world.nextId += 1;
   const c = newCreature({
     id: `newcomer-${String(n)}`,
-    speciesId: 'villager',
+    speciesId: t.population.newcomerSpecies,
     name: `Newcomer ${String(n)}`,
     x: t.scene.gateX,
     y: t.scene.gateY,
     berries: 0,
-    dials: { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 },
+    dials: { opener: d, forgiveness: d, memory: d, ear: d, wanderlust: d },
   });
   world.creatures.push(c);
   return [{ t: 'arrive', who: c.id }];

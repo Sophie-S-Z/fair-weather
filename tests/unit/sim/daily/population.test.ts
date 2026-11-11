@@ -25,7 +25,7 @@ test('newcomer: spare berries above 3 per creature add one newcomer at the gate'
   const n = get(w, 'newcomer-1');
   expect(n).toMatchObject({
     name: 'Newcomer 1',
-    speciesId: 'villager',
+    speciesId: 'kith',
     x: t.scene.gateX,
     y: t.scene.gateY,
     berries: 0,

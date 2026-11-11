@@ -40,7 +40,7 @@ export const TuningSchema = obj({
     hungerBristle: prob,
     giftSoftness: prob,
   }),
-  wind: obj({ width: pos, push: pos, dialShiftChance: prob, spread: prob }),
+  wind: obj({ width: pos, push: pos, dialShiftChance: prob, spread: prob, gustTicks: count }),
   fog: obj({ cellSize: count, bidFlipFactor: prob, giftMisreadFactor: prob }),
   population: obj({
     returnEveryDays: count,
@@ -49,6 +49,8 @@ export const TuningSchema = obj({
     leaveMinFriends: count,
     returnChanceWeekly: prob,
     returnMinAvgWarmth: signed,
+    newcomerSpecies: z.string().min(1),
+    newcomerDial: prob,
   }),
   bid: obj({ gain: pos, openerWeight: prob, hungerWeight: prob, againstBelowWarmth: signed }),
   gift: obj({ cost: count, value: count, valueWinter: count, maxSlightsPerForgiveness: count }),

@@ -22,7 +22,7 @@
     "hungerBristle": 0.05,
     "giftSoftness": 0.05
   },
-  "wind": { "width": 80, "push": 60, "dialShiftChance": 0.2, "spread": 0.15 },
+  "wind": { "width": 80, "push": 60, "dialShiftChance": 0.2, "spread": 0.15, "gustTicks": 10 },
   "fog": { "cellSize": 40, "bidFlipFactor": 0.5, "giftMisreadFactor": 0.5 },
   "population": {
     "returnEveryDays": 7,
@@ -30,7 +30,9 @@
     "leaveHungryDusks": 4,
     "leaveMinFriends": 2,
     "returnChanceWeekly": 0.25,
-    "returnMinAvgWarmth": 0.2
+    "returnMinAvgWarmth": 0.2,
+    "newcomerSpecies": "kith",
+    "newcomerDial": 0.5
   },
   "bid": { "gain": 4, "openerWeight": 0.5, "hungerWeight": 0.3, "againstBelowWarmth": -0.4 },
   "gift": { "cost": 1, "value": 3, "valueWinter": 2, "maxSlightsPerForgiveness": 3 },

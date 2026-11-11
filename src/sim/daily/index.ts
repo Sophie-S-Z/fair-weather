@@ -2,6 +2,7 @@
 import type { SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
+import type { DailyRule } from './rule.ts';
 import { makeArt } from './art.ts';
 import { decaySlights, driftWarmth } from './drift.ts';
 import { eat } from './eat.ts';
@@ -9,9 +10,6 @@ import { gossip } from './gossip.ts';
 import { imitate } from './imitation.ts';
 import { leave, newcomer, regrowBushes, returnAway } from './population.ts';
 import { updateShells } from './shells.ts';
-
-/** One daily rule. Rules that take no draws ignore `rng`. */
-export type DailyRule = (world: World, t: Tuning, rng: Rng) => SimEvent[];
 
 // ADR 0004 item 1. Imitation and return check their own day.
 const RULES: readonly DailyRule[] = [

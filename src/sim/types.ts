@@ -1,10 +1,18 @@
-// Core sim types (spec 9, ADRs 0002 to 0005). Types only: no values.
+// Core sim types (spec 9, ADRs 0002 to 0005). Types, plus the fixed dial order.
 export type Season = 'spring' | 'summer' | 'lateSummer' | 'autumn' | 'winter' | 'thaw';
 export type CreatureState = 'wander' | 'meet' | 'sleep' | 'leave' | 'away';
 export type BidReply = 'toward' | 'away' | 'against';
 export type GiftMove = 'give' | 'keep';
 export type Behavior = 'toward' | 'against' | 'give' | 'keep';
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
+/** The fixed dial order for every PRNG pick over dials. */
+export const DIAL_KEYS = [
+  'opener',
+  'forgiveness',
+  'memory',
+  'ear',
+  'wanderlust',
+] as const satisfies readonly DialKey[];
 export type Dials = Record<DialKey, number>; // each 0..1
 export interface Shell {
   tightness: number;

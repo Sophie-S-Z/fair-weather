@@ -8,6 +8,8 @@ export interface SimHost extends SimPort {
   post(m: ToWorker): void;
   /** Starts a new worker from the last checkpoint and replays every accepted list after it. */
   restart(): void;
+  /** Asks the worker for its world now; the answer is a structured clone. */
+  requestCheckpoint(): Promise<{ tick: number; world: World }>;
   log(): readonly { tick: number; list: Command[] }[];
 }
 
@@ -21,6 +23,7 @@ type Init = Extract<ToWorker, { t: 'init' }>;
 export function createSimHost(spawn: () => Endpoint): SimHost {
   const listeners = new Set<(m: FromWorker) => void>();
   let hashWaiters: { resolve(h: { tick: number; value: string }): void; reject(e: Error): void }[] = [];
+  let checkpointWaiters: { resolve(c: { tick: number; world: World }): void; reject(e: Error): void }[] = [];
   let log: { tick: number; list: Command[] }[] = [];
   /** Lists sent but not yet accepted, with the tick they are expected to run at. */
   let inFlight: { tick: number; list: Command[] }[] = [];
@@ -43,6 +46,9 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     const waiters = hashWaiters;
     hashWaiters = [];
     for (const h of waiters) h.reject(new Error(reason));
+    const cps = checkpointWaiters;
+    checkpointWaiters = [];
+    for (const c of cps) c.reject(new Error(reason));
   }
 
   function onFailure(lastGoodTick: number): void {
@@ -75,6 +81,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         seenEventsTick = m.tick;
         break;
       case 'checkpoint':
+        checkpointWaiters.shift()?.resolve({ tick: m.tick, world: m.world });
         if (checkpoint && m.tick <= checkpoint.tick) return;
         checkpoint = { tick: m.tick, world: m.world };
         break;
@@ -158,6 +165,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         targetTick += m.ticks;
         break;
       case 'hash':
+      case 'checkpoint':
         break;
     }
     worker?.postMessage(m);
@@ -183,6 +191,16 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         }
         hashWaiters.push({ resolve, reject });
         worker?.postMessage({ t: 'hash' } satisfies ToWorker);
+      });
+    },
+    requestCheckpoint() {
+      return new Promise((resolve, reject) => {
+        if (gaveUp !== null) {
+          reject(new Error(gaveUp));
+          return;
+        }
+        checkpointWaiters.push({ resolve, reject });
+        worker?.postMessage({ t: 'checkpoint' } satisfies ToWorker);
       });
     },
     restart,

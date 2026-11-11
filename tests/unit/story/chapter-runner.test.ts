@@ -66,6 +66,10 @@ function inkOf(knots: string[], extra: Record<string, string> = {}): InkRunner &
     setVar: (n, v) => {
       ink.setVar(n, v);
     },
+    state: () => ink.state(),
+    load: (st) => {
+      ink.load(st);
+    },
     play: (k) => {
       played.push(k);
       return ink.play(k);

@@ -4,7 +4,7 @@ import type { FromWorker, ToWorker } from '../../../src/sim-host/protocol.ts';
 import { createSimHost } from '../../../src/sim-host/host.ts';
 import type { SimHost } from '../../../src/sim-host/host.ts';
 import type { Endpoint } from './harness.ts';
-import { coreOverChannel, goldenLists, playGolden } from './harness.ts';
+import { coreOverChannel, goldenLists, initGolden, playGolden } from './harness.ts';
 
 const open: Endpoint[] = [];
 afterEach(() => {
@@ -129,4 +129,14 @@ test('init resets speed and pending hash requests, and log returns a copy', asyn
   const log = host.log() as { tick: number; list: unknown[] }[];
   log.length = 0;
   expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 10));
+});
+
+test('requestCheckpoint resolves with the world now', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  host.post({ t: 'advance', ticks: 4 });
+  const cp = await host.requestCheckpoint();
+  expect(cp.tick).toBe(4);
+  expect(cp.world.tick).toBe(4);
 });

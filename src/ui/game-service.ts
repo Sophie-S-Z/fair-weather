@@ -25,6 +25,10 @@ export interface GameService {
   /** The chapter Begin starts at: 0, or ?chapter=N in a dev build. */
   firstChapter: number;
   createStage(el: HTMLElement): Promise<Stage>;
+  /** The autosave's chapter and flags, or null. The next `startChapter` of that chapter resumes from its checkpoint. */
+  resume(): Promise<{ index: number; flags: Flags } | null>;
+  /** True when an autosave can be loaded. */
+  hasSave(): Promise<boolean>;
   /** Builds the chapter's scenario, starts a new sim run, and returns its runner. */
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
   onSnapshot(cb: (lite: WorldLite) => void): () => void;

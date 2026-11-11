@@ -23,6 +23,9 @@ import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
+import { hashTuning } from './persist/format.ts';
+import type { SaveV1 } from './persist/format.ts';
+import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import type { Scenario, Season } from './sim/types.ts';
@@ -152,6 +155,23 @@ const firstChapter =
     ? devChapter
     : 0;
 
+// Saves (spec 15.1). The notice is role=status, a polite live region. If storage is blocked or full, one polite notice says so and play goes on.
+const noticeEl = document.createElement('p');
+noticeEl.setAttribute('role', 'status');
+noticeEl.style.cssText =
+  'position:fixed;left:0.75rem;bottom:0.75rem;z-index:10;margin:0;padding:0.25rem 0.5rem;max-width:30rem;background:var(--bg);color:var(--fg);border:2px solid var(--accent);border-radius:0.4rem';
+noticeEl.hidden = true;
+document.body.appendChild(noticeEl);
+// Not awaited at the top, so the title screen mounts without waiting for the database.
+const slotsReady = createSlots(indexedDB, () => {
+  noticeEl.hidden = false;
+  noticeEl.textContent =
+    'Saving is not available in this browser, so progress will not be kept. You can keep playing.';
+});
+const tuningHash = hashTuning(JSON.stringify(tuningJson));
+/** The loaded autosave, held until its chapter starts. */
+let resuming: SaveV1 | null = null;
+
 const game: GameService = {
   chapters,
   defaultFlags: parseFlags(flagsJson),
@@ -192,10 +212,51 @@ const game: GameService = {
       },
     };
   },
+  async resume() {
+    const save = await (await slotsReady).load('auto');
+    const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
+    if (!save || index < 0) return null;
+    try {
+      ink.load(save.ink);
+    } catch {
+      return null;
+    }
+    resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
+    return { index, flags: save.flags };
+  },
+  async hasSave() {
+    return (await (await slotsReady).load('auto')) !== null;
+  },
   startChapter(chapter, flags) {
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);
     season = scenario.season;
-    host.post({ t: 'init', seed: 1, tuning: tuningJson, scenario });
+    const resumed = resuming?.chapterId === chapter.id ? resuming : null;
+    resuming = null;
+    host.post({
+      t: 'init',
+      seed: 1,
+      tuning: tuningJson,
+      scenario,
+      ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
+    });
+    if (!resumed) {
+      // The autosave at the chapter start: the world now, and Ink before the chapter plays.
+      const inkState = ink.state();
+      host.requestCheckpoint().then(
+        async ({ world }) =>
+          (await slotsReady).save('auto', {
+            version: 1,
+            seed: 1,
+            tuningHash,
+            ink: inkState,
+            flags,
+            chapterId: chapter.id,
+            log: [],
+            checkpoint: world,
+          }),
+        () => undefined, // the worker gave up; the chapter plays without this save
+      );
+    }
     return createChapterRunner(port, ink, chapter, flags);
   },
   onSnapshot(cb) {

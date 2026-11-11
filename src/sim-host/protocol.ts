@@ -23,6 +23,7 @@ export interface WorldLite {
 /**
  * Main thread to worker. `tuning` is raw tuning JSON, parsed in the worker. `checkpoint` is a
  * structured clone of a World from a `checkpoint` message. A new worker starts paused.
+ * `checkpoint` asks for a `checkpoint` message with the world now, between steps.
  * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
  */
 export type ToWorker =
@@ -30,6 +31,7 @@ export type ToWorker =
   | { t: 'commands'; list: Command[] }
   | { t: 'speed'; multiplier: number }
   | { t: 'hash' }
+  | { t: 'checkpoint' }
   | { t: 'advance'; ticks: number };
 
 /**

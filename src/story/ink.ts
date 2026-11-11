@@ -3,6 +3,9 @@ import { Story } from 'inkjs';
 
 export interface InkRunner {
   setVar(name: string, value: number | string | boolean): void;
+  /** The Ink state as JSON, and its restore (spec 15.1). */
+  state(): string;
+  load(state: string): void;
   play(knot: string): { lines: string[]; tags: string[] };
 }
 
@@ -11,6 +14,10 @@ export function createInk(json: string): InkRunner {
   return {
     setVar(name, value) {
       story.variablesState[name] = value;
+    },
+    state: () => story.state.toJson(),
+    load(state) {
+      story.state.LoadJson(state);
     },
     play(knot) {
       story.ChoosePathString(knot);

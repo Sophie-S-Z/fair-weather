@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { Writable } from 'svelte/store';
   import type { GameService } from './game-service.ts';
   import type { Settings } from './settings.ts';
@@ -10,6 +11,27 @@
     $props();
 
   let screen: 'title' | 'settings' | 'game' = $state('title');
+  let saved = $state(false);
+  let resume = $state(false);
+
+  // The title shows Continue once the saves have been read.
+  onMount(() => {
+    if (hasSave) saved = true;
+    void game.hasSave().then((s) => {
+      saved = s;
+    });
+  });
+
+  function play(fromSave: boolean): void {
+    resume = fromSave;
+    screen = 'game';
+  }
+  function leaveGame(): void {
+    screen = 'title';
+    void game.hasSave().then((s) => {
+      saved = s;
+    });
+  }
 
   $effect(() => {
     const root = document.documentElement;
@@ -20,11 +42,20 @@
 </script>
 
 {#if screen === 'game'}
-  <Game {game} {settings} onExit={() => (screen = 'title')} />
+  <Game {game} {settings} {resume} onExit={leaveGame} />
 {:else}
   <main>
     {#if screen === 'title'}
-      <Title {hasSave} onBegin={() => (screen = 'game')} onSettings={() => (screen = 'settings')} />
+      <Title
+        hasSave={saved}
+        onBegin={() => {
+          play(false);
+        }}
+        onContinue={() => {
+          play(true);
+        }}
+        onSettings={() => (screen = 'settings')}
+      />
     {:else}
       <SettingsScreen {settings} onBack={() => (screen = 'title')} />
     {/if}

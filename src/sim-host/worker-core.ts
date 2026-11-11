@@ -117,6 +117,9 @@ export function createWorkerCore(
       case 'hash':
         post({ t: 'hash', tick: world.tick, value: hashWorld(world) });
         return;
+      case 'checkpoint':
+        post({ t: 'checkpoint', tick: world.tick, world: structuredClone(world) });
+        return;
       case 'advance':
         for (let i = 0; i < m.ticks; i++) if (!stepOnce(world, tuning)) break;
         return;

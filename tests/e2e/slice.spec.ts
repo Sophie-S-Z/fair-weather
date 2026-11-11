@@ -111,3 +111,16 @@ test('a hidden tab sets speed 0 and stops drawing; a visible one restores both',
   expect((await dev(page)).speeds).toEqual([1, 0, 1]);
   await expect.poll(async () => (await dev(page)).frames).toBeGreaterThan(frames);
 });
+
+test('Continue is enabled after a chapter has started, and resumes it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+  await page.waitForTimeout(500); // the autosave is written a moment after the chapter starts
+  await page.reload();
+  const cont = page.getByRole('button', { name: 'Continue' });
+  await expect(cont).toBeEnabled();
+  await cont.click();
+  await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+  await expect(live(page)).toContainText('press Enter to wake it');
+});

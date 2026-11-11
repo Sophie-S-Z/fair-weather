@@ -16,8 +16,12 @@
   import TimeControls from '../components/TimeControls.svelte';
   import ToolTray from '../components/ToolTray.svelte';
 
-  let { game, settings, onExit }: { game: GameService; settings: Writable<Settings>; onExit: () => void } =
-    $props();
+  let {
+    game,
+    settings,
+    resume,
+    onExit,
+  }: { game: GameService; settings: Writable<Settings>; resume: boolean; onExit: () => void } = $props();
 
   /** One line of prompt text per new verb (spec 12.6). The bet card is its own prompt. */
   const HINTS: Record<Exclude<Verb, 'bet'>, string> = {
@@ -206,6 +210,7 @@
   onMount(() => {
     const offs: (() => void)[] = [];
     let gone = false;
+    const isGone = (): boolean => gone;
     const activity = (): void => {
       hints.activity();
     };
@@ -228,7 +233,7 @@
       }),
     );
 
-    void game.createStage(sceneEl).then((s) => {
+    void game.createStage(sceneEl).then(async (s) => {
       if (gone) {
         s.destroy();
         return;
@@ -258,7 +263,11 @@
           ctx,
         ),
       );
-      begin(game.firstChapter, game.defaultFlags);
+      // Continue starts the saved chapter over from its start; no save means a new game.
+      const saved = untrack(() => resume) ? await game.resume() : null;
+      if (isGone()) return;
+      if (saved) begin(saved.index, saved.flags);
+      else begin(game.firstChapter, game.defaultFlags);
       sceneEl.focus();
       if (!hidden) raf = requestAnimationFrame(frame);
     });

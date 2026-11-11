@@ -171,3 +171,19 @@ test('in development builds an invariant violation posts error and stops; otherw
     }
   }
 });
+
+test('a checkpoint request posts the world now, and the golden hash is unchanged', () => {
+  const { send, got } = directCore();
+  send(initGolden);
+  send({ t: 'advance', ticks: 3 });
+  send({ t: 'checkpoint' });
+  const [cp] = ofType(got, 'checkpoint');
+  expect(cp?.tick).toBe(3);
+  expect(cp?.world.tick).toBe(3);
+  const fresh = directCore();
+  fresh.send({ ...initGolden, checkpoint: cp?.world } as ToWorker);
+  fresh.send({ t: 'hash' });
+  const direct = createWorld(golden.seed, tuning, scenario);
+  for (let i = 0; i < 3; i++) step(direct, [], tuning);
+  expect(ofType(fresh.got, 'hash')[0]?.value).toBe(hashWorld(direct));
+});

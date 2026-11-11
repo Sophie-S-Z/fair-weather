@@ -751,7 +751,7 @@ A ring buffer keeps the last 5 seconds of frames at 480 pixels wide for GIFs. Jo
 | T1 | Unit (Vitest) | Each sim rule, payoff math, gossip thresholds, imitation, each rule pack, the myth grammar | All pass |
 | T2 | Property (fast-check) | The same seed and commands give the same state hash. Limits always hold. | No failing case in 10,000 runs |
 | T3 | Golden runs | Each chapter and valley has a seeded run in which its twist must happen | The honesty-rule fallback fires in fewer than 5% of 200 seeds per chapter |
-| T4 | Science checks (Trust mode) | Known results from *Trust* | Forgiving copycat wins at 1% to 9% noise. Always-keep wins at 10% noise or more. Always-keep wins with 5 or fewer rounds per match. |
+| T4 | Science checks (Trust mode) | Known results from *Trust* | Forgiving copycat (copykitten) wins at 1% to 9% noise in at least 70% of 50 seeds. Always-keep wins at 30% and 40% noise in at least 90% of 50 seeds. Always-keep wins with 1 or 2 rounds per match in at least 90% of 50 seeds. The cut points move with the starting population (ADR 0006). |
 | T5 | Science checks (Lily Shallows) | Sorting and repair | Pads sort at the one-third threshold. Pads mix again once the 90% variety rule is on. |
 | T6 | Myth test | Variety of myths | At least 90% different myths in 1,000 random-play runs |
 | T7 | End-to-end (Playwright) | An auto-player finishes Part 1. A keyboard-only run. A phone viewport. Reduced motion. No WebGL. | All runs reach their end screen |

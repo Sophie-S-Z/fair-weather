@@ -4,7 +4,7 @@ import tuningJson from '../../../content/tuning.json';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import flagsJson from '../../../content/flags.json';
 import { openDb } from '../../../src/persist/db.ts';
-import { hashTuning, tuningChanged } from '../../../src/persist/format.ts';
+import { hashTuning } from '../../../src/persist/format.ts';
 import type { SaveV1 } from '../../../src/persist/format.ts';
 import { migrate } from '../../../src/persist/migrations.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
@@ -115,6 +115,51 @@ test('a save made under other tuning still loads and is noted', async () => {
   const slots = await createSlots(new IDBFactory());
   await slots.save(2, { ...makeSave('ch0'), tuningHash: hashTuning('{"old":true}') });
   const s = await slots.load(2);
-  expect(s).not.toBeNull();
-  if (s) expect(tuningChanged(s, hashTuning(JSON.stringify(tuningJson)))).toBe(true);
+  expect(s?.tuningHash).toBe(hashTuning('{"old":true}'));
+});
+
+test('a damaged checkpoint fails migrate and the autosave falls back', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  await slots.save('auto', makeSave('ch0'));
+  await slots.save('auto', makeSave('ch1'));
+  const bad = makeSave('ch2');
+  const broken = structuredClone(bad) as unknown as {
+    checkpoint: { creatures: { x: number }[]; fog?: unknown };
+  };
+  const first = broken.checkpoint.creatures[0];
+  if (first) first.x = Number.NaN;
+  expect(() => migrate(broken)).toThrow(/Damaged checkpoint/);
+  delete broken.checkpoint.fog;
+  expect(() => migrate(broken)).toThrow();
+  await (await openDb(factory)).putAll([['auto', broken]]);
+  expect((await slots.load('auto'))?.chapterId).toBe('ch0');
+});
+
+test('hasAuto sees an autosave without loading it', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  expect(await slots.hasAuto()).toBe(false);
+  await slots.save('auto', makeSave('ch0'));
+  expect(await slots.hasAuto()).toBe(true);
+});
+
+test('a blocked open gives no-save mode, and a connection that opens later is closed', async () => {
+  const notice = vi.fn();
+  const close = vi.fn();
+  const req: Record<string, unknown> = {};
+  const factory = {
+    open() {
+      setTimeout(() => {
+        (req['onblocked'] as () => void)();
+        req['result'] = { close };
+        (req['onsuccess'] as () => void)();
+      });
+      return req;
+    },
+  } as unknown as IDBFactory;
+  const slots = await createSlots(factory, notice);
+  expect(notice).toHaveBeenCalledTimes(1);
+  expect(await slots.load('auto')).toBeNull();
+  expect(close).toHaveBeenCalledTimes(1);
 });

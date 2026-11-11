@@ -45,8 +45,3 @@ export function hashTuning(rawJson: string): string {
   }
   return h.toString(16).padStart(8, '0');
 }
-
-/** True when the save was made under different tuning. The save loads anyway. */
-export function tuningChanged(save: SaveV1, currentHash: string): boolean {
-  return save.tuningHash !== currentHash;
-}

@@ -131,6 +131,17 @@ test('init resets speed and pending hash requests, and log returns a copy', asyn
   expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 10));
 });
 
+test('a pending checkpoint request is sent again to the restarted worker', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const pending = host.requestCheckpoint();
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  const cp = await pending;
+  expect(s.spawned).toHaveLength(2);
+  expect(cp.tick).toBe(0);
+});
+
 test('requestCheckpoint resolves with the world now', async () => {
   const s = spawner(() => null);
   const host = createSimHost(s.spawn);

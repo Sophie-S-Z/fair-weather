@@ -133,6 +133,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     }
     if (targetTick > at) w.postMessage({ t: 'advance', ticks: targetTick - at } satisfies ToWorker);
     for (let i = 0; i < hashWaiters.length; i++) w.postMessage({ t: 'hash' } satisfies ToWorker);
+    for (let i = 0; i < checkpointWaiters.length; i++) w.postMessage({ t: 'checkpoint' } satisfies ToWorker);
     if (multiplier > 0) w.postMessage({ t: 'speed', multiplier } satisfies ToWorker);
   }
 

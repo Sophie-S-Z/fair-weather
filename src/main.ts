@@ -225,7 +225,7 @@ const game: GameService = {
     return { index, flags: save.flags };
   },
   async hasSave() {
-    return (await (await slotsReady).load('auto')) !== null;
+    return (await slotsReady).hasAuto();
   },
   startChapter(chapter, flags) {
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);

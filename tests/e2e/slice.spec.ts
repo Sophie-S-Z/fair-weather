@@ -116,7 +116,37 @@ test('Continue is enabled after a chapter has started, and resumes it', async ({
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
-  await page.waitForTimeout(500); // the autosave is written a moment after the chapter starts
+  // The autosave is written a moment after the chapter starts; wait until it is in IndexedDB.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          new Promise<boolean>((resolve) => {
+            const open = indexedDB.open('fair-weather');
+            open.onerror = () => {
+              resolve(false);
+            };
+            open.onsuccess = () => {
+              const db = open.result;
+              if (!db.objectStoreNames.contains('saves')) {
+                db.close();
+                resolve(false);
+                return;
+              }
+              const get = db.transaction('saves').objectStore('saves').getKey('auto');
+              get.onsuccess = () => {
+                db.close();
+                resolve(get.result !== undefined);
+              };
+              get.onerror = () => {
+                db.close();
+                resolve(false);
+              };
+            };
+          }),
+      ),
+    )
+    .toBe(true);
   await page.reload();
   const cont = page.getByRole('button', { name: 'Continue' });
   await expect(cont).toBeEnabled();

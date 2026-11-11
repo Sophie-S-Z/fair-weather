@@ -12,6 +12,8 @@ export interface SlotInfo {
 
 export interface Slots {
   list(): Promise<SlotInfo[]>;
+  /** True when the autosave has been written; cheaper than loading it. */
+  hasAuto(): Promise<boolean>;
   save(slot: Slot, s: SaveV1): Promise<void>;
   /** A damaged autosave falls back to the one before it; a damaged manual slot gives null. */
   load(slot: Slot): Promise<SaveV1 | null>;
@@ -57,6 +59,14 @@ export async function createSlots(
     (await read(key(slot))) ?? (slot === 'auto' ? await read(key(slot, true)) : null);
 
   return {
+    async hasAuto() {
+      if (!db) return false;
+      try {
+        return (await db.has(key('auto'))) || (await db.has(key('auto', true)));
+      } catch {
+        return false;
+      }
+    },
     async list() {
       const out: SlotInfo[] = [];
       for (const slot of SLOTS) {

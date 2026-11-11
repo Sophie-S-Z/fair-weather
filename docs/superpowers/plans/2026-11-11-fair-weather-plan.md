@@ -721,6 +721,8 @@ The scripts hold the beat structure for chapters 0 to 3, one sentence per beat (
 
 **Files:** Create `src/render/scene.ts`, `meadow-view.ts`, `camera.ts`, `effects/light.ts`, `effects/fog.ts`, `content/scenes/kith-meadow.json`, placeholder SVGs and rigs for the 6 cast members and 1 shared villager body. Test `tests/unit/render/interpolate.test.ts`, `tests/visual/meadow.spec.ts`.
 
+M1 draws fog as a soft wash. Spec 11.3 (lines inside fog break into dashes) moves to M2 with the Autumn fog chapter.
+
 **Interfaces:** `createMeadowView(app: Application, scene: SceneData, rigs: Map<string, Rig>, palette: Palette): { update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void; pick(x: number, y: number): string | null }`. Interpolate positions between two snapshots. The creature that the current beat is about is the only one drawn in the accent color (spec 11.1 contrast). High contrast doubles line width. Reduced motion stops the boil, the sway, and camera moves.
 
 - [ ] **Step 1: Write the failing tests:** interpolation at alpha 0, 0.5, and 1; `pick` returns the nearest creature within its hit radius and `null` elsewhere; a visual snapshot of the meadow at a fixed tick in normal and high-contrast modes.

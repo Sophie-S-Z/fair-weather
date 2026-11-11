@@ -32,11 +32,16 @@ const MAX_TICKS = 100_000;
 
 const NO_CLOCK = { now: () => 0, every: () => () => undefined };
 
+/**
+ * Plays `config` to its exit. With `stopAfterTicks`, a run still going after that many ticks stops
+ * there and reports the twist as not fired, with 0 retries and no close call.
+ */
 export async function runChapterHeadless(
   config: Chapter,
   seed: number,
   player: ScriptedPlayer,
   flags: Flags,
+  stopAfterTicks?: number,
 ): Promise<HeadlessResult> {
   const listeners = new Set<(m: FromWorker) => void>();
   // Set from callbacks, so an object: a plain `let` would look constant to the loop below.
@@ -70,6 +75,7 @@ export async function runChapterHeadless(
     run.over = true;
   });
   for (let i = 0; !run.over; i++) {
+    if (i === stopAfterTicks) return { twistFired: false, retries: 0, usedCloseCall: false };
     if (run.error !== null) throw new Error(`sim error in ${config.id} seed ${String(seed)}: ${run.error}`);
     if (i >= MAX_TICKS)
       throw new Error(`${config.id} seed ${String(seed)} did not end in ${String(MAX_TICKS)} ticks`);

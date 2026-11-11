@@ -1,0 +1,507 @@
+{
+  "valleyId": "kith",
+  "season": "spring",
+  "creatures": [
+    {
+      "id": "pim",
+      "speciesId": "kith",
+      "name": "Pim",
+      "x": 160,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.9,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "krit",
+      "speciesId": "kith",
+      "name": "Krit",
+      "x": 416,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.1,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "echo",
+      "speciesId": "kith",
+      "name": "Echo",
+      "x": 672,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "moss",
+      "speciesId": "kith",
+      "name": "Old Moss",
+      "x": 928,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0,
+        "memory": 1,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "wisp",
+      "speciesId": "kith",
+      "name": "Wisp",
+      "x": 1184,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.9
+      }
+    },
+    {
+      "id": "bell",
+      "speciesId": "kith",
+      "name": "Bell",
+      "x": 1440,
+      "y": 130,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.75,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-1",
+      "speciesId": "kith",
+      "name": "Villager 1",
+      "x": 160,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "villager-2",
+      "speciesId": "kith",
+      "name": "Villager 2",
+      "x": 416,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-3",
+      "speciesId": "kith",
+      "name": "Villager 3",
+      "x": 672,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.8
+      }
+    },
+    {
+      "id": "villager-4",
+      "speciesId": "kith",
+      "name": "Villager 4",
+      "x": 928,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.65
+      }
+    },
+    {
+      "id": "villager-5",
+      "speciesId": "kith",
+      "name": "Villager 5",
+      "x": 1184,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "villager-6",
+      "speciesId": "kith",
+      "name": "Villager 6",
+      "x": 1440,
+      "y": 290,
+      "berries": 2,
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-7",
+      "speciesId": "kith",
+      "name": "Villager 7",
+      "x": 160,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.35
+      }
+    },
+    {
+      "id": "villager-8",
+      "speciesId": "kith",
+      "name": "Villager 8",
+      "x": 416,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.65
+      }
+    },
+    {
+      "id": "villager-9",
+      "speciesId": "kith",
+      "name": "Villager 9",
+      "x": 672,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "villager-10",
+      "speciesId": "kith",
+      "name": "Villager 10",
+      "x": 928,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.8
+      }
+    },
+    {
+      "id": "villager-11",
+      "speciesId": "kith",
+      "name": "Villager 11",
+      "x": 1184,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.35
+      }
+    },
+    {
+      "id": "villager-12",
+      "speciesId": "kith",
+      "name": "Villager 12",
+      "x": 1440,
+      "y": 450,
+      "berries": 2,
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.65
+      }
+    },
+    {
+      "id": "villager-13",
+      "speciesId": "kith",
+      "name": "Villager 13",
+      "x": 160,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-14",
+      "speciesId": "kith",
+      "name": "Villager 14",
+      "x": 416,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.8
+      }
+    },
+    {
+      "id": "villager-15",
+      "speciesId": "kith",
+      "name": "Villager 15",
+      "x": 672,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.35
+      }
+    },
+    {
+      "id": "villager-16",
+      "speciesId": "kith",
+      "name": "Villager 16",
+      "x": 928,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "villager-17",
+      "speciesId": "kith",
+      "name": "Villager 17",
+      "x": 1184,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-18",
+      "speciesId": "kith",
+      "name": "Villager 18",
+      "x": 1440,
+      "y": 610,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.8
+      }
+    },
+    {
+      "id": "villager-19",
+      "speciesId": "kith",
+      "name": "Villager 19",
+      "x": 160,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.65
+      }
+    },
+    {
+      "id": "villager-20",
+      "speciesId": "kith",
+      "name": "Villager 20",
+      "x": 416,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "villager-21",
+      "speciesId": "kith",
+      "name": "Villager 21",
+      "x": 672,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "villager-22",
+      "speciesId": "kith",
+      "name": "Villager 22",
+      "x": 928,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.35
+      }
+    },
+    {
+      "id": "villager-23",
+      "speciesId": "kith",
+      "name": "Villager 23",
+      "x": 1184,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.65
+      }
+    },
+    {
+      "id": "villager-24",
+      "speciesId": "kith",
+      "name": "Villager 24",
+      "x": 1440,
+      "y": 770,
+      "berries": 2,
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.2
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 240,
+      "y": 260,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 613,
+      "y": 260,
+      "berries": 5
+    },
+    {
+      "id": "bush-3",
+      "x": 986,
+      "y": 260,
+      "berries": 5
+    },
+    {
+      "id": "bush-4",
+      "x": 1359,
+      "y": 260,
+      "berries": 5
+    },
+    {
+      "id": "bush-5",
+      "x": 330,
+      "y": 640,
+      "berries": 5
+    },
+    {
+      "id": "bush-6",
+      "x": 703,
+      "y": 640,
+      "berries": 5
+    },
+    {
+      "id": "bush-7",
+      "x": 1076,
+      "y": 640,
+      "berries": 5
+    },
+    {
+      "id": "bush-8",
+      "x": 1449,
+      "y": 640,
+      "berries": 5
+    }
+  ],
+  "structures": []
+}

@@ -13,8 +13,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      # remove the flag when tests/property lands (M0.8)
-      - run: npm run test:prop -- --passWithNoTests
+      - run: npm run test:prop
       - name: Validate content
         if: hashFiles('tools/content-validate/validate.ts') != ''
         run: npm run validate-content

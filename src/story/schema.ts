@@ -8,19 +8,21 @@ import { VERBS } from './verbs.ts';
 const knot = z.string().regex(/^[a-z0-9_-]+$/);
 const id = z.string().regex(/^[a-z0-9_-]+$/);
 const verb = z.enum(VERBS);
-const flagKey = z.enum(FLAG_KEYS as [string, ...string[]]);
+const flagKey = z.enum(FLAG_KEYS);
 
-const EVENT_KINDS = [
-  'bid',
-  'gift',
-  'opinion',
-  'imitate',
-  'arrive',
-  'leave',
-  'return',
-  'art',
-  'skyBid',
-] as const satisfies readonly SimEvent['t'][];
+// A Record over every SimEvent kind: a missing kind is a compile error.
+const EVENT_KIND_SET: Record<SimEvent['t'], true> = {
+  bid: true,
+  gift: true,
+  opinion: true,
+  imitate: true,
+  arrive: true,
+  leave: true,
+  return: true,
+  art: true,
+  skyBid: true,
+};
+const EVENT_KINDS = Object.keys(EVENT_KIND_SET) as [SimEvent['t'], ...SimEvent['t'][]];
 
 export const MetricSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('maxBerries') }),
@@ -82,7 +84,7 @@ export const ExitSpecSchema = z.union([
   z.strictObject({ afterDays: z.number().positive() }),
 ]);
 
-export const ChapterSchema = z.strictObject({
+const ChapterObject = z.strictObject({
   id,
   season: z.enum(['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw']),
   scene: id,
@@ -114,4 +116,12 @@ export const ChapterSchema = z.strictObject({
   feeling: z.string(),
   notes: z.array(z.string()).min(2).max(4),
 });
-export type Chapter = z.infer<typeof ChapterSchema>;
+
+export const ChapterSchema = ChapterObject.refine(
+  (c) => {
+    const exit = c.exit;
+    return !('onBeat' in exit) || c.beats.some((b) => b.id === exit.onBeat);
+  },
+  { message: 'exit.onBeat must name a beat in this chapter', path: ['exit', 'onBeat'] },
+);
+export type Chapter = z.infer<typeof ChapterObject>;

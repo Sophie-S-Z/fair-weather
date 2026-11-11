@@ -76,7 +76,7 @@
   "bet": {
     "id": "ch2_most_berries",
     "knot": "ch2_bet",
-    "options": ["pim", "krit", "echo", "moss", "bell"],
+    "options": ["pim", "krit", "echo", "moss", "bell", "wisp"],
     "metric": {
       "kind": "maxBerries"
     },

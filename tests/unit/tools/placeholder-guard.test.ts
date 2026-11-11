@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { describe, expect, test } from 'vitest';
@@ -51,6 +54,13 @@ describe('validateContent', () => {
     expect(errors.some((e) => e.includes('tuning.json'))).toBe(true);
     expect(errors.some((e) => e.includes('bad.rig.json'))).toBe(true);
     expect(errors.some((e) => e.includes('bad.ink'))).toBe(true);
+  });
+  test('reports a bad chapter file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'chapters'), { recursive: true });
+    writeFileSync(join(root, 'content', 'chapters', 'bad.json'), JSON.stringify({ id: 'bad' }));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
   });
   test('an Ink TODO note does not fail validation', () => {
     expect(validateContent(fixture('todo-content')).errors).toEqual([]);

@@ -45,6 +45,15 @@ describe('benchWarmsVillage', () => {
   test('true at the exact thresholds', () => {
     expect(checkTwist('benchWarmsVillage', lite(0.2, 1), lite(0.4, 4), [])).toBe(true);
   });
+  test('exactly +3 pairs and +0.25 warmth (exact floats) passes; +2 pairs fails', () => {
+    expect(checkTwist('benchWarmsVillage', lite(0.25, 0), lite(0.5, 3), [])).toBe(true);
+    expect(checkTwist('benchWarmsVillage', lite(0.25, 0), lite(0.5, 2), [])).toBe(false);
+  });
+  test('warmth rise of 0.1 passes despite float rounding; just under fails', () => {
+    expect(0.3 - 0.2 >= 0.1).toBe(false); // the raw comparison would miss it
+    expect(checkTwist('benchWarmsVillage', lite(0.2, 0), lite(0.3, 3), [])).toBe(true);
+    expect(checkTwist('benchWarmsVillage', lite(0.2, 0), lite(0.2999, 3), [])).toBe(false);
+  });
   test('false when friend pairs rise by only 2', () => {
     expect(checkTwist('benchWarmsVillage', lite(0.2, 1), lite(0.5, 3), [])).toBe(false);
   });

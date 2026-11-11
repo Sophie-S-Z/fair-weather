@@ -10,7 +10,13 @@ export const FlagsSchema = z.strictObject({
 });
 export type Flags = z.infer<typeof FlagsSchema>;
 export type FlagKey = keyof Flags;
-export const FLAG_KEYS = Object.keys(FlagsSchema.shape) as FlagKey[];
+export const FLAG_KEYS = [
+  'pimSkyBond',
+  'pimSkyOpinion',
+  'pimScar',
+  'benchPlaced',
+  'friendThreads',
+] as const satisfies readonly FlagKey[];
 
 /** Validates raw flags JSON (content/flags.json). */
 export function parseFlags(raw: unknown): Flags {

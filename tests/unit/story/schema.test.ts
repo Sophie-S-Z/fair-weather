@@ -41,6 +41,17 @@ describe('ChapterSchema', () => {
   });
 });
 
+describe('exit.onBeat', () => {
+  test('must name a beat in the chapter', () => {
+    const ch = load('chapters/ch0') as object;
+    expect(ChapterSchema.safeParse({ ...ch, exit: { onBeat: 'nope' } }).success).toBe(false);
+    expect(ChapterSchema.safeParse({ ...ch, exit: { onBeat: 'dawn' } }).success).toBe(true);
+  });
+  test('ch2 bet offers all six cast members', () => {
+    expect(ChapterSchema.parse(load('chapters/ch2')).bet?.options).toHaveLength(6);
+  });
+});
+
 describe('flags.json', () => {
   test('holds the gentle defaults', () => {
     expect(parseFlags(load('flags'))).toEqual({

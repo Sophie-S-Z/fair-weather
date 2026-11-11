@@ -10,6 +10,9 @@ export type TwistId = 'kritExploitsPim' | 'benchWarmsVillage';
  * one tick's events, and both Pim's `give` to Krit and Krit's `keep` toward Pim must be in it.
  * benchWarmsVillage: friendPairs rose by at least 3 and averageWarmth by at least 0.1 since `before`.
  */
+/** Float slack so a rise of exactly 0.1 passes despite rounding (for example 0.3 - 0.2). */
+const WARMTH_EPSILON = 1e-9;
+
 export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, events: SimEvent[]): boolean {
   switch (id) {
     case 'kritExploitsPim': {
@@ -24,7 +27,7 @@ export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, event
     case 'benchWarmsVillage':
       return (
         now.metrics.friendPairs - before.metrics.friendPairs >= 3 &&
-        now.metrics.averageWarmth - before.metrics.averageWarmth >= 0.1
+        now.metrics.averageWarmth - before.metrics.averageWarmth >= 0.1 - WARMTH_EPSILON
       );
   }
 }

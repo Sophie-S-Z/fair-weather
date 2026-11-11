@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { parseFlags } from '../../../src/story/flags.ts';
+import { FLAG_KEYS, FlagsSchema, parseFlags } from '../../../src/story/flags.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 
 const load = (name: string): unknown =>
@@ -65,4 +65,8 @@ describe('flags.json', () => {
   test('rejects an unknown key', () => {
     expect(() => parseFlags({ ...(load('flags') as object), extra: 1 })).toThrow();
   });
+});
+
+test('FLAG_KEYS lists every flag in the schema', () => {
+  expect([...FLAG_KEYS].sort()).toEqual(Object.keys(FlagsSchema.shape).sort());
 });

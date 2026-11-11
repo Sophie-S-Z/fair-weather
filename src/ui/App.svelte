@@ -1,0 +1,74 @@
+<script lang="ts">
+  import type { Writable } from 'svelte/store';
+  import type { Settings } from './settings.ts';
+  import Title from './Title.svelte';
+  import SettingsScreen from './Settings.svelte';
+
+  let {
+    settings,
+    hasSave,
+    onBegin,
+  }: { settings: Writable<Settings>; hasSave: boolean; onBegin: () => void } = $props();
+
+  let screen: 'title' | 'settings' = $state('title');
+
+  $effect(() => {
+    const root = document.documentElement;
+    root.style.fontSize = `${String(100 * $settings.textScale)}%`;
+    root.dataset['contrast'] = $settings.highContrast ? 'high' : 'normal';
+    root.dataset['motion'] = $settings.reducedMotion ? 'reduced' : 'full';
+  });
+</script>
+
+<main>
+  {#if screen === 'title'}
+    <Title {hasSave} {onBegin} onSettings={() => (screen = 'settings')} />
+  {:else}
+    <SettingsScreen {settings} onBack={() => (screen = 'title')} />
+  {/if}
+</main>
+
+<style>
+  :global(:root) {
+    --bg: #f6f1e7;
+    --fg: #1f2a33;
+    --accent: #0b5a7a;
+    --muted: #4d5a63;
+  }
+  :global(:root[data-contrast='high']) {
+    --bg: #000;
+    --fg: #fff;
+    --accent: #ffe066;
+    --muted: #e0e0e0;
+  }
+  :global(body) {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, sans-serif;
+  }
+  :global(button) {
+    font: inherit;
+    color: var(--fg);
+    background: var(--bg);
+    border: 2px solid var(--accent);
+    border-radius: 0.4rem;
+    padding: 0.5rem 1rem;
+    min-height: 2.75rem;
+    cursor: pointer;
+  }
+  :global(button:disabled) {
+    color: var(--muted);
+    border-style: dashed;
+    cursor: not-allowed;
+  }
+  :global(:focus-visible) {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+  main {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+</style>

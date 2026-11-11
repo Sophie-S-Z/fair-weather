@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import svelte from 'eslint-plugin-svelte';
 
 // Module dependency table, spec 14.2. Each module lists the modules it may import as values.
 // Type-only imports are allowed everywhere (allowTypeImports), which covers
@@ -21,7 +22,7 @@ const allModules = [...Object.keys(allowedValueImports), 'content'];
 const moduleBoundaryBlocks = Object.entries(allowedValueImports).map(([mod, allowed]) => {
   const banned = allModules.filter((m) => m !== mod && !allowed.includes(m));
   return {
-    files: [`src/${mod}/**/*.ts`],
+    files: [`src/${mod}/**/*.{ts,svelte}`],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
@@ -48,6 +49,11 @@ export default tseslint.config(
       globals: { ...globals.browser, ...globals.node },
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
+  },
+  ...svelte.configs['flat/recommended'],
+  {
+    files: ['**/*.svelte'],
+    languageOptions: { parserOptions: { parser: tseslint.parser, extraFileExtensions: ['.svelte'] } },
   },
   { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },
   {

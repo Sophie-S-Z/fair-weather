@@ -182,7 +182,15 @@ const game: GameService = {
   firstChapter,
   async createStage(el) {
     const app = new Application();
-    await app.init({ resizeTo: el, background: palette.background, antialias: true, autoStart: false });
+    // The HTML UI owns accessibility and input, so Pixi's browser extensions stay out: no Pixi
+    // accessibility layer (its touch hook button and Tab hook), no Pixi events, no DOM or filters.
+    await app.init({
+      resizeTo: el,
+      background: palette.background,
+      antialias: true,
+      autoStart: false,
+      skipExtensionImports: true,
+    });
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
     const view = createMeadowView(app, scene, rigs, palette, {

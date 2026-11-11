@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { devices, expect, test, type Page } from '@playwright/test';
 
 async function seriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).analyze();
@@ -69,4 +69,26 @@ test('the game screen in high contrast has no serious axe issues', async ({ page
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
   await page.getByRole('button', { name: 'Notes' }).click();
   expect(await seriousViolations(page)).toEqual([]);
+});
+
+test.describe('on a phone', () => {
+  // Firefox has no isMobile emulation; it still gets the phone viewport and touch.
+  const { viewport, userAgent, deviceScaleFactor, hasTouch } = devices['Pixel 7'];
+  test.use({
+    viewport,
+    userAgent,
+    deviceScaleFactor,
+    hasTouch,
+    isMobile: async ({ browserName }, use) => use(browserName !== 'firefox'),
+  });
+
+  test('the game screen has no serious axe issues and no Pixi accessibility hook', async ({ page }) => {
+    await page.goto('/');
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Begin' }).tap();
+    await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+    await expect(page.locator('[aria-live="polite"]')).toContainText('The dawn');
+    expect(await seriousViolations(page)).toEqual([]);
+    await expect(page.getByRole('button', { name: /enable accessibility/ })).toHaveCount(0);
+  });
 });

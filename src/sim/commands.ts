@@ -20,6 +20,11 @@ function finite(...xs: unknown[]): boolean {
   return xs.every((x) => typeof x === 'number' && Number.isFinite(x));
 }
 
+/** True when (x, y) is a finite point inside the scene, edges included. */
+function onScene(x: number, y: number, t: Tuning): boolean {
+  return finite(x, y) && x >= 0 && x <= t.scene.width && y >= 0 && y <= t.scene.height;
+}
+
 function thread(world: World, a: Creature, b: Creature, on: boolean, t: Tuning): SimEvent[] {
   const tie = ensureTie(world, a, b, t);
   const events: SimEvent[] = [];
@@ -75,28 +80,29 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
 
 /**
  * Applies one command. Returns [] and changes nothing for an unknown or away creature id, a
- * non-finite number, an unknown tag or value, a pair naming one creature twice, a fog radius
- * of 0 or less, or a gust whose length squared is 0 or overflows. Only `blow` draws from the PRNG.
+ * non-finite number, a shine, fog, gust start, or place point outside the scene, an unknown tag
+ * or value, a pair naming one creature twice, a fog radius of 0 or less, or a gust whose length
+ * squared is 0 or overflows. Only `blow` draws from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   switch (cmd.t) {
     case 'shine':
-      if (!finite(cmd.x, cmd.y)) return [];
+      if (!onScene(cmd.x, cmd.y, t)) return [];
       world.fields.light = { x: cmd.x, y: cmd.y };
       return [];
     case 'paintFog':
-      if (!finite(cmd.x, cmd.y, cmd.r, cmd.amount) || cmd.r <= 0) return [];
+      if (!onScene(cmd.x, cmd.y, t) || !finite(cmd.r, cmd.amount) || cmd.r <= 0) return [];
       paintFog(world, cmd.x, cmd.y, cmd.r, cmd.amount, t);
       return [];
     case 'blow': {
       // A length squared of 0 (also by underflow) or Infinity gives no direction to push along.
       const len2 = cmd.dx * cmd.dx + cmd.dy * cmd.dy;
-      if (!finite(cmd.x, cmd.y, cmd.dx, cmd.dy, len2) || len2 === 0) return [];
+      if (!onScene(cmd.x, cmd.y, t) || !finite(cmd.dx, cmd.dy, len2) || len2 === 0) return [];
       blow(world, cmd.x, cmd.y, cmd.dx, cmd.dy, t, rng);
       return [];
     }
     case 'place': {
-      if (!finite(cmd.x, cmd.y)) return [];
+      if (!onScene(cmd.x, cmd.y, t)) return [];
       const kind: string = cmd.kind; // commands cross the worker boundary, so check at runtime
       if (kind !== 'bench' && kind !== 'bush') return [];
       const id = `${cmd.kind}-${String(world.nextId)}`;

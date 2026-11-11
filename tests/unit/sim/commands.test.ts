@@ -183,6 +183,14 @@ const badCommands: [string, Command][] = [
   ['blow, length squared underflows to 0', { t: 'blow', x: 100, y: 400, dx: 0, dy: 5e-324 }],
   ['blow, length squared overflows', { t: 'blow', x: 100, y: 400, dx: 1e200, dy: 0 }],
   ['place, NaN', { t: 'place', kind: 'bench', x: NaN, y: 0 }],
+  ['shine, x left of the scene', { t: 'shine', x: -1, y: 100 }],
+  ['shine, y below the scene', { t: 'shine', x: 100, y: 901 }],
+  ['paintFog, x right of the scene', { t: 'paintFog', x: 1600.5, y: 100, r: 50, amount: 0.5 }],
+  ['paintFog, y above the scene', { t: 'paintFog', x: 100, y: -0.1, r: 50, amount: 0.5 }],
+  ['blow, start left of the scene', { t: 'blow', x: -10, y: 400, dx: 100, dy: 0 }],
+  ['blow, start below the scene', { t: 'blow', x: 100, y: 950, dx: 0, dy: -100 }],
+  ['place bench, x right of the scene', { t: 'place', kind: 'bench', x: 1700, y: 100 }],
+  ['place bush, y above the scene', { t: 'place', kind: 'bush', x: 100, y: -5 }],
   ['place, Infinity', { t: 'place', kind: 'bush', x: 0, y: -Infinity }],
   ['place, unknown kind', { t: 'place', kind: 'lantern' as 'bench', x: 0, y: 0 }],
   ['setSeason, unknown season', { t: 'setSeason', season: 'monsoon' as 'winter' }],
@@ -195,4 +203,12 @@ test.each(badCommands)('bad input (%s) returns [] and changes nothing', (_name, 
   const before = structuredClone(w);
   expect(applyCommand(w, cmd, t, scriptedRng([]))).toEqual([]);
   expect(w).toEqual(before);
+});
+
+test('commands on the scene edge are accepted', () => {
+  const w = world();
+  applyCommand(w, { t: 'shine', x: t.scene.width, y: 0 }, t, scriptedRng([]));
+  expect(w.fields.light).toEqual({ x: t.scene.width, y: 0 });
+  applyCommand(w, { t: 'place', kind: 'bench', x: 0, y: t.scene.height }, t, scriptedRng([]));
+  expect(w.structures.at(-1)).toMatchObject({ x: 0, y: t.scene.height });
 });

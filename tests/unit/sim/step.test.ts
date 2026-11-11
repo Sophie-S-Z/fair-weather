@@ -52,6 +52,22 @@ test('step returns meeting events, and a creature meets once per day', () => {
   const events = step(w, [], t);
   expect(events.some((e) => e.t === 'bid' || e.t === 'gift')).toBe(true);
   expect(get(w, 'a').state).toBe('meet');
+
+  // Once the meeting ends, hold the pair together for the rest of the day's early ticks.
+  while (w.tick <= t.meet.durationTicks) step(w, [], t);
+  expect(get(w, 'a').state).toBe('wander');
+  for (let i = 0; i < 20; i++) {
+    for (const [id, x] of [
+      ['a', 800],
+      ['b', 805],
+    ] as const) {
+      Object.assign(get(w, id), { x, y: 450, goalX: x, goalY: 450 });
+    }
+    const again = step(w, [], t);
+    expect(again.filter((e) => e.t === 'bid' || e.t === 'gift')).toEqual([]);
+    expect(get(w, 'a').state).toBe('wander');
+  }
+  expect(w.day).toBe(0);
 });
 
 test('step with the same world and commands gives the same events and state', () => {

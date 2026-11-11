@@ -3,21 +3,24 @@ import commands from '../../golden/m0-commands.json';
 import golden from '../../golden/m0-hash.json';
 import { runGolden } from '../../golden/run-golden.ts';
 import { hashWorld } from '../../../src/sim/hash.ts';
+import type { Command } from '../../../src/sim/types.ts';
+
+// A new Command kind fails typecheck here until the golden list covers it.
+const ALL = {
+  shine: true,
+  paintFog: true,
+  blow: true,
+  place: true,
+  thread: true,
+  whisper: true,
+  respond: true,
+  arrangeMeeting: true,
+  setSeason: true,
+} satisfies Record<Command['t'], true>;
 
 test('the golden command list uses every Command kind', () => {
   const kinds = new Set(commands.map((c) => c.cmd.t));
-  const all = [
-    'shine',
-    'paintFog',
-    'blow',
-    'place',
-    'thread',
-    'whisper',
-    'respond',
-    'arrangeMeeting',
-    'setSeason',
-  ];
-  expect([...kinds].sort()).toEqual(all.sort());
+  expect([...kinds].sort()).toEqual(Object.keys(ALL).sort());
 });
 
 test('golden: the m0 scenario with seed 1 and the fixed m0 command list gives the stored hash after 4,000 ticks', () => {

@@ -24,7 +24,7 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     goalX: s.x,
     goalY: s.y,
     berries: s.berries,
-    state: 'wander',
+    state: s.state ?? 'wander',
     stateUntilTick: 0,
     forageReadyTick: 0,
     dials: { ...s.dials },

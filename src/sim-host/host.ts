@@ -172,6 +172,9 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       listeners.add(cb);
       return () => listeners.delete(cb);
     },
+    speed(multiplier) {
+      post({ t: 'speed', multiplier });
+    },
     requestHash() {
       return new Promise((resolve, reject) => {
         if (gaveUp !== null) {

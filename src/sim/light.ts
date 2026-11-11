@@ -40,7 +40,7 @@ export function recordLitMeeting(world: World, x: number, y: number, behaviors: 
 export function lightSkyWarmth(world: World, t: Tuning): void {
   const perTick = t.sky.lightPerSecond / t.sim.stepsPerSecond;
   for (const c of activeCreatures(world)) {
-    if (!inLens(world, c.x, c.y, t)) continue;
+    if (!inLens(world, c.x, c.y, t) || (c.lensAvoidUntilDay ?? -1) >= world.day) continue;
     const gain = Math.min(perTick, t.sky.lightDailyCap - c.skyLightToday);
     if (gain <= 0) continue;
     c.skyLightToday += gain;

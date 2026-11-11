@@ -158,6 +158,23 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       if (!SEASONS.includes(cmd.season)) return [];
       world.season = cmd.season;
       return [];
+    case 'wake': {
+      const c = present(world, cmd.who);
+      if (c?.state === 'sleep') c.state = 'wander';
+      return [];
+    }
+    case 'promptSkyBid': {
+      // The 6-second auto-respond with `away` is the story director's job, not the sim's.
+      const c = present(world, cmd.who);
+      return c ? [{ t: 'skyBid', who: c.id }] : [];
+    }
+    case 'overPoke':
+      for (const c of world.creatures) {
+        if (c.state === 'away') continue;
+        c.skyWarmth = clamp(c.skyWarmth + t.overPoke.skyWarmth, -1, 1);
+        c.lensAvoidUntilDay = world.day + t.light.days;
+      }
+      return [];
     default:
       return [];
   }

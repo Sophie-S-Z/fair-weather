@@ -69,6 +69,7 @@ function fakePort(): {
       listeners.add(cb);
       return () => listeners.delete(cb);
     },
+    speed() {},
     requestHash() {
       return new Promise((resolve) => {
         const off = port.onMessage((m) => {

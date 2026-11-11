@@ -15,6 +15,8 @@ export interface WorldLite {
   /** The light lens. */
   light: { x: number; y: number } | null;
   fog: { w: number; h: number; cells: Float32Array };
+  /** Whole-world numbers the story reads (ADR 0011 item 3). */
+  metrics: { averageWarmth: number; friendPairs: number };
   structures: Structure[];
 }
 
@@ -47,4 +49,6 @@ export interface SimPort {
   send(list: Command[]): void;
   onMessage(cb: (m: FromWorker) => void): () => void;
   requestHash(): Promise<{ tick: number; value: string }>;
+  /** Sets the sim speed multiplier; 0 pauses (ADR 0011). */
+  speed(multiplier: number): void;
 }

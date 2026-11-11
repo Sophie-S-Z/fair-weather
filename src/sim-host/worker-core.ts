@@ -61,7 +61,7 @@ export function createWorkerCore(
         }
       }
       post({ t: 'events', tick, list: events });
-      post({ t: 'snapshot', tick: w.tick, lite: toLite(w) });
+      post({ t: 'snapshot', tick: w.tick, lite: toLite(w, t) });
       if (tick % w.ticksPerDay === w.ticksPerDay - 1) {
         post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
       }

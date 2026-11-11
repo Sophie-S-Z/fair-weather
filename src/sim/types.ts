@@ -50,6 +50,8 @@ export interface Creature {
   visits: number[]; // 32 cells, ADR 0005
   benchMemory: { benchId: string; day: number } | null;
   diary: DiaryEntry[]; // last 20
+  /** Set by overPoke: the creature gets no sky warmth from the lens through this day. */
+  lensAvoidUntilDay?: number;
 }
 export interface Side {
   warmth: number;
@@ -130,14 +132,18 @@ export type Command =
   | { t: 'whisper'; target: string; about: string; sign: 1 | -1 }
   | { t: 'respond'; to: string; reply: BidReply }
   | { t: 'arrangeMeeting'; a: string; b: string }
-  | { t: 'setSeason'; season: Season };
+  | { t: 'setSeason'; season: Season }
+  | { t: 'wake'; who: string }
+  | { t: 'promptSkyBid'; who: string }
+  | { t: 'overPoke' };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
   | { t: 'opinion'; holder: string; about: string; value: number }
   | { t: 'imitate'; who: string; from: string; dial: DialKey }
   | { t: 'arrive' | 'leave' | 'return'; who: string }
-  | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' };
+  | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' }
+  | { t: 'skyBid'; who: string };
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -151,6 +157,7 @@ export interface Scenario {
     berries: number;
     dials: Dials;
     shell?: Shell;
+    state?: CreatureState;
   }[];
   bushes: { id: string; x: number; y: number; berries: number }[];
   structures: Structure[];

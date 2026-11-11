@@ -6,7 +6,7 @@ import { checkInvariants } from '../../src/sim/invariants.ts';
 import { step } from '../../src/sim/step.ts';
 import type { Command, World } from '../../src/sim/types.ts';
 import { createWorld } from '../../src/sim/world.ts';
-import { type Run, runArb, tuning } from './arbitraries.ts';
+import { type Run, runArb, T2_MAX_TICKS, T2_TICKS_PER_DAY, tuning } from './arbitraries.ts';
 
 function commandsAt(run: Run, tick: number): Command[] {
   return run.schedule.filter((s) => s.tick === tick).map((s) => s.cmd);
@@ -27,6 +27,11 @@ function replay(run: Run, onTick?: (w: World) => void): World {
   onTick?.(w);
   return playOn(w, run, onTick);
 }
+
+test('T2 runs can reach the weekly return dusk', () => {
+  // The return rule fires on the dusk of day returnEveryDays - 1, the last tick of that day.
+  expect(T2_MAX_TICKS).toBeGreaterThanOrEqual(tuning.population.returnEveryDays * T2_TICKS_PER_DAY);
+});
 
 test('T2: the same seed and commands give the same hash', () => {
   fc.assert(

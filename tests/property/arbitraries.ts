@@ -11,11 +11,16 @@ const unit = fc.double({ min: 0, max: 1, noNaN: true });
 const sx = fc.double({ min: 0, max: tuning.scene.width, noNaN: true });
 const sy = fc.double({ min: 0, max: tuning.scene.height, noNaN: true });
 
-/** 2 to 12 creatures, ticksPerDay 20, so every daily rule fires inside a short run. */
+/** Ticks per day in every generated scenario: short days, so dusk comes often. */
+export const T2_TICKS_PER_DAY = 20;
+/** The longest run: 8 days, so a run can pass the weekly return dusk (day % 7 === 6). */
+export const T2_MAX_TICKS = 8 * T2_TICKS_PER_DAY;
+
+/** 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc.record({
   valleyId: fc.constant('kith'),
   season: fc.constantFrom(...SEASONS),
-  ticksPerDay: fc.constant(20),
+  ticksPerDay: fc.constant(T2_TICKS_PER_DAY),
   creatures: fc
     .array(
       fc.record({
@@ -87,12 +92,12 @@ export interface Run {
   ticks: number;
 }
 
-/** A seed, a scenario, 1 to 120 ticks, and 0 to 15 commands scheduled inside the run. */
+/** A seed, a scenario, 1 to T2_MAX_TICKS ticks, and 0 to 15 commands scheduled inside the run. */
 export const runArb: fc.Arbitrary<Run> = fc
   .record({
     seed: fc.integer({ min: 0, max: 0xffffffff }),
     scenario: scenarioArb,
-    ticks: fc.integer({ min: 1, max: 120 }),
+    ticks: fc.integer({ min: 1, max: T2_MAX_TICKS }),
   })
   .chain(({ seed, scenario, ticks }) =>
     fc

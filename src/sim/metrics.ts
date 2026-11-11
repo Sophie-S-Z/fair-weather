@@ -28,19 +28,20 @@ export function metric(world: World, m: MetricSpec, tuning: Tuning): string | nu
     }
     case 'averageWarmth':
       return averageWarmth(world);
-    case 'friendPairs': {
-      let n = 0;
-      for (const tie of world.ties.values()) {
-        const a = byId(world, tie.a);
-        const b = byId(world, tie.b);
-        if (!a || !b || a.state === 'away' || b.state === 'away') continue;
-        if (
-          side(tie, a.id).warmth > tuning.friend.threshold &&
-          side(tie, b.id).warmth > tuning.friend.threshold
-        )
-          n++;
-      }
-      return n;
-    }
+    case 'friendPairs':
+      return friendPairs(world, tuning);
   }
+}
+
+/** Ties where both sides are above friend.threshold and neither creature is away. */
+export function friendPairs(world: World, tuning: Tuning): number {
+  let n = 0;
+  for (const tie of world.ties.values()) {
+    const a = byId(world, tie.a);
+    const b = byId(world, tie.b);
+    if (!a || !b || a.state === 'away' || b.state === 'away') continue;
+    if (side(tie, a.id).warmth > tuning.friend.threshold && side(tie, b.id).warmth > tuning.friend.threshold)
+      n++;
+  }
+  return n;
 }

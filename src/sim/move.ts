@@ -4,6 +4,7 @@ import type { Creature, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendsOf } from './world.ts';
 
 const COLS = 8;
@@ -121,6 +122,18 @@ function steer(c: Creature, tuning: Tuning): void {
   c.y = clamp(c.y + c.vy / sps, 0, tuning.scene.height);
 }
 
+/** An avoiding creature inside the lens heads for the point just outside it, straight from the centre. */
+function leaveLens(c: Creature, world: World, tuning: Tuning): void {
+  const light = world.fields.light;
+  if (!light || !avoidsLens(world, c) || !inLens(world, c.x, c.y, tuning)) return;
+  const dx = c.x - light.x;
+  const dy = c.y - light.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const r = tuning.light.lensRadius * 1.1;
+  c.goalX = clamp(light.x + (len > 0 ? (dx / len) * r : r), 0, tuning.scene.width);
+  c.goalY = clamp(light.y + (len > 0 ? (dy / len) * r : 0), 0, tuning.scene.height);
+}
+
 /** One movement step for every creature, in array order. Only `wander` creatures move or forage. */
 export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
   const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
@@ -133,6 +146,7 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     }
     forage(c, world, tuning);
     if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, tuning, rng);
+    leaveLens(c, world, tuning);
     steer(c, tuning);
     c.visits[visitCell(c, tuning)] = (c.visits[visitCell(c, tuning)] ?? 0) + 1;
   }

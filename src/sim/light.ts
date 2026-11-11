@@ -1,5 +1,5 @@
 // Fog lookup, light boosts, and sky warmth from the light (spec 9.4, ADR 0003 item 5, ADR 0004 items 9 and 12).
-import type { Behavior, World } from './types.ts';
+import type { Behavior, Creature, World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { activeCreatures } from './world.ts';
@@ -12,7 +12,12 @@ export function fogAt(world: World, x: number, y: number, t: Tuning): number {
   return fog[row * fogW + col] ?? 0;
 }
 
-function inLens(world: World, x: number, y: number, t: Tuning): boolean {
+/** True while an over-poke keeps `c` out of the lens (through day lensAvoidUntilDay). */
+export function avoidsLens(world: World, c: Creature): boolean {
+  return (c.lensAvoidUntilDay ?? -1) >= world.day;
+}
+
+export function inLens(world: World, x: number, y: number, t: Tuning): boolean {
   const light = world.fields.light;
   if (!light) return false;
   return dist2(x, y, light.x, light.y) <= t.light.lensRadius * t.light.lensRadius;
@@ -40,7 +45,7 @@ export function recordLitMeeting(world: World, x: number, y: number, behaviors: 
 export function lightSkyWarmth(world: World, t: Tuning): void {
   const perTick = t.sky.lightPerSecond / t.sim.stepsPerSecond;
   for (const c of activeCreatures(world)) {
-    if (!inLens(world, c.x, c.y, t) || (c.lensAvoidUntilDay ?? -1) >= world.day) continue;
+    if (!inLens(world, c.x, c.y, t) || avoidsLens(world, c)) continue;
     const gain = Math.min(perTick, t.sky.lightDailyCap - c.skyLightToday);
     if (gain <= 0) continue;
     c.skyLightToday += gain;

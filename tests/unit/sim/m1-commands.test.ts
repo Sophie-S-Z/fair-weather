@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
 import { applyCommand } from '../../../src/sim/commands.ts';
+import { createRng } from '../../../src/sim/rng.ts';
+import { step } from '../../../src/sim/step.ts';
+import { hashWorld } from '../../../src/sim/hash.ts';
+import { dist2 } from '../../../src/sim/math.ts';
+import { resolveMeeting } from '../../../src/sim/meeting.ts';
+import type { Command } from '../../../src/sim/types.ts';
 import { lightSkyWarmth } from '../../../src/sim/light.ts';
 import { get, makeWorld, scriptedRng, tuning as t } from './helpers.ts';
 
@@ -41,4 +47,41 @@ test('overPoke cools active creatures and makes them avoid the lens', () => {
   w.day += t.light.days + 1;
   lightSkyWarmth(w, t);
   expect(get(w, 'a').skyWarmth).toBeGreaterThan(t.overPoke.skyWarmth);
+});
+
+test('after overPoke a creature in the lens walks out of it', () => {
+  const w = makeWorld([{ id: 'a', x: 800, y: 450 }]);
+  w.fields.light = { x: 800, y: 450 };
+  run(w, { t: 'overPoke' });
+  for (let i = 0; i < 600; i++) step(w, [], t);
+  const a = get(w, 'a');
+  expect(Math.sqrt(dist2(a.x, a.y, 800, 450))).toBeGreaterThan(t.light.lensRadius);
+});
+
+test('a lit meeting gives no boost to an avoiding creature', () => {
+  const lit = (avoid: boolean) => {
+    const w = makeWorld([{ id: 'a' }, { id: 'b' }]);
+    w.fields.light = { x: 800, y: 450 };
+    if (avoid) get(w, 'a').lensAvoidUntilDay = w.day;
+    resolveMeeting(w, get(w, 'a'), get(w, 'b'), t, createRng(3));
+    return w.boosts.length;
+  };
+  expect(lit(false)).toBeGreaterThan(0);
+  expect(lit(true)).toBe(0);
+});
+
+test('wake, promptSkyBid and overPoke replay to the same hash', () => {
+  const play = (): string => {
+    const w = makeWorld([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    get(w, 'a').state = 'sleep';
+    w.fields.light = { x: 800, y: 450 };
+    for (let tick = 0; tick < 400; tick++) {
+      const list: Command[] = [];
+      if (tick === 5) list.push({ t: 'wake', who: 'a' }, { t: 'promptSkyBid', who: 'b' });
+      if (tick === 50) list.push({ t: 'overPoke' });
+      step(w, list, t);
+    }
+    return hashWorld(w);
+  };
+  expect(play()).toBe(play());
 });

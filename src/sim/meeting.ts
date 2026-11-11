@@ -4,7 +4,7 @@ import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
-import { boostAt, fogAt, recordLitMeeting } from './light.ts';
+import { avoidsLens, boostAt, fogAt, recordLitMeeting } from './light.ts';
 import { benchesOf, ensureTie, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
@@ -231,7 +231,8 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   for (const bh of [reply, bidderMove, replierMove]) {
     if (bh !== 'away' && !behaviors.includes(bh)) behaviors.push(bh);
   }
-  recordLitMeeting(world, mx, my, behaviors, t);
+  if (!avoidsLens(world, bidder) && !avoidsLens(world, replier))
+    recordLitMeeting(world, mx, my, behaviors, t);
 
   // Meeting state, tie count, and bench memory.
   const benchId = nearBenchId(world, mx, my, t);

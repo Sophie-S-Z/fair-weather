@@ -550,9 +550,9 @@ test('host restart from checkpoint plus replay gives the same hash as an unbroke
 **Files:** Create `src/render/line/deform.ts`, `strip.ts`, `line-view.ts`, `dev/rig.html`, `dev/rig.ts`. Test `tests/unit/render/deform.test.ts`, `tests/unit/render/strip.test.ts`, `tests/visual/rig.spec.ts`.
 
 **Interfaces:**
-- Produces: `deform(rig: Rig, shell: Shell, boilFrame: number, out: Float32Array): Float32Array`. Boil: each point moves by a small offset from an integer hash of `(boilFrame, index)`, amplitude 0.004 rig units. The boil frame is `floor(seconds × 12)` (spec 11.2). Tightness pulls points toward the body center by up to 15%. Bristle adds a zigzag along the normal with alternating sign and an amplitude of `bristle × 0.02`. Softness runs `round(softness × 3)` passes of neighbor averaging. Color does not move points; `line-view` uses it as the fill alpha of the accent.
+- Produces: `deform(rig: Rig, shell: Shell, boilFrame: number, out: Float32Array): Float32Array`. Boil: each point moves by a small offset from an integer hash of `(boilFrame, index)`, amplitude 0.004 rig units. The boil frame is `floor(seconds × 12)` (spec 11.2). Tightness pulls points toward the body center by up to 15%. Bristle adds a fine zigzag along the normal with alternating sign and an amplitude of `bristle × 0.006` (lowered from 0.02 after the user's art review: 0.02 read as a squiggle). Softness runs `round(softness × 3)` passes of neighbor averaging. Color does not move points; `line-view` uses it as the alpha of the accent body fill (spec 5.2).
 - Produces: `buildStrip(points: Float32Array, width: (i: number) => number, out: Float32Array): number` (writes 2 vertices per point offset along the miter normal, returns the vertex count). Width tapers to round ends.
-- Produces: `createLineView(rig: Rig, color: number): { container: Container; update(shell: Shell, seconds: number, reducedMotion: boolean): void }` with one PixiJS `Mesh` per rig, updating its buffer in place. Reduced motion freezes the boil frame at 0.
+- Produces: `createLineView(rig: Rig, ink: number, accent: number, scale?: number): { container: Container; update(shell: Shell, seconds: number, reducedMotion: boolean): void }`: an accent body fill (outline from `fillOutline`, curls cut out), one batched PixiJS `Mesh` for the ink line updated in place, and the eye and blush dots from the rig markers (spec 5.1). Reduced motion freezes the boil frame at 0.
 
 - [ ] **Step 1: Write the failing tests.**
   - `deform` with an all-zero shell and boil frame 0 returns the rig points plus the boil offsets only; the same inputs give the same output.
@@ -560,7 +560,7 @@ test('host restart from checkpoint plus replay gives the same hash as an unbroke
   - Bristle 1 alternates the sign of the normal offset point by point.
   - Softness 1 lowers the sum of squared second differences (the curve is smoother).
   - `buildStrip` returns 256 vertices for 128 points, and each vertex pair is `width(i)` apart.
-  - Visual: `dev/rig.html?shell=0.5,0.5,0.5,0.5&frame=0` draws one rig at fixed values. `expect(page.locator('canvas')).toHaveScreenshot('rig-mid.png', { maxDiffPixelRatio: 0.01 })`. The first run writes the baseline. The user approves the image before it is committed.
+  - Visual: `dev/rig.html?shell=…&frame=0` draws one rig at fixed values: `rig-rest.png` at `0,0,0.5,0` and `rig-mid.png` at `0.5,0.5,0.5,0.5`, each with `toHaveScreenshot(name, { maxDiffPixelRatio: 0.01 })`. The first run writes the baseline. The user approves the image before it is committed.
 - [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test` and `npm run test:e2e -- tests/visual`. Expected: PASS.
 - [ ] **Step 5: Commit.** `feat(render): add line rig renderer with boil and shells`
 

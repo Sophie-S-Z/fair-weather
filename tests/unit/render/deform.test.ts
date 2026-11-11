@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
 import { RIG_POINTS, RigSchema } from '../../../src/render/line/rig.ts';
-import { BOIL_AMPLITUDE, boilFrameAt, deform } from '../../../src/render/line/deform.ts';
+import { BOIL_AMPLITUDE, BRISTLE_AMPLITUDE, boilFrameAt, deform } from '../../../src/render/line/deform.ts';
 import type { Shell } from '../../../src/sim/types.ts';
 
 const rig = RigSchema.parse(pimJson);
@@ -71,7 +71,7 @@ describe('deform', () => {
       const [ax, ay] = at(flat, i);
       const [bx, by] = at(spiky, i);
       const along = (bx - ax) * nx + (by - ay) * ny;
-      expect(Math.abs(along)).toBeCloseTo(0.02, 4);
+      expect(Math.abs(along)).toBeCloseTo(BRISTLE_AMPLITUDE, 4);
       if (i > 0) expect(Math.sign(along)).toBe(-prev);
       prev = Math.sign(along);
     }

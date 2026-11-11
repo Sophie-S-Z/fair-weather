@@ -7,8 +7,9 @@ import { createLineView } from '../src/render/line/line-view.ts';
 import type { Shell } from '../src/sim/types.ts';
 
 const SIZE = 400;
-const SCALE = 120;
+const SCALE = 240;
 const INK = 0x2b2a28;
+const ACCENT = 0xf7c59f;
 
 const params = new URLSearchParams(location.search);
 const [tightness = 0, bristle = 0, color = 0, softness = 0] = (params.get('shell') ?? '')
@@ -29,7 +30,7 @@ await app.init({
 });
 document.body.appendChild(app.canvas);
 
-const view = createLineView(RigSchema.parse(pimJson), INK, SCALE);
+const view = createLineView(RigSchema.parse(pimJson), INK, ACCENT, SCALE);
 // The rig's base center is its origin and it is 1 unit tall: center it vertically.
 view.container.position.set(SIZE / 2, SIZE / 2 + SCALE / 2);
 app.stage.addChild(view.container);

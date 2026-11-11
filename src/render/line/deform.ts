@@ -6,7 +6,8 @@ export const BOIL_AMPLITUDE = 0.004;
 /** Boil frames per second (spec 11.2). */
 export const BOIL_FPS = 12;
 const TIGHTNESS_PULL = 0.15;
-const BRISTLE_AMPLITUDE = 0.02;
+/** Bristle zigzag height at bristle 1, in rig units: a fine zigzag (spec 5.2). */
+export const BRISTLE_AMPLITUDE = 0.006;
 const SOFTNESS_MAX_PASSES = 3;
 
 const scratch = new Float32Array(RIG_POINTS * 2);

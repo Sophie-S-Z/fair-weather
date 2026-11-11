@@ -55,7 +55,7 @@ test('the game screen with a bet open has no serious axe issues', async ({ page 
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 2' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
-  await page.getByRole('button', { name: '2×' }).click();
+  // The bet opens at chapter time 0 (ch2 open_bet).
   await expect(page.getByRole('dialog', { name: 'A bet' })).toBeVisible({ timeout: 20_000 });
   expect(await seriousViolations(page)).toEqual([]);
 });

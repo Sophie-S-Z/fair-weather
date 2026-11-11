@@ -93,9 +93,13 @@ const host = createSimHost(
 /** Dev only: every speed sent to the sim, and frames drawn, so e2e can see the tab-hidden pause. */
 const dev = { speeds: [] as number[], frames: 0 };
 if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = dev;
+const params = new URLSearchParams(location.search);
+/** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
+const devFast = Number(params.get('fast'));
+const fast = import.meta.env.DEV && devFast > 0 ? devFast : 1;
 function send(multiplier: number): void {
   if (import.meta.env.DEV) dev.speeds.push(multiplier);
-  host.speed(multiplier);
+  host.speed(multiplier * fast);
 }
 // No time passes unseen: while the tab is hidden the sim gets speed 0, whatever the runner or the
 // screen asks for; the speed they asked for last is sent when the tab is visible again.
@@ -149,7 +153,7 @@ host.onMessage((m) => {
   }
 });
 
-const devChapter = Number(new URLSearchParams(location.search).get('chapter'));
+const devChapter = Number(params.get('chapter'));
 const firstChapter =
   import.meta.env.DEV && Number.isInteger(devChapter) && devChapter >= 0 && devChapter < chapters.length
     ? devChapter

@@ -17,6 +17,8 @@
     diary: {
       name: string;
       lines: readonly string[];
+      /** True while the rest is a rewound world but the lines are now's. */
+      linesNow: boolean;
       dials: Dials;
       friends: readonly string[];
       scars: readonly string[];
@@ -91,7 +93,7 @@
     onclick={() => {
       if (open) hide();
       else void show(diary ? 'diary' : 'notes', true);
-    }}>Notes</button
+    }}>Diary and notes</button
   >
   {#if open}
     <!-- Escape from anywhere inside the open drawer closes it. -->
@@ -102,8 +104,9 @@
           <h2 id="diary-title">Diary: {diary.name}</h2>
           <p><strong>Friends:</strong> {diary.friends.length > 0 ? diary.friends.join(', ') : 'none'}</p>
           <p><strong>Scars:</strong> {diary.scars.length > 0 ? diary.scars.join(', ') : 'none'}</p>
+          <h3 id="diary-lines">Lines, oldest first{diary.linesNow ? ' (now)' : ''}</h3>
           {#if diary.lines.length > 0}
-            <ol aria-label="Diary lines, oldest first">
+            <ol aria-labelledby="diary-lines">
               {#each diary.lines as line, i (i)}
                 <li>{line}</li>
               {/each}

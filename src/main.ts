@@ -52,6 +52,7 @@ import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
+import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
 import { buildScenario, chosenOverrides } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
@@ -234,6 +235,8 @@ let lastStart: { carry: Carry | undefined; overrides: Overrides[] } | null = nul
 host.onMessage((m) => {
   if (m.t === 'snapshot') lastLite = m.lite;
 });
+/** The scenario the current chapter was built from, variants included; peek reads its rules. */
+let scenarioNow: Scenario | null = null;
 /** Every chapter's log this visit, in play order (spec 10.4); the myth reads it. */
 const yearLog: YearLog = [];
 
@@ -289,8 +292,8 @@ const game: GameService = {
     let soulId: string | null = null;
     /** The beat's camera shot; the Cosmos and Soul views show the whole valley under them. */
     let shot: string | null = null;
-    /** The screen pixels the HTML drawer takes on the right, which the Soul view keeps clear. */
-    let inset = 0;
+    /** The screen pixels the HTML takes on the right and at the bottom; the Soul view keeps clear. */
+    let insets = { right: 0, bottom: 0 };
     const showView = (): void => {
       cosmos.container.visible = current === 'cosmos';
       soul.container.visible = current === 'soul';
@@ -317,7 +320,7 @@ const game: GameService = {
         if (import.meta.env.DEV) dev.frames += 1;
         view.update(prev, next, alpha, s);
         if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, soulId);
-        if (current === 'soul') soul.update(next, s, soulId, inset);
+        if (current === 'soul') soul.update(next, s, soulId, insets);
         app.ticker.update(); // advances the view's clock and renders
       },
       pick: (x, y) => views[current].pick(...local(x, y)),
@@ -348,8 +351,8 @@ const game: GameService = {
         lastSeen = lite;
       },
       timeline: () => ({ points, breaks }),
-      setRightInset(pixels) {
-        inset = pixels;
+      setInsets(i) {
+        insets = i;
       },
       setSeason(s) {
         const p = paletteOf(s);
@@ -395,6 +398,7 @@ const game: GameService = {
     lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
+    scenarioNow = scenario;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
     host.post({
@@ -436,6 +440,9 @@ const game: GameService = {
     };
     runner.done.then(keep, keep);
     return runner;
+  },
+  peek(dials) {
+    return peekRule(dials, scenarioNow?.season ?? 'spring', scenarioNow?.friendsForgive === true);
   },
   async rewind(tick) {
     return (await host.rewind(tick)).lite;

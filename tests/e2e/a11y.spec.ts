@@ -98,7 +98,7 @@ test('the game screen in high contrast has no serious axe issues', async ({ page
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
-  await page.getByRole('button', { name: 'Notes' }).click();
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

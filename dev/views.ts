@@ -126,7 +126,7 @@ if (which === 'cosmos') {
 } else {
   const soul = createSoulView(app, palette, rigs, threshold);
   app.stage.addChild(soul.container);
-  soul.update(prev, settings, soulId, 0);
+  soul.update(prev, settings, soulId, { right: 0, bottom: 0 });
 }
 app.render();
 document.body.dataset['calls'] = String(calls);

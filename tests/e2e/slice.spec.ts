@@ -137,7 +137,7 @@ test('Z zooms out to the Cosmos and X back in; Escape lets go of a thread mark f
 test('the notes drawer opens with a button, takes focus, and closes with Escape', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
-  const notes = page.getByRole('button', { name: 'Notes' });
+  const notes = page.getByRole('button', { name: 'Diary and notes' });
   await notes.click();
   await expect(notes).toHaveAttribute('aria-expanded', 'true');
   const panel = page.getByRole('region', { name: 'Margin notes' });
@@ -525,6 +525,10 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
   await page.keyboard.press('z');
   const range = page.getByLabel('Rewind');
   await expect(range).toBeEnabled();
+  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Shift+Tab');
+  await expect(range).toBeFocused();
   // A few seconds of chapter, so the range has room to move.
   await expect
     .poll(async () => Number(await range.getAttribute('max')) - Number(await range.getAttribute('min')), {
@@ -533,7 +537,6 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
     .toBeGreaterThan(20);
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
   const before = await sent();
-  await range.focus();
   await page.keyboard.press('Home');
   await expect(range).toHaveValue((await range.getAttribute('min')) ?? '');
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
@@ -553,3 +556,19 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
   await page.keyboard.press('Enter');
   await expect.poll(sent).toBeGreaterThan(before);
 });
+
+for (const [n, heading] of [
+  [9, 'Chapter 6: Fog'],
+  [4, 'Interlude: '],
+] as const) {
+  test(`the current chapter ribbon entry names the heading (${heading})`, async ({ page }) => {
+    await page.goto(`/?chapter=${String(n)}`);
+    await page.getByRole('button', { name: 'Begin' }).click();
+    const h1 = page.getByRole('heading', { level: 1 });
+    await expect(h1).toContainText(heading);
+    const current = page
+      .getByRole('navigation', { name: 'Chapters' })
+      .locator('li[aria-current="step"] .sr-only');
+    await expect(current).toHaveText((await h1.textContent()) ?? '');
+  });
+}

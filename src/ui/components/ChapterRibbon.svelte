@@ -1,11 +1,19 @@
 <script lang="ts">
-  let { count, current, onSkip }: { count: number; current: number; onSkip: () => void } = $props();
+  import type { Chapter } from '../../story/schema.ts';
+  import { chapterHeading } from '../chapter-label.ts';
+
+  let { chapters, current, onSkip }: { chapters: readonly Chapter[]; current: number; onSkip: () => void } =
+    $props();
 </script>
 
+<!-- Short marks on screen (a chapter's number, a dot for an interlude); the full name is read out. -->
 <nav class="ribbon" aria-label="Chapters">
   <ol>
-    {#each { length: count }, i (i)}
-      <li aria-current={i === current ? 'step' : undefined}>Chapter {i}</li>
+    {#each chapters as c, i (i)}
+      <li aria-current={i === current ? 'step' : undefined}>
+        <span aria-hidden="true">{c.kind === 'interlude' ? '•' : c.id.replace(/^ch/, '')}</span>
+        <span class="sr-only">{chapterHeading(c)}</span>
+      </li>
     {/each}
   </ol>
   <button type="button" onclick={onSkip}>Skip chapter</button>
@@ -14,15 +22,19 @@
 <style>
   .ribbon {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.25rem 1rem;
+    max-width: 100%;
     padding: 0.25rem 1rem;
     background: var(--bg);
   }
   ol {
     display: flex;
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    max-width: 100%;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -36,5 +48,13 @@
   button {
     min-height: 2rem;
     padding: 0.25rem 0.75rem;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 </style>

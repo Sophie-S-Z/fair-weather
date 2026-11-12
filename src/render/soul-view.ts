@@ -54,17 +54,24 @@ export function soulLayout(
   });
 }
 
+/** The screen pixels the HTML takes on the right (the drawer) and at the bottom (the HUD). */
+export interface Insets {
+  right: number;
+  bottom: number;
+}
+
 /**
- * The constellation's center and radius on a screen, in pixels: centered in the canvas left of
- * `inset`, the pixels the HTML drawer takes on the right.
+ * The constellation's center and radius on a screen, in pixels: centered in the room the HTML
+ * leaves free, left of the right inset and above the bottom one.
  */
 export function soulFrame(
   width: number,
   height: number,
-  inset: number,
+  insets: Insets,
 ): { x: number; y: number; radius: number } {
-  const room = Math.max(0, width - inset);
-  return { x: room / 2, y: height / 2, radius: (Math.min(room, height) / 2) * FILL };
+  const w = Math.max(0, width - insets.right);
+  const h = Math.max(0, height - insets.bottom);
+  return { x: w / 2, y: h / 2, radius: (Math.min(w, h) / 2) * FILL };
 }
 
 /** One of the palette's six full colors for a creature, the same every time. */
@@ -77,10 +84,10 @@ function colorOf(id: string, palette: Palette): number {
 export interface SoulView {
   container: Container;
   /**
-   * Draws the constellation of creature `id` in `lite`, or only the page with none, left of
-   * `inset` screen pixels on the right.
+   * Draws the constellation of creature `id` in `lite`, or only the page with none, in the room
+   * `insets` leave free.
    */
-  update(lite: WorldLite, settings: Settings, id: string | null, inset: number): void;
+  update(lite: WorldLite, settings: Settings, id: string | null, insets: Insets): void;
   /** The star or soul nearest a screen point within 44 pixels, or null. */
   pick(x: number, y: number): string | null;
   setPalette(p: Palette): void;
@@ -123,7 +130,7 @@ export function createSoulView(
 
   return {
     container,
-    update(lite, settings, id, inset) {
+    update(lite, settings, id, insets) {
       const k = settings.highContrast ? HIGH_CONTRAST_WIDTH : 1;
       const { width, height } = app.screen;
       page.clear().rect(0, 0, width, height).fill(palette.background);
@@ -133,7 +140,7 @@ export function createSoulView(
       if (soul) soul.view.container.visible = view !== null;
       if (id === null || !view) return;
 
-      const frame = soulFrame(width, height, inset);
+      const frame = soulFrame(width, height, insets);
       const stars = soulLayout(lite, id, threshold).map((s) => ({
         ...s,
         x: frame.x + s.x * frame.radius,

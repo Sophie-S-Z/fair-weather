@@ -9,12 +9,12 @@
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
   import { displayName } from '../../story/names.ts';
-  import { peekRule } from '../../story/peek.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
   import { VERBS, WORLD_VERBS } from '../../story/verbs.ts';
   import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
+  import { chapterHeading } from '../chapter-label.ts';
   import BeatLine from '../components/BeatLine.svelte';
   import BetCard from '../components/BetCard.svelte';
   import ChapterRibbon from '../components/ChapterRibbon.svelte';
@@ -48,7 +48,7 @@
     fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
     blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
     zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
-    peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Notes drawer shows them too.',
+    peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
       '[PLACEHOLDER] In the Cosmos, move the Rewind slider to look back; each mark is a friendship that ended. Back to now returns.',
     listen: '[PLACEHOLDER] Listen as the creatures tell their story by the fire.',
@@ -119,9 +119,11 @@
   let drawerAt: { section: 'diary' | 'peek'; focus: boolean } | null = $state.raw(null);
   let drawerEl: HTMLElement | undefined = $state();
   let drawerWidth = $state(0);
-  let drawerOpen = $state(false);
-  /** The pixels the drawer takes from the scene's right edge. */
+  // Widened, since only the bind on the Drawer writes it.
+  let drawerOpen = $state(false as boolean);
+  /** The pixels the drawer takes from the scene's right edge, and the height of the HUD at the bottom. */
   let inset = $state(0);
+  let hudHeight = $state(0);
 
   let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
@@ -147,24 +149,24 @@
     const c = shown?.creatures.find((x) => x.id === picked);
     if (!c || !chapter) return null;
     const mine = ties?.get(c.id);
+    const away = new Set(shown?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
+    // The Cosmos panel's rule too: away ones count, marked away.
+    const named = (id: string): string => `${displayName(id)}${away.has(id) ? ' (away)' : ''}`;
     return {
       name: displayName(c.id),
       lines: runner?.diary(c.id) ?? [],
+      // The diary lines are the live ones; the rest is the rewound world.
+      linesNow: rewound !== null,
       dials: c.dials,
-      friends: (mine?.friends ?? []).map(displayName),
-      scars: (mine?.scars ?? []).map(displayName),
-      peek: chapter.verbs.includes('peek') ? peekRule(c.dials, chapter.season) : null,
+      friends: (mine?.friends ?? []).map(named),
+      scars: (mine?.scars ?? []).map(named),
+      peek: chapter.verbs.includes('peek') ? game.peek(c.dials) : null,
     };
   });
   const placeKind = $derived(chapter?.place.kind ?? 'bench');
   /** A point tool acts at the cursor, which the Meadow then draws and the status line names. */
   const pointing = $derived(view === 'meadow' && tool !== null && POINT_TOOLS.has(tool));
-  /** "Chapter n: Title" with n from the id `ch<n>`, or "Interlude: Title". */
-  const heading = $derived(
-    chapter
-      ? `${chapter.kind === 'interlude' ? 'Interlude' : `Chapter ${chapter.id.replace(/^ch/, '')}`}: ${chapter.title}`
-      : '',
-  );
+  const heading = $derived(chapter ? chapterHeading(chapter) : '');
   const spotName = $derived.by(() => {
     let best: BenchSpot | undefined;
     let bestD = Infinity;
@@ -257,8 +259,11 @@
 
   function onPrompt(p: Prompt): void {
     if (p.kind === 'line') say(p.text);
-    else if (p.kind === 'bet') bet = { question: p.question, options: p.options };
-    else {
+    else if (p.kind === 'bet') {
+      // Answering starts the sim, so a bet that arrives while rewound brings the world back to now.
+      backToNow();
+      bet = { question: p.question, options: p.options };
+    } else {
       betRunning = false;
       say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`);
     }
@@ -362,7 +367,7 @@
     inset = sceneEl.getBoundingClientRect().right - drawerEl.getBoundingClientRect().left;
   });
   $effect(() => {
-    stage?.setRightInset(inset);
+    stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: hudHeight });
   });
 
   // The Meadow draws the cursor while a point tool is active.
@@ -537,7 +542,11 @@
       Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves
       to the tools.{chapter?.verbs.includes('zoom')
         ? ' Z zooms out and X zooms in.'
-        : ''}{chapter?.verbs.includes('peek') ? ' P peeks under the hood of the picked creature.' : ''}
+        : ''}{chapter?.verbs.includes('peek')
+        ? ' P peeks under the hood of the picked creature.'
+        : ''}{chapter?.verbs.includes('rewind')
+        ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
+        : ''}
     </p>
 
     {#if ended}
@@ -578,29 +587,32 @@
             />
           </div>
         {/if}
-        <div class="bottom" style:right={drawerOpen ? `${String(inset)}px` : '0'}>
-          <BeatLine {lines} />
-          <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
-          <p class="status" class:empty={!status} role="status">{status}</p>
-          <div bind:this={trayEl}>
-            <ToolTray
-              {tools}
-              {placeKind}
-              {used}
-              active={tool}
-              {reply}
-              {ghost}
-              onPick={(v: Verb) => {
-                hints.activity();
-                tool = v;
-              }}
-              onReply={(r: BidReply) => {
-                reply = r;
-                act({ verb: 'respond', reply: r });
-              }}
-            />
+        <div class="bottom" bind:clientHeight={hudHeight}>
+          <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
+          <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
+            <BeatLine {lines} />
+            <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
+            <p class="status" class:empty={!status} role="status">{status}</p>
+            <div bind:this={trayEl}>
+              <ToolTray
+                {tools}
+                {placeKind}
+                {used}
+                active={tool}
+                {reply}
+                {ghost}
+                onPick={(v: Verb) => {
+                  hints.activity();
+                  tool = v;
+                }}
+                onReply={(r: BidReply) => {
+                  reply = r;
+                  act({ verb: 'respond', reply: r });
+                }}
+              />
+            </div>
           </div>
-          <ChapterRibbon count={game.chapters.length} current={index} onSkip={() => runner?.skip()} />
+          <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
         </div>
         <div class="time">
           <TimeControls
@@ -669,6 +681,13 @@
     position: absolute;
     top: 2.75rem;
     left: 0.75rem;
+  }
+  .play {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
   }
   .bottom {
     position: absolute;

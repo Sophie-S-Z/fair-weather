@@ -52,19 +52,26 @@
     return `This chapter: population ${population}; trust ${trust}; ${ended}.`;
   });
 
-  /** "Pim: 3 friends, 1 scar", with the rumor's reflection while one is going round. */
+  /**
+   * "Pim: 3 friends (1 away), 1 scar": away ones count, marked, as in the drawer. While a rumor goes
+   * round, the reflection counts the friends here, the only ones who can hold it.
+   */
   function line(id: string): string {
     const mine = ties.get(id);
-    const friends = (mine?.friends ?? []).filter((f) => !away.has(f));
-    const scars = (mine?.scars ?? []).filter((s) => !away.has(s)).length;
-    let text = `${label(id)}: ${count(friends.length, 'friend')}, ${count(scars, 'scar')}`;
-    if (rumor && rumor.about !== id && friends.length > 0) {
-      const k = friends.filter((f) => rumor.holders.includes(f)).length;
-      text += `, imagines ${String(k)} of ${String(friends.length)} friends believe it`;
+    const friends = mine?.friends ?? [];
+    const scars = mine?.scars ?? [];
+    let text = `${label(id)}: ${count(friends, 'friend')}, ${count(scars, 'scar')}`;
+    const near = friends.filter((f) => !away.has(f));
+    if (rumor && rumor.about !== id && near.length > 0) {
+      const k = near.filter((f) => rumor.holders.includes(f)).length;
+      text += `, imagines ${String(k)} of ${String(near.length)} friends believe it`;
     }
     return text;
   }
-  const count = (n: number, one: string): string => `${String(n)} ${one}${n === 1 ? '' : 's'}`;
+  function count(ids: readonly string[], one: string): string {
+    const gone = ids.filter((i) => away.has(i)).length;
+    return `${String(ids.length)} ${one}${ids.length === 1 ? '' : 's'}${gone > 0 ? ` (${String(gone)} away)` : ''}`;
+  }
 
   const first = $derived(timeline.points[0]?.tick ?? 0);
   const value = $derived(rewind ? (rewind.at ?? rewind.now) : 0);
@@ -76,46 +83,49 @@
 </script>
 
 <!-- What the Cosmos canvas shows, as text (spec 11.3), and the rewind range (spec 8). -->
+<!-- A section the player can fold, so the network under it shows. -->
 <section class="panel" aria-labelledby="cosmos-title">
-  <h2 id="cosmos-title">Who is friends with whom</h2>
-  {#if summary}<p>{summary}</p>{/if}
-  {#if rumor}
-    <p>The rumor: {rumor.sign > 0 ? 'a kind' : 'an unkind'} word about {label(rumor.about)}.</p>
-  {/if}
-  <!-- The list scrolls in a small box, so the keyboard can reach it. -->
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <ul class="list" tabindex="0" aria-label="Creatures here">
-    {#each here as c (c.id)}
-      <li>{line(c.id)}</li>
-    {/each}
-  </ul>
-  {#if rewind}
-    <div class="rewind">
-      <label for="rewind">Rewind</label>
-      <input
-        id="rewind"
-        type="range"
-        min={first}
-        max={rewind.now}
-        step="1"
-        {value}
-        list="rewind-breaks"
-        aria-valuetext={dayText}
-        disabled={rewind.disabled}
-        oninput={(e) => {
-          onRewind(Number(e.currentTarget.value));
-        }}
-      />
-      <span aria-hidden="true">{dayText}</span>
-      <!-- A friendship ended at each mark. -->
-      <datalist id="rewind-breaks">
-        {#each timeline.breaks as b, i (i)}
-          <option value={b}></option>
-        {/each}
-      </datalist>
-      <button type="button" disabled={rewind.at === null} onclick={onBackToNow}>Back to now</button>
-    </div>
-  {/if}
+  <details open>
+    <summary id="cosmos-title">Who is friends with whom</summary>
+    {#if summary}<p>{summary}</p>{/if}
+    {#if rumor}
+      <p>The rumor: {rumor.sign > 0 ? 'a kind' : 'an unkind'} word about {label(rumor.about)}.</p>
+    {/if}
+    <!-- The list scrolls in a small box, so the keyboard can reach it. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <ul class="list" tabindex="0" aria-label="Creatures here">
+      {#each here as c (c.id)}
+        <li>{line(c.id)}</li>
+      {/each}
+    </ul>
+    {#if rewind}
+      <div class="rewind">
+        <label for="rewind">Rewind</label>
+        <input
+          id="rewind"
+          type="range"
+          min={first}
+          max={rewind.now}
+          step="1"
+          {value}
+          list="rewind-breaks"
+          aria-valuetext={dayText}
+          disabled={rewind.disabled}
+          oninput={(e) => {
+            onRewind(Number(e.currentTarget.value));
+          }}
+        />
+        <span aria-hidden="true">{dayText}</span>
+        <!-- A friendship ended at each mark. -->
+        <datalist id="rewind-breaks">
+          {#each timeline.breaks as b, i (i)}
+            <option value={b}></option>
+          {/each}
+        </datalist>
+        <button type="button" disabled={rewind.at === null} onclick={onBackToNow}>Back to now</button>
+      </div>
+    {/if}
+  </details>
 </section>
 
 <style>
@@ -126,9 +136,10 @@
     border: 2px solid var(--fg);
     border-radius: 0.6rem;
   }
-  h2 {
+  summary {
     margin: 0 0 0.25rem;
-    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
   }
   p {
     margin: 0 0 0.5rem;

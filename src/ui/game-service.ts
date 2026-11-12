@@ -7,9 +7,10 @@ import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { Season } from '../sim/types.ts';
+import type { Dials, Season } from '../sim/types.ts';
 import type { ChapterRunner } from '../story/chapter-runner.ts';
 import type { Flags } from '../story/flags.ts';
+import type { peekRule } from '../story/peek.ts';
 import type { Chapter } from '../story/schema.ts';
 import type { Settings } from './settings.ts';
 
@@ -30,8 +31,8 @@ export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHe
   snapshot(tick: number, lite: WorldLite): void;
   /** This run's timeline points and the ticks at which a two-sided friendship ended. */
   timeline(): { points: readonly TimelinePoint[]; breaks: readonly number[] };
-  /** The screen pixels the HTML takes on the right; the Soul view centers in the rest. */
-  setRightInset(pixels: number): void;
+  /** The screen pixels the HTML takes on the right and at the bottom; the Soul view centers in the rest. */
+  setInsets(insets: { right: number; bottom: number }): void;
   draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
   /** The creature under a screen point in the current view, or null. Cosmos snaps within 44 pixels. */
   pick(x: number, y: number): string | null;
@@ -67,6 +68,8 @@ export interface GameService {
    * chapter starts from the year carry of the last snapshot (ADR 0012 item 1).
    */
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
+  /** Peek under the hood (spec 8, 9.3) at `dials`, by the rules of the chapter now playing. */
+  peek(dials: Dials): ReturnType<typeof peekRule>;
   /**
    * The world at an earlier tick of this chapter, clamped to what the worker kept; the live run
    * does not change (ADR 0012 item 10).

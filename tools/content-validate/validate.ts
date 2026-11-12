@@ -6,6 +6,7 @@ import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { AudioSchema } from '../../src/audio/schema.ts';
+import { VersesSchema } from '../../src/myth/grammar.ts';
 import { VoiceSchema } from '../../src/audio/voices.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
@@ -67,7 +68,7 @@ function creatureRefs(c: Chapter): string[] {
   return ids;
 }
 
-/** Checks tuning, flags, diary, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -92,6 +93,14 @@ export function validateContent(root: string): ValidationResult {
       DiarySchema.parse(JSON.parse(readFileSync(diaryPath, 'utf8')));
     } catch (e) {
       errors.push(`diary.json: ${(e as Error).message}`);
+    }
+  }
+  const versesPath = join(content, 'myth', 'verses.json');
+  if (existsSync(versesPath)) {
+    try {
+      VersesSchema.parse(JSON.parse(readFileSync(versesPath, 'utf8')));
+    } catch (e) {
+      errors.push(`myth/verses.json: ${(e as Error).message}`);
     }
   }
   for (const f of filesIn(join(content, 'chapters'), '.json')) {

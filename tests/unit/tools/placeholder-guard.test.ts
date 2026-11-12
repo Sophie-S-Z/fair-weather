@@ -69,6 +69,13 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
   });
+  test('reports a bad myth verses file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'myth'), { recursive: true });
+    writeFileSync(join(root, 'content', 'myth', 'verses.json'), JSON.stringify({ verses: [] }));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
+  });
   /** A content root holding the repo's kith-meadow scene and ch1 changed by `edit`. */
   function chapterRoot(edit: (chapter: { scene: string; beats: { actions: object[] }[] }) => void): string {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));

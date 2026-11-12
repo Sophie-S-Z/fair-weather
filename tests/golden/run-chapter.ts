@@ -7,6 +7,7 @@ import inkStory from '../../content/ink/main.ink';
 import type { FromWorker, SimPort } from '../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import type { Scenario } from '../../src/sim/types.ts';
+import type { ActionLog } from '../../src/story/action-log.ts';
 import { createChapterRunner } from '../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../src/story/chapter-runner.ts';
 import type { Flags } from '../../src/story/flags.ts';
@@ -25,6 +26,8 @@ export interface HeadlessResult {
   twistFired: boolean;
   retries: number;
   usedCloseCall: boolean;
+  /** The chapter's action log, as main.ts keeps it in the year log. */
+  log: ActionLog;
 }
 
 /** A guard far past the longest legal chapter (bet days plus 1 + honestyRetries twist windows). */
@@ -75,7 +78,7 @@ export async function runChapterHeadless(
     run.over = true;
   });
   for (let i = 0; !run.over; i++) {
-    if (i === stopAfterTicks) return { twistFired: false, retries: 0, usedCloseCall: false };
+    if (i === stopAfterTicks) return { twistFired: false, retries: 0, usedCloseCall: false, log: runner.log };
     if (run.error !== null) throw new Error(`sim error in ${config.id} seed ${String(seed)}: ${run.error}`);
     if (i >= MAX_TICKS)
       throw new Error(`${config.id} seed ${String(seed)} did not end in ${String(MAX_TICKS)} ticks`);
@@ -86,8 +89,10 @@ export async function runChapterHeadless(
   await done;
 
   const twist = runner.log.find((e) => e.kind === 'twist');
+  // A chapter without a twist (chapters 0 and 1) reports it as not fired, with no close call.
+  if (!config.twist) return { twistFired: false, retries: 0, usedCloseCall: false, log: runner.log };
   if (!twist) throw new Error(`${config.id} seed ${String(seed)} ended without a twist entry`);
-  return { twistFired: twist.fired, retries: twist.retries, usedCloseCall: !twist.fired };
+  return { twistFired: twist.fired, retries: twist.retries, usedCloseCall: !twist.fired, log: runner.log };
 }
 
 /** Seeds 1 to 200. */

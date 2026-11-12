@@ -1,0 +1,494 @@
+{
+  "verses": [
+    {
+      "id": "waking",
+      "title": "The Waking",
+      "templates": [
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "krit"
+            },
+            {
+              "feature": "rumbles",
+              "op": "gte",
+              "value": 2
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Krit, tell it straight: the sky woke grumbling. It rumbled at us {rumbles} times, and I rumbled back."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "pim"
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Pim, woke first. The sky was soft with me that morning, and I was not afraid."
+        },
+        {
+          "when": [
+            {
+              "feature": "rumbles",
+              "op": "gte",
+              "value": 4
+            }
+          ],
+          "text": "[PLACEHOLDER] {narrator} remembers the waking as thunder: {rumbles} times the sky growled before it ever smiled.",
+          "note": "[PLACEHOLDER] The creatures heard anger. You turned against {rumbles} sky bids, and turning against says more than turning away."
+        },
+        {
+          "when": [
+            {
+              "feature": "welcomes",
+              "op": "gte",
+              "value": 4
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky woke, and the hill road filled: {welcomes} newcomers came, and {narrator} counted every one."
+        },
+        {
+          "when": [
+            {
+              "feature": "rumbles",
+              "op": "gte",
+              "value": 1
+            },
+            {
+              "feature": "welcomes",
+              "op": "gte",
+              "value": 1
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky woke uneasy. It rumbled {rumbles} times, says {narrator}, and still {welcomes} came over the hill."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "echo"
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Echo, tell the waking twice, so it is kept: the sky opened its eye. The sky opened its eye."
+        },
+        {
+          "when": [
+            {
+              "feature": "welcomes",
+              "op": "gte",
+              "value": 1
+            }
+          ],
+          "text": "[PLACEHOLDER] {narrator} tells how the sky woke, and the valley woke with it, and {welcomes} more came to see."
+        },
+        {
+          "when": [],
+          "text": "[PLACEHOLDER] {narrator} tells how, one morning, the sky opened its eye and the valley woke."
+        }
+      ]
+    },
+    {
+      "id": "eye",
+      "title": "The Sky's Eye",
+      "templates": [
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "moss"
+            },
+            {
+              "feature": "lightOnKindness",
+              "op": "gte",
+              "value": 0.5
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Moss, saw where the sky's eye rested: on kindness, mostly, and most of all on {mostLit}."
+        },
+        {
+          "when": [
+            {
+              "feature": "lightOnConflict",
+              "op": "gte",
+              "value": 0.6
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky loved a quarrel, {narrator} says. Its eye went where tempers ran hot, and it found {mostLit} most of all.",
+          "note": "[PLACEHOLDER] Light does not choose sides; it only shows. You lit meetings, and {mostLit} met in the light most. The creatures took being seen for being favored."
+        },
+        {
+          "when": [
+            {
+              "feature": "mostLit",
+              "op": "eq",
+              "value": "pim"
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky's eye never left little Pim, {narrator} says. Wherever Pim met someone, the light came too."
+        },
+        {
+          "when": [
+            {
+              "feature": "lightOnKindness",
+              "op": "gte",
+              "value": 0.7
+            }
+          ],
+          "text": "[PLACEHOLDER] Where the sky looked, creatures were kind, and it looked longest at {mostLit}, says {narrator}."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "bell"
+            },
+            {
+              "feature": "lightOnKindness",
+              "op": "gte",
+              "value": 0.3
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Bell, felt the sky's eye like a warm hand, and I hummed under it. {mostLit} hummed too."
+        },
+        {
+          "when": [
+            {
+              "feature": "lightOnConflict",
+              "op": "gte",
+              "value": 0.3
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky's eye went to the sharp-tongued, {narrator} says, and to {mostLit} most of all."
+        },
+        {
+          "when": [
+            {
+              "feature": "lightOnKindness",
+              "op": "gte",
+              "value": 0.3
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky's eye found {mostLit} again and again, {narrator} says, and nobody knows why."
+        },
+        {
+          "when": [],
+          "text": "[PLACEHOLDER] That year the sky kept its eye half shut, says {narrator}, and saw us all alike."
+        }
+      ]
+    },
+    {
+      "id": "moods",
+      "title": "The Sky's Moods",
+      "templates": [
+        {
+          "when": [
+            {
+              "feature": "fogPainted",
+              "op": "gte",
+              "value": 0.1
+            },
+            {
+              "feature": "lightOnConflict",
+              "op": "gte",
+              "value": 0.5
+            }
+          ],
+          "text": "[PLACEHOLDER] When we fought, the sky sulked, {narrator} says. It pulled grey over its face and would not look at us.",
+          "note": "[PLACEHOLDER] You painted the fog. It lay where meetings went badly, so the creatures read it as the sky's sulk. Fog hides who did what; it hides kindness too."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "wisp"
+            },
+            {
+              "feature": "gusts",
+              "op": "gte",
+              "value": 3
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Wisp, rode the sky's breath. {gusts} times it blew, and every time I wanted to go with it."
+        },
+        {
+          "when": [
+            {
+              "feature": "gusts",
+              "op": "gte",
+              "value": 5
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky huffed at us {gusts} times, {narrator} says, as if we had done something wrong.",
+          "note": "[PLACEHOLDER] You blew {gusts} gusts to move fog and creatures. Wind has no temper, but the creatures gave it one."
+        },
+        {
+          "when": [
+            {
+              "feature": "fogPainted",
+              "op": "gte",
+              "value": 0.1
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky was grey and thoughtful that year, {narrator} says, and hid the far hills."
+        },
+        {
+          "when": [
+            {
+              "feature": "gusts",
+              "op": "gte",
+              "value": 1
+            },
+            {
+              "feature": "fogPainted",
+              "op": "gte",
+              "value": 0.02
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky could not keep still: grey one day, and {gusts} gusts the next."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "echo"
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Echo, listened to the sky's moods. Mostly it was quiet. Mostly it was quiet."
+        },
+        {
+          "when": [
+            {
+              "feature": "gusts",
+              "op": "gte",
+              "value": 1
+            }
+          ],
+          "text": "[PLACEHOLDER] Now and then the sky breathed out, {gusts} times in all, and {narrator} felt it in the grass."
+        },
+        {
+          "when": [],
+          "text": "[PLACEHOLDER] The sky kept one mood all year, says {narrator}: patient."
+        }
+      ]
+    },
+    {
+      "id": "winter",
+      "title": "The Long Winter",
+      "templates": [
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "moss"
+            },
+            {
+              "feature": "mossShared",
+              "op": "eq",
+              "value": true
+            },
+            {
+              "feature": "winterLeft",
+              "op": "eq",
+              "value": 0
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Moss, opened my store when the snow came, and nobody had to leave."
+        },
+        {
+          "when": [
+            {
+              "feature": "mossShared",
+              "op": "eq",
+              "value": false
+            },
+            {
+              "feature": "winterLeft",
+              "op": "gte",
+              "value": 1
+            }
+          ],
+          "text": "[PLACEHOLDER] The sky hid the berries under the snow, {narrator} says, and {winterLeft} walked away hungry.",
+          "note": "[PLACEHOLDER] The berries were in Moss's store, and Moss kept them. The creatures blamed the sky for a choice one of them made."
+        },
+        {
+          "when": [
+            {
+              "feature": "winterLeft",
+              "op": "gte",
+              "value": 3
+            }
+          ],
+          "text": "[PLACEHOLDER] The winter was long and the snow was deep. {winterLeft} walked into it and were gone until spring."
+        },
+        {
+          "when": [
+            {
+              "feature": "winterLeft",
+              "op": "gte",
+              "value": 1
+            },
+            {
+              "feature": "mossShared",
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "text": "[PLACEHOLDER] Moss shared the store, and still {winterLeft} left. {narrator} says they will send word."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "krit"
+            },
+            {
+              "feature": "winterLeft",
+              "op": "eq",
+              "value": 0
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Krit, will say this once: the winter was long, and we kept each other."
+        },
+        {
+          "when": [
+            {
+              "feature": "winterLeft",
+              "op": "gte",
+              "value": 1
+            }
+          ],
+          "text": "[PLACEHOLDER] {winterLeft} left in the long winter, {narrator} says, and the valley was quieter for it."
+        },
+        {
+          "when": [
+            {
+              "feature": "mossShared",
+              "op": "eq",
+              "value": false
+            }
+          ],
+          "text": "[PLACEHOLDER] Moss kept the store shut, but the winter was kind, and nobody left."
+        },
+        {
+          "when": [],
+          "text": "[PLACEHOLDER] The winter was long, says {narrator}, and we came through it together."
+        }
+      ]
+    },
+    {
+      "id": "asking",
+      "title": "The Asking",
+      "templates": [
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "wisp"
+            },
+            {
+              "feature": "wispPushed",
+              "op": "eq",
+              "value": false
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Wisp, asked the sky if I could go, and it let me choose. So I chose."
+        },
+        {
+          "when": [
+            {
+              "feature": "bellDanced",
+              "op": "eq",
+              "value": true
+            },
+            {
+              "feature": "festivalShare",
+              "op": "gte",
+              "value": 0.7
+            }
+          ],
+          "text": "[PLACEHOLDER] At the festival nearly everyone danced, and Bell danced first. Then, says {narrator}, we asked the sky our question."
+        },
+        {
+          "when": [
+            {
+              "feature": "wispPushed",
+              "op": "eq",
+              "value": true
+            },
+            {
+              "feature": "festivalShare",
+              "op": "lte",
+              "value": 0.3
+            }
+          ],
+          "text": "[PLACEHOLDER] Few danced, and when Wisp asked to leave, the sky's wind took it before it was ready."
+        },
+        {
+          "when": [
+            {
+              "feature": "narrator",
+              "op": "eq",
+              "value": "bell"
+            },
+            {
+              "feature": "bellDanced",
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "text": "[PLACEHOLDER] I, Bell, danced at the festival, and then I asked the sky: will you stay?"
+        },
+        {
+          "when": [
+            {
+              "feature": "bellDanced",
+              "op": "eq",
+              "value": false
+            },
+            {
+              "feature": "festivalShare",
+              "op": "gte",
+              "value": 0.5
+            }
+          ],
+          "text": "[PLACEHOLDER] Most of us danced, but Bell stood by the stones and would not, says {narrator}."
+        },
+        {
+          "when": [
+            {
+              "feature": "wispPushed",
+              "op": "eq",
+              "value": false
+            }
+          ],
+          "text": "[PLACEHOLDER] Wisp went its own way when it was ready, and {narrator} asked the sky to watch over it."
+        },
+        {
+          "when": [
+            {
+              "feature": "festivalShare",
+              "op": "gte",
+              "value": 0.5
+            }
+          ],
+          "text": "[PLACEHOLDER] We danced, and the wind pushed Wisp along, and at the end {narrator} asked the sky what it wanted of us."
+        },
+        {
+          "when": [],
+          "text": "[PLACEHOLDER] At the year's end, {narrator} asked the sky a question. The sky has not answered yet."
+        }
+      ]
+    }
+  ]
+}

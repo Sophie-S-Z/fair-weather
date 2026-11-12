@@ -90,7 +90,7 @@ test('defaults equal the handoff and ADR values', () => {
     takeBelowBerries: 1,
     trustFriends: 2,
   });
-  expect(t.festival).toEqual({ threshold: 2, everyTicks: 10 });
+  expect(t.festival).toEqual({ threshold: 1, everyTicks: 10 });
   expect(t.postcard).toEqual({ nudge: 0.1 });
   expect(t.wisp).toEqual({ minWarmth: 0.6, minKithWarmth: 0.2 });
   expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6 });

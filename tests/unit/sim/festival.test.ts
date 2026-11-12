@@ -84,15 +84,13 @@ test('dance: the spread counts from the same set, so array order does not matter
   }
 });
 
-test('dance: a sleeper or an away creature does not start, and the default threshold is 2', () => {
-  const w = makeWorld([{ id: 'x' }, { id: 'y' }, { id: 'z' }, { id: 'one' }, { id: 'sleeper' }]);
-  for (const d of ['x', 'y']) get(w, d).dancing = true;
-  for (const d of ['x', 'y']) setWarmth(w, 'sleeper', d, 0.5);
-  setWarmth(w, 'one', 'x', 0.5);
-  setWarmth(w, 'z', 'x', 0.5);
-  setWarmth(w, 'z', 'y', 0.5);
+test('dance: a sleeper or an away creature does not start, and the default threshold is 1', () => {
+  const w = makeWorld([{ id: 'x' }, { id: 'one' }, { id: 'none' }, { id: 'sleeper' }, { id: 'gone' }]);
+  get(w, 'x').dancing = true;
+  for (const id of ['one', 'sleeper', 'gone']) setWarmth(w, id, 'x', 0.5);
   get(w, 'sleeper').state = 'sleep';
-  expect(spreadDance(w, t)).toEqual([{ t: 'dance', who: 'z' }]);
+  get(w, 'gone').state = 'away';
+  expect(spreadDance(w, t)).toEqual([{ t: 'dance', who: 'one' }]);
 });
 
 test('empty winter: mushroom, ambient bid, and dance rules on 0 and 1 creatures give no NaN', () => {

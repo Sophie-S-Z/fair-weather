@@ -28,35 +28,7 @@
       }
     ],
     "danceThreshold": {
-      "pim": 1,
-      "krit": 1,
-      "echo": 1,
-      "moss": 1,
-      "bell": 3,
-      "villager-1": 1,
-      "villager-2": 1,
-      "villager-3": 1,
-      "villager-4": 1,
-      "villager-5": 1,
-      "villager-6": 1,
-      "villager-7": 1,
-      "villager-8": 1,
-      "villager-9": 1,
-      "villager-10": 1,
-      "villager-11": 1,
-      "villager-12": 1,
-      "villager-13": 1,
-      "villager-14": 1,
-      "villager-15": 1,
-      "villager-16": 1,
-      "villager-17": 1,
-      "villager-18": 1,
-      "villager-19": 1,
-      "villager-20": 1,
-      "villager-21": 1,
-      "villager-22": 1,
-      "villager-23": 1,
-      "villager-24": 1
+      "bell": 3
     }
   },
   "place": {
@@ -148,11 +120,11 @@
       ]
     },
     {
-      "title": "[PLACEHOLDER] Bridges",
-      "science": "[PLACEHOLDER] A few links across a gap can join two groups.",
-      "limits": "[PLACEHOLDER] Here a bridge only lets creatures cross; it adds no friendship by itself.",
-      "counter": "[PLACEHOLDER] Some say links across a gap carry conflict as easily as joy.",
-      "question": "[PLACEHOLDER] Where would you put the two bridges?",
+      "title": "[PLACEHOLDER] Friends across a gap",
+      "science": "[PLACEHOLDER] A dance spreads through friendships, wherever the friends stand.",
+      "limits": "[PLACEHOLDER] Here a bridge only lets creatures cross; the dance follows ties, not paths.",
+      "counter": "[PLACEHOLDER] Some say being near matters more than being friends.",
+      "question": "[PLACEHOLDER] Who would you be waiting for before you joined in?",
       "sources": [
         {
           "label": "[PLACEHOLDER] The Evolution of Trust, full text",

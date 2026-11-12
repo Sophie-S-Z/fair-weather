@@ -71,7 +71,7 @@
     "takeBelowBerries": 1,
     "trustFriends": 2
   },
-  "festival": { "threshold": 2, "everyTicks": 10 },
+  "festival": { "threshold": 1, "everyTicks": 10 },
   "postcard": { "nudge": 0.1 },
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
   "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6 },

@@ -497,3 +497,23 @@ test('touching nothing for three minutes brings the Quiet Visitor once; its feat
   await page.waitForTimeout(500);
   await expect(lines.getByText('A quiet visitor walks in and sits down to rest.')).toHaveCount(1);
 });
+
+test('a Quiet Visitor that comes due in the Cosmos view waits, and walks in back in the Meadow', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  // ch5 (index 7) has the zoom.
+  await page.goto('/?chapter=7');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  await page.keyboard.press('z');
+  await expect(page.getByRole('application', { name: /^The Cosmos/ })).toBeFocused();
+  const lines = page.locator('.beat-line');
+  await page.clock.fastForward(181_000);
+  await page.waitForTimeout(500);
+  await expect(lines).not.toContainText('quiet visitor');
+  // The visit is due, so it comes as soon as the Meadow shows again.
+  await page.keyboard.press('x');
+  await expect(lines).toContainText('A quiet visitor walks in and sits down to rest.');
+});

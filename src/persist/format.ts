@@ -2,7 +2,8 @@
 // migrate to it (migrations.ts).
 import { z } from 'zod';
 import type { Command, World } from '../sim/types.ts';
-import type { LogEntry, YearLog } from '../story/action-log.ts';
+import { YearLogSchema } from '../story/action-log.ts';
+import type { YearLog } from '../story/action-log.ts';
 import type { Carry } from '../story/carry.ts';
 import { FlagsSchema } from '../story/flags.ts';
 import type { Flags } from '../story/flags.ts';
@@ -72,20 +73,7 @@ export const SaveV2Schema = z.object({
   ...common,
   version: z.literal(2),
   flags: FlagsSchema,
-  year: z.array(
-    z.object({
-      chapterId: z.string(),
-      log: z.array(
-        z.custom<LogEntry>(
-          (e) =>
-            typeof e === 'object' &&
-            e !== null &&
-            typeof (e as LogEntry).kind === 'string' &&
-            typeof (e as LogEntry).tick === 'number',
-        ),
-      ),
-    }),
-  ),
+  year: YearLogSchema,
   carry: CarrySchema.nullable(),
 }) satisfies z.ZodType<SaveV2>;
 

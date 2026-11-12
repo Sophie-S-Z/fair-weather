@@ -1,7 +1,8 @@
 // Builds a chapter's starting scenario (spec 10.1, P6): the year carry, the overrides, at most one
 // variant, and the chapter's day length, so the runner and the sim count the same days.
 import type { DialKey, Rect, Scenario } from '../sim/types.ts';
-import { applyCarry } from './carry.ts';
+import type { WorldLite } from '../sim-host/protocol.ts';
+import { applyCarry, carryFrom, restoreDials } from './carry.ts';
 import type { Carry } from './carry.ts';
 import type { Flags } from './flags.ts';
 import type { Chapter, FlagCondition, Overrides } from './schema.ts';
@@ -105,6 +106,35 @@ function checkLand(s: Scenario): void {
 export function chosenOverrides(chapter: Chapter, flags: Flags): Overrides[] {
   const variant = chapter.variants.find((v) => [v.when].flat().every((c) => matches(c, flags)));
   return variant ? [chapter.overrides, variant.overrides] : [chapter.overrides];
+}
+
+/** What a chapter starts from (ADR 0012 item 1): its carry, and its dial overrides, which the next chapter's carry puts back. */
+export interface ChapterStart {
+  carry: Carry | undefined;
+  overrides: Overrides[];
+}
+
+/**
+ * The start of `chapter` with `flags`. On Continue (`saved`), the carry is the save's. Otherwise a
+ * `carry: true` chapter takes the carry from the last snapshot and its runner's diaries, with the
+ * dials that the last chapter's overrides set put back (restoreDials); any other chapter starts
+ * fresh.
+ */
+export function chapterStart(
+  chapter: Chapter,
+  flags: Flags,
+  base: Scenario,
+  from:
+    | { saved: Carry | null }
+    | { lite: WorldLite | null; diaries: ReadonlyMap<string, readonly string[]>; last: ChapterStart | null },
+): ChapterStart {
+  let carry: Carry | undefined;
+  if ('saved' in from) carry = from.saved ?? undefined;
+  else {
+    carry = chapter.carry && from.lite ? carryFrom(from.lite, from.diaries) : undefined;
+    if (carry && from.last) restoreDials(carry, from.last.carry, base, from.last.overrides);
+  }
+  return { carry, overrides: chosenOverrides(chapter, flags) };
 }
 
 /**

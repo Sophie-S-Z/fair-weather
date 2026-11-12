@@ -35,41 +35,72 @@ const ProfileSchema = z.object({
   feathers: z.number().int().nonnegative(),
 }) satisfies z.ZodType<{ pages: BookPage[]; feathers: number }>;
 
+type Data = z.infer<typeof ProfileSchema>;
+const empty = (): Data => ({ pages: [], feathers: 0 });
+/** Stored data, or empty when there is none or it is damaged. */
+const parse = (raw: unknown): Data => {
+  const parsed = ProfileSchema.safeParse(raw);
+  return parsed.success ? parsed.data : empty();
+};
+
 /**
- * Opens the profile. Blocked storage, or a write that fails, gives a profile kept in memory for
- * this visit. A damaged profile reads as empty.
+ * Opens the profile. Each read goes to the database, and each write reads, changes, and puts the
+ * profile in one transaction, so two tabs never erase each other's pages or feathers. Blocked
+ * storage, or a write that fails, gives a profile kept in memory for this visit, from what was
+ * last read. A damaged profile reads as empty.
  */
 export async function createProfile(factory: IDBFactory): Promise<Profile> {
   let db: Db | null = null;
-  let data: z.infer<typeof ProfileSchema> = { pages: [], feathers: 0 };
+  let data = empty();
   try {
     db = await openDb(factory);
-    const parsed = ProfileSchema.safeParse(await db.get(KEY));
-    if (parsed.success) data = parsed.data;
   } catch {
     db = null;
   }
-  const write = async (): Promise<void> => {
-    if (!db) return;
-    try {
-      await db.putAll([[KEY, data]]);
-    } catch {
-      db = null;
+  const read = async (): Promise<Data> => {
+    if (db) {
+      try {
+        data = parse(await db.get(KEY));
+      } catch {
+        db = null;
+      }
     }
+    return structuredClone(data);
+  };
+  /** Applies `change` to the stored profile, or to the one in memory without storage. */
+  const write = async (change: (d: Data) => void): Promise<Data> => {
+    if (db) {
+      try {
+        data = await db.update(KEY, (raw) => {
+          const d = parse(raw);
+          change(d);
+          return d;
+        });
+        return structuredClone(data);
+      } catch {
+        db = null;
+      }
+    }
+    change(data);
+    return structuredClone(data);
   };
   return {
-    pages: () => Promise.resolve(structuredClone(data.pages)),
+    pages: async () => (await read()).pages,
     async keepMyth(page, seed) {
-      const kept: BookPage = { ...structuredClone(page), year: data.pages.length + 1, seed };
-      data.pages.push(kept);
-      await write();
-      return structuredClone(kept);
+      const d = await write((d) => {
+        d.pages.push({ ...structuredClone(page), year: d.pages.length + 1, seed });
+      });
+      const kept = d.pages.at(-1);
+      if (!kept) throw new Error('the page was not kept');
+      return kept;
     },
-    feathers: () => Promise.resolve(data.feathers),
+    feathers: async () => (await read()).feathers,
     async addFeather() {
-      data.feathers += 1;
-      await write();
-      return data.feathers;
+      return (
+        await write((d) => {
+          d.feathers += 1;
+        })
+      ).feathers;
     },
   };
 }

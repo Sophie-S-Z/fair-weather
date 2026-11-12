@@ -21,6 +21,8 @@ import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import { bridgeDeck, islets } from '../../../src/sim/land.ts';
+import ch9Json from '../../../content/chapters/ch9.json';
+import { ChapterSchema } from '../../../src/story/schema.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
@@ -36,6 +38,7 @@ const options = {
   lensRadius: tuning.light.lensRadius,
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
+  bank: tuning.bank,
 };
 const rig = (id: string): Rig => {
   const r = rigs.get(id);
@@ -701,4 +704,92 @@ test('a stalled page does not skip the visit: one late frame moves it on a quart
         ((600 - options.gate.x) / Math.hypot(600 - options.gate.x, 425 - options.gate.y)),
     5,
   );
+});
+
+/**
+ * Every frame of one visit, 0.1 s apart, from its start until it has gone: the visitor's feet, or
+ * null while it is hidden.
+ */
+async function visitFrames(view: ReturnType<typeof createMeadowView>, app: Application, world: WorldLite) {
+  let gone = false as boolean;
+  void view.visitor().then(() => (gone = true));
+  const feet: ({ x: number; y: number } | null)[] = [];
+  for (let s = 1000; !gone && s < 1200; s += 0.1) {
+    (app.ticker as { lastTime: number }).lastTime = s * 1000;
+    view.update(world, world, 1, settings);
+    const v = app.stage.getChildByLabel('visitor', true);
+    feet.push(v?.visible ? { x: v.x, y: v.y } : null);
+    await Promise.resolve();
+  }
+  expect(gone).toBe(true);
+  return feet.filter((f) => f !== null);
+}
+
+/** True when a body with its feet at `f` covers water off every deck: the sim's bank rule (ADR 0012 item 3). */
+function overWater(f: { x: number; y: number }, world: WorldLite): boolean {
+  const { side, below } = tuning.bank;
+  const box = { x0: f.x - side, x1: f.x + side, y0: f.y - below, y1: f.y + side };
+  const covers = world.water.some(
+    (r) => box.x0 < r.x + r.w && box.x1 > r.x && box.y0 < r.y + r.h && box.y1 > r.y,
+  );
+  const onDeck = world.decks.some((d) => f.x >= d.x && f.x <= d.x + d.w && f.y >= d.y && f.y <= d.y + d.h);
+  return covers && !onDeck;
+}
+
+test('the visitor crosses the ch9 brook only on a bridge deck, and keeps to the gate side without one', async () => {
+  const ch9 = ChapterSchema.parse(ch9Json);
+  const water = ch9.overrides.water ?? [];
+  expect(water).toEqual([{ x: 780, y: 0, w: 60, h: 900 }]);
+  const bridge = { id: 'bridge-1', kind: 'bridge' as const, x: 810, y: 250 };
+  const deck = bridgeDeck(bridge, water, tuning);
+  if (!deck) throw new Error('no deck');
+  const eastBench = { id: 'bench-east', kind: 'bench' as const, x: 1150, y: 650 };
+  const east = { ...scene, benchSpots: [{ id: 'east-meadow', x: 1050, y: 540 }] };
+  const base = snapshot([['pim', 400, 400]]);
+
+  // The only seats are over the brook: it walks over the deck there and back.
+  const bridged = { ...base, water, decks: [deck], structures: [bridge, eastBench] };
+  const app = fakeApp(800, 450);
+  const feet = await visitFrames(createMeadowView(app, east, rigs, palette, options), app, bridged);
+  expect(feet.filter((f) => overWater(f, bridged))).toEqual([]);
+  expect(Math.max(...feet.map((f) => f.x))).toBe(1150);
+  expect(feet.some((f) => f.x > 780 && f.x < 840)).toBe(true);
+
+  // With no deck it never crosses: it sits at the gate.
+  const open = { ...bridged, decks: [], structures: [eastBench] };
+  const app2 = fakeApp(800, 450);
+  const feet2 = await visitFrames(createMeadowView(app2, east, rigs, palette, options), app2, open);
+  expect(feet2.filter((f) => overWater(f, open))).toEqual([]);
+  expect(feet2.every((f) => f.x === options.gate.x)).toBe(true);
+
+  // A seat on the gate's side wins over a nearer-looking one over the bridge.
+  const app3 = fakeApp(800, 450);
+  const feet3 = await visitFrames(createMeadowView(app3, scene, rigs, palette, options), app3, bridged);
+  expect(Math.max(...feet3.map((f) => f.x))).toBeLessThan(727);
+  expect(feet3.filter((f) => overWater(f, bridged))).toEqual([]);
+});
+
+test('endVisit sends the visitor and its feather away at once and resolves the visit', async () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = snapshot([['pim', 400, 400]]);
+  let gone = false;
+  void view.visitor().then(() => (gone = true));
+  for (let s = 10; s < 40; s += 0.1) {
+    (app.ticker as { lastTime: number }).lastTime = s * 1000;
+    view.update(world, world, 1, settings);
+  }
+  expect(creatureIn(app, 'visitor').visible).toBe(true);
+  expect(graphicsIn(app, 'feather').visible).toBe(true);
+  view.endVisit();
+  await Promise.resolve();
+  expect(gone).toBe(true);
+  expect(creatureIn(app, 'visitor').visible).toBe(false);
+  expect(graphicsIn(app, 'feather').visible).toBe(false);
+  // A visit asked for but not yet drawn ends too.
+  gone = false;
+  void view.visitor().then(() => (gone = true));
+  view.endVisit();
+  await Promise.resolve();
+  expect(gone).toBe(true);
 });

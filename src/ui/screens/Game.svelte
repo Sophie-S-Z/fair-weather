@@ -149,12 +149,20 @@
   let bandHeight = $state(0);
   /** The open Book of Skies, a modal dialog with the sim paused, and the speed it puts back. */
   let book: { pages: BookPage[]; feathers: number } | null = $state.raw(null);
-  let bookOpening = false;
+  let bookOpening = $state(false);
+  /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
+  let hasBook = $state(false);
   let speedBeforeBook = 0;
   /** The finished year's myth on its way into the book. */
-  let kept: Promise<void> = Promise.resolve();
-  /** The Quiet Visitor comes once per chapter (ADR 0012 item 12). */
+  let keptMyth: Promise<void> = Promise.resolve();
+  /**
+   * The Quiet Visitor comes once per chapter (ADR 0012 item 12). `due` is set when the wait fires,
+   * and the visit waits until nothing covers the Meadow. `visitToken` changes when a visit is cut
+   * off, so a visit that ends with its chapter leaves no feather.
+   */
   let visited = false;
+  let due = $state(false);
+  let visitToken = 0;
 
   let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
@@ -163,7 +171,7 @@
   let prevAt = 0;
   let nextAt = 0;
   let raf: number | null = null;
-  let hidden = document.visibilityState === 'hidden';
+  let hidden = $state(document.visibilityState === 'hidden');
   let ghostTimer: ReturnType<typeof setTimeout> | undefined;
   let unpauseSpeed = 1;
 
@@ -277,27 +285,31 @@
       speedBeforeBook = game.currentSpeed();
       setSpeed(0);
     }
-    await kept;
+    await keptMyth;
     const [pages, feathers] = await Promise.all([game.book(), game.feathers()]);
     bookOpening = false;
     book = { pages, feathers };
+  }
+  async function loadHasBook(): Promise<void> {
+    hasBook = (await game.book()).length > 0;
   }
   function closeBook(): void {
     book = null;
     if (!ended) setSpeed(speedBeforeBook);
   }
 
-  /** Brings the Quiet Visitor, once per chapter, while the Meadow shows and nothing covers it. */
+  /** Brings the Quiet Visitor once it is due, once per chapter. The effect below calls it when nothing covers the Meadow. */
   function visit(): void {
-    if (visited || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
+    if (visited || !stage) return;
     visited = true;
+    due = false;
+    const token = visitToken;
     say(VISITOR_COMES);
-    void stage
-      .visitor()
-      .then(() => game.addFeather())
-      .then(() => {
-        say(VISITOR_GOES);
-      });
+    void stage.visitor().then(async () => {
+      if (token !== visitToken) return;
+      await game.addFeather();
+      say(VISITOR_GOES);
+    });
   }
 
   /** Pauses the sim on the first move of the range, and asks for the world at `t`. */
@@ -346,6 +358,18 @@
     runner?.answerBet(option);
   }
 
+  /** Cuts off a visit in progress: it resolves at once, with no feather, and the visitor leaves. */
+  function endVisit(): void {
+    visitToken += 1;
+    stage?.endVisit();
+  }
+  // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
+  $effect(() => {
+    if (!due || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
+    if (bet || betRunning || whisperCard || chapter?.activity) return;
+    untrack(visit);
+  });
+
   function begin(i: number, flags: Flags): void {
     const chapter = game.chapters[i];
     if (!chapter || !stage) return;
@@ -362,13 +386,15 @@
     placed = 0;
     prev = next = null;
     // Each chapter is a new scene, with its own three-minute wait.
+    endVisit();
     visited = false;
+    due = false;
     wait.activity();
     // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so it
     // stays a short time to be read, and then goes.
     lines = lines.filter((l) => l.reveal);
-    const kept = lines.map((l) => l.id);
-    if (kept.length > 0) setTimeout(() => (lines = lines.filter((l) => !kept.includes(l.id))), REVEAL_MS);
+    const keep = lines.map((l) => l.id);
+    if (keep.length > 0) setTimeout(() => (lines = lines.filter((l) => !keep.includes(l.id))), REVEAL_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
     // The host drops every message from the last chapter's worker once startChapter posts init
     // (host.ts connect), and nothing runs between here and that post, so no old world comes back.
@@ -420,7 +446,8 @@
   function finish(how: 'done' | 'failed'): void {
     // The finished year's myth becomes the next page of the Book of Skies (spec 10.6 item 7).
     const page = how === 'done' ? (myth ?? (flagsNow ? game.myth(flagsNow) : null)) : null;
-    if (page) kept = game.keepMyth(page);
+    if (page) keptMyth = game.keepMyth(page).then(loadHasBook);
+    endVisit();
     runner = null;
     setSpeed(0);
     if (raf !== null) cancelAnimationFrame(raf);
@@ -533,7 +560,10 @@
       hints.activity();
       wait.activity();
     };
-    wait.onVisit(visit);
+    wait.onVisit(() => {
+      due = true;
+    });
+    void loadHasBook();
     window.addEventListener('keydown', activity);
     window.addEventListener('pointerdown', activity);
     document.addEventListener('visibilitychange', onVisibility);
@@ -696,7 +726,13 @@
       <main class="hud">
         <h1 class="title">{heading}</h1>
         <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
-          <Drawer notes={chapter?.notes ?? []} {diary} openAt={drawerAt} bind:open={drawerOpen} />
+          <Drawer
+            notes={chapter?.notes ?? []}
+            {diary}
+            openAt={drawerAt}
+            bind:open={drawerOpen}
+            onBook={hasBook ? () => void openBook() : undefined}
+          />
         </div>
         {#if view === 'cosmos'}
           <div class="band" bind:this={bandEl} bind:clientWidth={bandWidth} bind:clientHeight={bandHeight}>

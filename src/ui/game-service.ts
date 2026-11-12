@@ -25,7 +25,7 @@ import type { Settings } from './settings.ts';
  */
 export interface Stage extends Pick<
   MeadowView,
-  'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor'
+  'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor' | 'endVisit'
 > {
   /** Draws every view in the season's palette (spec 11.3). */
   setSeason(season: Season): void;

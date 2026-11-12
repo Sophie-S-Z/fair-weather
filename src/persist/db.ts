@@ -8,6 +8,11 @@ export interface Db {
   has(key: string): Promise<boolean>;
   /** Puts every entry in one transaction. */
   putAll(entries: [string, unknown][]): Promise<void>;
+  /**
+   * Reads `key` and puts `change(old)` in its place in one transaction, so no other write can come
+   * between the read and the put; resolves with the new value.
+   */
+  update<T>(key: string, change: (old: unknown) => T): Promise<T>;
 }
 
 function request<T>(r: IDBRequest<T>): Promise<T> {
@@ -48,24 +53,39 @@ export function openDb(factory: IDBFactory): Promise<Db> {
         db.close(); // we already told the game saves are unavailable
         return;
       }
+      /** A readwrite transaction that resolves `done()` when it completes and rejects when it fails. */
+      const write = <T>(body: (store: IDBObjectStore) => () => T): Promise<T> =>
+        new Promise((res, rej) => {
+          const tx = db.transaction(STORE, 'readwrite');
+          const done = body(tx.objectStore(STORE));
+          tx.oncomplete = () => {
+            res(done());
+          };
+          tx.onerror = () => {
+            rej(tx.error ?? new Error('IndexedDB write failed'));
+          };
+          tx.onabort = () => {
+            rej(tx.error ?? new Error('IndexedDB write failed'));
+          };
+        });
       resolve({
         get: (key) => request(db.transaction(STORE).objectStore(STORE).get(key)),
         has: async (key) =>
           (await request(db.transaction(STORE).objectStore(STORE).getKey(key))) !== undefined,
         putAll: (entries) =>
-          new Promise((res, rej) => {
-            const tx = db.transaction(STORE, 'readwrite');
-            const store = tx.objectStore(STORE);
+          write((store) => {
             for (const [k, v] of entries) store.put(v, k);
-            tx.oncomplete = () => {
-              res();
+            return () => undefined;
+          }),
+        update: (key, change) =>
+          write((store) => {
+            let value: ReturnType<typeof change> | undefined;
+            const read = store.get(key);
+            read.onsuccess = () => {
+              value = change(read.result);
+              store.put(value, key);
             };
-            tx.onerror = () => {
-              rej(tx.error ?? new Error('IndexedDB write failed'));
-            };
-            tx.onabort = () => {
-              rej(tx.error ?? new Error('IndexedDB write failed'));
-            };
+            return () => value as ReturnType<typeof change>;
           }),
       });
     };

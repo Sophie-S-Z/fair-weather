@@ -23,7 +23,11 @@ export function migrate(raw: unknown): SaveV2 {
       seed: v1.seed,
       tuningHash: v1.tuningHash,
       ink: v1.ink,
-      flags: FlagsSchema.parse({ ...DEFAULT_FLAGS, ...v1.flags }),
+      // A flag stored as undefined takes its default too.
+      flags: FlagsSchema.parse({
+        ...DEFAULT_FLAGS,
+        ...Object.fromEntries(Object.entries(v1.flags).filter(([, v]) => v !== undefined)),
+      }),
       chapterId: v1.chapterId,
       year: [],
       carry: null,

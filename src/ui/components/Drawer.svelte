@@ -11,6 +11,7 @@
     diary,
     openAt,
     open = $bindable(false),
+    onBook,
   }: {
     notes: readonly Note[];
     /** The picked creature's page, with display names; `peek` is null while peek is locked. */
@@ -31,6 +32,8 @@
     openAt: { section: Section; focus: boolean } | null;
     /** Whether the drawer is open; the screen keeps its other HUD clear of it. */
     open?: boolean;
+    /** Opens the Book of Skies; the button shows only when this is given. */
+    onBook?: (() => void) | undefined;
   } = $props();
 
   const DIALS: readonly [keyof Dials, string][] = [
@@ -162,6 +165,9 @@
           </article>
         {/each}
       </section>
+      {#if onBook}
+        <button type="button" onclick={onBook}>Book of Skies</button>
+      {/if}
       <button type="button" onclick={hide}>Close</button>
     </div>
   {/if}

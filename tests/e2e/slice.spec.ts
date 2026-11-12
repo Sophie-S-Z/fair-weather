@@ -530,6 +530,48 @@ test.describe('on a phone', () => {
     expect(await pickByPointer(page, true, 8, 'Chapter 0: First Light')).toBe(true);
     await expect(chapter(page, 1)).toBeVisible({ timeout: 60_000 });
   });
+
+  test('a tap on Book of Skies in the drawer opens the book with the sim paused', async ({ page }) => {
+    await page.goto('/');
+    // One kept year in the profile, as a finished Part 1 leaves it.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open('fair-weather', 1);
+          open.onupgradeneeded = () => open.result.createObjectStore('saves');
+          open.onerror = () => {
+            reject(open.error ?? new Error('open failed'));
+          };
+          open.onsuccess = () => {
+            const tx = open.result.transaction('saves', 'readwrite');
+            const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
+            tx.objectStore('saves').put(
+              { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0 },
+              'profile',
+            );
+            tx.oncomplete = () => {
+              resolve();
+            };
+            tx.onerror = () => {
+              reject(tx.error ?? new Error('put failed'));
+            };
+          };
+        }),
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Begin' }).tap();
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+    await page.getByRole('button', { name: 'Diary and notes' }).tap();
+    const open = page.getByRole('button', { name: 'Book of Skies' });
+    await open.tap();
+    const book = page.getByRole('dialog', { name: 'Book of Skies' });
+    await expect(book.getByRole('article', { name: 'Year 1' })).toContainText('A test verse.');
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
+    await book.getByRole('button', { name: 'Back' }).tap();
+    await expect(book).toBeHidden();
+    await expect(open).toBeFocused();
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+  });
 });
 
 /** Two shots of the paused scene, half a second apart. */

@@ -61,3 +61,23 @@ test('a damaged profile reads as empty, and the next write replaces it', async (
   expect((await profile.keepMyth(page('pim'), 1)).year).toBe(1);
   expect(await (await createProfile(factory)).pages()).toHaveLength(1);
 });
+
+// Two tabs on one database: each write reads and merges in one transaction, so neither erases the other.
+test('two profiles on one database keep both pages and both feathers', async () => {
+  const factory = new IDBFactory();
+  const one = await createProfile(factory);
+  const two = await createProfile(factory);
+  expect((await one.keepMyth(page('pim'), 1)).year).toBe(1);
+  expect((await two.keepMyth(page('krit'), 1)).year).toBe(2);
+  expect(await one.addFeather()).toBe(1);
+  expect(await two.addFeather()).toBe(2);
+  await Promise.all([one.addFeather(), two.addFeather(), one.keepMyth(page('echo'), 1)]);
+  for (const p of [one, two, await createProfile(factory)]) {
+    expect((await p.pages()).map((x) => [x.year, x.narrator])).toEqual([
+      [1, 'pim'],
+      [2, 'krit'],
+      [3, 'echo'],
+    ]);
+    expect(await p.feathers()).toBe(4);
+  }
+});

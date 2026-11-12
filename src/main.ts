@@ -53,17 +53,16 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carriedDiaries, carryFrom, receivedDials, restoreDials } from './story/carry.ts';
-import type { Carry } from './story/carry.ts';
+import { carriedDiaries, receivedDials } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
-import { buildScenario, chosenOverrides } from './story/scenario.ts';
+import { buildScenario, chapterStart } from './story/scenario.ts';
+import type { ChapterStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
-import type { Overrides } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
@@ -248,7 +247,7 @@ let lastLite: WorldLite | null = null;
 /** The last chapter's runner: a carried chapter keeps its diaries. */
 let lastRunner: ChapterRunner | null = null;
 /** What the last chapter started from and its dial overrides, which the carry puts back. */
-let lastStart: { carry: Carry | undefined; overrides: Overrides[] } | null = null;
+let lastStart: ChapterStart | null = null;
 host.onMessage((m) => {
   if (m.t === 'snapshot') lastLite = m.lite;
 });
@@ -299,6 +298,7 @@ const game: GameService = {
       lensRadius: tuning.light.lensRadius,
       cast,
       gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
+      bank: tuning.bank,
     });
     const threshold = tuning.friend.threshold;
     const cosmos = createCosmosView(app, palette, cast, threshold);
@@ -392,6 +392,9 @@ const game: GameService = {
         view.setCursor(p);
       },
       visitor: () => view.visitor(),
+      endVisit: () => {
+        view.endVisit();
+      },
       benchSpots: scene.benchSpots,
       sceneSize: { width: scene.width, height: scene.height },
       destroy() {
@@ -418,17 +421,17 @@ const game: GameService = {
   startChapter(chapter, flags) {
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
-    let carry: Carry | undefined;
-    if (resumed) {
-      // Continue: the carry and the year so far come from the save (spec 15.1).
-      carry = resumed.carry ?? undefined;
-      yearLog.splice(0, yearLog.length, ...resumed.year);
-    } else {
-      carry = chapter.carry && lastLite ? carryFrom(lastLite, lastRunner?.diaries ?? new Map()) : undefined;
-      if (carry && lastStart)
-        restoreDials(carry, lastStart.carry, scenarioJson as Scenario, lastStart.overrides);
-    }
-    lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
+    // Continue: the carry and the year so far come from the save (spec 15.1).
+    if (resumed) yearLog.splice(0, yearLog.length, ...resumed.year);
+    lastStart = chapterStart(
+      chapter,
+      flags,
+      scenarioJson as Scenario,
+      resumed
+        ? { saved: resumed.carry }
+        : { lite: lastLite, diaries: lastRunner?.diaries ?? new Map(), last: lastStart },
+    );
+    const { carry } = lastStart;
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
     // A year that starts again at this chapter (Begin after an earlier year this visit) forgets

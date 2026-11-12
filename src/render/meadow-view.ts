@@ -94,6 +94,8 @@ export interface MeadowView {
    * never finds it.
    */
   visitor(): Promise<void>;
+  /** Ends a visit under way, or one asked for, at once: the visitor and its feather go, and it resolves. */
+  endVisit(): void;
 }
 
 /** The area inside a rig's outline, in rig units (loops cut out, as for the body fill). */
@@ -118,6 +120,96 @@ export function bodyHeight(rig: Rig, villagerArea: number, castScale: number): n
 
 /** The Quiet Visitor's shell: no tightness, bristle, color, or softness. */
 const VISITOR_SHELL = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+
+type Point = { x: number; y: number };
+/** The visitor's walk is checked against the water every this many scene units. */
+const ROUTE_STEP = 4;
+/** A seat: a bench, or a bench spot or the gate, where it sits on the grass. */
+type Seat = Point & { bench: boolean };
+
+/**
+ * True when a body with its feet at `p` covers water off every deck: feet in a water rectangle
+ * grown by its bank (`side` left, right, and above, `below` under it) and on no deck. The sim's
+ * rule for creatures (ADR 0012 item 3).
+ */
+function overWater(
+  p: Point,
+  land: Pick<WorldLite, 'water' | 'decks'>,
+  bank: { side: number; below: number },
+): boolean {
+  const inside = (
+    r: { x: number; y: number; w: number; h: number },
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ) => p.x >= r.x - x0 && p.x <= r.x + r.w + x1 && p.y >= r.y - y0 && p.y <= r.y + r.h + y1;
+  return (
+    land.water.some((r) => inside(r, bank.side, bank.side, bank.side, bank.below)) &&
+    !land.decks.some((d) => inside(d, 0, 0, 0, 0))
+  );
+}
+
+/**
+ * The visitor's walk from `from` to `seat` as points, never over water off a deck: straight, or
+ * else along one bridge deck from end to end (the shortest such), or null when neither is clear.
+ */
+function route(
+  from: Point,
+  seat: Point,
+  land: Pick<WorldLite, 'water' | 'decks'>,
+  bank: { side: number; below: number },
+): Point[] | null {
+  const clear = (a: Point, b: Point): boolean => {
+    const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / ROUTE_STEP);
+    for (let i = 0; i <= n; i++) {
+      const u = n === 0 ? 0 : i / n;
+      if (overWater({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }, land, bank)) return false;
+    }
+    return true;
+  };
+  if (clear(from, seat)) return [from, seat];
+  let best: Point[] | null = null;
+  for (const d of land.decks) {
+    // The deck's center line, end to end; its ends rest on clear ground past the bank.
+    const ends: [Point, Point] = d.eastWest
+      ? [
+          { x: d.x, y: d.y + d.h / 2 },
+          { x: d.x + d.w, y: d.y + d.h / 2 },
+        ]
+      : [
+          { x: d.x + d.w / 2, y: d.y },
+          { x: d.x + d.w / 2, y: d.y + d.h },
+        ];
+    for (const [a, b] of [ends, [ends[1], ends[0]] as const]) {
+      const path = [from, a, b, seat];
+      if (clear(from, a) && clear(b, seat) && (!best || pathLength(path) < pathLength(best))) best = path;
+    }
+  }
+  return best;
+}
+
+/** True when rank `a` comes before rank `b`: at their first difference, `a` is smaller. */
+function before(a: readonly number[], b: readonly number[]): boolean {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return (a[i] ?? 0) < (b[i] ?? 0);
+  return false;
+}
+
+const pathLength = (path: readonly Point[]): number =>
+  path.slice(1).reduce((n, p, i) => n + Math.hypot(p.x - (path[i]?.x ?? 0), p.y - (path[i]?.y ?? 0)), 0);
+
+/** The point `dist` scene units along `path`. */
+function along(path: readonly Point[], dist: number): Point {
+  let left = dist;
+  for (let i = 1; i < path.length; i++) {
+    const [a, b] = [path[i - 1] as Point, path[i] as Point];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (left <= len && len > 0)
+      return { x: a.x + ((b.x - a.x) * left) / len, y: a.y + ((b.y - a.y) * left) / len };
+    left -= len;
+  }
+  return path[path.length - 1] ?? { x: 0, y: 0 };
+}
 
 /** A phase in [0, 1) from a creature id, so creatures sway out of step. */
 function phaseOf(id: string): number {
@@ -399,7 +491,13 @@ export function createMeadowView(
   scene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
-  options: { lensRadius: number; cast: Map<string, Cast>; gate: { x: number; y: number } },
+  options: {
+    lensRadius: number;
+    cast: Map<string, Cast>;
+    gate: { x: number; y: number };
+    /** The sim's bank (tuning `bank`), which keeps the visitor off the water as it keeps creatures. */
+    bank: { side: number; below: number };
+  },
 ): MeadowView {
   let palette = firstPalette;
   const world = new Container();
@@ -436,15 +534,16 @@ export function createMeadowView(
   /** What the feather was drawn for; '' redraws it. */
   let featherKey = '';
   /**
-   * The visit under way: its seconds so far and the clock at its last frame, its seat, and its walk
-   * each way in seconds.
+   * The visit under way: its seconds so far and the clock at its last frame, its seat, its path
+   * from the gate to the seat and that path's length, and its walk each way in seconds.
    */
   let visit: {
     done: () => void;
     t: number;
     last: number;
-    /** `bench` is false at a bench spot with no bench, where it sits on the grass. */
-    seat: { x: number; y: number; bench: boolean };
+    seat: Seat;
+    path: Point[];
+    length: number;
     walk: number;
   } | null = null;
   let visitAsked: (() => void) | null = null;
@@ -593,18 +692,35 @@ export function createMeadowView(
       }
 
       if (visitAsked) {
-        // The bench nearest the gate, or else the nearest bench spot.
-        const benches = next.structures.filter((st) => st.kind === 'bench');
+        // A seat it can reach without crossing water off a deck: first one on the gate's side
+        // (a straight walk), then a bench before a bench spot, then the shortest walk. With none,
+        // it sits at the gate.
         const { gate } = options;
-        const away = (p: { x: number; y: number }): number => Math.hypot(p.x - gate.x, p.y - gate.y);
-        let seat = (benches.length > 0 ? benches : scene.benchSpots)[0] ?? gate;
-        for (const p of benches.length > 0 ? benches : scene.benchSpots) if (away(p) < away(seat)) seat = p;
+        const seats: Seat[] = [
+          ...next.structures
+            .filter((st) => st.kind === 'bench')
+            .map((b) => ({ x: b.x, y: b.y, bench: true })),
+          ...scene.benchSpots.map((p) => ({ x: p.x, y: p.y, bench: false })),
+        ];
+        let best: { seat: Seat; path: Point[] } = { seat: { ...gate, bench: false }, path: [gate] };
+        let bestRank: number[] | null = null;
+        for (const seat of seats) {
+          const path = route(gate, seat, next, options.bank);
+          if (!path) continue;
+          const rank = [path.length === 2 ? 0 : 1, seat.bench ? 0 : 1, pathLength(path)];
+          if (!bestRank || before(rank, bestRank)) {
+            best = { seat, path };
+            bestRank = rank;
+          }
+        }
+        const length = pathLength(best.path);
         visit = {
           done: visitAsked,
           t: 0,
           last: seconds,
-          seat: { x: seat.x, y: seat.y, bench: benches.length > 0 },
-          walk: motion ? away(seat) / VISITOR_SPEED : 0,
+          ...best,
+          length,
+          walk: motion ? length / VISITOR_SPEED : 0,
         };
         visitAsked = null;
       }
@@ -612,23 +728,21 @@ export function createMeadowView(
       if (visit) {
         visit.t += Math.min(Math.max(0, seconds - visit.last), VISIT_STEP_MAX);
         visit.last = seconds;
-        const { seat, walk, t } = visit;
+        const { seat, walk, t, path, length } = visit;
         const entry = viewFor(VISITOR_RIG);
         if (t >= 2 * walk + VISITOR_SIT_SECONDS || !entry) {
           visit.done();
           visit = null;
         } else {
-          const { gate } = options;
           // 0 at the gate, 1 on the seat.
-          const along =
+          const share =
             t < walk
               ? t / walk
               : t < walk + VISITOR_SIT_SECONDS
                 ? 1
                 : 1 - (t - walk - VISITOR_SIT_SECONDS) / walk;
-          const seated = along === 1;
-          const x = gate.x + (seat.x - gate.x) * along;
-          const y = gate.y + (seat.y - gate.y) * along;
+          const seated = share === 1;
+          const { x, y } = along(path, share * length);
           const { container } = entry.view;
           container.visible = true;
           container.rotation = 0;
@@ -725,6 +839,15 @@ export function createMeadowView(
       const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor((y / scene.height) * HEAT_ROWS)));
       heatCounts[row * HEAT_COLS + col] = (heatCounts[row * HEAT_COLS + col] ?? 0) + 1;
       if (heatShown) drawHeat();
+    },
+    endVisit() {
+      visit?.done();
+      visit = null;
+      visitAsked?.();
+      visitAsked = null;
+      const v = views.get(VISITOR_RIG);
+      if (v) v.view.container.visible = false;
+      feather.visible = false;
     },
     visitor() {
       return new Promise((resolve) => {

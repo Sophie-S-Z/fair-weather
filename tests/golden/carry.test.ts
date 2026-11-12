@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import versesJson from '../../content/myth/verses.json';
 import { extractFeatures } from '../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../src/myth/grammar.ts';
+import { YearLogSchema } from '../../src/story/action-log.ts';
 import type { YearLog } from '../../src/story/action-log.ts';
 import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
@@ -46,5 +47,8 @@ test('the seed-1 year log through ch9 tells five verses with no open slot', asyn
     displayName,
   );
   expect(page.verses).toHaveLength(5);
+  // The save format checks every entry (spec 15.1); a real year, ch10 included, passes it unchanged.
+  const all: YearLog = Object.entries(results).map(([chapterId, r]) => ({ chapterId, log: r.log }));
+  expect(YearLogSchema.parse(all)).toEqual(all);
   for (const v of page.verses) expect(`${v.text} ${v.note ?? ''}`).not.toMatch(/\{|\}|undefined|null/);
 });

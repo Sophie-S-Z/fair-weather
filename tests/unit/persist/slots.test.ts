@@ -4,9 +4,10 @@ import tuningJson from '../../../content/tuning.json';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import flagsJson from '../../../content/flags.json';
 import versesJson from '../../../content/myth/verses.json';
+import ch4Json from '../../../content/chapters/ch4.json';
 import ch5Json from '../../../content/chapters/ch5.json';
-import ch5Carry from '../../golden/carry/ch5.json';
-import i5Carry from '../../golden/carry/i5.json';
+import i5Json from '../../../content/chapters/i5.json';
+import ch4Carry from '../../golden/carry/ch4.json';
 import { extractFeatures } from '../../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { openDb } from '../../../src/persist/db.ts';
@@ -20,12 +21,13 @@ import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
 import type { YearLog } from '../../../src/story/action-log.ts';
-import { carriedDiaries, receivedDials, restoreDials } from '../../../src/story/carry.ts';
-import type { Carry } from '../../../src/story/carry.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
 import { displayName } from '../../../src/story/names.ts';
-import { buildScenario, chosenOverrides } from '../../../src/story/scenario.ts';
+import { buildScenario, chapterStart } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
+import type { Chapter } from '../../../src/story/schema.ts';
+import { toLite } from '../../../src/sim-host/lite.ts';
+import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 
 const tuning = parseTuning(tuningJson);
 const flags = parseFlags(flagsJson);
@@ -97,6 +99,11 @@ test('a v1 save migrates with an empty year and the new flags at their defaults'
   expect('log' in save).toBe(false);
   expect(save.flags).toEqual({ ...flags, pimSkyBond: 0.9 });
   expect(save.chapterId).toBe('ch2');
+  // IndexedDB keeps a flag stored as undefined; it takes its default too.
+  expect(migrate({ ...v1, flags: { ...m1Flags, winterLeft: undefined } }).flags).toEqual({
+    ...flags,
+    pimSkyBond: 0.9,
+  });
 });
 
 // Review Focus 1: the year so far is in the chapter-start save, so the myth after a Continue counts it.
@@ -115,32 +122,55 @@ test('Continue in chapter 7 gives a myth built from chapters 0 to 6', async () =
   expect(page.verses[0]?.text).toContain('rumbled at us 3 times');
 });
 
-test('a chapter started from a loaded save builds the same scenario, and the next carry, as one without', async () => {
-  const chapter = ChapterSchema.parse(ch5Json);
-  const received = ch5Carry;
+// The real resume path: startChapter takes its start from chapterStart, with the save's carry on Continue.
+test('Continue rebuilds the chapter start, its scenario, and the next carry as an unbroken run does', async () => {
+  const [ch4, ch5, i5] = [ch4Json, ch5Json, i5Json].map((c) => ChapterSchema.parse(c)) as [
+    Chapter,
+    Chapter,
+    Chapter,
+  ];
+  /** A short run of a chapter's scenario, as its last snapshot. */
+  const run = (sc: Scenario): WorldLite => {
+    const w = createWorld(1, tuning, sc);
+    for (let i = 0; i < 30; i++) step(w, [], tuning);
+    return toLite(w, tuning);
+  };
+  const start4 = chapterStart(ch4, flags, base, { saved: ch4Carry });
+  const lite4 = run(buildScenario(ch4, flags, base, start4.carry));
+  const diaries = new Map([['pim', ['Woke.', 'Met Krit.']]]);
+
+  // Unbroken: ch5 starts from ch4's last snapshot.
+  const start5 = chapterStart(ch5, flags, base, { lite: lite4, diaries, last: start4 });
+  // Broken: ch5's autosave, a reload, and Continue.
   const slots = await createSlots(new IDBFactory());
-  await slots.save('auto', { ...makeSave('ch5'), carry: received });
+  await slots.save('auto', { ...makeSave('ch5'), carry: start5.carry ?? null });
   const loaded = await slots.load('auto');
-  const carry = loaded?.carry ?? undefined;
-  expect(carry).toEqual(received);
-  if (!carry) return;
-  // What startChapter builds from the carry: the scenario and the runner's diaries and dials.
-  expect(buildScenario(chapter, flags, base, carry)).toEqual(buildScenario(chapter, flags, base, received));
-  expect(carriedDiaries(carry, base)).toEqual(carriedDiaries(received, base));
-  expect(receivedDials(carry, base)).toEqual(receivedDials(received, base));
-  // The next chapter's carry puts ch5's overridden dials back from what ch5 received.
-  const end = (): Carry => {
-    const c = structuredClone(i5Carry);
-    for (const x of c.creatures) x.dials = { opener: 1, forgiveness: 1, memory: 1, ear: 1, wanderlust: 1 };
-    return c;
-  };
-  const restored = (from: Carry): Carry => {
-    const c = end();
-    restoreDials(c, from, base, chosenOverrides(chapter, loaded?.flags ?? flags));
-    return c;
-  };
-  expect(restored(carry)).toEqual(restored(received));
-  expect(restored(carry)).not.toEqual(end());
+  if (!loaded) throw new Error('no save');
+  const resumed5 = chapterStart(ch5, loaded.flags, base, { saved: loaded.carry });
+  expect(resumed5).toEqual(start5);
+  expect(buildScenario(ch5, loaded.flags, base, resumed5.carry)).toEqual(
+    buildScenario(ch5, flags, base, start5.carry),
+  );
+
+  // The next chapter puts ch5's overridden dials back from what ch5 received, on both paths.
+  const lite5 = run(buildScenario(ch5, flags, base, start5.carry));
+  const next = chapterStart(i5, flags, base, { lite: lite5, diaries, last: start5 });
+  expect(chapterStart(i5, flags, base, { lite: lite5, diaries, last: resumed5 })).toEqual(next);
+  expect(chapterStart(i5, flags, base, { lite: lite5, diaries, last: null })).not.toEqual(next);
+});
+
+test('a save with a damaged year log entry fails to load, and the autosave falls back', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  await slots.save('auto', { ...makeSave('ch0'), year: [rumbles('ch0', [1])] });
+  await slots.save('auto', { ...makeSave('ch1'), year: [rumbles('ch0', [1])] });
+  const damaged = { ...makeSave('ch2'), year: [{ chapterId: 'ch1', log: [{ kind: 'verb', tick: 3 }] }] };
+  expect(() => migrate(damaged)).toThrow();
+  expect(() =>
+    migrate({ ...damaged, year: [{ chapterId: 'ch1', log: [{ kind: 'event', tick: 3, e: { t: 'lit' } }] }] }),
+  ).toThrow();
+  await (await openDb(factory)).putAll([['auto', damaged]]);
+  expect((await slots.load('auto'))?.chapterId).toBe('ch0');
 });
 
 test('save then load gives a world with the same hash, and the same next steps', async () => {

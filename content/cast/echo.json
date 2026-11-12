@@ -1,6 +1,7 @@
 {
   "id": "echo",
   "scale": 1.2,
+  "color": 3,
   "timbre": {
     "wave": "triangle",
     "attack": 0.03,

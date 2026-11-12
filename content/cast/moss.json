@@ -1,6 +1,7 @@
 {
   "id": "moss",
   "scale": 1.2,
+  "color": 4,
   "timbre": {
     "wave": "sine",
     "attack": 0.15,

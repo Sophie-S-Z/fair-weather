@@ -4,6 +4,7 @@ import type { createPointer } from '../input/pointer.ts';
 import type { Hints } from '../input/hints.ts';
 import type { BenchSpot } from '../input/verbs.ts';
 import type { nextView, ViewName } from '../input/zoom.ts';
+import type { Band } from '../render/cosmos-view.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
@@ -33,6 +34,12 @@ export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHe
   timeline(): { points: readonly TimelinePoint[]; breaks: readonly number[] };
   /** The screen pixels the HTML takes on the right and at the bottom; the Soul view centers in the rest. */
   setInsets(insets: { right: number; bottom: number }): void;
+  /**
+   * The Cosmos timeline band the HTML lays out at the top, in screen pixels (the strip's box and the
+   * band's bottom), or null without one. The Cosmos draws the strip in that box, and the valley
+   * fits below the band, so no node sits on the strip.
+   */
+  setTimelineBand(band: Band | null): void;
   draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
   /** The creature under a screen point in the current view, or null. Cosmos snaps within 44 pixels. */
   pick(x: number, y: number): string | null;

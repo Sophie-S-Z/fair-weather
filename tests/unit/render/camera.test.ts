@@ -6,6 +6,11 @@ test('fits the whole scene into the screen and centers it', () => {
   expect(viewTransform(1600, 900, 800, 600)).toEqual({ scale: 0.5, x: 0, y: 75 });
 });
 
+test('a top inset fits the whole scene below it', () => {
+  // 1600 x 900 into the 1280 x 450 left under 270 pixels: height limits, scale 0.5, centered across.
+  expect(viewTransform(1600, 900, 1280, 720, undefined, 270)).toEqual({ scale: 0.5, x: 240, y: 270 });
+});
+
 test('a shot zooms in and centers its point', () => {
   const t = viewTransform(1600, 900, 800, 450, { x: 800, y: 450, zoom: 2 });
   expect(t).toEqual({ scale: 1, x: -400, y: -225 });

@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-import { TIMELINE_HEIGHT } from '../../../src/render/cosmos-view.ts';
 import {
   friendshipBreaks,
   sampleTimeline,
@@ -40,8 +39,10 @@ test('friendshipBreaks names a pair whose friendship falls from 0.5 to 0.2', () 
 });
 
 test('a trust change of 0.05 moves the trust line, in its half of the strip, at least 2 pixels', () => {
+  // The game's band keeps a 1.5rem slot for the strip: 24 pixels at text size 1.
+  const stripHeight = 24;
   const [lo, hi] = seriesRange([0.1, 0.12, 0.15], 0.2);
-  expect((0.05 / (hi - lo)) * (TIMELINE_HEIGHT / 2)).toBeGreaterThanOrEqual(2);
+  expect((0.05 / (hi - lo)) * (stripHeight / 2)).toBeGreaterThanOrEqual(2);
 });
 
 test('seriesRange spans the values, padded, and widens a flat series about its middle', () => {

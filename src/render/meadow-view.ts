@@ -40,6 +40,16 @@ const HEAT_ROWS = 9;
 const HEAT_ALPHA = 0.4;
 /** The keyboard cursor's ink ring, in scene units. */
 const CURSOR_RADIUS = 16;
+/**
+ * A shadow at each creature's feet: an ink ellipse this wide and tall, as shares of its body
+ * height, at this alpha (more in high contrast). It lies under the water, so a body on the bank
+ * shows a shadow cut off by the bank line, and its feet read as on the land.
+ */
+const SHADOW_WIDTH = 0.9;
+const SHADOW_HEIGHT = 0.24;
+const SHADOW_ALPHA = 0.3;
+const SHADOW_ALPHA_HIGH_CONTRAST = 0.45;
+const SHADOW_POINTS = 12;
 
 export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
@@ -53,6 +63,8 @@ export interface MeadowView {
   setFocus(id: string | null): void;
   /** A camera shot from the scene's `cameras`, or null for the whole scene. */
   setShot(name: string | null): void;
+  /** The screen pixels at the top that the scene keeps clear of (the Cosmos timeline band); 0 for none. */
+  setTopInset(px: number): void;
   /** Redraws everything in a season's colors. */
   setPalette(p: Palette): void;
   /**
@@ -225,13 +237,16 @@ const GLOW_POINTS = 16;
 const DEW_POINTS = 5;
 const CAP_POINTS = 12;
 
-/** A regular polygon of `n` points round (x, y): a cheap circle. */
-function disc(g: Graphics, x: number, y: number, r: number, n: number): Graphics {
+/** A polygon of `n` points round (x, y) on an ellipse with radii `rx` and `ry`: a cheap ellipse. */
+function oval(g: Graphics, x: number, y: number, rx: number, ry: number, n: number): Graphics {
   const p: number[] = [];
   for (let i = 0; i < n; i++)
-    p.push(x + r * Math.cos((2 * Math.PI * i) / n), y + r * Math.sin((2 * Math.PI * i) / n));
+    p.push(x + rx * Math.cos((2 * Math.PI * i) / n), y + ry * Math.sin((2 * Math.PI * i) / n));
   return g.poly(p);
 }
+
+/** A regular polygon of `n` points round (x, y): a cheap circle. */
+const disc = (g: Graphics, x: number, y: number, r: number, n: number): Graphics => oval(g, x, y, r, r, n);
 
 /** A lantern's lamp height above its foot, and its glow: rings out to this radius. */
 const LANTERN_HEIGHT = 40;
@@ -335,14 +350,15 @@ function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): n
 /**
  * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent, in the season's
  * palette. It draws snapshots only and never changes the world. Creatures use their own rig, or
- * the villager rig. Water and bridges lie flat on the ground. Creatures, trees, benches, lanterns,
+ * the villager rig. Water and bridges lie flat on the ground, over each creature's shadow, so a
+ * shadow stops at the bank line. Creatures, trees, benches, lanterns,
  * and the mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
  * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
  * each cell's share of the most watched cell as an ink wash. The keyboard cursor is a still ink
  * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves; high
- * contrast thickens every line by half again.
+ * contrast thickens every line by half again and darkens the shadows.
  */
 export function createMeadowView(
   app: Application,
@@ -355,6 +371,7 @@ export function createMeadowView(
   const world = new Container();
   const ground = new Graphics({ label: 'ground' });
   const land = new Graphics({ label: 'land' });
+  const shadows = new Graphics({ label: 'shadows' });
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -365,7 +382,7 @@ export function createMeadowView(
   let cursorAt: { x: number; y: number } | null = null;
   /** What the ring was drawn for; '' redraws it. */
   let cursorKey = '';
-  world.addChild(ground, land, light.graphics, actors, fog.sprite, heat.sprite, cursor);
+  world.addChild(ground, shadows, land, light.graphics, actors, fog.sprite, heat.sprite, cursor);
   app.stage.addChild(world);
 
   const trees = scene.trees.map((tree) => {
@@ -387,6 +404,7 @@ export function createMeadowView(
   let camera: ViewTransform | null = null;
   let focus: string | null = null;
   let shot: string | null = null;
+  let topInset = 0;
   let lineWidth = 0;
   const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
 
@@ -485,11 +503,19 @@ export function createMeadowView(
       cursorKey = ringKey;
 
       drawn = [];
+      shadows.clear();
+      const shade = {
+        color: palette.ink,
+        alpha: settings.highContrast ? SHADOW_ALPHA_HIGH_CONTRAST : SHADOW_ALPHA,
+      };
       for (const { view } of views.values()) view.container.visible = false;
       for (const c of interpolateCreatures(prev, next, alpha)) {
         const entry = c.state === 'away' ? undefined : viewFor(c.id);
         if (!entry) continue;
         drawn.push({ ...c, height: entry.height });
+        // On the ground, so a hop lifts the body off its shadow.
+        const h = entry.height;
+        oval(shadows, c.x, c.y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
         const { container } = entry.view;
         container.visible = true;
         // Dancers hop together.
@@ -510,7 +536,8 @@ export function createMeadowView(
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
 
-      const target = viewTransform(scene.width, scene.height, app.screen.width, app.screen.height, framing());
+      const { width, height } = app.screen;
+      const target = viewTransform(scene.width, scene.height, width, height, framing(), topInset);
       const k = 1 - Math.exp((-CAMERA_RATE * app.ticker.deltaMS) / 1000);
       camera = camera && motion ? lerpTransform(camera, target, k) : target;
       world.scale.set(camera.scale);
@@ -542,6 +569,9 @@ export function createMeadowView(
     },
     setShot(name) {
       shot = name;
+    },
+    setTopInset(px) {
+      topInset = px;
     },
     setCursor(p) {
       cursorAt = p;

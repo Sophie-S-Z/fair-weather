@@ -516,3 +516,76 @@ test('the keyboard cursor is one still ink ring, thicker in high contrast, hidde
   view.update(world, world, 1, settings);
   expect(ring.visible).toBe(false);
 });
+
+test('every glow sits on what makes it and moves with the camera, at any zoom', () => {
+  // The lens glow on the lens, a lantern's glow on its lamp, and each fog and heat cell on its
+  // cell's center: all in scene units under the one camera, so a zoomed shot moves them together.
+  const world: WorldLite = {
+    ...snapshot([]),
+    light: { x: 700, y: 380 },
+    structures: [{ id: 'l1', kind: 'lantern', x: 520, y: 420 }],
+  };
+  const near = (a: { x: number; y: number }, [x, y]: [number, number]): void => {
+    expect(a.x).toBeCloseTo(x, 6);
+    expect(a.y).toBeCloseTo(y, 6);
+  };
+  for (const shot of [null, 'crooked-tree']) {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, scene, rigs, palette, options);
+    view.setShot(shot);
+    view.countLens(world);
+    view.showHeatmap(true);
+    view.update(world, world, 1, { ...settings, reducedMotion: true });
+
+    const lens = app.stage.getChildByLabel('light', true);
+    if (!lens) throw new Error('no lens glow');
+    near(lens.toGlobal({ x: 0, y: 0 }), view.toScreen(700, 380));
+
+    const lantern = graphicsIn(app, 'l1');
+    const [glow, , , lamp] = fillsOf(lantern);
+    const center = (f?: { minX: number; minY: number; maxX: number; maxY: number }) => ({
+      x: ((f?.minX ?? 0) + (f?.maxX ?? 0)) / 2,
+      y: ((f?.minY ?? 0) + (f?.maxY ?? 0)) / 2,
+    });
+    expect(center(glow)).toEqual(center(lamp));
+    near(lantern.toGlobal(center(glow)), view.toScreen(520, 420 - 40));
+
+    // A texel's center is its cell's center: fog cells are 40 units, heat cells 100.
+    for (const [label, cell] of [
+      ['fog', 1600 / 40],
+      ['heatmap', 1600 / 16],
+    ] as const) {
+      const wash = app.stage.getChildByLabel(label, true);
+      if (!wash) throw new Error(`no ${label}`);
+      near(wash.toGlobal({ x: 3.5, y: 2.5 }), view.toScreen(3.5 * cell, 2.5 * cell));
+    }
+  }
+});
+
+test('each creature has a shadow at its feet, under the water, and a hop leaves it on the ground', () => {
+  const app = fakeApp(800, 450);
+  (app.ticker as { lastTime: number }).lastTime = 200;
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world: WorldLite = {
+    ...snapshot([
+      ['bell', 400, 400],
+      ['villager-1', 600, 500],
+    ]),
+    water: [{ x: 780, y: 0, w: 60, h: 900 }],
+  };
+  const bell = world.creatures[0];
+  if (bell) bell.dancing = true;
+  view.update(world, world, 1, settings);
+  const shadows = graphicsIn(app, 'shadows');
+  const land = graphicsIn(app, 'land');
+  expect(shadows.parent?.getChildIndex(shadows)).toBeLessThan(land.parent?.getChildIndex(land) ?? -1);
+  const ovals = fillsOf(shadows);
+  expect(ovals.map((o) => [(o.minX + o.maxX) / 2, (o.minY + o.maxY) / 2])).toEqual([
+    [expect.closeTo(400, 6), expect.closeTo(400, 6)],
+    [expect.closeTo(600, 6), expect.closeTo(500, 6)],
+  ]);
+  expect(creatureIn(app, 'bell').y).toBeLessThan(400);
+  // Darker in high contrast.
+  view.update(world, world, 1, { ...settings, highContrast: true });
+  expect(fillsOf(graphicsIn(app, 'shadows'))[0]?.alpha).toBeGreaterThan(ovals[0]?.alpha ?? 1);
+});

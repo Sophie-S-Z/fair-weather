@@ -1,6 +1,7 @@
 {
   "id": "wisp",
   "scale": 1.2,
+  "color": 1,
   "timbre": {
     "wave": "sine",
     "attack": 0.08,

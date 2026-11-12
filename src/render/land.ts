@@ -20,36 +20,39 @@ function drawRipple(g: Graphics, x: number, y: number): void {
     .quadraticCurveTo(x + h / 2, y + 5, x + h, y);
 }
 
+const inRect = (r: Rect, x: number, y: number): boolean =>
+  x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
 /**
- * A bridge: a paper deck with ink rails and planks across the water rectangle it stands in, the
- * short way, reaching a little onto each bank. The deck is `2 * half` wide, the sim's bridge
- * radius each side, so every creature the sim lets stand on the bridge is drawn on its deck.
+ * A bridge's deck, or null when the bridge stands in no water: across the first water rectangle
+ * that holds it, the short way, reaching a little onto each bank, and `2 * half` wide, the sim's
+ * bridge radius each side. A tall rectangle (a brook running north to south) is crossed east to
+ * west. Every point in water where the sim lets a creature stand lies on a deck
+ * (tests/property/brook.test.ts).
  */
-function drawBridge(
-  g: Graphics,
+export function bridgeDeck(
   { x, y }: Structure,
-  r: Rect,
+  water: readonly Rect[],
   half: number,
-  palette: Palette,
-  w: number,
-): void {
-  // A tall rectangle (a brook running north to south) is crossed east to west.
-  const eastWest = r.w <= r.h;
-  const [from, to] = eastWest ? [r.x, r.x + r.w] : [r.y, r.y + r.h];
-  const at = (u: number, v: number): [number, number] => (eastWest ? [u, y + v] : [x + v, u]);
-  const a = from - BRIDGE_REACH;
-  const b = to + BRIDGE_REACH;
-  g.poly([...at(a, -half), ...at(b, -half), ...at(b, half), ...at(a, half)])
-    .fill(palette.paper)
-    .stroke(inkStroke(palette, w));
-  for (let u = a + PLANK_STEP; u < b - PLANK_STEP / 2; u += PLANK_STEP) {
-    g.moveTo(...at(u, -half)).lineTo(...at(u, half));
+): (Rect & { eastWest: boolean }) | null {
+  const r = water.find((rect) => inRect(rect, x, y));
+  if (!r) return null;
+  const reach = BRIDGE_REACH;
+  if (r.w <= r.h) return { x: r.x - reach, y: y - half, w: r.w + 2 * reach, h: 2 * half, eastWest: true };
+  return { x: x - half, y: r.y - reach, w: 2 * half, h: r.h + 2 * reach, eastWest: false };
+}
+
+/** A bridge's deck in paper with an ink outline, and planks across the way it is crossed. */
+function drawBridge(g: Graphics, deck: Rect & { eastWest: boolean }, palette: Palette, w: number): void {
+  g.rect(deck.x, deck.y, deck.w, deck.h).fill(palette.paper).stroke(inkStroke(palette, w));
+  const { eastWest } = deck;
+  const [from, to] = eastWest ? [deck.x, deck.x + deck.w] : [deck.y, deck.y + deck.h];
+  for (let u = from + PLANK_STEP; u < to - PLANK_STEP / 2; u += PLANK_STEP) {
+    if (eastWest) g.moveTo(u, deck.y).lineTo(u, deck.y + deck.h);
+    else g.moveTo(deck.x, u).lineTo(deck.x + deck.w, u);
   }
   g.stroke(inkStroke(palette, w * 0.5, TUFT_ALPHA));
 }
-
-const inRect = (r: Rect, x: number, y: number): boolean =>
-  x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
 /**
  * Water corners round off this much where no other water meets them. An islet's ground is drawn
@@ -165,7 +168,7 @@ export function drawLand(
       .stroke(inkStroke(palette, w));
   }
   for (const s of bridges) {
-    const r = water.find((rect) => inRect(rect, s.x, s.y));
-    if (r) drawBridge(g, s, r, bridgeRadius, palette, w);
+    const deck = bridgeDeck(s, water, bridgeRadius);
+    if (deck) drawBridge(g, deck, palette, w);
   }
 }

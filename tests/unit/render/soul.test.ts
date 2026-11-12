@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { Container, Graphics, type Application } from 'pixi.js';
 import { expect, test } from 'vitest';
 import springJson from '../../../content/palettes/spring.json';
+import { castColor, CastSchema, type Cast } from '../../../src/render/cast.ts';
 import { RigSchema, type Rig } from '../../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { createSoulView, soulFrame, soulLayout } from '../../../src/render/soul-view.ts';
@@ -16,6 +17,14 @@ const rigs = new Map<string, Rig>(
     .map((f) => {
       const rig = RigSchema.parse(JSON.parse(readFileSync(`content/rigs/${f}`, 'utf8')));
       return [rig.id, rig];
+    }),
+);
+const cast = new Map<string, Cast>(
+  readdirSync('content/cast')
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => {
+      const c = CastSchema.parse(JSON.parse(readFileSync(`content/cast/${f}`, 'utf8')));
+      return [c.id, c];
     }),
 );
 const settings: Settings = {
@@ -81,7 +90,7 @@ test('soulLayout spreads the stars round the soul in id order, starting at the t
 });
 
 test('Soul on a creature with no ties draws only the center', () => {
-  const soul = createSoulView(fakeApp(), palette, rigs, 0.3);
+  const soul = createSoulView(fakeApp(), palette, rigs, cast, 0.3);
   soul.update(lite([['pim'], ['krit']], []), settings, 'pim', none);
   const stars = soul.container.getChildByLabel('constellation');
   if (!(stars instanceof Graphics)) throw new Error('no constellation');
@@ -91,7 +100,7 @@ test('Soul on a creature with no ties draws only the center', () => {
 });
 
 test('Soul draws its stars in the full colors, and picks a star or the center', () => {
-  const soul = createSoulView(fakeApp(), palette, rigs, 0.3);
+  const soul = createSoulView(fakeApp(), palette, rigs, cast, 0.3);
   const w = lite(
     [['pim'], ['krit'], ['echo']],
     [
@@ -108,7 +117,13 @@ test('Soul draws its stars in the full colors, and picks a star or the center', 
       .map((i) => (i.data.style as { color: number }).color),
   );
   for (const c of colors) expect(palette.full).toContain(c);
-  expect(colors.size).toBeGreaterThan(0);
+  // A cast member's star is its own color, as its node is in the Cosmos.
+  const own = (id: string): number => {
+    const c = cast.get(id);
+    if (!c) throw new Error(`no cast ${id}`);
+    return castColor(c, palette);
+  };
+  expect([...colors]).toEqual(expect.arrayContaining([own('krit'), own('echo')]));
   const frame = soulFrame(1280, 720, none);
   const krit = soulLayout(w, 'pim', 0.3).find((s) => s.id === 'krit');
   const at = (s: { x: number; y: number }): [number, number] => [

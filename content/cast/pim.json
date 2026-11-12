@@ -1,6 +1,7 @@
 {
   "id": "pim",
   "scale": 1.2,
+  "color": 5,
   "timbre": {
     "wave": "triangle",
     "attack": 0.005,

@@ -124,6 +124,11 @@
   /** The pixels the drawer takes from the scene's right edge, and the height of the HUD at the bottom. */
   let inset = $state(0);
   let hudHeight = $state(0);
+  /** The Cosmos timeline band and the empty slot in it where the canvas draws the strip. */
+  let bandEl: HTMLElement | undefined = $state();
+  let stripEl: HTMLElement | undefined = $state();
+  let bandWidth = $state(0);
+  let bandHeight = $state(0);
 
   let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
@@ -369,6 +374,20 @@
   $effect(() => {
     stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: hudHeight });
   });
+  // The Cosmos draws its timeline strip in the band's slot, and the valley fits below the band.
+  $effect(() => {
+    if (!stage) return;
+    if (!bandEl || !stripEl || bandWidth === 0 || bandHeight === 0) {
+      stage.setTimelineBand(null);
+      return;
+    }
+    const at = sceneEl.getBoundingClientRect();
+    const r = stripEl.getBoundingClientRect();
+    stage.setTimelineBand({
+      strip: { x: r.left - at.left, y: r.top - at.top, w: r.width, h: r.height },
+      bottom: bandEl.getBoundingClientRect().bottom - at.top,
+    });
+  });
 
   // The Meadow draws the cursor while a point tool is active.
   $effect(() => {
@@ -567,6 +586,13 @@
         <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
           <Drawer notes={chapter?.notes ?? []} {diary} openAt={drawerAt} bind:open={drawerOpen} />
         </div>
+        {#if view === 'cosmos'}
+          <div class="band" bind:this={bandEl} bind:clientWidth={bandWidth} bind:clientHeight={bandHeight}>
+            <p class="band-label">Village size and trust this chapter</p>
+            <!-- The canvas draws the strip here; the Cosmos panel says the same in words. -->
+            <div class="strip" bind:this={stripEl}></div>
+          </div>
+        {/if}
         {#if view === 'cosmos' && shown && ties && chapter}
           <div class="cosmos">
             <CosmosPanel
@@ -681,6 +707,24 @@
     position: absolute;
     top: 2.75rem;
     left: 0.75rem;
+  }
+  .band {
+    position: absolute;
+    top: 0.5rem;
+    left: 25%;
+    width: 50%;
+    padding-bottom: 0.25rem;
+    text-align: center;
+  }
+  /* Over the canvas, so on the page color in every theme. */
+  .band-label {
+    display: inline-block;
+    margin: 0 0 0.25rem;
+    padding: 0.1rem 0.5rem;
+    background: var(--bg);
+  }
+  .strip {
+    height: 1.5rem;
   }
   .play {
     align-self: stretch;

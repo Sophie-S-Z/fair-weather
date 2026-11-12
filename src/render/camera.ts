@@ -20,19 +20,24 @@ function axis(sceneSize: number, screenSize: number, scale: number, focus: numbe
   return screenSize / 2 - center * scale;
 }
 
-/** Fits the whole scene inside the screen, centered; a shot zooms in on its point. */
+/**
+ * Fits the whole scene inside the screen below its top `top` pixels, centered there; a shot zooms
+ * in on its point.
+ */
 export function viewTransform(
   sceneW: number,
   sceneH: number,
   screenW: number,
   screenH: number,
   shot?: Shot,
+  top = 0,
 ): ViewTransform {
-  const scale = Math.min(screenW / sceneW, screenH / sceneH) * (shot?.zoom ?? 1);
+  const roomH = Math.max(1, screenH - top);
+  const scale = Math.min(screenW / sceneW, roomH / sceneH) * (shot?.zoom ?? 1);
   return {
     scale,
     x: axis(sceneW, screenW, scale, shot?.x ?? sceneW / 2),
-    y: axis(sceneH, screenH, scale, shot?.y ?? sceneH / 2),
+    y: top + axis(sceneH, roomH, scale, shot?.y ?? sceneH / 2),
   };
 }
 

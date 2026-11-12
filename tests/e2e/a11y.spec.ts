@@ -134,6 +134,8 @@ test('the Cosmos view with its panel has no serious axe issues', async ({ page }
   await expect(panel.getByRole('listitem').first()).toContainText(/: \d+ friends?, \d+ scars?/);
   await expect(panel).toContainText(/This chapter: population \d+/);
   await expect(panel.getByLabel('Rewind')).toBeVisible();
+  // The timeline strip has a visible label in the band above the valley.
+  await expect(page.getByText('Village size and trust this chapter')).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

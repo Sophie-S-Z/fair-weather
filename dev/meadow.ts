@@ -116,6 +116,9 @@ await app.init({
   background: palette.background,
   preserveDrawingBuffer: true,
   antialias: true,
+  // Sharp on a high-density screen, for review images; the baseline runs at density 1.
+  resolution: window.devicePixelRatio,
+  autoDensity: true,
   autoStart: false,
 });
 document.body.appendChild(app.canvas);

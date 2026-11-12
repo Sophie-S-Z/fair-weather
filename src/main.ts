@@ -32,7 +32,7 @@ import { createPointer } from './input/pointer.ts';
 import { nextView, type ViewName } from './input/zoom.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
-import { createCosmosView } from './render/cosmos-view.ts';
+import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
@@ -284,8 +284,8 @@ const game: GameService = {
       cast,
     });
     const threshold = tuning.friend.threshold;
-    const cosmos = createCosmosView(app, palette, threshold);
-    const soul = createSoulView(app, palette, rigs, threshold);
+    const cosmos = createCosmosView(app, palette, cast, threshold);
+    const soul = createSoulView(app, palette, rigs, cast, threshold);
     app.stage.addChild(cosmos.container, soul.container);
     let current: ViewName = 'meadow';
     /** The Soul view's creature, and under Cosmos the picked creature whose friendships stand out. */
@@ -294,6 +294,8 @@ const game: GameService = {
     let shot: string | null = null;
     /** The screen pixels the HTML takes on the right and at the bottom; the Soul view keeps clear. */
     let insets = { right: 0, bottom: 0 };
+    /** The Cosmos timeline band the HTML lays out, or null outside the Cosmos. */
+    let band: Band | null = null;
     const showView = (): void => {
       cosmos.container.visible = current === 'cosmos';
       soul.container.visible = current === 'soul';
@@ -318,8 +320,10 @@ const game: GameService = {
     return {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
         if (import.meta.env.DEV) dev.frames += 1;
+        const cosmosBand = current === 'cosmos' ? band : null;
+        view.setTopInset(cosmosBand ? valleyTop(cosmosBand, app.screen.height, scene.height) : 0);
         view.update(prev, next, alpha, s);
-        if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, soulId);
+        if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, cosmosBand, soulId);
         if (current === 'soul') soul.update(next, s, soulId, insets);
         app.ticker.update(); // advances the view's clock and renders
       },
@@ -353,6 +357,9 @@ const game: GameService = {
       timeline: () => ({ points, breaks }),
       setInsets(i) {
         insets = i;
+      },
+      setTimelineBand(b) {
+        band = b;
       },
       setSeason(s) {
         const p = paletteOf(s);

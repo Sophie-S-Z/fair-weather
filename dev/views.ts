@@ -12,7 +12,7 @@ import ch6Json from '../content/chapters/ch6.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import carryJson from '../tests/golden/carry/ch6.json';
 import { CastSchema, type Cast } from '../src/render/cast.ts';
-import { createCosmosView } from '../src/render/cosmos-view.ts';
+import { createCosmosView, valleyTop, type Band } from '../src/render/cosmos-view.ts';
 import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { CREATURE_HEIGHT, createMeadowView } from '../src/render/meadow-view.ts';
 import { PaletteSchema } from '../src/render/palette.ts';
@@ -116,15 +116,18 @@ const meadow = createMeadowView(app, scene, rigs, palette, {
   bridgeRadius: tuning.bridge.radius,
   cast,
 });
+/** The timeline band as the game's HTML lays it out at 1280 x 720: a line of label, then the strip's slot. */
+const band: Band = { strip: { x: W / 4, y: 40, w: W / 2, h: 24 }, bottom: 68 };
+if (which === 'cosmos') meadow.setTopInset(valleyTop(band, H, scene.height));
 meadow.update(prev, prev, 1, settings);
 // As main.ts composes the stage: the view sits over the meadow.
 if (which === 'cosmos') {
-  const cosmos = createCosmosView(app, palette, threshold);
+  const cosmos = createCosmosView(app, palette, cast, threshold);
   app.stage.addChild(cosmos.container);
   const nodeAt = (x: number, y: number): [number, number] => meadow.toScreen(x, y - CREATURE_HEIGHT / 2);
-  cosmos.update(prev, settings, nodeAt, { points, breaks }, soulId);
+  cosmos.update(prev, settings, nodeAt, { points, breaks }, band, soulId);
 } else {
-  const soul = createSoulView(app, palette, rigs, threshold);
+  const soul = createSoulView(app, palette, rigs, cast, threshold);
   app.stage.addChild(soul.container);
   soul.update(prev, settings, soulId, { right: 0, bottom: 0 });
 }

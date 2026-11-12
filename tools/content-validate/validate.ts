@@ -169,7 +169,16 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
-  for (const f of filesIn(join(content, 'ink'), '.ink')) {
+  // An INCLUDEd file compiles inside the file that includes it, so it may use that file's VARs.
+  const inkFiles = filesIn(join(content, 'ink'), '.ink');
+  const included = new Set(
+    inkFiles.flatMap((f) =>
+      [...readFileSync(join(content, 'ink', f), 'utf8').matchAll(/^\s*INCLUDE\s+(.+?)\s*$/gm)].map(
+        (m) => m[1],
+      ),
+    ),
+  );
+  for (const f of inkFiles.filter((name) => !included.has(name))) {
     try {
       const options = new CompilerOptions(
         f,

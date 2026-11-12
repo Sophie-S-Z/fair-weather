@@ -76,6 +76,18 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
   });
+  test("compiles an INCLUDEd Ink file inside its includer, so it may use the includer's VARs", () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'ink'), { recursive: true });
+    const ink = (name: string, text: string) => {
+      writeFileSync(join(root, 'content', 'ink', name), text);
+    };
+    ink('main.ink', 'VAR flag = true\nINCLUDE part.ink\n');
+    ink('part.ink', '=== part ===\n{flag: yes | no}\n-> END\n');
+    expect(validateContent(root).errors.filter((e) => e.includes('.ink'))).toEqual([]);
+    ink('part.ink', '=== part ===\n{missing: yes | no}\n-> END\n');
+    expect(validateContent(root).errors.some((e) => e.includes('missing'))).toBe(true);
+  });
   /** A content root holding the repo's kith-meadow scene and ch1 changed by `edit`. */
   function chapterRoot(edit: (chapter: { scene: string; beats: { actions: object[] }[] }) => void): string {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));

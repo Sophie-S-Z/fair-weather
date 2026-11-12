@@ -8,8 +8,11 @@ import type { YearLog } from '../../src/story/action-log.ts';
 import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
 
+// Played once, at import, for both tests.
+const year = runYear(1, 'ch10');
+
 test('the seed-1 year gives the stored carries', async () => {
-  const { carries } = await runYear(1, 'ch10');
+  const { carries } = await year;
   expect(Object.keys(carries)).toEqual([
     'i3',
     'ch4',
@@ -30,13 +33,15 @@ test('the seed-1 year gives the stored carries', async () => {
 
 // ADR 0012 item 11: the real year log, ch3 to ch9 as main.ts keeps it, reads through the myth.
 test('the seed-1 year log through ch9 tells five verses with no open slot', async () => {
-  const { results } = await runYear(1, 'ch9');
-  const year: YearLog = Object.entries(results).map(([chapterId, r]) => ({ chapterId, log: r.log }));
+  const { results } = await year;
+  const log: YearLog = Object.entries(results)
+    .filter(([chapterId]) => chapterId !== 'ch10')
+    .map(([chapterId, r]) => ({ chapterId, log: r.log }));
   const ch9 = results.ch9;
   if (!ch9) throw new Error('the year has no ch9');
   const skyWarmth = Object.fromEntries(ch9.last.creatures.map((c) => [c.id, c.skyWarmth]));
   const page = tellMyth(
-    extractFeatures(year, ch9.flags, skyWarmth),
+    extractFeatures(log, ch9.flags, skyWarmth),
     VersesSchema.parse(versesJson),
     displayName,
   );

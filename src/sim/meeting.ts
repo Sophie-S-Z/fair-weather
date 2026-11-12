@@ -87,8 +87,9 @@ function pickReply(w: number, replier: Creature, boost: number, draw: number, t:
 
 /**
  * The Forgiveness a giver weighs remembered slights against: its own, or with `world.friendsForgive`
- * the mean Forgiveness of its mutual friends when it has at least mushroom.trustFriends of them and
- * that mean is higher (ADR 0012 item 16).
+ * the mean Forgiveness of its mutual friends (ties warm on both sides) when it has at least
+ * mushroom.trustFriends of them and that mean is higher (ADR 0012 item 16). Since one slight is
+ * forgiven at a Forgiveness of 1/6 or more, this mostly counts mutual friendships.
  */
 function forgivenessOf(world: World, giver: Creature, t: Tuning): number {
   const own = giver.dials.forgiveness;
@@ -112,6 +113,7 @@ function baseGiveChance(
 ): number {
   if (firstMeeting) return giver.dials.opener;
   const remembered = Math.round(giverSide.slights);
+  if (remembered === 0) return 1;
   return remembered > Math.round(t.gift.maxSlightsPerForgiveness * forgivenessOf(world, giver, t)) ? 0 : 1;
 }
 

@@ -1,0 +1,231 @@
+{
+  "id": "ch5",
+  "kind": "chapter",
+  "title": "The Rumor",
+  "season": "lateSummer",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["whisper", "thread", "respond", "bet", "peek", "zoom"],
+  "newVerb": "whisper",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "state": {
+      "krit": "sleep",
+      "echo": "sleep",
+      "pim": "sleep",
+      "villager-1": "sleep",
+      "villager-2": "sleep",
+      "villager-3": "sleep",
+      "villager-5": "sleep",
+      "villager-6": "sleep",
+      "villager-8": "sleep"
+    },
+    "dials": {
+      "pim": {
+        "ear": 0.1
+      },
+      "echo": {
+        "ear": 0.1
+      },
+      "moss": {
+        "ear": 0.1
+      },
+      "wisp": {
+        "ear": 0.1
+      },
+      "bell": {
+        "ear": 0.1
+      },
+      "villager-1": {
+        "ear": 0.1
+      },
+      "villager-2": {
+        "ear": 0.1
+      },
+      "villager-3": {
+        "ear": 0.1
+      },
+      "villager-4": {
+        "ear": 0.1
+      },
+      "villager-5": {
+        "ear": 0.1
+      },
+      "villager-6": {
+        "ear": 0.1
+      },
+      "villager-7": {
+        "ear": 0.1
+      },
+      "villager-8": {
+        "ear": 0.1
+      },
+      "villager-9": {
+        "ear": 0.1
+      },
+      "villager-10": {
+        "ear": 0.1
+      },
+      "villager-11": {
+        "ear": 0.1
+      },
+      "villager-12": {
+        "ear": 0.1
+      },
+      "villager-13": {
+        "ear": 0.1
+      },
+      "villager-14": {
+        "ear": 0.1
+      },
+      "villager-15": {
+        "ear": 0.1
+      },
+      "villager-16": {
+        "ear": 0.1
+      },
+      "villager-17": {
+        "ear": 0.1
+      },
+      "villager-18": {
+        "ear": 0.1
+      },
+      "villager-19": {
+        "ear": 0.1
+      },
+      "villager-20": {
+        "ear": 0.1
+      },
+      "villager-21": {
+        "ear": 0.1
+      },
+      "villager-22": {
+        "ear": 0.1
+      },
+      "villager-23": {
+        "ear": 0.1
+      },
+      "villager-24": {
+        "ear": 0.1
+      }
+    }
+  },
+  "beats": [
+    {
+      "id": "ch5_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch5_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch5_whisper",
+      "trigger": {
+        "at": 2
+      },
+      "actions": [
+        {
+          "rumor": {
+            "target": "echo",
+            "about": "krit",
+            "sign": -1
+          }
+        },
+        {
+          "focus": "echo"
+        },
+        {
+          "ink": "ch5_whisper"
+        },
+        {
+          "openBet": true
+        }
+      ]
+    },
+    {
+      "id": "ch5_drowned",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "krit"
+        },
+        {
+          "ink": "ch5_hurt"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "believe",
+    "knot": "ch5_bet",
+    "options": ["few", "half", "most"],
+    "metric": {
+      "kind": "rumorShare"
+    },
+    "buckets": [0.25, 0.5],
+    "afterDays": 4
+  },
+  "twist": {
+    "id": "rumorDrowns",
+    "withinDays": 6,
+    "retryArrange": ["echo", "pim"]
+  },
+  "reads": [],
+  "writes": ["rumorStuck"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Guilt, a story that got away",
+  "diary": {
+    "krit": [
+      "[PLACEHOLDER] Last winter I was so hungry that I kept the berries Moss gave me, and I still think about it."
+    ]
+  },
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Complex contagion",
+      "science": "[PLACEHOLDER] Some ideas spread only when several friends carry them.",
+      "limits": "[PLACEHOLDER] Each creature here has one number for how easily it is swayed.",
+      "counter": "[PLACEHOLDER] Simple contagion, one contact at a time, explains other cases better.",
+      "question": "[PLACEHOLDER] Why do some rumors stall at the edge of a group?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Who gets hurt",
+      "science": "[PLACEHOLDER] A rumor costs the one it is about, who often never hears it.",
+      "limits": "[PLACEHOLDER] The sim does not show how Krit feels about it.",
+      "counter": "[PLACEHOLDER] Some say gossip also keeps a group honest.",
+      "question": "[PLACEHOLDER] Can a rumor be taken back?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

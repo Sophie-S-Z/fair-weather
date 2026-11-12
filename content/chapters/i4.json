@@ -1,0 +1,85 @@
+{
+  "id": "i4",
+  "kind": "interlude",
+  "activity": "telephone",
+  "title": "The Telephone Sketch",
+  "season": "summer",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true
+  },
+  "beats": [
+    {
+      "id": "i4_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "i4_intro"
+        }
+      ]
+    },
+    {
+      "id": "i4_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "i4_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "i4_end"
+  },
+  "feeling": "[PLACEHOLDER] Laughter, drift",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Copies of copies",
+      "science": "[PLACEHOLDER] A message passed along changes a little at each step.",
+      "limits": "[PLACEHOLDER] A sketch game is only a picture of this.",
+      "counter": "[PLACEHOLDER] Some messages hold steady when they matter.",
+      "question": "[PLACEHOLDER] Which details survive the longest?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Memory as rebuilding",
+      "science": "[PLACEHOLDER] Remembering rebuilds a story instead of replaying it.",
+      "limits": "[PLACEHOLDER] The sketch game has no memory, only hands.",
+      "counter": "[PLACEHOLDER] Some memories are sharp and stable.",
+      "question": "[PLACEHOLDER] What did you add without meaning to?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

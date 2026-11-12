@@ -1,0 +1,85 @@
+{
+  "id": "i3",
+  "kind": "interlude",
+  "activity": "rhythm",
+  "title": "The Door for Two",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true
+  },
+  "beats": [
+    {
+      "id": "i3_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "i3_intro"
+        }
+      ]
+    },
+    {
+      "id": "i3_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "i3_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": ["greetingSong"],
+  "variants": [],
+  "exit": {
+    "onBeat": "i3_end"
+  },
+  "feeling": "[PLACEHOLDER] Play, a small hello",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Rhythm and greeting",
+      "science": "[PLACEHOLDER] Shared rhythm can make strangers feel closer.",
+      "limits": "[PLACEHOLDER] A tapped beat is a tiny stand-in for a song.",
+      "counter": "[PLACEHOLDER] Some say closeness comes first and the rhythm follows.",
+      "question": "[PLACEHOLDER] Does a greeting need words at all?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Turn taking",
+      "science": "[PLACEHOLDER] Taking turns is one of the first things infants learn with others.",
+      "limits": "[PLACEHOLDER] The game counts beats, not feelings.",
+      "counter": "[PLACEHOLDER] Turn taking can also be a ritual with no warmth in it.",
+      "question": "[PLACEHOLDER] When does a habit become a bond?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

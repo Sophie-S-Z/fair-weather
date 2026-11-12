@@ -1,0 +1,110 @@
+{
+  "id": "ch7",
+  "kind": "chapter",
+  "title": "Wind",
+  "season": "autumn",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["blow", "respond", "rewind", "peek", "zoom"],
+  "newVerb": "blow",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "ridgeX": 1500,
+    "positions": {
+      "wisp": {
+        "x": 1300,
+        "y": 300
+      }
+    }
+  },
+  "beats": [
+    {
+      "id": "ch7_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch7_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch7_gust",
+      "trigger": {
+        "verb": "blow"
+      },
+      "actions": [
+        {
+          "ink": "ch7_gust"
+        }
+      ]
+    },
+    {
+      "id": "ch7_gone",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "wisp"
+        },
+        {
+          "ink": "ch7_gone"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "wispLeaves",
+    "withinDays": 4,
+    "retryArrange": ["wisp", "pim"]
+  },
+  "reads": [],
+  "writes": ["wispPushed"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Loss, a door left open",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Pushes and nudges",
+      "science": "[PLACEHOLDER] A small push at the right moment can change where someone ends up.",
+      "limits": "[PLACEHOLDER] The wind here moves bodies and sometimes a dial.",
+      "counter": "[PLACEHOLDER] Some say people go where they were going anyway.",
+      "question": "[PLACEHOLDER] Was it the wind or Wisp?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Leaving",
+      "science": "[PLACEHOLDER] People leave groups for many reasons, and some never say why.",
+      "limits": "[PLACEHOLDER] Here leaving over the ridge is for good.",
+      "counter": "[PLACEHOLDER] Some leavings are a beginning, not an end.",
+      "question": "[PLACEHOLDER] Would Wisp have gone without the wind?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

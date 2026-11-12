@@ -1,0 +1,88 @@
+{
+  "id": "i5",
+  "kind": "interlude",
+  "activity": "bubbles",
+  "title": "Dream Bubbles",
+  "season": "lateSummer",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "state": {
+      "*": "sleep"
+    }
+  },
+  "beats": [
+    {
+      "id": "i5_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "i5_intro"
+        }
+      ]
+    },
+    {
+      "id": "i5_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "i5_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "i5_end"
+  },
+  "feeling": "[PLACEHOLDER] Calm, floating",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Sleep and memory",
+      "science": "[PLACEHOLDER] Sleep helps the brain keep some of the day and drop the rest.",
+      "limits": "[PLACEHOLDER] The bubbles are a picture, not a model of dreams.",
+      "counter": "[PLACEHOLDER] How much dreams matter for memory is still argued.",
+      "question": "[PLACEHOLDER] What would a creature here dream about?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Rest",
+      "science": "[PLACEHOLDER] Rest changes how we judge others the next day.",
+      "limits": "[PLACEHOLDER] Nothing in the sim changes while they sleep here.",
+      "counter": "[PLACEHOLDER] Some say rest only hides a grudge for a while.",
+      "question": "[PLACEHOLDER] Does a night make a quarrel smaller?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

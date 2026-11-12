@@ -193,7 +193,8 @@ const FAST = '10';
 const SCENE_ASPECT = 1600 / 900; // content/scenes/kith-meadow.json; the view fits it in the canvas
 /** Pim's feet in content/scenarios/m0.json; Pim sleeps there at ch0's dawn, so the search starts there. */
 const PIM_START = { x: 160, y: 130 };
-const endTitle = (page: Page) => page.getByRole('heading', { name: 'End of the first spring' });
+/** The slice runs end where chapter 3 hands over to the first interlude. */
+const interlude = (page: Page) => page.getByRole('heading', { name: 'Interlude: The Door for Two' });
 const chapter = (page: Page, n: number) => page.getByRole('heading', { name: `Chapter ${String(n)}` });
 
 /**
@@ -294,7 +295,7 @@ async function autoPlay(page: Page): Promise<void> {
   const acted = new Set<string>();
   let shown = '';
   let framesAtStart = 0;
-  while (!(await endTitle(page).isVisible())) {
+  while (!(await interlude(page).isVisible())) {
     if (await bet.isVisible()) {
       await tryClick(page, '[role="dialog"]');
       continue;
@@ -334,7 +335,7 @@ test('the auto-player finishes chapters 0 to 3', async ({ page }) => {
   await page.goto(`/?fast=${FAST}`);
   await page.getByRole('button', { name: 'Begin' }).click();
   await autoPlay(page);
-  await expect(endTitle(page)).toBeFocused();
+  await expect(interlude(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -382,11 +383,7 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(live(page)).toContainText('A crooked tree'); // the runner takes verbs after a snapshot
   await page.keyboard.press('Enter');
   await expect(live(page)).toContainText('A bench sits under the tree');
-  await expect(endTitle(page)).toBeVisible({ timeout: 300_000 });
-  await expect(endTitle(page)).toBeFocused();
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
 });
 
 test.describe('on a phone', () => {

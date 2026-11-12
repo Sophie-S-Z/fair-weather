@@ -39,7 +39,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Every creature id a chapter names: beats, bet options, the twist retry pair, diaries, and overrides. */
+/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, and overrides. */
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
@@ -62,7 +62,11 @@ function creatureRefs(c: Chapter): string[] {
       else if ('dance' in a) ids.push(a.dance);
     }
   }
-  ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
+  // Only a bet on who (maxBerries, maxShell) has creature ids for options; a bet on a number names buckets.
+  const who = c.bet?.metric.kind === 'maxBerries' || c.bet?.metric.kind === 'maxShell';
+  if (who) ids.push(...(c.bet?.options ?? []));
+  if (c.bet?.metric.kind === 'warmth') ids.push(c.bet.metric.from, c.bet.metric.to);
+  ids.push(...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
   fromOverrides(c.overrides);
   for (const v of c.variants) fromOverrides(v.overrides);
   return ids;

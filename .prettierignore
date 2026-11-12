@@ -6,3 +6,4 @@ tests/**/*-snapshots/
 dist/
 .superpowers/
 content/rigs/*.rig.json
+tests/golden/carry/

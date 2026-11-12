@@ -4,10 +4,12 @@
 import tuningJson from '../../content/tuning.json';
 import scenarioJson from '../../content/scenarios/m0.json';
 import inkStory from '../../content/ink/main.ink';
-import type { FromWorker, SimPort } from '../../src/sim-host/protocol.ts';
+import type { FromWorker, SimPort, WorldLite } from '../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import type { Scenario } from '../../src/sim/types.ts';
 import type { ActionLog } from '../../src/story/action-log.ts';
+import { carriedDiaries } from '../../src/story/carry.ts';
+import type { Carry } from '../../src/story/carry.ts';
 import { createChapterRunner } from '../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../src/story/chapter-runner.ts';
 import type { Flags } from '../../src/story/flags.ts';
@@ -18,16 +20,23 @@ import type { Chapter } from '../../src/story/schema.ts';
 /** A player that makes the obvious choices. Make a new one per run: it may keep state. */
 export interface ScriptedPlayer {
   onPrompt?(p: Prompt, runner: ChapterRunner): void;
-  /** Called after every step, once the runner has seen the step's snapshot. */
-  onTick?(tick: number, runner: ChapterRunner): void;
+  /** Called after every step, once the runner has seen the step's snapshot `lite`. */
+  onTick?(tick: number, runner: ChapterRunner, lite: WorldLite): void;
 }
 
 export interface HeadlessResult {
-  twistFired: boolean;
+  /** Null for a chapter without a twist. */
+  twistFired: boolean | null;
   retries: number;
   usedCloseCall: boolean;
+  /** The last snapshot: the next chapter's carry starts from it, as in main.ts. */
+  last: WorldLite;
+  /** The flags the chapter wrote; the flags it was given when stopped early. */
+  flags: Flags;
   /** The chapter's action log, as main.ts keeps it in the year log. */
   log: ActionLog;
+  /** Each creature's diary event lines, for the carry. */
+  diaries: ReadonlyMap<string, readonly string[]>;
 }
 
 /** A guard far past the longest legal chapter (bet days plus 1 + honestyRetries twist windows). */
@@ -36,8 +45,9 @@ const MAX_TICKS = 100_000;
 const NO_CLOCK = { now: () => 0, every: () => () => undefined };
 
 /**
- * Plays `config` to its exit. With `stopAfterTicks`, a run still going after that many ticks stops
- * there and reports the twist as not fired, with 0 retries and no close call.
+ * Plays `config` to its exit, from `carry` when given (as main.ts starts a carried chapter). With
+ * `stopAfterTicks`, a run still going after that many ticks stops there and reports the twist as
+ * not fired, with 0 retries and no close call.
  */
 export async function runChapterHeadless(
   config: Chapter,
@@ -45,21 +55,21 @@ export async function runChapterHeadless(
   player: ScriptedPlayer,
   flags: Flags,
   stopAfterTicks?: number,
+  carry?: Carry,
 ): Promise<HeadlessResult> {
   const listeners = new Set<(m: FromWorker) => void>();
   // Set from callbacks, so an object: a plain `let` would look constant to the loop below.
-  const run = { error: null as string | null, tick: 0, over: false };
+  const run = { error: null as string | null, tick: 0, last: null as WorldLite | null, over: false };
   const core = createWorkerCore((m) => {
     if (m.t === 'error') run.error = m.message;
-    if (m.t === 'snapshot') run.tick = m.tick;
+    if (m.t === 'snapshot') {
+      run.tick = m.tick;
+      run.last = m.lite;
+    }
     for (const cb of [...listeners]) cb(m);
   }, NO_CLOCK);
-  core({
-    t: 'init',
-    seed,
-    tuning: tuningJson,
-    scenario: buildScenario(config, flags, scenarioJson as Scenario),
-  });
+  const base = scenarioJson as Scenario;
+  core({ t: 'init', seed, tuning: tuningJson, scenario: buildScenario(config, flags, base, carry) });
   const port: SimPort = {
     send: (list) => {
       core({ t: 'commands', list });
@@ -72,27 +82,52 @@ export async function runChapterHeadless(
     requestHash: () => Promise.reject(new Error('not used headless')),
   };
 
-  const runner = createChapterRunner(port, createInk(inkStory), config, flags);
+  const runner = createChapterRunner(
+    port,
+    createInk(inkStory),
+    config,
+    flags,
+    carry && carriedDiaries(carry, base),
+  );
   runner.onPrompt((p) => player.onPrompt?.(p, runner));
   const done = runner.done.finally(() => {
     run.over = true;
   });
+  const result = (
+    twistFired: boolean | null,
+    retries: number,
+    usedCloseCall: boolean,
+    out: Flags,
+  ): HeadlessResult => ({
+    twistFired,
+    retries,
+    usedCloseCall,
+    last: snapshot(run.last),
+    flags: out,
+    log: runner.log,
+    diaries: runner.diaries,
+  });
   for (let i = 0; !run.over; i++) {
-    if (i === stopAfterTicks) return { twistFired: false, retries: 0, usedCloseCall: false, log: runner.log };
+    if (i === stopAfterTicks) return result(false, 0, false, flags);
     if (run.error !== null) throw new Error(`sim error in ${config.id} seed ${String(seed)}: ${run.error}`);
     if (i >= MAX_TICKS)
       throw new Error(`${config.id} seed ${String(seed)} did not end in ${String(MAX_TICKS)} ticks`);
     core({ t: 'advance', ticks: 1 });
-    player.onTick?.(run.tick, runner);
+    if (run.last) player.onTick?.(run.tick, runner, run.last);
     await Promise.resolve(); // lets `done` settle
   }
-  await done;
+  const written = await done;
 
-  // A chapter without a twist (chapters 0 and 1) reports it as not fired, with no close call.
-  if (!config.twist) return { twistFired: false, retries: 0, usedCloseCall: false, log: runner.log };
+  // A chapter without a twist (chapters 0 and 1, the interludes) reports null, with no close call.
+  if (!config.twist) return result(null, 0, false, written);
   const twist = runner.log.find((e) => e.kind === 'twist');
   if (!twist) throw new Error(`${config.id} seed ${String(seed)} ended without a twist entry`);
-  return { twistFired: twist.fired, retries: twist.retries, usedCloseCall: !twist.fired, log: runner.log };
+  return result(twist.fired, twist.retries, !twist.fired, written);
+}
+
+function snapshot(lite: WorldLite | null): WorldLite {
+  if (!lite) throw new Error('the run ended before its first snapshot');
+  return lite;
 }
 
 /** Seeds 1 to 200. */

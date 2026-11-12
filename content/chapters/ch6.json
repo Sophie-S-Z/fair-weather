@@ -1,0 +1,177 @@
+{
+  "id": "ch6",
+  "kind": "chapter",
+  "title": "Fog",
+  "season": "autumn",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["fog", "place", "respond", "bet", "rewind", "peek", "zoom"],
+  "newVerb": "fog",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "grudges": [
+      {
+        "holder": "echo",
+        "against": "krit",
+        "slights": 2
+      }
+    ],
+    "dials": {
+      "echo": {
+        "opener": 0.05
+      },
+      "krit": {
+        "forgiveness": 0
+      }
+    }
+  },
+  "place": {
+    "kind": "lantern",
+    "limit": 2
+  },
+  "beats": [
+    {
+      "id": "ch6_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "rumor": {
+            "target": "echo",
+            "about": "krit",
+            "sign": -1
+          }
+        },
+        {
+          "ink": "ch6_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch6_meet",
+      "trigger": {
+        "at": 1
+      },
+      "actions": [
+        {
+          "arrange": ["echo", "krit"]
+        },
+        {
+          "openBet": true
+        }
+      ]
+    },
+    {
+      "id": "ch6_meet_day2",
+      "trigger": {
+        "at": 41
+      },
+      "actions": [
+        {
+          "arrange": ["echo", "krit"]
+        }
+      ]
+    },
+    {
+      "id": "ch6_meet_day3",
+      "trigger": {
+        "at": 81
+      },
+      "actions": [
+        {
+          "arrange": ["echo", "krit"]
+        }
+      ]
+    },
+    {
+      "id": "ch6_lantern",
+      "trigger": {
+        "verb": "place"
+      },
+      "actions": [
+        {
+          "ink": "ch6_lantern"
+        }
+      ]
+    },
+    {
+      "id": "ch6_loop",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "echo"
+        },
+        {
+          "ink": "ch6_loop"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "forgive",
+    "knot": "ch6_bet",
+    "options": ["no", "yes"],
+    "metric": {
+      "kind": "warmth",
+      "from": "echo",
+      "to": "krit"
+    },
+    "buckets": [0],
+    "afterDays": 3
+  },
+  "twist": {
+    "id": "revengeLoop",
+    "withinDays": 5,
+    "retryArrange": ["echo", "krit"]
+  },
+  "reads": [],
+  "writes": ["echoForgiveness"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Sorrow, a misread kindness",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Noise",
+      "science": "[PLACEHOLDER] When signals are noisy, a kind act can look like a slight.",
+      "limits": "[PLACEHOLDER] The fog flips what one side sees, never what happened.",
+      "counter": "[PLACEHOLDER] Some say noise matters less than intent.",
+      "question": "[PLACEHOLDER] How much forgiveness does a noisy world need?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Tit for tat and its slips",
+      "science": "[PLACEHOLDER] A strict copy of the last move can lock two friends in a feud after one mistake.",
+      "limits": "[PLACEHOLDER] Here forgiveness is one dial per creature.",
+      "counter": "[PLACEHOLDER] Generous strategies can be exploited by the unkind.",
+      "question": "[PLACEHOLDER] What breaks a revenge loop?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

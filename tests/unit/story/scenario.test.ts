@@ -248,3 +248,25 @@ describe('buildScenario', () => {
     expect(() => build({ ridgeX: 1440, gone: east, bushes })).not.toThrow();
   });
 });
+
+// A bad chapter config should fail here, not hang the game at the chapter's start.
+describe('every chapter in content/chapters', () => {
+  const files = import.meta.glob<unknown>('../../../content/chapters/*.json', {
+    eager: true,
+    import: 'default',
+  });
+  const chapters = Object.values(files).map((json) => ChapterSchema.parse(json));
+
+  test.each(chapters.map((c) => [c.id, c] as const))(
+    '%s builds with no variant and through each variant',
+    (_id, c) => {
+      expect(() => buildScenario(c, flags, base)).not.toThrow();
+      for (const v of c.variants) {
+        const met: Flags = { ...flags };
+        for (const cond of [v.when].flat()) Object.assign(met, { [cond.flag]: cond.value });
+        expect(c.variants.find((x) => [x.when].flat().every((cond) => matches(cond, met)))).toBe(v);
+        expect(() => buildScenario(c, met, base)).not.toThrow();
+      }
+    },
+  );
+});

@@ -1,0 +1,124 @@
+{
+  "id": "ch4",
+  "kind": "chapter",
+  "title": "The Long Gaze",
+  "season": "summer",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["shine", "respond", "bet", "peek", "zoom"],
+  "newVerb": "shine",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true
+  },
+  "beats": [
+    {
+      "id": "ch4_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch4_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch4_open_bet",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "openBet": true
+        }
+      ]
+    },
+    {
+      "id": "ch4_light",
+      "trigger": {
+        "verb": "shine"
+      },
+      "actions": [
+        {
+          "ink": "ch4_shine"
+        }
+      ]
+    },
+    {
+      "id": "ch4_thorns",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "show": "heatmap"
+        },
+        {
+          "ink": "ch4_thorns"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "thorns",
+    "knot": "ch4_bet",
+    "options": ["pim", "krit", "echo", "moss", "wisp", "bell"],
+    "metric": {
+      "kind": "maxShell",
+      "shell": "tightness"
+    },
+    "afterDays": 4
+  },
+  "twist": {
+    "id": "thornsGrow",
+    "withinDays": 6,
+    "retryArrange": ["krit", "echo"]
+  },
+  "reads": [],
+  "writes": ["litConflict"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Unease, a watched heat",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Being watched",
+      "science": "[PLACEHOLDER] People act differently when they know they are seen.",
+      "limits": "[PLACEHOLDER] The light here only adds weight to what already happens.",
+      "counter": "[PLACEHOLDER] Some studies find the watching effect small or absent.",
+      "question": "[PLACEHOLDER] Does attention reward the loud more than the kind?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Amplifying a signal",
+      "science": "[PLACEHOLDER] A boost to one behavior spreads to others nearby.",
+      "limits": "[PLACEHOLDER] One lens is a toy model of attention.",
+      "counter": "[PLACEHOLDER] Attention can also calm a conflict by making it public.",
+      "question": "[PLACEHOLDER] What would you light up on purpose?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

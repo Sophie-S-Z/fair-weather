@@ -19,3 +19,10 @@ INCLUDE ch0.ink
 INCLUDE ch1.ink
 INCLUDE ch2.ink
 INCLUDE ch3.ink
+INCLUDE i3.ink
+INCLUDE ch4.ink
+INCLUDE i4.ink
+INCLUDE ch5.ink
+INCLUDE i5.ink
+INCLUDE ch6.ink
+INCLUDE ch7.ink

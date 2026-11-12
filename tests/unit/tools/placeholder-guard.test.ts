@@ -118,6 +118,26 @@ describe('validateContent', () => {
       'ch1.json: names creature krut, which scenario m0 lacks',
     ]);
   });
+  test('reads creature ids from a bet on who or on a warmth, never from the options of a bet on a number', () => {
+    const bet = (metric: object, options: string[], buckets?: number[]) => (c: object) =>
+      Object.assign(c, { bet: { id: 'b', knot: 'k', options, metric, buckets, afterDays: 1 } });
+    const errorsFor = (edit: (c: object) => void): string[] => {
+      const root = chapterRoot(edit);
+      mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+      writeFileSync(
+        join(root, 'content', 'scenarios', 'm0.json'),
+        readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
+      );
+      return validateContent(root).errors.filter((e) => e.startsWith('ch1.json'));
+    };
+    expect(errorsFor(bet({ kind: 'rumorShare' }, ['few', 'most'], [0.5]))).toEqual([]);
+    expect(errorsFor(bet({ kind: 'maxShell', shell: 'tightness' }, ['pim', 'pym']))).toEqual([
+      'ch1.json: names creature pym, which scenario m0 lacks',
+    ]);
+    expect(errorsFor(bet({ kind: 'warmth', from: 'echo', to: 'krut' }, ['no', 'yes'], [0]))).toEqual([
+      'ch1.json: names creature krut, which scenario m0 lacks',
+    ]);
+  });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));
     expect(errors.some((e) => e.includes('scene no-such-scene has no file'))).toBe(true);

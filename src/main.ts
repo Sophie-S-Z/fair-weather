@@ -10,6 +10,13 @@ import ch0 from '../content/chapters/ch0.json';
 import ch1 from '../content/chapters/ch1.json';
 import ch2 from '../content/chapters/ch2.json';
 import ch3 from '../content/chapters/ch3.json';
+import i3 from '../content/chapters/i3.json';
+import ch4 from '../content/chapters/ch4.json';
+import i4 from '../content/chapters/i4.json';
+import ch5 from '../content/chapters/ch5.json';
+import i5 from '../content/chapters/i5.json';
+import ch6 from '../content/chapters/ch6.json';
+import ch7 from '../content/chapters/ch7.json';
 import inkStory from '../content/ink/main.ink';
 import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
@@ -92,7 +99,8 @@ const timbres = new Map<string, Timbre>(
 );
 const palette = PaletteSchema.parse(springJson);
 const scene = SceneSchema.parse(meadowJson);
-const chapters = [ch0, ch1, ch2, ch3].map((c) => ChapterSchema.parse(c));
+// In play order (tests/golden/year.ts CHAPTER_ORDER).
+const chapters = [ch0, ch1, ch2, ch3, i3, ch4, i4, ch5, i5, ch6, ch7].map((c) => ChapterSchema.parse(c));
 const ink = createInk(inkStory);
 
 const host = createSimHost(

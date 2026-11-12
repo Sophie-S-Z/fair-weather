@@ -23,6 +23,7 @@ import type { ChapterRunner, Prompt } from '../../../src/story/chapter-runner.ts
 import type { Flags } from '../../../src/story/flags.ts';
 import { createInk } from '../../../src/story/ink.ts';
 import type { InkRunner } from '../../../src/story/ink.ts';
+import type { VerbInput } from '../../../src/story/verbs.ts';
 import { buildScenario } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter } from '../../../src/story/schema.ts';
@@ -304,6 +305,89 @@ describe('verbs', () => {
   });
 });
 
+describe('Part 1 verbs', () => {
+  /** ch0 with three Part 1 world verbs and no beats, so only the verbs send commands. */
+  const worldVerbs: Chapter = {
+    ...ch0,
+    verbs: ['shine', 'fog', 'thread'],
+    newVerb: null,
+    beats: [],
+    exit: { afterDays: 10 },
+  };
+
+  test.each([
+    [
+      { verb: 'shine', x: 10, y: 20 },
+      { t: 'shine', x: 10, y: 20 },
+    ],
+    [
+      { verb: 'fog', x: 1, y: 2, clear: true },
+      { t: 'paintFog', x: 1, y: 2, r: 120, amount: -0.3 },
+    ],
+    [
+      { verb: 'fog', x: 1, y: 2, clear: false },
+      { t: 'paintFog', x: 1, y: 2, r: 120, amount: 0.3 },
+    ],
+    [
+      { verb: 'thread', a: 'pim', b: 'echo', on: false },
+      { t: 'thread', a: 'pim', b: 'echo', on: false },
+    ],
+  ] satisfies [VerbInput, Command][])('verb %o sends %o', (input, command) => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), worldVerbs, flags);
+    f.step();
+    expect(runner.verb(input)).toBe(true);
+    expect(cmds(f)).toEqual([command]);
+  });
+
+  test('whisper and blow send their commands', () => {
+    const f = fakePort();
+    const chapter: Chapter = { ...worldVerbs, verbs: ['whisper', 'blow'] };
+    const runner = createChapterRunner(f.port, inkOf([]), chapter, flags);
+    f.step();
+    expect(runner.verb({ verb: 'whisper', target: 'echo', about: 'krit', sign: -1 })).toBe(true);
+    expect(runner.verb({ verb: 'blow', x: 1, y: 2, dx: 3, dy: 4 })).toBe(true);
+    expect(cmds(f)).toEqual([
+      { t: 'whisper', target: 'echo', about: 'krit', sign: -1 },
+      { t: 'blow', x: 1, y: 2, dx: 3, dy: 4 },
+    ]);
+  });
+
+  test('place sends the chapter kind and stops at its limit', () => {
+    const f = fakePort();
+    const chapter: Chapter = { ...ch3, place: { kind: 'bridge', limit: 2 } };
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), chapter, flags);
+    f.step();
+    expect(runner.verb({ verb: 'place', x: 100, y: 100 })).toBe(true);
+    expect(runner.verb({ verb: 'place', x: 200, y: 100 })).toBe(true);
+    expect(runner.verb({ verb: 'place', x: 300, y: 100 })).toBe(false);
+    expect(cmds(f).filter((c) => c.t === 'place')).toEqual([
+      { t: 'place', kind: 'bridge', x: 100, y: 100 },
+      { t: 'place', kind: 'bridge', x: 200, y: 100 },
+    ]);
+  });
+
+  test('a beat rumor sends one whisper; a beat dance sends one dance', () => {
+    const f = fakePort();
+    const chapter: Chapter = {
+      ...worldVerbs,
+      beats: [
+        {
+          id: 'festival',
+          trigger: { at: 0 },
+          actions: [{ rumor: { target: 'echo', about: 'krit', sign: 1 } }, { dance: 'pim' }],
+        },
+      ],
+    };
+    createChapterRunner(f.port, inkOf([]), chapter, flags);
+    f.steps(20);
+    expect(cmds(f)).toEqual([
+      { t: 'whisper', target: 'echo', about: 'krit', sign: 1 },
+      { t: 'dance', who: 'pim' },
+    ]);
+  });
+});
+
 describe('focus', () => {
   test('a focus action goes to the focus listeners, in beat order', () => {
     const f = fakePort();
@@ -396,15 +480,15 @@ describe('sky bids', () => {
     expect(cmds(f).slice(3)).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
   });
 
-  test('an unanswered ambient bid gets away and is not prompted again', () => {
+  test('an ambient sky bid gets away after 6 s and is not prompted again', () => {
     const f = fakePort();
     createChapterRunner(f.port, inkOf(CH1_KNOTS), { ...ch1, exit: { afterDays: 10 } }, flags);
     f.step(); // snapshot tick 1: the wave beat prompts Pim's bid
     f.step([{ t: 'skyBid', who: 'krit', ambient: true }]); // events tick 1: away is due at tick 61
     f.steps(200);
-    expect(cmds(f)).toEqual([
-      { t: 'promptSkyBid', who: 'pim' },
-      { t: 'respond', to: 'krit', reply: 'away' },
+    expect(f.sent).toEqual([
+      { tick: 1, cmd: { t: 'promptSkyBid', who: 'pim' } },
+      { tick: 61, cmd: { t: 'respond', to: 'krit', reply: 'away' } },
     ]);
   });
 
@@ -683,11 +767,8 @@ describe('skip', () => {
 describe('honesty', () => {
   test('the one send check throws on a command outside the allowed list', () => {
     expect(() => {
-      assertRunnerCommand({ t: 'shine', x: 1, y: 1 });
-    }).toThrow("may not send 'shine'");
-    expect(() => {
-      assertRunnerCommand({ t: 'paintFog', x: 1, y: 1, r: 1, amount: 1 });
-    }).toThrow("may not send 'paintFog'");
+      assertRunnerCommand({ t: 'teleport' } as unknown as Command);
+    }).toThrow("may not send 'teleport'");
     expect(() => {
       assertRunnerCommand({ t: 'overPoke' });
     }).not.toThrow();

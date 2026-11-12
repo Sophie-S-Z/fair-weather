@@ -4,6 +4,7 @@
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 60,
+  "carry": false,
   "verbs": ["wake"],
   "newVerb": "wake",
   "overrides": {

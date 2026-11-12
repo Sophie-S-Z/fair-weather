@@ -30,6 +30,8 @@ import { createSimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
+import type { YearLog } from './story/action-log.ts';
+import { carryFrom } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
 import { createInk } from './story/ink.ts';
@@ -176,6 +178,13 @@ const slotsReady = createSlots(indexedDB, () => {
 const tuningHash = hashTuning(JSON.stringify(tuningJson));
 /** The loaded autosave, held until its chapter starts. */
 let resuming: SaveV1 | null = null;
+/** The last snapshot of the run so far: a carried chapter starts from it, a skip included. */
+let lastLite: WorldLite | null = null;
+host.onMessage((m) => {
+  if (m.t === 'snapshot') lastLite = m.lite;
+});
+/** Every chapter's log this visit, in play order (spec 10.4); the myth reads it. */
+const yearLog: YearLog = [];
 
 const game: GameService = {
   chapters,
@@ -241,7 +250,8 @@ const game: GameService = {
     return (await slotsReady).hasAuto();
   },
   startChapter(chapter, flags) {
-    const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);
+    const carry = chapter.carry && lastLite ? carryFrom(lastLite) : undefined;
+    const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
@@ -270,7 +280,12 @@ const game: GameService = {
         () => undefined, // the worker gave up; the chapter plays without this save
       );
     }
-    return createChapterRunner(port, ink, chapter, flags);
+    const runner = createChapterRunner(port, ink, chapter, flags);
+    const keep = (): void => {
+      yearLog.push({ chapterId: chapter.id, log: runner.log });
+    };
+    runner.done.then(keep, keep);
+    return runner;
   },
   onSnapshot(cb) {
     return host.onMessage((m) => {

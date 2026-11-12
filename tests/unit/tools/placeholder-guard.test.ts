@@ -94,14 +94,22 @@ describe('validateContent', () => {
     expect(errors.some((e) => e.includes('camera shot nowhere, which scene kith-meadow lacks'))).toBe(true);
   });
   test('reports a creature id that the m0 scenario lacks', () => {
-    const root = chapterRoot((c) => c.beats[0]?.actions.push({ promptSkyBid: 'pym' }));
+    const root = chapterRoot((c) => {
+      c.beats[0]?.actions.push({ promptSkyBid: 'pym' }, { dance: 'pym' });
+      Object.assign(c, {
+        overrides: { grudges: [{ holder: 'moss', against: 'krut', slights: 1 }], state: { '*': 'sleep' } },
+      });
+    });
     mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
     writeFileSync(
       join(root, 'content', 'scenarios', 'm0.json'),
       readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
     );
     const errors = validateContent(root).errors.filter((e) => e.startsWith('ch1.json'));
-    expect(errors).toEqual(['ch1.json: names creature pym, which scenario m0 lacks']);
+    expect(errors).toEqual([
+      'ch1.json: names creature pym, which scenario m0 lacks',
+      'ch1.json: names creature krut, which scenario m0 lacks',
+    ]);
   });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));

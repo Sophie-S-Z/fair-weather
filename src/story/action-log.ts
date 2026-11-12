@@ -11,3 +11,6 @@ export type LogEntry =
   | { kind: 'twist'; tick: number; id: string; fired: boolean; retries: number };
 
 export type ActionLog = LogEntry[];
+
+/** Every chapter's log, in play order (spec 10.4): what the myth reads. */
+export type YearLog = { chapterId: string; log: ActionLog }[];

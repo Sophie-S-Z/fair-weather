@@ -1,12 +1,18 @@
 // Input-side verb helpers. The Verb types live in story/verbs.ts.
-import type { Verb } from '../story/verbs.ts';
+import { WORLD_VERBS } from '../story/verbs.ts';
+import type { Verb, WorldVerb } from '../story/verbs.ts';
 
 export type Point = { x: number; y: number };
 export type BenchSpot = Point & { id: string };
 
-/** Keys 1 to 3 pick tools. `bet` is the bet card (UI, M1.8), so it is never a keyboard tool. */
-export function keyboardTools(unlocked: readonly Verb[]): Verb[] {
-  return unlocked.filter((v) => v !== 'bet').slice(0, 3);
+const WORLD_VERB_SET: ReadonlySet<Verb> = new Set(WORLD_VERBS);
+
+/**
+ * Keys 1 to 3 pick tools: the world verbs only (ADR 0012 item 8). `bet` is the bet card, and
+ * listen and the mind verbs are never tools.
+ */
+export function keyboardTools(unlocked: readonly Verb[]): WorldVerb[] {
+  return unlocked.filter((v): v is WorldVerb => WORLD_VERB_SET.has(v)).slice(0, 3);
 }
 
 /** The bench spot nearest to (x, y), or the point itself when the scene has no bench spots. */

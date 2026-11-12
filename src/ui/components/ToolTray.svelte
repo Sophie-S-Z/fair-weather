@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BidReply } from '../../sim/types.ts';
-  import type { Verb } from '../../story/verbs.ts';
+  import type { Verb, WorldVerb } from '../../story/verbs.ts';
 
   let {
     tools,
@@ -11,7 +11,7 @@
     onPick,
     onReply,
   }: {
-    tools: readonly Verb[];
+    tools: readonly WorldVerb[];
     /** Tools used up in this chapter; their buttons say so. */
     used?: readonly Verb[];
     active: Verb | null;
@@ -23,7 +23,16 @@
     onReply: (r: BidReply) => void;
   } = $props();
 
-  const LABELS: Record<Verb, string> = { wake: 'Wake', respond: 'Respond', bet: 'Bet', place: 'Bench' };
+  const LABELS: Record<WorldVerb, string> = {
+    wake: 'Wake',
+    respond: 'Respond',
+    place: 'Bench',
+    shine: 'Shine',
+    whisper: 'Whisper',
+    thread: 'Thread',
+    fog: 'Fog',
+    blow: 'Blow',
+  };
   const REPLIES: { reply: BidReply; key: string; label: string }[] = [
     { reply: 'toward', key: 'G', label: 'Glow back' },
     { reply: 'away', key: 'H', label: 'Hold still' },

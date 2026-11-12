@@ -41,7 +41,14 @@ function walk(dir: string): string[] {
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
-    ids.push(...Object.keys(o.positions ?? {}), ...Object.keys(o.dials ?? {}), ...Object.keys(o.state ?? {}));
+    ids.push(
+      ...Object.keys(o.positions ?? {}),
+      ...Object.keys(o.dials ?? {}),
+      ...Object.keys(o.state ?? {}).filter((id) => id !== '*'),
+      ...(o.gone ?? []),
+      ...(o.grudges ?? []).flatMap((g) => [g.holder, g.against]),
+      ...Object.keys(o.danceThreshold ?? {}),
+    );
   };
   for (const beat of c.beats) {
     if ('event' in beat.trigger && beat.trigger.who !== undefined) ids.push(beat.trigger.who);
@@ -49,6 +56,8 @@ function creatureRefs(c: Chapter): string[] {
       if ('focus' in a && a.focus !== null) ids.push(a.focus);
       else if ('arrange' in a) ids.push(...a.arrange);
       else if ('promptSkyBid' in a) ids.push(a.promptSkyBid);
+      else if ('rumor' in a) ids.push(a.rumor.target, a.rumor.about);
+      else if ('dance' in a) ids.push(a.dance);
     }
   }
   ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []));

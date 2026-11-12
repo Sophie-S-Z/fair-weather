@@ -17,7 +17,13 @@ describe('ChapterSchema', () => {
   test('new verbs follow spec 6.2 and each chapter unlocks one more', () => {
     const chs = ids.map((id) => ChapterSchema.parse(load(`chapters/${id}`)));
     expect(chs.map((c) => c.newVerb)).toEqual(['wake', 'respond', 'bet', 'place']);
-    expect(chs.map((c) => c.verbs.length)).toEqual([1, 2, 3, 4]);
+    expect(chs.map((c) => c.verbs)).toEqual([
+      ['wake'],
+      ['wake', 'respond'],
+      ['wake', 'respond', 'bet', 'peek', 'zoom'], // spec 8 teaches peek and zoom in chapter 2
+      ['wake', 'respond', 'bet', 'place', 'peek', 'zoom'],
+    ]);
+    expect(chs.map((c) => c.carry)).toEqual([false, false, false, false]);
     expect(chs[2]?.twist?.id).toBe('kritExploitsPim');
     expect(chs[3]?.twist?.id).toBe('benchWarmsVillage');
   });
@@ -33,6 +39,23 @@ describe('ChapterSchema', () => {
     const ch = load('chapters/ch0') as { beats: { actions: unknown[] }[] };
     const beats = [{ ...ch.beats[0], actions: [{ dance: true }] }];
     expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
+  });
+
+  test('a chapter listing four world verbs fails the schema', () => {
+    const ch = load('chapters/ch3') as object;
+    const verbs = ['wake', 'respond', 'place', 'shine'];
+    expect(ChapterSchema.safeParse({ ...ch, verbs }).success).toBe(false);
+    expect(
+      ChapterSchema.safeParse({ ...ch, verbs: [...verbs.slice(1), 'bet', 'listen', 'rewind'] }).success,
+    ).toBe(true);
+  });
+
+  test('a danceThreshold must be a positive integer', () => {
+    const ch = load('chapters/ch3') as object;
+    const with_ = (n: number) => ({ ...ch, overrides: { danceThreshold: { bell: n } } });
+    expect(ChapterSchema.safeParse(with_(3)).success).toBe(true);
+    expect(ChapterSchema.safeParse(with_(0)).success).toBe(false);
+    expect(ChapterSchema.safeParse(with_(1.5)).success).toBe(false);
   });
 
   test('a chapter with a twist fails unless a beat tells it on the twist trigger', () => {

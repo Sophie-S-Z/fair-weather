@@ -4,7 +4,8 @@
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 45,
-  "verbs": ["wake", "respond", "bet"],
+  "carry": false,
+  "verbs": ["wake", "respond", "bet", "peek", "zoom"],
   "newVerb": "bet",
   "overrides": {
     "positions": {

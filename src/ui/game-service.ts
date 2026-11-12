@@ -29,7 +29,10 @@ export interface GameService {
   resume(): Promise<{ index: number; flags: Flags } | null>;
   /** True when an autosave can be loaded. */
   hasSave(): Promise<boolean>;
-  /** Builds the chapter's scenario, starts a new sim run, and returns its runner. */
+  /**
+   * Builds the chapter's scenario, starts a new sim run, and returns its runner. A `carry: true`
+   * chapter starts from the year carry of the last snapshot (ADR 0012 item 1).
+   */
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
   onSnapshot(cb: (lite: WorldLite) => void): () => void;
   /**

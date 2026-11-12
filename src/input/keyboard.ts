@@ -1,6 +1,6 @@
 // Keyboard play (spec 12.5). The Game screen supplies the InputContext.
 import type { BidReply } from '../sim/types.ts';
-import type { Verb, VerbInput } from '../story/verbs.ts';
+import type { Verb, VerbInput, WorldVerb } from '../story/verbs.ts';
 import { keyboardTools, snapToBench, type BenchSpot, type Point } from './verbs.ts';
 
 export type InputContext = {
@@ -35,10 +35,10 @@ const ARROWS: Record<string, Point> = {
 const REPLY_KEYS: Record<string, BidReply> = { g: 'toward', h: 'away', r: 'against' };
 
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
-  const activeTool = (): Verb | null => {
+  const activeTool = (): WorldVerb | null => {
     const tools = keyboardTools(ctx.tools());
     const t = ctx.tool();
-    return t !== null && tools.includes(t) ? t : (tools[0] ?? null);
+    return tools.find((v) => v === t) ?? tools[0] ?? null;
   };
 
   const onKey = (e: Event): void => {

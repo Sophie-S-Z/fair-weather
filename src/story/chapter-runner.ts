@@ -40,8 +40,8 @@ export interface ChapterRunner {
   onFocus(cb: (id: string | null) => void): () => void;
   /**
    * False when the verb is locked, no snapshot has arrived yet, the chapter is over (or the verb's
-   * beat ended it with an error), `respond` has no sky bid to answer, or `place` was already used
-   * in this chapter (spec 6.2: one bench).
+   * beat ended it with an error), `respond` has no sky bid to answer, or `place` reached the
+   * chapter's limit (spec 6.2: one bench unless the chapter's `place` says otherwise).
    */
   verb(v: VerbInput): boolean;
   /** Ignored unless 'bet' is unlocked, a bet is open with no answer yet, and `option` is listed. */
@@ -62,6 +62,12 @@ export const RUNNER_COMMANDS: ReadonlySet<Command['t']> = new Set<Command['t']>(
   'respond',
   'place',
   'overPoke',
+  'shine',
+  'paintFog',
+  'blow',
+  'thread',
+  'whisper',
+  'dance',
 ]);
 
 /** The one honesty check: throws on a command outside RUNNER_COMMANDS. */
@@ -71,15 +77,32 @@ export function assertRunnerCommand(cmd: Command): void {
 
 const DEFAULT_FLAGS = parseFlags(flagsJson);
 
-/** The command a player verb sends; `respond` answers `skyBidder`, the oldest unanswered sky bid. */
-function verbCommand(v: VerbInput, skyBidder: string | undefined): Command | null {
+type PlaceKind = NonNullable<Chapter['place']>['kind'];
+
+/**
+ * The command a player verb sends; `respond` answers `skyBidder`, the oldest unanswered sky bid,
+ * and `place` sets `placeKind`.
+ */
+function verbCommand(v: VerbInput, skyBidder: string | undefined, placeKind: PlaceKind): Command | null {
   switch (v.verb) {
     case 'wake':
       return { t: 'wake', who: v.who };
     case 'respond':
       return skyBidder === undefined ? null : { t: 'respond', to: skyBidder, reply: v.reply };
     case 'place':
-      return { t: 'place', kind: 'bench', x: v.x, y: v.y };
+      return { t: 'place', kind: placeKind, x: v.x, y: v.y };
+    case 'shine':
+      return { t: 'shine', x: v.x, y: v.y };
+    case 'whisper':
+      return { t: 'whisper', target: v.target, about: v.about, sign: v.sign };
+    case 'thread':
+      return { t: 'thread', a: v.a, b: v.b, on: v.on };
+    case 'fog': {
+      const { brushRadius, brushAmount } = tuning.fog;
+      return { t: 'paintFog', x: v.x, y: v.y, r: brushRadius, amount: v.clear ? -brushAmount : brushAmount };
+    }
+    case 'blow':
+      return { t: 'blow', x: v.x, y: v.y, dx: v.dx, dy: v.dy };
   }
 }
 
@@ -146,6 +169,7 @@ export function createChapterRunner(
   let stepEvents: SimEvent[] = []; // the events of the step that the next snapshot follows
   const early: { tick: number; list: SimEvent[] }[] = []; // events before the first snapshot
   const firedBeats = new Set<string>();
+  /** Unanswered sky bids, oldest first; an ambient one is a bid the runner did not prompt. */
   const skyBids: { who: string; tick: number; ambient?: true }[] = [];
   /** A bid that got the automatic 'away' is prompted again at `tick`, so the player gets another chance. */
   const rePrompts: { who: string; tick: number }[] = [];
@@ -156,7 +180,8 @@ export function createChapterRunner(
   let twist: { before: WorldLite; deadline: number; retries: number } | null = null;
   let twistFired: boolean | undefined;
   let exitReady = false;
-  let placed = false; // one place per chapter
+  const place = config.place ?? { kind: 'bench', limit: 1 };
+  let placed = 0;
   /** Commands sent with no `accepted` yet, and the tick the last accepted list ran at. */
   let unaccepted = 0;
   let lastAcceptedTick = -1;
@@ -212,6 +237,8 @@ export function createChapterRunner(
     else if ('focus' in a) for (const cb of [...focusListeners]) cb(a.focus);
     else if ('pause' in a) speed(0);
     else if ('promptSkyBid' in a) send({ t: 'promptSkyBid', who: a.promptSkyBid });
+    else if ('rumor' in a) send({ t: 'whisper', ...a.rumor });
+    else if ('dance' in a) send({ t: 'dance', who: a.dance });
     else openBet();
   }
 
@@ -374,12 +401,12 @@ export function createChapterRunner(
     },
     verb(v) {
       if (finished || origin === null || !config.verbs.includes(v.verb)) return false;
-      if (v.verb === 'place' && placed) return false;
-      const cmd = verbCommand(v, skyBids[0]?.who);
+      if (v.verb === 'place' && placed >= place.limit) return false;
+      const cmd = verbCommand(v, skyBids[0]?.who, place.kind);
       if (!cmd) return false;
       try {
         if (cmd.t === 'respond') skyBids.shift();
-        if (cmd.t === 'place') placed = true;
+        if (cmd.t === 'place') placed += 1;
         send(cmd);
         log.push({ kind: 'verb', tick, input: v });
         for (const beat of config.beats) {

@@ -6,7 +6,9 @@
   import type { BidReply } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
-  import type { Verb, VerbInput } from '../../story/verbs.ts';
+  import { displayName } from '../../story/names.ts';
+  import { WORLD_VERBS } from '../../story/verbs.ts';
+  import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
   import BeatLine from '../components/BeatLine.svelte';
@@ -23,8 +25,11 @@
     onExit,
   }: { game: GameService; settings: Writable<Settings>; resume: boolean; onExit: () => void } = $props();
 
-  /** One line of prompt text per new verb (spec 12.6). The bet card is its own prompt. */
-  const HINTS: Record<Exclude<Verb, 'bet'>, string> = {
+  /**
+   * One line of prompt text per new verb (spec 12.6). The bet card is its own prompt; a verb with
+   * no line here gets none.
+   */
+  const HINTS: Partial<Record<Verb, string>> = {
     wake: '[PLACEHOLDER] Pick a sleeper with Tab or a click, then press Enter to wake it.',
     respond: '[PLACEHOLDER] When Pim waves, press G, H, or R, then Enter to answer the sky.',
     place: '[PLACEHOLDER] Choose a spot with the arrow keys or a click, then press Enter to set a bench.',
@@ -40,13 +45,11 @@
   const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
-  /** 'villager-3' reads as 'Villager 3'. */
-  const nameOf = (id: string): string => (id.charAt(0).toUpperCase() + id.slice(1)).replace(/-/g, ' ');
 
   let sceneEl: HTMLElement;
   let trayEl: HTMLElement | undefined = $state();
   let index = $state(0);
-  let tools: Verb[] = $state([]);
+  let tools: WorldVerb[] = $state([]);
   let tool: Verb | null = $state(null);
   /** Tools used up in this chapter (a bench is placed once, spec 6.2). */
   let used: Verb[] = $state([]);
@@ -95,7 +98,7 @@
     tool === 'place'
       ? `Bench spot: ${spotName}`
       : picked
-        ? `Picked: ${nameOf(picked)}${pickedState ? `, ${pickedState}` : ''}`
+        ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
         : '',
   );
 
@@ -135,7 +138,7 @@
     else if (p.kind === 'bet') bet = { question: p.question, options: p.options };
     else {
       betRunning = false;
-      say(`Your guess: ${nameOf(p.answer)}. The answer: ${nameOf(p.result)}.`);
+      say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`);
     }
   }
 
@@ -155,9 +158,9 @@
     picked = null;
     used = [];
     prev = next = null;
-    tools = chapter.verbs.filter((v) => v !== 'bet').slice(0, 3);
+    tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
     const verb = chapter.newVerb;
-    tool = verb !== null && tools.includes(verb) ? verb : (tools[0] ?? null);
+    tool = tools.find((v) => v === verb) ?? tools[0] ?? null;
     cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     stage.setShot(null);
     stage.setFocus(null);
@@ -168,8 +171,9 @@
     r.onCamera((shot) => stage?.setShot(shot));
     r.onFocus((id) => stage?.setFocus(id));
     // The new verb's line comes at once; the ghost hand waits for 10 s of idle (spec 12.6).
-    if (verb !== null && verb !== 'bet' && chapter.verbs.includes(verb)) {
-      say(HINTS[verb]);
+    const hint = verb === null ? undefined : HINTS[verb];
+    if (verb !== null && hint !== undefined && chapter.verbs.includes(verb)) {
+      say(hint);
       hints.unlock(verb);
     }
     r.done.then(
@@ -366,7 +370,7 @@
     {/if}
   </div>
   {#if bet}
-    <BetCard question={bet.question} options={bet.options} label={nameOf} onAnswer={answer} />
+    <BetCard question={bet.question} options={bet.options} label={displayName} onAnswer={answer} />
   {/if}
 </div>
 

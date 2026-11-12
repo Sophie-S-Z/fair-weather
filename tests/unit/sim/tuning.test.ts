@@ -49,7 +49,13 @@ test('defaults equal the handoff and ADR values', () => {
     giftSoftness: 0.05,
   });
   expect(t.wind).toEqual({ width: 80, push: 60, dialShiftChance: 0.2, spread: 0.15, gustTicks: 10 });
-  expect(t.fog).toEqual({ cellSize: 40, bidFlipFactor: 0.5, giftMisreadFactor: 0.5 });
+  expect(t.fog).toEqual({
+    cellSize: 40,
+    bidFlipFactor: 0.5,
+    giftMisreadFactor: 0.5,
+    brushRadius: 120,
+    brushAmount: 0.3,
+  });
   expect(t.population).toEqual({
     returnEveryDays: 7,
     newcomerSparePerCreature: 3,

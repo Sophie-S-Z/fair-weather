@@ -47,7 +47,13 @@ export const TuningSchema = obj({
     giftSoftness: prob,
   }),
   wind: obj({ width: pos, push: pos, dialShiftChance: prob, spread: prob, gustTicks: count }),
-  fog: obj({ cellSize: count, bidFlipFactor: prob, giftMisreadFactor: prob }),
+  fog: obj({
+    cellSize: count,
+    bidFlipFactor: prob,
+    giftMisreadFactor: prob,
+    brushRadius: pos,
+    brushAmount: prob,
+  }),
   population: obj({
     returnEveryDays: count,
     newcomerSparePerCreature: pos,

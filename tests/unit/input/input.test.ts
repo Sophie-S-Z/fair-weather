@@ -3,6 +3,7 @@ import { createKeyboard, type InputContext } from '../../../src/input/keyboard.t
 import { createHints, type HintTimer } from '../../../src/input/hints.ts';
 import { createOverPoke } from '../../../src/input/over-poke.ts';
 import { createPointer } from '../../../src/input/pointer.ts';
+import { keyboardTools } from '../../../src/input/verbs.ts';
 import type { BidReply } from '../../../src/sim/types.ts';
 import type { Verb, VerbInput } from '../../../src/story/verbs.ts';
 
@@ -99,6 +100,13 @@ describe('keyboard', () => {
     s.dispose();
     s.press('Tab');
     expect(s.sel).toEqual([]);
+  });
+  it('keyboardTools keeps the world verbs only, at most three', () => {
+    expect(keyboardTools(['wake', 'bet', 'peek', 'zoom', 'listen', 'rewind', 'place'])).toEqual([
+      'wake',
+      'place',
+    ]);
+    expect(keyboardTools(['wake', 'respond', 'place', 'shine'])).toEqual(['wake', 'respond', 'place']);
   });
   it('never offers bet as a keyboard tool', () => {
     const s = setup({ tools: () => ['wake', 'bet'] });

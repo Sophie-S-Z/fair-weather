@@ -31,8 +31,9 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carryFrom } from './story/carry.ts';
+import { carriedDiaries, carryFrom } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
+import type { ChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
 import { createInk } from './story/ink.ts';
 import { buildScenario } from './story/scenario.ts';
@@ -180,6 +181,8 @@ const tuningHash = hashTuning(JSON.stringify(tuningJson));
 let resuming: SaveV1 | null = null;
 /** The last snapshot of the run so far: a carried chapter starts from it, a skip included. */
 let lastLite: WorldLite | null = null;
+/** The last chapter's runner: a carried chapter keeps its diaries. */
+let lastRunner: ChapterRunner | null = null;
 host.onMessage((m) => {
   if (m.t === 'snapshot') lastLite = m.lite;
 });
@@ -250,7 +253,8 @@ const game: GameService = {
     return (await slotsReady).hasAuto();
   },
   startChapter(chapter, flags) {
-    const carry = chapter.carry && lastLite ? carryFrom(lastLite) : undefined;
+    const carry =
+      chapter.carry && lastLite ? carryFrom(lastLite, lastRunner?.diaries ?? new Map()) : undefined;
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
@@ -280,7 +284,14 @@ const game: GameService = {
         () => undefined, // the worker gave up; the chapter plays without this save
       );
     }
-    const runner = createChapterRunner(port, ink, chapter, flags);
+    const runner = createChapterRunner(
+      port,
+      ink,
+      chapter,
+      flags,
+      carry && carriedDiaries(carry, scenarioJson as Scenario),
+    );
+    lastRunner = runner;
     const keep = (): void => {
       yearLog.push({ chapterId: chapter.id, log: runner.log });
     };

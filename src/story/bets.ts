@@ -2,12 +2,21 @@
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { MetricSpec } from '../sim/metrics.ts';
 
-/** The share of the creatures not away, `about` left out, that hold the latest rumor; 0 with none. */
+export type LiteCreature = WorldLite['creatures'][number];
+
+export const creature = (lite: WorldLite | null, id: string): LiteCreature | undefined =>
+  lite?.creatures.find((c) => c.id === id);
+
+/**
+ * The share of the creatures not away, `about` left out, that hold the latest rumor; 0 with none.
+ * Only holders among those creatures count, so it never exceeds 1.
+ */
 export function rumorShare(lite: WorldLite): number {
   const rumor = lite.rumor;
   if (!rumor) return 0;
-  const n = lite.creatures.filter((c) => c.state !== 'away' && c.id !== rumor.about).length;
-  return n === 0 ? 0 : rumor.holders.length / n;
+  const counted = lite.creatures.filter((c) => c.state !== 'away' && c.id !== rumor.about);
+  if (counted.length === 0) return 0;
+  return counted.filter((c) => rumor.holders.includes(c.id)).length / counted.length;
 }
 
 /** How warm `from` is toward `to`; 0 when they have no tie. */
@@ -20,11 +29,7 @@ export function warmth(lite: WorldLite, from: string, to: string): number {
 }
 
 /** Among the bet's options only, the id with the highest `value`; a tie goes to the lower id by code unit. */
-function maxOver(
-  lite: WorldLite,
-  options: readonly string[],
-  value: (c: WorldLite['creatures'][number]) => number,
-): string {
+function maxOver(lite: WorldLite, options: readonly string[], value: (c: LiteCreature) => number): string {
   let best: { id: string; v: number } | undefined;
   for (const c of lite.creatures) {
     if (!options.includes(c.id)) continue;

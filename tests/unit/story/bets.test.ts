@@ -93,6 +93,23 @@ test('rumorShare is 0 with no rumor; warmth reads either side of the tie and is 
   expect(measureBet({ kind: 'warmth', from: 'echo', to: 'pim' }, liteWarmth(-0.1), CAST)).toBe(0);
 });
 
+test('rumorShare counts only holders among the creatures it counts, so it never exceeds 1', () => {
+  const l = lite({ pim: 0, krit: 0, echo: 0 });
+  const echo = l.creatures[2];
+  if (echo) echo.state = 'away';
+  // Pim counts; Echo is away and Krit is `about`, so only Pim's holding counts.
+  expect(
+    measureBet(
+      { kind: 'rumorShare' },
+      { ...l, rumor: { about: 'krit', sign: -1, holders: ['pim', 'echo', 'krit'] } },
+      CAST,
+    ),
+  ).toBe(1);
+  expect(
+    measureBet({ kind: 'rumorShare' }, { ...l, rumor: { about: 'krit', sign: -1, holders: ['echo'] } }, CAST),
+  ).toBe(0);
+});
+
 test('awayCount counts the creatures away, gone ones included', () => {
   const l = lite({ pim: 0, krit: 0, wisp: 0 });
   const [, krit, wisp] = l.creatures;

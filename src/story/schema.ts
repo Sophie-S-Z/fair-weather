@@ -229,16 +229,14 @@ const ChapterObject = z.strictObject({
 });
 
 const WORLD_VERB_SET: ReadonlySet<string> = new Set(WORLD_VERBS);
-/** Metrics that answer an option id, so a bet on them takes no buckets. */
+/** Metrics that answer an option id take no buckets; every other metric measures a number and needs them. */
 const WHO_METRICS: ReadonlySet<MetricSpec['kind']> = new Set(['maxBerries', 'maxShell']);
-/** Metrics with no natural option, so a bet on them needs buckets. */
-const BUCKET_METRICS: ReadonlySet<MetricSpec['kind']> = new Set(['rumorShare', 'warmth', 'awayCount']);
 
 function bucketsFit(bet: NonNullable<z.infer<typeof ChapterObject>['bet']>): boolean {
   const { buckets, metric, options } = bet;
-  if (!buckets) return !BUCKET_METRICS.has(metric.kind);
+  if (WHO_METRICS.has(metric.kind)) return !buckets;
   return (
-    !WHO_METRICS.has(metric.kind) &&
+    buckets !== undefined &&
     buckets.length === options.length - 1 &&
     buckets.every((b, i) => i === 0 || b > (buckets[i - 1] ?? -Infinity))
   );
@@ -273,7 +271,7 @@ export const ChapterSchema = ChapterObject.refine(
   })
   .refine((c) => !c.bet || bucketsFit(c.bet), {
     message:
-      'a bet on rumorShare, warmth, or awayCount needs buckets, low to high, one fewer than its options; maxBerries and maxShell take none (ADR 0012 item 14)',
+      'a bet on a number needs buckets, low to high, one fewer than its options; maxBerries and maxShell take none (ADR 0012 item 14)',
     path: ['bet', 'buckets'],
   });
 export type Chapter = z.infer<typeof ChapterObject>;

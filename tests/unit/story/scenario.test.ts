@@ -110,6 +110,7 @@ describe('buildScenario', () => {
     skyWarmth: -0.25,
     away,
     gone,
+    diary: [],
   });
   const carry: Carry = {
     creatures: [

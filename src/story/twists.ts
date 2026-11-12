@@ -1,7 +1,7 @@
 // Twist checks (spec 10.2). Pure predicates over snapshots and events; they never change the world.
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { SimEvent } from '../sim/types.ts';
-import { rumorShare, warmth } from './bets.ts';
+import { creature, rumorShare, warmth } from './bets.ts';
 
 export const TWIST_IDS = [
   'kritExploitsPim',
@@ -20,9 +20,6 @@ const EPSILON = 1e-9;
 
 const gave = (events: SimEvent[], from: string, to: string, move: 'give' | 'keep'): boolean =>
   events.some((e) => e.t === 'gift' && e.from === from && e.to === to && e.move === move);
-
-const creature = (lite: WorldLite, id: string): WorldLite['creatures'][number] | undefined =>
-  lite.creatures.find((c) => c.id === id);
 
 /** The mean shell tightness of the creatures not away; 0 with none. */
 function meanTightness(lite: WorldLite): number {

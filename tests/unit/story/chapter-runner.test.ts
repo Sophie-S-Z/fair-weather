@@ -958,6 +958,7 @@ describe('activities', () => {
     const runner = createChapterRunner(f.port, ink, interlude, flags);
     const shown: string[] = [];
     runner.onShow((what) => shown.push(what));
+    expect(runner.finishActivity('3')).toBe(false); // nothing runs before the first snapshot
     f.step();
     expect(runner.finishActivity('3')).toBe(true);
     expect(runner.finishActivity('5')).toBe(false);
@@ -968,6 +969,15 @@ describe('activities', () => {
     ]);
     f.step();
     await expect(runner.done).resolves.toEqual({ ...flags, greetingSong: 3 });
+  });
+
+  test('a result that is not a number leaves greetingSong at its default', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(['i_sung']), interlude, { ...flags, greetingSong: 4 });
+    f.step();
+    expect(runner.finishActivity('loud')).toBe(true);
+    f.step();
+    await expect(runner.done).resolves.toEqual({ ...flags, greetingSong: 0 });
   });
 
   test('finishActivity is false in a chapter with no activity', () => {
@@ -1010,6 +1020,19 @@ describe('diaries', () => {
     expect(diary).toHaveLength(20);
     expect(new Set(diary).size).toBe(1); // the dance fell off the front
     expect(runner.diary('krit')).toEqual(['[PLACEHOLDER] Last winter I was hungry.']);
+  });
+
+  test('carried diary lines come first and count toward the 20; diaries holds the event lines only', () => {
+    const f = fakePort();
+    const carried = new Map([['krit', Array.from({ length: 20 }, (_, i) => `old ${String(i)}`)]]);
+    const runner = createChapterRunner(f.port, inkOf([]), quiet, flags, carried);
+    f.step();
+    f.step([{ t: 'dance', who: 'krit' }]);
+    const diary = runner.diary('krit');
+    expect(diary).toHaveLength(21); // the authored line, then 20 events
+    expect(diary[1]).toBe('old 1'); // 'old 0' fell off the front
+    expect(runner.diaries.get('krit')).toEqual(diary.slice(1));
+    expect(carried.get('krit')).toHaveLength(20); // the runner copies what it was given
   });
 });
 

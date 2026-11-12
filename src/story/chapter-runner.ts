@@ -16,7 +16,7 @@ import { YEAR_EVENTS } from './action-log.ts';
 import type { ActionLog, YearEvent } from './action-log.ts';
 import { parseBeatTag } from './beat-tags.ts';
 import type { BeatAction } from './beat-tags.ts';
-import { measureBet } from './bets.ts';
+import { creature, measureBet } from './bets.ts';
 import { DiarySchema, diaryLines } from './diary.ts';
 import { FLAG_KEYS, parseFlags } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
@@ -60,8 +60,10 @@ export interface ChapterRunner {
    * chapter is over.
    */
   finishActivity(result: string): boolean;
-  /** The chapter's authored lines for `id`, then its last 20 diary events this chapter, oldest first. */
+  /** The chapter's authored lines for `id`, then its last 20 diary events, oldest first. */
   diary(id: string): readonly string[];
+  /** Each creature's last 20 diary event lines, carried ones included, for the year carry. */
+  readonly diaries: ReadonlyMap<string, readonly string[]>;
   skip(): Flags;
   done: Promise<Flags>;
   readonly log: ActionLog;
@@ -135,9 +137,6 @@ function actor(e: SimEvent): string | undefined {
   }
 }
 
-type LiteCreature = WorldLite['creatures'][number];
-const creature = (lite: WorldLite | null, id: string): LiteCreature | undefined =>
-  lite?.creatures.find((c) => c.id === id);
 const yearEvents = (log: ActionLog): YearEvent[] => log.flatMap((e) => (e.kind === 'event' ? [e.e] : []));
 
 /**
@@ -187,7 +186,8 @@ const FLAG_SOURCES: {
   },
   greetingSong: (_lite, _twist, log) => {
     const done = log.find((e) => e.kind === 'activity');
-    return done ? Number(done.result) : undefined;
+    const n = Number(done?.result);
+    return done && Number.isFinite(n) ? n : undefined;
   },
 };
 
@@ -200,6 +200,8 @@ export function createChapterRunner(
   ink: InkRunner,
   config: Chapter,
   flags: Flags,
+  /** Diary lines carried from the chapter before (`carriedDiaries`); empty for a fresh start. */
+  carried: ReadonlyMap<string, readonly string[]> = new Map(),
 ): ChapterRunner {
   const sps = tuning.sim.stepsPerSecond;
   const ticksPerDay = chapterTicksPerDay(config);
@@ -208,8 +210,8 @@ export function createChapterRunner(
   const cameraListeners = new Set<(shot: string) => void>();
   const focusListeners = new Set<(id: string | null) => void>();
   const showListeners = new Set<(what: 'heatmap') => void>();
-  /** Each creature's diary lines this chapter, oldest first, at most DIARY_LENGTH. */
-  const diaries = new Map<string, string[]>();
+  /** Each creature's diary lines, oldest first, at most DIARY_LENGTH. */
+  const diaries = new Map([...carried].map(([id, lines]) => [id, lines.slice(-DIARY_LENGTH)]));
   let activityDone = false;
 
   let origin: number | null = null; // chapter time 0, set by the first snapshot
@@ -496,7 +498,7 @@ export function createChapterRunner(
       if (origin !== null) tell({ t: 'overPoke' });
     },
     finishActivity(result) {
-      if (finished || !config.activity || activityDone) return false;
+      if (finished || origin === null || !config.activity || activityDone) return false;
       activityDone = true;
       try {
         log.push({ kind: 'activity', tick, activity: config.activity, result });
@@ -509,6 +511,7 @@ export function createChapterRunner(
     diary(id) {
       return [...(config.diary?.[id] ?? []), ...(diaries.get(id) ?? [])];
     },
+    diaries,
     skip() {
       const skipped = withWrites((key) => DEFAULT_FLAGS[key]);
       if (!finished) finish(skipped);

@@ -4,12 +4,24 @@ import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Dials, Scenario, Shell } from '../sim/types.ts';
 
 export interface Carry {
-  creatures: { id: string; dials: Dials; shell: Shell; skyWarmth: number; away: boolean; gone: boolean }[];
+  creatures: {
+    id: string;
+    dials: Dials;
+    shell: Shell;
+    skyWarmth: number;
+    away: boolean;
+    gone: boolean;
+    /** Its diary's event lines, at most the last 20 (spec 9.1). */
+    diary: string[];
+  }[];
   ties: { a: string; b: string; ab: number; ba: number }[];
 }
 
-/** The carry from a chapter's last snapshot. Slights, berries, positions, and structures stay behind. */
-export function carryFrom(lite: WorldLite): Carry {
+/**
+ * The carry from a chapter's last snapshot and its runner's diaries (`ChapterRunner.diaries`).
+ * Slights, berries, positions, and structures stay behind.
+ */
+export function carryFrom(lite: WorldLite, diaries: ReadonlyMap<string, readonly string[]>): Carry {
   return {
     creatures: lite.creatures.map((c) => ({
       id: c.id,
@@ -18,6 +30,7 @@ export function carryFrom(lite: WorldLite): Carry {
       skyWarmth: c.skyWarmth,
       away: c.state === 'away',
       gone: c.gone,
+      diary: [...(diaries.get(c.id) ?? [])],
     })),
     ties: lite.ties.map((t) => ({ ...t })),
   };
@@ -46,4 +59,10 @@ export function applyCarry(s: Scenario, carry: Carry): void {
       .filter((t) => ids.has(t.a) && ids.has(t.b))
       .map((t) => ({ a: t.a, b: t.b, ab: { warmth: t.ab, slights: 0 }, ba: { warmth: t.ba, slights: 0 } })),
   ];
+}
+
+/** The carried diaries of the base creatures of `s`, the ones applyCarry keeps; a newcomer's stays behind. */
+export function carriedDiaries(carry: Carry, s: Scenario): Map<string, string[]> {
+  const ids = new Set(s.creatures.map((c) => c.id));
+  return new Map(carry.creatures.filter((c) => ids.has(c.id)).map((c) => [c.id, [...c.diary]]));
 }

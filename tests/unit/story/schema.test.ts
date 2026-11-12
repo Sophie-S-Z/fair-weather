@@ -99,6 +99,9 @@ describe('ChapterSchema', () => {
     expect(ChapterSchema.safeParse(bet({ ...rumor, buckets: [0.25] })).success).toBe(false);
     expect(ChapterSchema.safeParse(bet({ ...rumor, buckets: [0.5, 0.25] })).success).toBe(false);
     expect(ChapterSchema.safeParse(bet({ buckets: [1, 2, 3, 4, 5] })).success).toBe(false); // maxBerries
+    const pairs = { metric: { kind: 'friendPairs' }, options: ['few', 'many'] };
+    expect(ChapterSchema.safeParse(bet(pairs)).success).toBe(false); // every number needs buckets
+    expect(ChapterSchema.safeParse(bet({ ...pairs, buckets: [3] })).success).toBe(true);
     const thorns = { metric: { kind: 'maxShell', shell: 'tightness' } };
     expect(ChapterSchema.safeParse(bet(thorns)).success).toBe(true);
     expect(ChapterSchema.safeParse(bet({ ...thorns, buckets: [1, 2, 3, 4, 5] })).success).toBe(false);

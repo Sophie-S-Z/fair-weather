@@ -187,7 +187,7 @@ test('a scenario sets sky warmth (clamped) and gone; neither key changes an unse
     creatures: [{ ...pim!, skyWarmth: 2 }, { ...krit!, skyWarmth: -0.4, gone: true }, ...rest],
   });
   expect(byId(w, 'pim')!.skyWarmth).toBe(1);
-  expect(byId(w, 'krit')).toMatchObject({ skyWarmth: -0.4, gone: true });
+  expect(byId(w, 'krit')).toMatchObject({ skyWarmth: -0.4, gone: true, state: 'away' });
   expect(byId(w, 'echo')!.skyWarmth).toBe(0);
   expect('gone' in byId(w, 'pim')!).toBe(false);
 });

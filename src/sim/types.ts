@@ -166,7 +166,7 @@ export interface Scenario {
     skyWarmth?: number;
     gone?: true;
   }[];
-  /** Ties that start already met (ADR 0012 item 1). */
+  /** Ties that start already met (ADR 0012 item 1). A pair listed twice keeps the later entry. */
   ties?: { a: string; b: string; ab: Side; ba: Side }[];
   bushes: { id: string; x: number; y: number; berries: number }[];
   structures: Structure[];

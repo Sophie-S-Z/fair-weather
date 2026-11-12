@@ -94,6 +94,11 @@ export interface Structure {
   x: number;
   y: number;
 }
+/**
+ * The latest whisper. Only `about` and `sign` are read (lite.ts lastRumor). `strength`, `origin`,
+ * and `tick` are written but never read; they stay because they are hashed, and removing them would
+ * move the M0 golden hash. Remove them at the next planned hash change.
+ */
 export interface Rumor {
   about: string;
   sign: 1 | -1;

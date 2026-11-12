@@ -201,6 +201,18 @@ test('two creatures on an islet walk it, never stall at the water, and never lea
   expect(seen.size).toBeGreaterThan(4);
 });
 
+test('on an islet the ridge still caps the goal, after the islet keeps it on the islet', () => {
+  // The islet runs from x 990 to 1050; a ridge at 1040 leaves its east end past the cap.
+  const ridgeX = 1040;
+  const margin = t.move.arriveRadius + (t.move.speed * t.move.speed) / (2 * t.move.accel);
+  const w = makeWorld([{ id: 'a', x: 1000, y: 420, berries: 100 }], { water: pond, ridgeX });
+  while (w.day < 3) {
+    step(w, [], t);
+    expect(get(w, 'a').goalX).toBeLessThanOrEqual(ridgeX - margin);
+    expect(get(w, 'a').gone).toBeUndefined();
+  }
+});
+
 test('a creature placed in a bank starts just past it; on an islet or a deck it stays', () => {
   const edge = brook.x - t.bank.side;
   const w = makeWorld(

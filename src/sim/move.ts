@@ -5,7 +5,7 @@ import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { inRect, islets, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
+import { inRect, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
 
@@ -18,7 +18,7 @@ function visitCell(x: number, y: number, tuning: Tuning): number {
   return row * COLS + col;
 }
 
-function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
+function pickGoal(c: Creature, world: World, land: Land, tuning: Tuning, rng: Rng): void {
   // 1. A bench (ADR 0003 item 9).
   const benches = benchesOf(world);
   if (benches.length > 0) {
@@ -27,12 +27,12 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
     if (mem && mem.day === world.day - 1) remembered = benches.find((b) => b.id === mem.benchId);
     if (remembered) {
       if (rng.next() < tuning.goal.benchChance * tuning.meet.benchRepeatMultiplier) {
-        setGoal(c, remembered.x, remembered.y, world, tuning);
+        setGoal(c, remembered.x, remembered.y, world, land, tuning);
         return;
       }
     } else if (rng.next() < tuning.goal.benchChance) {
       const b = rng.pick(benches);
-      setGoal(c, b.x, b.y, world, tuning);
+      setGoal(c, b.x, b.y, world, land, tuning);
       return;
     }
   }
@@ -51,7 +51,7 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
     const m = world.mushroom;
     if (m && dropFor(c, m, world.day) && dist2(c.x, c.y, m.x, m.y) < bestD) best = m;
     if (best) {
-      setGoal(c, best.x, best.y, world, tuning);
+      setGoal(c, best.x, best.y, world, land, tuning);
       return;
     }
   }
@@ -59,15 +59,15 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
   const friends = friendsOf(world, c, tuning);
   if (friends.length > 0 && rng.next() < 1 - c.dials.wanderlust) {
     const f = rng.pick(friends);
-    setGoal(c, f.x, f.y, world, tuning);
+    setGoal(c, f.x, f.y, world, land, tuning);
     return;
   }
   // 4. A random point in a least-visited cell.
-  pickRandomGoal(c, world, tuning, rng);
+  pickRandomGoal(c, world, land, tuning, rng);
 }
 
 /** A random point in one of the creature's least-visited cells (ADR 0005). */
-function pickRandomGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
+function pickRandomGoal(c: Creature, world: World, land: Land, tuning: Tuning, rng: Rng): void {
   let least = Infinity;
   for (const v of c.visits) least = Math.min(least, v);
   const cells: number[] = [];
@@ -78,28 +78,24 @@ function pickRandomGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): vo
   const cw = tuning.scene.width / COLS;
   const ch = tuning.scene.height / ROWS;
   const x = ((cell % COLS) + rng.next()) * cw;
-  setGoal(c, x, (Math.floor(cell / COLS) + rng.next()) * ch, world, tuning);
+  setGoal(c, x, (Math.floor(cell / COLS) + rng.next()) * ch, world, land, tuning);
 }
 
 /**
- * Sets the goal. With a ridge it stays west of it by the arrival radius plus the distance a
- * creature at full speed needs to stop (the margin), so only a gust sends anyone over. A creature
- * on an islet keeps its goal on the islet, the margin in from the water where the islet is wide
- * enough (its middle where not), so it walks the islet instead of stopping at the water (ADR 0012
- * item 3).
+ * Sets the goal. A creature on an islet (one of `land.islets`) keeps its goal on the islet, the
+ * margin in from the water where the islet is wide enough (its middle where not), so it walks the
+ * islet instead of stopping at the water. Then, with a ridge, the goal stays west of it by the
+ * arrival radius plus the distance a creature at full speed needs to stop (the margin), so only a
+ * gust sends anyone over (ADR 0012 item 3).
  */
-function setGoal(c: Creature, x: number, y: number, world: World, t: Tuning): void {
+function setGoal(c: Creature, x: number, y: number, world: World, land: Land, t: Tuning): void {
   const margin = t.move.arriveRadius + (t.move.speed * t.move.speed) / (2 * t.move.accel);
-  const isle = world.water ? islets(world.water).find((r) => inRect(r, c.x, c.y)) : undefined;
-  if (isle) {
-    const keep = (v: number, lo: number, size: number): number =>
-      size > 2 * margin ? clamp(v, lo + margin, lo + size - margin) : lo + size / 2;
-    c.goalX = keep(x, isle.x, isle.w);
-    c.goalY = keep(y, isle.y, isle.h);
-    return;
-  }
-  c.goalX = world.ridgeX === undefined ? x : Math.min(x, Math.max(0, world.ridgeX - margin));
-  c.goalY = y;
+  const isle = land.islets.find((r) => inRect(r, c.x, c.y));
+  const keep = (v: number, lo: number, size: number): number =>
+    size > 2 * margin ? clamp(v, lo + margin, lo + size - margin) : lo + size / 2;
+  const gx = isle ? keep(x, isle.x, isle.w) : x;
+  c.goalX = world.ridgeX === undefined ? gx : Math.min(gx, Math.max(0, world.ridgeX - margin));
+  c.goalY = isle ? keep(y, isle.y, isle.h) : y;
 }
 
 function forage(c: Creature, world: World, tuning: Tuning): void {
@@ -164,12 +160,12 @@ function turnFromWater(c: Creature, water: Rect, land: Land, world: World, tunin
       : [mx, sy < my ? deck.y : deck.y + deck.h];
     const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
     if ((fx !== c.goalX || fy !== c.goalY) && dist2(c.x, c.y, fx, fy) > arrive2) {
-      setGoal(c, fx, fy, world, tuning);
+      setGoal(c, fx, fy, world, land, tuning);
       return;
     }
   }
   c.visits[visitCell(c.goalX, c.goalY, tuning)] = Math.max(...c.visits);
-  pickRandomGoal(c, world, tuning, rng);
+  pickRandomGoal(c, world, land, tuning, rng);
 }
 
 function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng): void {
@@ -207,7 +203,7 @@ function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng):
 }
 
 /** An avoiding creature inside the lens heads for the point just outside it, straight from the centre. */
-function leaveLens(c: Creature, world: World, tuning: Tuning): void {
+function leaveLens(c: Creature, world: World, land: Land, tuning: Tuning): void {
   const light = world.fields.light;
   if (!light || !avoidsLens(world, c) || !inLens(world, c.x, c.y, tuning)) return;
   const dx = c.x - light.x;
@@ -215,7 +211,7 @@ function leaveLens(c: Creature, world: World, tuning: Tuning): void {
   const len = Math.sqrt(dx * dx + dy * dy);
   const r = tuning.light.lensRadius * 1.1;
   const x = clamp(light.x + (len > 0 ? (dx / len) * r : r), 0, tuning.scene.width);
-  setGoal(c, x, clamp(light.y + (len > 0 ? (dy / len) * r : 0), 0, tuning.scene.height), world, tuning);
+  setGoal(c, x, clamp(light.y + (len > 0 ? (dy / len) * r : 0), 0, tuning.scene.height), world, land, tuning);
 }
 
 /** One movement step for every creature, in array order. Only `wander` creatures move, forage, or take drops. */
@@ -231,8 +227,8 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     }
     forage(c, world, tuning);
     takeDrop(c, world, tuning);
-    if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, tuning, rng);
-    leaveLens(c, world, tuning);
+    if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, land, tuning, rng);
+    leaveLens(c, world, land, tuning);
     steer(c, land, world, tuning, rng);
     const cell = visitCell(c.x, c.y, tuning);
     c.visits[cell] = (c.visits[cell] ?? 0) + 1;

@@ -109,5 +109,4 @@ test('the shipped templates read every feature, misread at least twice with a no
   expect([...read].sort()).toEqual(Object.keys(skipped).sort());
   expect(templates.filter((t) => t.note !== undefined).length).toBeGreaterThanOrEqual(2);
   expect(templates.some((t) => t.when.some((c) => c.feature === 'narrator'))).toBe(true);
-  for (const t of templates) expect(t.text.startsWith('[PLACEHOLDER] ')).toBe(true);
 });

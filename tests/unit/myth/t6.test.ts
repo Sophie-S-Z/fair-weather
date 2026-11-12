@@ -7,7 +7,7 @@ import flagsJson from '../../../content/flags.json';
 import versesJson from '../../../content/myth/verses.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
 import { extractFeatures } from '../../../src/myth/features.ts';
-import { tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
+import { chooseTemplate, tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { createRng } from '../../../src/sim/rng.ts';
 import type { YearLog } from '../../../src/story/action-log.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
@@ -21,13 +21,17 @@ const verses = VersesSchema.parse(versesJson);
 test('T6: at least 900 of 1,000 random years give different myths', () => {
   const rng = createRng(6);
   const texts = new Set<string>();
+  const choices = new Set<string>();
   for (let i = 0; i < 1000; i++) {
     const r = randomYear(rng);
-    texts.add(
-      JSON.stringify(tellMyth(extractFeatures(r.year, r.flags, r.skyWarmth), verses, displayName).verses),
-    );
+    const f = extractFeatures(r.year, r.flags, r.skyWarmth);
+    texts.add(JSON.stringify(tellMyth(f, verses, displayName).verses));
+    choices.add(verses.verses.map((v) => v.templates.indexOf(chooseTemplate(v, f))).join(','));
   }
-  console.log(`T6: ${String(texts.size)} different myths in 1,000 random years`);
+  // The template choices show how much of the variety is templates rather than filled slots.
+  console.log(
+    `T6: ${String(texts.size)} different myths, ${String(choices.size)} different template choices, in 1,000 random years`,
+  );
   expect(texts.size).toBeGreaterThanOrEqual(900);
 });
 

@@ -88,9 +88,9 @@ export async function runChapterHeadless(
   }
   await done;
 
-  const twist = runner.log.find((e) => e.kind === 'twist');
   // A chapter without a twist (chapters 0 and 1) reports it as not fired, with no close call.
   if (!config.twist) return { twistFired: false, retries: 0, usedCloseCall: false, log: runner.log };
+  const twist = runner.log.find((e) => e.kind === 'twist');
   if (!twist) throw new Error(`${config.id} seed ${String(seed)} ended without a twist entry`);
   return { twistFired: twist.fired, retries: twist.retries, usedCloseCall: !twist.fired, log: runner.log };
 }

@@ -17,7 +17,7 @@ const CHAPTERS = readdirSync(chaptersDir)
   .map((f) => ChapterSchema.parse(JSON.parse(readFileSync(new URL(f, chaptersDir), 'utf8'))))
   .map((c) => ({ id: c.id, verbs: WORLD_VERBS.filter((v) => c.verbs.includes(v)) }));
 const IDS = scenarioJson.creatures.map((c) => c.id);
-const BEHAVIORS: readonly Behavior[] = ['toward', 'against', 'give', 'keep'];
+const CAST = ['pim', 'krit', 'echo', 'moss', 'wisp', 'bell'] as const;
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
 const { width, height } = tuningJson.scene;
 
@@ -68,6 +68,10 @@ function randomFlags(rng: Rng): Flags {
 
 /** One random year: per chapter, random world verbs, lit meetings, and arrivals, plus random flags and sky warmths. */
 export function randomYear(rng: Rng): { year: YearLog; flags: Flags; skyWarmth: Record<string, number> } {
+  // A year leans kind or quarrelsome: each behavior is against or keep with chance `conflict`.
+  const conflict = rng.next();
+  const behavior = (): Behavior =>
+    rng.next() < conflict ? rng.pick(['against', 'keep'] as const) : rng.pick(['toward', 'give'] as const);
   const year: YearLog = CHAPTERS.map((chapter) => {
     const log: ActionLog = [];
     let tick = 0;
@@ -77,7 +81,7 @@ export function randomYear(rng: Rng): { year: YearLog; flags: Flags; skyWarmth: 
     for (let n = between(rng, 0, 40); n > 0; n--) {
       const a = rng.pick(IDS);
       const b = rng.pick(IDS.filter((id) => id !== a));
-      const behaviors = [rng.pick(BEHAVIORS), rng.pick(BEHAVIORS)];
+      const behaviors = [behavior(), behavior()];
       log.push({ kind: 'event', tick: (tick += 1), e: { t: 'lit', a, b, behaviors } });
     }
     for (let n = between(rng, 0, 3); n > 0; n--)
@@ -85,5 +89,7 @@ export function randomYear(rng: Rng): { year: YearLog; flags: Flags; skyWarmth: 
     return { chapterId: chapter.id, log };
   });
   const skyWarmth = Object.fromEntries(IDS.map((id) => [id, rng.next() * 2 - 1]));
+  // About half the years, a named cast member is warmest, so its voiced templates get told.
+  if (coin(rng)) skyWarmth[rng.pick(CAST)] = 1;
   return { year, flags: randomFlags(rng), skyWarmth };
 }

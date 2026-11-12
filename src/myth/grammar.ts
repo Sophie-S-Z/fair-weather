@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { MythFeatures } from './features.ts';
 
 /** Each feature's value type: the feature list for conditions, and what a condition may compare. */
-const FEATURE_TYPES: Record<keyof MythFeatures, 'number' | 'boolean' | 'string'> = {
+const FEATURE_TYPES = {
   lightOnConflict: 'number',
   lightOnKindness: 'number',
   rumbles: 'number',
@@ -18,6 +18,12 @@ const FEATURE_TYPES: Record<keyof MythFeatures, 'number' | 'boolean' | 'string'>
   festivalShare: 'number',
   wispPushed: 'boolean',
   narrator: 'string',
+} as const satisfies {
+  [K in keyof MythFeatures]: NonNullable<MythFeatures[K]> extends number
+    ? 'number'
+    : NonNullable<MythFeatures[K]> extends boolean
+      ? 'boolean'
+      : 'string';
 };
 const FEATURES = Object.keys(FEATURE_TYPES) as [keyof MythFeatures, ...(keyof MythFeatures)[]];
 
@@ -94,9 +100,19 @@ function holds(c: Condition, f: MythFeatures): boolean {
 }
 
 /**
- * Tells the myth: per verse, the first template whose every condition holds. A template that names
- * the most-lit creature is passed over in a year with no lit meetings.
+ * A verse's first template whose every condition holds. A template that names the most-lit
+ * creature is passed over in a year with no lit meetings.
  */
+export function chooseTemplate(v: Verses['verses'][number], f: MythFeatures): Template {
+  const t = v.templates.find(
+    (tpl) => (f.mostLit !== null || !usesMostLit(tpl)) && tpl.when.every((c) => holds(c, f)),
+  );
+  // The schema makes the last template hold in every year.
+  if (!t) throw new Error(`verse ${v.id} has no template for this year`);
+  return t;
+}
+
+/** Tells the myth: each verse from its chosen template, with the slots filled. */
 export function tellMyth(f: MythFeatures, verses: Verses, name: (id: string) => string): MythPage {
   const slot: Record<Slot, string> = {
     narrator: name(f.narrator),
@@ -110,11 +126,7 @@ export function tellMyth(f: MythFeatures, verses: Verses, name: (id: string) => 
   return {
     narrator: f.narrator,
     verses: verses.verses.map((v) => {
-      const t = v.templates.find(
-        (tpl) => (f.mostLit !== null || !usesMostLit(tpl)) && tpl.when.every((c) => holds(c, f)),
-      );
-      // The schema makes the last template hold in every year.
-      if (!t) throw new Error(`verse ${v.id} has no template for this year`);
+      const t = chooseTemplate(v, f);
       return { title: v.title, text: fill(t.text), note: t.note === undefined ? null : fill(t.note) };
     }),
   };

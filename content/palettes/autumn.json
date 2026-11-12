@@ -1,0 +1,19 @@
+{
+  "id": "autumn",
+  "ink": "#2b2a28",
+  "paper": "#fffbf5",
+  "accent": "#5d7d96",
+  "warmth": "#e8cdb6",
+  "leaf": "#ecd2a8",
+  "background": "#f1e7d8",
+  "light": {
+    "color": "#ffc98a",
+    "alpha": 0.45
+  },
+  "fog": {
+    "color": "#d9dde3",
+    "alpha": 0.88
+  },
+  "water": "#b0c5ce",
+  "full": ["#c8503a", "#dc7d34", "#d9a740", "#8f9a4c", "#5d7d96", "#7d5a9e"]
+}

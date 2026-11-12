@@ -42,7 +42,7 @@ const views = offsets.map((dx) => {
   return view;
 });
 const draw = (seconds: number): void => {
-  for (const view of views) view.update(shell, seconds, false);
+  for (const view of views) view.update(shell, seconds, false, 0);
 };
 
 if (frameParam !== null) {

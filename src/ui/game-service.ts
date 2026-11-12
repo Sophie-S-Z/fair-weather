@@ -5,13 +5,16 @@ import type { Hints } from '../input/hints.ts';
 import type { BenchSpot } from '../input/verbs.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
+import type { Season } from '../sim/types.ts';
 import type { ChapterRunner } from '../story/chapter-runner.ts';
 import type { Flags } from '../story/flags.ts';
 import type { Chapter } from '../story/schema.ts';
 import type { Settings } from './settings.ts';
 
 /** The Meadow view in a canvas that fills its element. Screen points are client coordinates. */
-export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot'> {
+export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHeatmap'> {
+  /** Draws the Meadow in the season's palette (spec 11.3). */
+  setSeason(season: Season): void;
   draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
   pick(x: number, y: number): string | null;
   toScene(x: number, y: number): { x: number; y: number };

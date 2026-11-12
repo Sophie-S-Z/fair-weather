@@ -4,7 +4,6 @@ import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
 import flagsJson from '../content/flags.json';
 import scenarioJson from '../content/scenarios/m0.json';
-import springJson from '../content/palettes/spring.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import ch0 from '../content/chapters/ch0.json';
 import ch1 from '../content/chapters/ch1.json';
@@ -33,7 +32,7 @@ import { createPointer } from './input/pointer.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createMeadowView } from './render/meadow-view.ts';
-import { PaletteSchema } from './render/palette.ts';
+import { PaletteSchema, type Palette } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
 import { hashTuning } from './persist/format.ts';
 import type { SaveV1 } from './persist/format.ts';
@@ -104,7 +103,23 @@ const timbres = new Map<string, Timbre>(
     return [v.id, v.timbre];
   }),
 );
-const palette = PaletteSchema.parse(springJson);
+const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
+  eager: true,
+  import: 'default',
+});
+const palettes = new Map<string, Palette>(
+  Object.values(paletteFiles).map((json) => {
+    const p = PaletteSchema.parse(json);
+    return [p.id, p];
+  }),
+);
+/** The palette of a season: content has one for each (tests/unit/render/meadow-view.test.ts). */
+function paletteOf(s: Season): Palette {
+  const p = palettes.get(s);
+  if (!p) throw new Error(`No palette for ${s}`);
+  return p;
+}
+const palette = paletteOf('spring');
 const scene = SceneSchema.parse(meadowJson);
 // In play order (tests/golden/year.ts CHAPTER_ORDER).
 const chapters = [ch0, ch1, ch2, ch3, i3, ch4, i4, ch5, i5, ch6, ch7, i7, ch8, i8, ch9, ch10].map((c) =>
@@ -249,6 +264,14 @@ const game: GameService = {
       },
       setShot: (name) => {
         view.setShot(name);
+      },
+      setSeason(s) {
+        const p = paletteOf(s);
+        view.setPalette(p);
+        app.renderer.background.color = p.background;
+      },
+      showHeatmap: (on) => {
+        view.showHeatmap(on);
       },
       benchSpots: scene.benchSpots,
       destroy() {

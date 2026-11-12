@@ -1,0 +1,19 @@
+{
+  "id": "winter",
+  "ink": "#2b2a28",
+  "paper": "#ffffff",
+  "accent": "#c4432b",
+  "warmth": "#e4d5cc",
+  "leaf": "#e3e8eb",
+  "background": "#eef0f0",
+  "light": {
+    "color": "#ffd2a0",
+    "alpha": 0.5
+  },
+  "fog": {
+    "color": "#d8dee6",
+    "alpha": 0.9
+  },
+  "water": "#b6c9d6",
+  "full": ["#c4432b", "#d97a3d", "#d8b65a", "#6f9a73", "#4f7fa8", "#7a68a6"]
+}

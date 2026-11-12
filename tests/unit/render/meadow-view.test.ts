@@ -1,20 +1,23 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { Container, Graphics, type Application } from 'pixi.js';
+import { Container, Graphics, Mesh, MeshGeometry, Sprite, type Application } from 'pixi.js';
 import { expect, test } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
+import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
 import meadowJson from '../../../content/scenes/kith-meadow.json';
 import { CastSchema, type Cast } from '../../../src/render/cast.ts';
 import { bodyColor } from '../../../src/render/line/fill.ts';
 import { RigSchema, type Rig } from '../../../src/render/line/rig.ts';
-import { bodyHeight, createMeadowView, rigArea } from '../../../src/render/meadow-view.ts';
+import { bodyHeight, createMeadowView, dewColor, rigArea } from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { SceneSchema } from '../../../src/render/scene.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
+import { SEASONS } from '../../../src/sim/types.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 
 const scene = SceneSchema.parse(meadowJson);
 const palette = PaletteSchema.parse(springJson);
+const autumn = PaletteSchema.parse(autumnJson);
 const rigs = new Map<string, Rig>(
   readdirSync('content/rigs')
     .filter((f) => f.endsWith('.json'))
@@ -102,6 +105,14 @@ test('the content parses and matches the tuning', () => {
   expect(scene.cameras['crooked-tree']).toBeDefined();
   expect(scene.cameras['pim-close']).toEqual({ follow: 'pim', zoom: expect.any(Number) as number });
   expect(scene.trees.some((t) => t.id === 'crooked-tree')).toBe(true);
+});
+
+test('every season has a palette', () => {
+  const files = readdirSync('content/palettes').filter((f) => f.endsWith('.json'));
+  const ids = files.map(
+    (f) => PaletteSchema.parse(JSON.parse(readFileSync(`content/palettes/${f}`, 'utf8'))).id,
+  );
+  expect(ids.sort()).toEqual([...SEASONS].sort());
 });
 
 test('pick returns the nearest creature within the hit radius and null elsewhere', () => {
@@ -258,4 +269,144 @@ test('trees, benches, and creatures share one layer sorted by base y', () => {
   // Pim stands behind the crooked tree (base y 420) and the bench (y 425).
   expect(pim.zIndex).toBeLessThan(tree?.zIndex ?? 0);
   expect(pim.zIndex).toBeLessThan(bench?.zIndex ?? 0);
+});
+
+/** Every display object under `c`. */
+const objectCount = (c: Container): number => c.children.reduce((n, ch) => n + 1 + objectCount(ch), 0);
+/** The fills of a Graphics, as color, alpha, and the bounds of the filled path. */
+function fillsOf(
+  g: Graphics,
+): { color: number; alpha: number; minX: number; minY: number; maxX: number; maxY: number }[] {
+  return g.context.instructions.flatMap((i) => {
+    if (i.action !== 'fill') return [];
+    const { color, alpha } = i.data.style as { color: number; alpha: number };
+    const { minX, minY, maxX, maxY } = i.data.path.bounds;
+    return [{ color, alpha, minX, minY, maxX, maxY }];
+  });
+}
+function graphicsIn(app: Application, label: string): Graphics {
+  const g = app.stage.getChildByLabel(label, true);
+  if (!(g instanceof Graphics)) throw new Error(`no graphics ${label}`);
+  return g;
+}
+
+test('water, a bridge, a lantern, and the mushroom add a few objects, none per creature', () => {
+  const crowd = snapshot(
+    Array.from({ length: 30 }, (_, i) => [`villager-${String(i + 1)}`, 100 + i * 45, 600]),
+  );
+  const land: WorldLite = {
+    ...crowd,
+    water: [{ x: 780, y: 0, w: 60, h: 900 }],
+    structures: [
+      ...crowd.structures,
+      { id: 'br1', kind: 'bridge', x: 810, y: 300 },
+      { id: 'l1', kind: 'lantern', x: 400, y: 300 },
+    ],
+    mushroom: { x: 1000, y: 500, drops: 4, witherDays: 0 },
+  };
+  const count = (world: WorldLite): number => {
+    const app = fakeApp(800, 450);
+    createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+    return objectCount(app.stage);
+  };
+  expect(count(land) - count(crowd)).toBeLessThanOrEqual(4);
+});
+
+test('the water is drawn in the palette water color, and a new palette redraws the scene', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world: WorldLite = { ...snapshot([['pim', 400, 400]]), water: [{ x: 780, y: 0, w: 60, h: 900 }] };
+  view.update(world, world, 1, settings);
+  expect(fillsOf(graphicsIn(app, 'land')).map((f) => f.color)).toContain(palette.water);
+  view.setPalette(autumn);
+  view.update(world, world, 1, settings);
+  expect(fillsOf(graphicsIn(app, 'land')).map((f) => f.color)).toContain(autumn.water);
+  expect(fillsOf(graphicsIn(app, 'ground'))[0]?.color).toBe(autumn.background);
+  expect(bodyFillOf(app, 'pim')).toBe(autumn.paper);
+});
+
+test('the mushroom shows one dot per drop', () => {
+  const dots = (drops: number): number => {
+    const app = fakeApp(800, 450);
+    const world: WorldLite = { ...snapshot([]), mushroom: { x: 1000, y: 500, drops, witherDays: 0 } };
+    createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+    return graphicsIn(app, 'mushroom').context.instructions.filter(
+      (i) => i.action === 'fill' && (i.data.style as { color: number }).color === dewColor(palette),
+    ).length;
+  };
+  expect(dots(0)).toBe(0);
+  expect(dots(4)).toBe(4);
+});
+
+test('a creature in fog is drawn in dashes', () => {
+  /** How many of Pim's line points have no width. */
+  const gaps = (fog: number): number => {
+    const app = fakeApp(800, 450);
+    const world = snapshot([['pim', 400, 400]]);
+    world.fog.cells.fill(fog);
+    createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+    const line = creatureIn(app, 'pim').children[1];
+    if (!(line instanceof Mesh) || !(line.geometry instanceof MeshGeometry)) throw new Error('no line');
+    const p = line.geometry.positions;
+    let n = 0;
+    for (let k = 0; k < p.length; k += 4) if (p[k] === p[k + 2] && p[k + 1] === p[k + 3]) n += 1;
+    return n;
+  };
+  expect(gaps(0)).toBe(0);
+  expect(gaps(0.2)).toBe(0);
+  expect(gaps(0.5)).toBeGreaterThan(30);
+});
+
+test('dancing creatures hop, and reduced motion stops the hop', () => {
+  const app = fakeApp(800, 450);
+  (app.ticker as { lastTime: number }).lastTime = 200;
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = snapshot([
+    ['bell', 400, 400],
+    ['pim', 600, 400],
+  ]);
+  const bell = world.creatures[0];
+  if (bell) bell.dancing = true;
+  view.update(world, world, 1, settings);
+  expect(creatureIn(app, 'bell').y).toBeLessThan(400);
+  expect(creatureIn(app, 'pim').y).toBe(400);
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  expect(creatureIn(app, 'bell').y).toBe(400);
+});
+
+test('the heat map shades the cell the lens stayed over most, and turning it off starts a new count', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const lensAt = (x: number, y: number, times: number): void => {
+    for (let i = 0; i < times; i++) {
+      const world = { ...snapshot([]), light: { x, y } };
+      view.update(world, world, 1, settings);
+    }
+  };
+  /** The wash's cells, one alpha byte per cell of the 16 x 9 grid. */
+  const cells = (): number[] => {
+    const heat = app.stage.getChildByLabel('heatmap', true);
+    if (!(heat instanceof Sprite)) throw new Error('no heat map');
+    const texels = heat.texture.source.resource as Uint8Array;
+    return Array.from({ length: 16 * 9 }, (_, i) => texels[4 * i + 3] ?? 0);
+  };
+  const heat = app.stage.getChildByLabel('heatmap', true);
+  lensAt(250, 150, 10);
+  lensAt(1250, 750, 3);
+  lensAt(700, 450, 1);
+  expect(heat?.visible).toBe(false);
+  view.showHeatmap(true);
+  lensAt(1250, 750, 1);
+  expect(heat?.visible).toBe(true);
+  const shares = cells();
+  expect(shares.filter((v) => v > 0)).toHaveLength(3);
+  // The 16 x 9 grid over the 1600 x 900 scene has 100-unit cells: (250, 150) is column 2, row 1.
+  expect(shares.indexOf(Math.max(...shares))).toBe(1 * 16 + 2);
+  expect(shares[7 * 16 + 12]).toBe(Math.round((4 / 10) * 255));
+
+  view.showHeatmap(false);
+  expect(heat?.visible).toBe(false);
+  view.showHeatmap(true);
+  lensAt(1250, 750, 1);
+  expect(cells().filter((v) => v > 0)).toHaveLength(1);
 });

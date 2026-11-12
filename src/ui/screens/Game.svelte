@@ -171,12 +171,15 @@
     cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     stage.setShot(null);
     stage.setFocus(null);
+    stage.setSeason(chapter.season);
+    stage.showHeatmap(false);
 
     const r = game.startChapter(chapter, flags);
     runner = r;
     r.onPrompt(onPrompt);
     r.onCamera((shot) => stage?.setShot(shot));
     r.onFocus((id) => stage?.setFocus(id));
+    r.onShow(() => stage?.showHeatmap(true));
     // The new verb's line comes at once; the ghost hand waits for 10 s of idle (spec 12.6).
     const hint = verb === null ? undefined : HINTS[verb];
     if (verb !== null && hint !== undefined && chapter.verbs.includes(verb)) {

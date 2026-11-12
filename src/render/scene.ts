@@ -54,12 +54,13 @@ export interface DrawnCreature {
   y: number;
   state: LiteCreature['state'];
   shell: Shell;
+  dancing: boolean;
 }
 
 /**
  * Creature positions between two snapshots, matched by id: `alpha` 0 is `prev`, 1 is `next`.
- * A creature in only one snapshot is drawn where that snapshot has it. State and shell come
- * from the newer snapshot that has the creature.
+ * A creature in only one snapshot is drawn where that snapshot has it. State, shell, and dancing
+ * come from the newer snapshot that has the creature.
  */
 export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: number): DrawnCreature[] {
   const before = new Map(prev.creatures.map((c) => [c.id, c]));
@@ -72,8 +73,10 @@ export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: nu
       y: a.y + (b.y - a.y) * alpha,
       state: b.state,
       shell: b.shell,
+      dancing: b.dancing,
     };
   });
-  for (const a of before.values()) out.push({ id: a.id, x: a.x, y: a.y, state: a.state, shell: a.shell });
+  for (const a of before.values())
+    out.push({ id: a.id, x: a.x, y: a.y, state: a.state, shell: a.shell, dancing: a.dancing });
   return out;
 }

@@ -1,28 +1,28 @@
 import { BufferImageSource, Sprite, Texture } from 'pixi.js';
 import type { WorldLite } from '../../sim-host/protocol.ts';
-import type { Palette } from '../palette.ts';
 
-/** In high contrast the fog never covers lines by more than this, so they stay readable. */
+/** In high contrast a wash never covers lines by more than this, so they stay readable. */
 const HIGH_CONTRAST_MAX_ALPHA = 0.4;
 
 /**
- * The fog grid as a soft wash over the scene (spec 11.3): a fog.w x fog.h alpha texture, one
- * texel per cell, stretched over the scene with linear filtering, so cells blend into a cloud in
- * one draw call. The grid spans `sceneWidth`, so a cell is `sceneWidth / fog.w` wide. The texels
- * are rewritten only when the cells change.
+ * A grid of cells (0..1) as a soft wash over the scene: the fog (spec 11.3), or the heat map. A
+ * fog.w x fog.h alpha texture, one texel per cell, stretched over the scene with linear filtering,
+ * so cells blend into a cloud in one draw call. The grid spans `sceneWidth`, so a cell is
+ * `sceneWidth / fog.w` wide. The texels are rewritten only when the cells change.
  */
-export function createFog(
-  palette: Palette,
+export function createWash(
+  wash: { color: number; alpha: number },
   sceneWidth: number,
+  label = 'fog',
 ): { sprite: Sprite; update(fog: WorldLite['fog'], highContrast: boolean): void } {
-  const sprite = new Sprite();
-  sprite.tint = palette.fog.color;
+  const sprite = new Sprite({ label });
+  sprite.tint = wash.color;
   let source: BufferImageSource | null = null;
   let last = new Float32Array(0);
   return {
     sprite,
     update(fog, highContrast) {
-      sprite.alpha = highContrast ? Math.min(palette.fog.alpha, HIGH_CONTRAST_MAX_ALPHA) : palette.fog.alpha;
+      sprite.alpha = highContrast ? Math.min(wash.alpha, HIGH_CONTRAST_MAX_ALPHA) : wash.alpha;
       sprite.visible = fog.w > 0 && fog.h > 0;
       if (!sprite.visible) return;
       if (fog.cells.length === last.length && fog.cells.every((v, i) => v === last[i])) return;

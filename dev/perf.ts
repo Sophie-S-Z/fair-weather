@@ -84,7 +84,7 @@ function frame(now: number): void {
       if (!b) return;
       const a = prev?.creatures[i] ?? b;
       v.container.position.set((a.x + (b.x - a.x) * t) * WORLD_SCALE, (a.y + (b.y - a.y) * t) * WORLD_SCALE);
-      v.update(b.shell, now / 1000, false);
+      v.update(b.shell, now / 1000, false, 0);
     });
   }
   calls = 0;

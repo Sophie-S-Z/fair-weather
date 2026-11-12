@@ -1,10 +1,10 @@
 import { Container, Graphics, type Application } from 'pixi.js';
-import type { Structure } from '../sim/types.ts';
+import type { Rect, Structure } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
 import { lerpTransform, toScene, viewTransform, type Shot, type ViewTransform } from './camera.ts';
 import type { Cast } from './cast.ts';
-import { createFog } from './effects/fog.ts';
+import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
@@ -33,6 +33,13 @@ const FAR_ALPHA = 0.35;
 const TUFT_ALPHA = 0.5;
 /** High contrast thickens every line by half again, on top of the bold default (spec 11.6). */
 const HIGH_CONTRAST_WIDTH = 1.5;
+/** A dancing creature hops this high, in scene units, once every this many seconds. */
+const HOP_HEIGHT = 7;
+const HOP_SECONDS = 0.5;
+/** The heat map grid over the scene, and the alpha of its most watched cell. */
+const HEAT_COLS = 16;
+const HEAT_ROWS = 9;
+const HEAT_ALPHA = 0.4;
 
 export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
@@ -44,6 +51,10 @@ export interface MeadowView {
   setFocus(id: string | null): void;
   /** A camera shot from the scene's `cameras`, or null for the whole scene. */
   setShot(name: string | null): void;
+  /** Redraws everything in a season's colors. */
+  setPalette(p: Palette): void;
+  /** Shows where the lens stayed this chapter. Turning it off clears the count, for the next chapter. */
+  showHeatmap(on: boolean): void;
 }
 
 /** The area inside a rig's outline, in rig units (loops cut out, as for the body fill). */
@@ -85,6 +96,9 @@ function smoothLine(g: Graphics, p: readonly number[]): Graphics {
 
 const inkStroke = (palette: Palette, width: number, alpha = 1) =>
   ({ color: palette.ink, width, alpha, cap: 'round', join: 'round' }) as const;
+/** Square ends and sharp corners: far fewer vertices than round ones, so a small prop stays in the batch. */
+const plainStroke = (palette: Palette, width: number) =>
+  ({ color: palette.ink, width, cap: 'square', join: 'miter' }) as const;
 
 /** Paper, far hills, and grass tufts: the layer behind everything, in scene units. */
 function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
@@ -185,8 +199,7 @@ function drawTree(g: Graphics, tree: SceneData['trees'][number], palette: Palett
 
 /** One bench: a seat, a back, and two legs, with its feet at (x, y). */
 function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number): void {
-  g.clear()
-    .moveTo(x - 22, y - 10)
+  g.moveTo(x - 22, y - 10)
     .lineTo(x + 22, y - 10)
     .moveTo(x - 20, y - 20)
     .lineTo(x + 20, y - 20)
@@ -198,26 +211,192 @@ function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number
 }
 
 /**
- * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent. It draws
- * snapshots only and never changes the world. Creatures use their own rig, or the villager rig.
- * Creatures, trees, and benches share one layer sorted by base y, so nearer things hide farther
- * ones (spec 11.1 depth). Every body shows its shell color as a muted warm tint (spec 5.2); only
- * the focus creature wears the accent (spec 11.1). Reduced motion stops the boil, the sway, and
- * camera moves; high contrast thickens every line by half again.
+ * Points round a small shape's outline. Pixi gives a circle of radius r about 18 sqrt(r) points,
+ * and a Graphics over 200 vertices cannot batch, so props use plain polygons and stay in the batch.
+ */
+const GLOW_POINTS = 16;
+const DEW_POINTS = 5;
+const CAP_POINTS = 12;
+
+/** A regular polygon of `n` points round (x, y): a cheap circle. */
+function disc(g: Graphics, x: number, y: number, r: number, n: number): Graphics {
+  const p: number[] = [];
+  for (let i = 0; i < n; i++)
+    p.push(x + r * Math.cos((2 * Math.PI * i) / n), y + r * Math.sin((2 * Math.PI * i) / n));
+  return g.poly(p);
+}
+
+/** A lantern's lamp height above its foot, and its glow: rings out to this radius. */
+const LANTERN_HEIGHT = 40;
+const GLOW_RADIUS = 30;
+const GLOW_RINGS = 3;
+
+/** One lantern: a post on a short foot, a lamp at the top, and a small warm glow round the lamp. */
+function drawLantern(g: Graphics, { x, y }: Structure, palette: Palette, w: number): void {
+  const top = y - LANTERN_HEIGHT;
+  const glow = { color: palette.light.color, alpha: (2 * palette.light.alpha) / GLOW_RINGS };
+  for (let i = GLOW_RINGS; i >= 1; i--)
+    disc(g, x, top, (GLOW_RADIUS * i) / GLOW_RINGS, GLOW_POINTS).fill(glow);
+  g.moveTo(x - 9, y)
+    .lineTo(x + 9, y)
+    .moveTo(x, y)
+    .lineTo(x, top + 8)
+    .stroke(plainStroke(palette, w));
+  g.rect(x - 7, top - 8, 14, 16)
+    .fill(palette.light.color)
+    .stroke(plainStroke(palette, w * 0.8));
+}
+
+/** How far a bridge reaches past each bank, and half its deck's width. */
+const BRIDGE_REACH = 14;
+const BRIDGE_HALF = 16;
+/** Planks are this far apart along the deck. */
+const PLANK_STEP = 12;
+/** Ripple marks sit about this far apart on the water, each this wide. */
+const RIPPLE_STEP = 90;
+const RIPPLE_WIDTH = 22;
+
+/** One ripple mark, a small wave, centered at (x, y). */
+function drawRipple(g: Graphics, x: number, y: number): void {
+  const h = RIPPLE_WIDTH / 2;
+  g.moveTo(x - h, y)
+    .quadraticCurveTo(x - h / 2, y - 5, x, y)
+    .quadraticCurveTo(x + h / 2, y + 5, x + h, y);
+}
+
+/**
+ * A bridge: a paper deck with ink rails and planks across the water rectangle it stands in, the
+ * short way, reaching a little onto each bank.
+ */
+function drawBridge(g: Graphics, { x, y }: Structure, r: Rect, palette: Palette, w: number): void {
+  // A tall rectangle (a brook running north to south) is crossed east to west.
+  const eastWest = r.w <= r.h;
+  const [from, to] = eastWest ? [r.x, r.x + r.w] : [r.y, r.y + r.h];
+  const at = (u: number, v: number): [number, number] => (eastWest ? [u, y + v] : [x + v, u]);
+  const a = from - BRIDGE_REACH;
+  const b = to + BRIDGE_REACH;
+  g.poly([...at(a, -BRIDGE_HALF), ...at(b, -BRIDGE_HALF), ...at(b, BRIDGE_HALF), ...at(a, BRIDGE_HALF)])
+    .fill(palette.paper)
+    .stroke(inkStroke(palette, w));
+  for (let u = a + PLANK_STEP; u < b - PLANK_STEP / 2; u += PLANK_STEP) {
+    g.moveTo(...at(u, -BRIDGE_HALF)).lineTo(...at(u, BRIDGE_HALF));
+  }
+  g.stroke(inkStroke(palette, w * 0.5, TUFT_ALPHA));
+}
+
+const inRect = (r: Rect, x: number, y: number): boolean =>
+  x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+/**
+ * The water and the bridges over it: flat on the ground, under everything that stands. Each
+ * rectangle is outlined at twice the line width and then filled, so where rectangles meet their
+ * outlines are covered and one bank line runs round the whole water.
+ */
+function drawLand(
+  g: Graphics,
+  water: readonly Rect[],
+  bridges: Structure[],
+  palette: Palette,
+  w: number,
+): void {
+  g.clear();
+  for (const r of water) g.rect(r.x, r.y, r.w, r.h).stroke(inkStroke(palette, 2 * w));
+  for (const r of water) g.rect(r.x, r.y, r.w, r.h).fill(palette.water);
+  for (const r of water) {
+    const cols = Math.max(1, Math.round(r.w / RIPPLE_STEP));
+    const rows = Math.max(1, Math.round(r.h / RIPPLE_STEP));
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++)
+        drawRipple(g, r.x + ((i + 0.5) * r.w) / cols, r.y + ((j + 0.5) * r.h) / rows);
+    }
+  }
+  g.stroke(inkStroke(palette, w * 0.6, FAR_ALPHA));
+  for (const s of bridges) {
+    const r = water.find((rect) => inRect(rect, s.x, s.y));
+    if (r) drawBridge(g, s, r, palette, w);
+  }
+}
+
+/** The mushroom's cap radius, stem size, and the spacing and radius of its dew dots. */
+const CAP_RADIUS = 30;
+const STEM_WIDTH = 14;
+const STEM_HEIGHT = 18;
+const DEW_STEP = 7;
+const DEW_RADIUS = 3;
+
+/** Dew is the water color, deepened toward ink so it shows on the cap. */
+export const dewColor = (palette: Palette): number => bodyColor(palette.water, palette.ink, DEW_DEPTH);
+const DEW_DEPTH = 0.45;
+
+/** Dew spots on the cap, in rows from the rim up, as offsets from the cap's center: room for 25. */
+const DEW_SPOTS: [number, number][] = [];
+for (let dy = 4; dy < CAP_RADIUS - 2; dy += DEW_STEP) {
+  const half = Math.sqrt(CAP_RADIUS * CAP_RADIUS - dy * dy) - 4;
+  const n = Math.floor((2 * half) / DEW_STEP) + 1;
+  for (let i = 0; i < n; i++) DEW_SPOTS.push([(i - (n - 1) / 2) * DEW_STEP, -dy]);
+}
+
+/** The dew mushroom: a stem, a round cap, and one blue dot on the cap per drop left today. */
+function drawMushroom(
+  g: Graphics,
+  m: { x: number; y: number; drops: number },
+  palette: Palette,
+  w: number,
+): void {
+  const capY = m.y - STEM_HEIGHT;
+  g.clear()
+    .rect(m.x - STEM_WIDTH / 2, capY - 2, STEM_WIDTH, STEM_HEIGHT + 2)
+    .fill(palette.paper)
+    .stroke(plainStroke(palette, w));
+  const cap: number[] = [];
+  for (let i = 0; i <= CAP_POINTS; i++) {
+    const a = Math.PI + (Math.PI * i) / CAP_POINTS;
+    cap.push(m.x + CAP_RADIUS * Math.cos(a), capY + CAP_RADIUS * Math.sin(a));
+  }
+  g.poly(cap).fill(palette.warmth).stroke(plainStroke(palette, w));
+  const dew = dewColor(palette);
+  for (const [dx, dy] of DEW_SPOTS.slice(0, m.drops))
+    disc(g, m.x + dx, capY + dy, DEW_RADIUS, DEW_POINTS).fill(dew);
+}
+
+/** The fog over (x, y), from the fog grid that spans `width` scene units. */
+function fogAt(fog: WorldLite['fog'], width: number, x: number, y: number): number {
+  if (fog.w === 0 || fog.h === 0) return 0;
+  const cell = width / fog.w;
+  const col = Math.min(fog.w - 1, Math.max(0, Math.floor(x / cell)));
+  const row = Math.min(fog.h - 1, Math.max(0, Math.floor(y / cell)));
+  return fog.cells[row * fog.w + col] ?? 0;
+}
+
+/**
+ * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent, in the season's
+ * palette. It draws snapshots only and never changes the world. Creatures use their own rig, or
+ * the villager rig. Water and bridges lie flat on the ground. Creatures, trees, benches, lanterns,
+ * and the mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
+ * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
+ * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
+ * one hops. The heat map counts the lens center over a 16 x 9 grid in every new snapshot and shows
+ * each cell's share of the most watched cell as an ink wash. Reduced motion stops the boil, the
+ * sway, the hop, and camera moves; high contrast thickens every line by half again.
  */
 export function createMeadowView(
   app: Application,
   scene: SceneData,
   rigs: Map<string, Rig>,
-  palette: Palette,
+  firstPalette: Palette,
   options: { lensRadius: number; cast: Map<string, Cast> },
 ): MeadowView {
+  let palette = firstPalette;
   const world = new Container();
-  const ground = new Graphics();
+  const ground = new Graphics({ label: 'ground' });
+  const land = new Graphics({ label: 'land' });
   const actors = new Container({ sortableChildren: true });
-  const light = createLight(palette, options.lensRadius);
-  const fog = createFog(palette, scene.width);
-  world.addChild(ground, light.graphics, actors, fog.sprite);
+  let light = createLight(palette, options.lensRadius);
+  let fog = createWash(palette.fog, scene.width);
+  let heat = createWash({ color: palette.ink, alpha: HEAT_ALPHA }, scene.width, 'heatmap');
+  let heatShown = false;
+  heat.sprite.visible = false;
+  world.addChild(ground, land, light.graphics, actors, fog.sprite, heat.sprite);
   app.stage.addChild(world);
 
   const trees = scene.trees.map((tree) => {
@@ -225,9 +404,13 @@ export function createMeadowView(
     actors.addChild(g);
     return { tree, g };
   });
-  const benches = new Map<string, Graphics>();
+  /** Benches and lanterns, by structure id. Bridges are drawn with the water. */
+  const props = new Map<string, Graphics>();
+  const mushroom = new Graphics({ label: 'mushroom', visible: false });
+  actors.addChild(mushroom);
+  let landKey = '';
+  let mushroomKey = '';
 
-  const colors = { ink: palette.ink, accent: palette.accent, paper: palette.paper };
   const villager = rigs.get(VILLAGER_RIG);
   const villagerArea = villager ? rigArea(villager) : 1;
   const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number }>();
@@ -236,12 +419,15 @@ export function createMeadowView(
   let focus: string | null = null;
   let shot: string | null = null;
   let lineWidth = 0;
+  const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
+  let counted: WorldLite | null = null;
 
   function viewFor(id: string): { view: ReturnType<typeof createLineView>; height: number } | undefined {
     let entry = views.get(id);
     const rig = rigs.get(id) ?? villager;
     if (!entry && rig) {
       const height = bodyHeight(rig, villagerArea, options.cast.get(id)?.scale ?? 1);
+      const colors = { ink: palette.ink, accent: palette.accent, paper: palette.paper };
       entry = { view: createLineView(rig, colors, height), height };
       entry.view.container.label = id;
       views.set(id, entry);
@@ -258,6 +444,24 @@ export function createMeadowView(
     return c ? { x: c.x, y: c.y - c.height / 2, zoom: s.zoom } : undefined;
   }
 
+  /** Each cell's share of the most watched cell's count, as a wash. */
+  function drawHeat(): void {
+    const most = Math.max(1, ...heatCounts);
+    const cells = Float32Array.from(heatCounts, (n) => n / most);
+    heat.update({ w: HEAT_COLS, h: HEAT_ROWS, cells }, false);
+  }
+
+  /** Counts the lens center of a snapshot not counted yet. */
+  function countLens(next: WorldLite): void {
+    if (next === counted) return;
+    counted = next;
+    if (!next.light) return;
+    const col = Math.min(HEAT_COLS - 1, Math.max(0, Math.floor((next.light.x / scene.width) * HEAT_COLS)));
+    const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor((next.light.y / scene.height) * HEAT_ROWS)));
+    heatCounts[row * HEAT_COLS + col] = (heatCounts[row * HEAT_COLS + col] ?? 0) + 1;
+    if (heatShown) drawHeat();
+  }
+
   return {
     update(prev, next, alpha, settings) {
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
@@ -269,18 +473,43 @@ export function createMeadowView(
         lineWidth = w;
         drawGround(ground, scene, palette, w);
         for (const { tree, g } of trees) drawTree(g, tree, palette, w);
-        for (const g of benches.values()) g.destroy();
-        benches.clear();
+        for (const g of props.values()) g.destroy();
+        props.clear();
+        landKey = mushroomKey = '';
       }
+      const bridges = next.structures.filter((s) => s.kind === 'bridge');
+      const key = JSON.stringify([next.water, bridges]);
+      if (key !== landKey) {
+        landKey = key;
+        drawLand(land, next.water, bridges, palette, w);
+      }
+      const standing = new Set<string>();
       for (const s of next.structures) {
-        if (benches.has(s.id)) continue;
+        if (s.kind === 'bridge') continue;
+        standing.add(s.id);
+        if (props.has(s.id)) continue;
         const g = new Graphics({ label: s.id, zIndex: s.y });
-        drawBench(g, s, palette, w);
-        benches.set(s.id, g);
+        if (s.kind === 'lantern') drawLantern(g, s, palette, w);
+        else drawBench(g, s, palette, w);
+        props.set(s.id, g);
         actors.addChild(g);
+      }
+      // A structure from an earlier chapter that this one does not have.
+      for (const [id, g] of props) {
+        if (standing.has(id)) continue;
+        g.destroy();
+        props.delete(id);
+      }
+      const m = next.mushroom;
+      mushroom.visible = m !== null;
+      if (m && `${String(m.x)},${String(m.y)},${String(m.drops)}` !== mushroomKey) {
+        mushroomKey = `${String(m.x)},${String(m.y)},${String(m.drops)}`;
+        drawMushroom(mushroom, m, palette, w);
+        mushroom.zIndex = m.y;
       }
       light.update(next.light);
       fog.update(next.fog, settings.highContrast);
+      countLens(next);
 
       drawn = [];
       for (const { view } of views.values()) view.container.visible = false;
@@ -290,7 +519,10 @@ export function createMeadowView(
         drawn.push({ ...c, height: entry.height });
         const { container } = entry.view;
         container.visible = true;
-        container.position.set(c.x, c.y);
+        // Dancers hop together.
+        const hop =
+          c.dancing && motion ? HOP_HEIGHT * Math.abs(Math.sin((Math.PI * seconds) / HOP_SECONDS)) : 0;
+        container.position.set(c.x, c.y - hop);
         container.zIndex = c.y;
         // Creatures in a meeting sway in time (spec 11.1 harmony); the rest sway out of step.
         const phase = c.state === 'meet' ? 0 : phaseOf(c.id);
@@ -301,7 +533,8 @@ export function createMeadowView(
           c.id === focus
             ? bodyColor(palette.paper, palette.accent, FOCUS_MIX + FOCUS_MIX_COLOR * c.shell.color)
             : bodyColor(palette.paper, palette.warmth, c.shell.color);
-        entry.view.update(c.shell, seconds, settings.reducedMotion, { body, widthScale });
+        const fogHere = fogAt(next.fog, scene.width, c.x, c.y - entry.height / 2);
+        entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
 
       const target = viewTransform(scene.width, scene.height, app.screen.width, app.screen.height, framing());
@@ -333,6 +566,34 @@ export function createMeadowView(
     },
     setShot(name) {
       shot = name;
+    },
+    setPalette(p) {
+      if (p === palette) return;
+      palette = p;
+      // The next update redraws the scenery; creatures get new views in the new ink.
+      lineWidth = 0;
+      for (const { view } of views.values()) view.container.destroy({ children: true });
+      views.clear();
+      const oldLight = light.graphics;
+      light = createLight(p, options.lensRadius);
+      world.addChildAt(light.graphics, world.getChildIndex(oldLight));
+      oldLight.destroy();
+      const oldFog = fog.sprite;
+      fog = createWash(p.fog, scene.width);
+      world.addChildAt(fog.sprite, world.getChildIndex(oldFog));
+      oldFog.destroy({ texture: true, textureSource: true });
+      const oldHeat = heat.sprite;
+      heat = createWash({ color: p.ink, alpha: HEAT_ALPHA }, scene.width, 'heatmap');
+      world.addChildAt(heat.sprite, world.getChildIndex(oldHeat));
+      oldHeat.destroy({ texture: true, textureSource: true });
+      heat.sprite.visible = false;
+      if (heatShown) drawHeat();
+    },
+    showHeatmap(on) {
+      heatShown = on;
+      if (!on) heatCounts.fill(0);
+      if (on) drawHeat();
+      else heat.sprite.visible = false;
     },
   };
 }

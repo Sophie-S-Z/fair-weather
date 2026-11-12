@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
 import { RIG_POINTS, RigSchema } from '../../../src/render/line/rig.ts';
-import { buildStrip, taperedWidth } from '../../../src/render/line/strip.ts';
+import { buildStrip, dashMask, taperedWidth } from '../../../src/render/line/strip.ts';
 
 const rig = RigSchema.parse(pimJson);
 
@@ -31,5 +31,19 @@ describe('taperedWidth', () => {
     expect(w(6)).toBe(1);
     expect(w(64)).toBe(1);
     expect(w(RIG_POINTS - 7)).toBe(1);
+  });
+});
+
+describe('dashMask', () => {
+  it('keeps every point under light fog', () => {
+    for (let i = 0; i < RIG_POINTS; i++) expect(dashMask(i, 0.2)).toBe(1);
+  });
+
+  it('breaks the line into runs that shorten as the fog thickens', () => {
+    const at = (fog: number, n: number): number[] => Array.from({ length: n }, (_, i) => dashMask(i, fog));
+    expect(at(0.5, 18)).toEqual([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
+    // Runs never drop below 2 points.
+    expect(at(1, 6)).toEqual([1, 1, 0, 0, 1, 1]);
+    expect(at(0.25, 10).filter((m) => m === 1)).toHaveLength(9);
   });
 });

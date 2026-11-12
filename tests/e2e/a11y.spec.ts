@@ -60,6 +60,29 @@ test('the game screen with a bet open has no serious axe issues', async ({ page 
   expect(await seriousViolations(page)).toEqual([]);
 });
 
+test('the whisper card has no serious axe issues, takes focus, and Escape cancels it', async ({ page }) => {
+  // ch5 (index 7) teaches whisper; Tab picks a creature once the first snapshot is in (the first line).
+  await page.goto('/?chapter=7');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  await expect(page.locator('[aria-live="polite"]')).toContainText('Late summer');
+  const picked = page.getByRole('status').filter({ hasText: /^Picked: / });
+  for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  const card = page.getByRole('dialog', { name: 'Whisper about whom?' });
+  await expect(card).toBeVisible();
+  await expect(card.getByRole('button').first()).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await card.getByRole('button').first().click();
+  await expect(card.getByRole('button', { name: 'Unkind' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Kind', exact: true })).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(card).toBeHidden();
+  await expect(scene).toBeFocused();
+});
+
 test('the game screen in high contrast has no serious axe issues', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).click();

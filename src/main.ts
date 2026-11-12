@@ -29,7 +29,7 @@ import { createHints } from './input/hints.ts';
 import { createKeyboard } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
-import type { ViewName } from './input/zoom.ts';
+import { nextView, type ViewName } from './input/zoom.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView } from './render/cosmos-view.ts';
@@ -232,6 +232,7 @@ const yearLog: YearLog = [];
 const game: GameService = {
   chapters,
   defaultFlags: parseFlags(flagsJson),
+  friendThreshold: tuning.friend.threshold,
   firstChapter,
   async createStage(el) {
     const app = new Application();
@@ -414,6 +415,7 @@ const game: GameService = {
     createHints: () => createHints(),
     createOverPoke: () =>
       createOverPoke(tuning.overPoke.windowSeconds, tuning.overPoke.count, () => performance.now()),
+    nextView,
   },
 };
 

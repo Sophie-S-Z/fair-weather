@@ -3,19 +3,22 @@ import { createKeyboard, type InputContext } from '../../../src/input/keyboard.t
 import { createHints, type HintTimer } from '../../../src/input/hints.ts';
 import { createOverPoke } from '../../../src/input/over-poke.ts';
 import { createPointer } from '../../../src/input/pointer.ts';
-import { keyboardTools } from '../../../src/input/verbs.ts';
+import { keyboardTools, snapToWater } from '../../../src/input/verbs.ts';
 import type { BidReply } from '../../../src/sim/types.ts';
 import type { Verb, VerbInput } from '../../../src/story/verbs.ts';
 
-function setup(over: Partial<InputContext> = {}) {
-  const t = new EventTarget();
+/** A context whose writes land in the returned logs. */
+function context(over: Partial<InputContext> = {}) {
   const acts: VerbInput[] = [];
   const sel: (string | null)[] = [];
+  const zooms: ('in' | 'out')[] = [];
+  const whispers: string[] = [];
   let cursor = { x: 100, y: 100 };
   let paused = 0;
   let tool: Verb | null = null;
   let reply: BidReply = 'toward';
   let picked: string | null = null;
+  let threadFrom: string | null = null;
   const ctx: InputContext = {
     tools: () => ['wake', 'respond', 'place'],
     creatures: () => [
@@ -44,17 +47,41 @@ function setup(over: Partial<InputContext> = {}) {
       sel.push(id);
     },
     moveCursor: (p) => (cursor = p),
+    placeKind: () => 'bench',
+    view: () => 'meadow',
+    zoom: (dir) => zooms.push(dir),
+    water: () => [],
+    isFriend: (a, b) => (a === 'a' && b === 'c') || (a === 'c' && b === 'a'),
+    threadFrom: () => threadFrom,
+    setThreadFrom: (id) => (threadFrom = id),
+    openWhisper: (target) => whispers.push(target),
     ...over,
   };
-  const dispose = createKeyboard(t, ctx);
+  return {
+    ctx,
+    acts,
+    sel,
+    zooms,
+    whispers,
+    cursor: () => cursor,
+    paused: () => paused,
+    reply: () => reply,
+    threadFrom: () => threadFrom,
+  };
+}
+
+function setup(over: Partial<InputContext> = {}) {
+  const t = new EventTarget();
+  const c = context(over);
+  const dispose = createKeyboard(t, c.ctx);
   const press = (key: string, init: Record<string, unknown> = {}) => {
     const { target, ...rest } = init;
-    const e = Object.assign(new Event('keydown', { cancelable: true }), { key, ...rest });
+    const e = Object.assign(new Event('keydown', { cancelable: true }), { key, shiftKey: false, ...rest });
     if (target !== undefined) Object.defineProperty(e, 'target', { value: target });
     t.dispatchEvent(e);
     return e;
   };
-  return { press, acts, sel, dispose, cursor: () => cursor, paused: () => paused, reply: () => reply, t };
+  return { ...c, press, dispose, t };
 }
 
 describe('keyboard', () => {
@@ -101,12 +128,11 @@ describe('keyboard', () => {
     s.press('Tab');
     expect(s.sel).toEqual([]);
   });
-  it('keyboardTools keeps the world verbs only, at most three', () => {
+  it('keyboardTools keeps the world verbs only', () => {
     expect(keyboardTools(['wake', 'bet', 'peek', 'zoom', 'listen', 'rewind', 'place'])).toEqual([
       'wake',
       'place',
     ]);
-    expect(keyboardTools(['wake', 'respond', 'place', 'shine'])).toEqual(['wake', 'respond', 'place']);
   });
   it('never offers bet as a keyboard tool', () => {
     const s = setup({ tools: () => ['wake', 'bet'] });
@@ -179,48 +205,271 @@ describe('keyboard extras', () => {
   });
 });
 
+describe('Part 1 tools by keyboard', () => {
+  const WATER = [{ x: 700, y: 200, w: 100, h: 300 }];
+  it('Z zooms out and X in only while zoom is unlocked', () => {
+    const locked = setup();
+    locked.press('z');
+    locked.press('x');
+    expect(locked.zooms).toEqual([]);
+    const s = setup({ tools: () => ['wake', 'zoom'] });
+    s.press('z');
+    s.press('X');
+    expect(s.zooms).toEqual(['out', 'in']);
+  });
+  it('shine and fog act at the cursor; Shift+Enter clears fog', () => {
+    const s = setup({ tools: () => ['shine', 'fog'] });
+    s.press('Enter');
+    s.press('2');
+    s.press('Enter');
+    s.press('Enter', { shiftKey: true });
+    expect(s.acts).toEqual([
+      { verb: 'shine', x: 100, y: 100 },
+      { verb: 'fog', x: 100, y: 100, clear: false },
+      { verb: 'fog', x: 100, y: 100, clear: true },
+    ]);
+  });
+  it('blow gusts 300 units east before any arrow, then in the last arrow direction', () => {
+    const s = setup({ tools: () => ['blow'] });
+    s.press('Enter');
+    s.press('ArrowUp');
+    s.press('Enter');
+    s.press('ArrowLeft');
+    s.press('Enter');
+    expect(s.acts).toEqual([
+      { verb: 'blow', x: 100, y: 100, dx: 300, dy: 0 },
+      { verb: 'blow', x: 100, y: 80, dx: 0, dy: -300 },
+      { verb: 'blow', x: 80, y: 80, dx: -300, dy: 0 },
+    ]);
+  });
+  it('place sets a lantern at the cursor, and a bridge into the nearest water or not at all', () => {
+    const lantern = setup({ tools: () => ['place'], placeKind: () => 'lantern' });
+    lantern.press('Enter');
+    expect(lantern.acts).toEqual([{ verb: 'place', x: 100, y: 100 }]);
+    const dry = setup({ tools: () => ['place'], placeKind: () => 'bridge' });
+    dry.press('Enter');
+    expect(dry.acts).toEqual([]);
+    const wet = setup({ tools: () => ['place'], placeKind: () => 'bridge', water: () => WATER });
+    wet.press('Enter');
+    expect(wet.acts).toEqual([{ verb: 'place', x: 700, y: 200 }]);
+  });
+  it('whisper opens the card for the picked creature, and nothing with none picked', () => {
+    const s = setup({ tools: () => ['whisper'] });
+    s.press('Enter');
+    s.press('Tab');
+    expect(s.press('Enter').defaultPrevented).toBe(true);
+    expect(s.whispers).toEqual(['a']);
+    expect(s.acts).toEqual([]);
+  });
+  it('thread marks the picked creature; Enter on another ties or cuts by friendship', () => {
+    const s = setup({ tools: () => ['thread'] });
+    s.press('Tab'); // a
+    s.press('Enter');
+    expect(s.threadFrom()).toBe('a');
+    s.press('Enter'); // the same creature again: nothing
+    s.press('Tab'); // c, a friend of a
+    s.press('Enter');
+    expect(s.threadFrom()).toBeNull();
+    s.press('Enter'); // marks c
+    s.press('Tab'); // a
+    s.press('Enter');
+    expect(s.acts).toEqual([
+      { verb: 'thread', a: 'a', b: 'c', on: false },
+      { verb: 'thread', a: 'c', b: 'a', on: false },
+    ]);
+  });
+  it('thread ties creatures that are not friends', () => {
+    const s = setup({ tools: () => ['thread'], isFriend: () => false });
+    s.press('Tab');
+    s.press('Enter');
+    s.press('Tab');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'thread', a: 'a', b: 'c', on: true }]);
+  });
+  it('Escape clears the thread mark and claims the key only then', () => {
+    const s = setup({ tools: () => ['thread'] });
+    expect(s.press('Escape').defaultPrevented).toBe(false);
+    s.press('Tab');
+    s.press('Enter');
+    expect(s.press('Escape').defaultPrevented).toBe(true);
+    expect(s.threadFrom()).toBeNull();
+    s.press('Tab');
+    s.press('Enter');
+    expect(s.acts).toEqual([]);
+  });
+  it('snapToWater clamps into the nearest rectangle, and is null with none', () => {
+    const two = [...WATER, { x: 0, y: 0, w: 50, h: 50 }];
+    expect(snapToWater({ x: 750, y: 600 }, two)).toEqual({ x: 750, y: 500 });
+    expect(snapToWater({ x: 60, y: 10 }, two)).toEqual({ x: 50, y: 10 });
+    expect(snapToWater({ x: 720, y: 300 }, two)).toEqual({ x: 720, y: 300 });
+    expect(snapToWater({ x: 1, y: 1 }, [])).toBeNull();
+  });
+});
+
 describe('pointer', () => {
-  function mk(tool: Verb | null) {
+  /** Node positions by client point; `pick` snaps to whichever is within 10 pixels. */
+  const A = { x: 10, y: 10 };
+  const B = { x: 200, y: 10 };
+  const C = { x: 100, y: 100 };
+  const NODES = Object.entries({ a: A, b: B, c: C });
+  function mk(tool: Verb, over: Partial<InputContext> = {}) {
     const t = new EventTarget();
-    const acts: VerbInput[] = [];
-    const sel: (string | null)[] = [];
-    const off = createPointer(
-      t,
-      () => ({ creature: 'a' }),
-      (x, y) => ({ x: x * 2, y: y * 2 }),
-      {
-        select: (i) => sel.push(i),
-        act: (v) => acts.push(v),
-        tool: () => tool,
-        benchSpots: () => [
-          { id: 'one', x: 600, y: 430 },
-          { id: 'two', x: 1050, y: 300 },
-        ],
-      },
-    );
-    const down = (x = 1, y = 2) =>
-      t.dispatchEvent(Object.assign(new Event('pointerdown'), { button: 0, clientX: x, clientY: y }));
-    return { acts, sel, off, down };
+    const c = context({ tools: () => [tool, 'zoom'], ...over });
+    c.ctx.setTool(tool);
+    const pick = (x: number, y: number) => ({
+      creature: NODES.find(([, n]) => Math.hypot(n.x - x, n.y - y) <= 10)?.[0] ?? null,
+    });
+    const off = createPointer(t, pick, (x, y) => ({ x: x * 2, y: y * 2 }), c.ctx);
+    const fire = (type: string, init: Record<string, unknown>) => {
+      const e = Object.assign(new Event(type, { cancelable: true }), {
+        button: 0,
+        pointerId: 1,
+        isPrimary: true,
+        shiftKey: false,
+        ...init,
+      });
+      t.dispatchEvent(e);
+      return e;
+    };
+    const down = (x: number, y: number, id = 1) =>
+      fire('pointerdown', { clientX: x, clientY: y, pointerId: id, isPrimary: id === 1 });
+    const move = (x: number, y: number, id = 1) =>
+      fire('pointermove', { clientX: x, clientY: y, pointerId: id, isPrimary: id === 1 });
+    const up = (x: number, y: number, id = 1, shiftKey = false) =>
+      fire('pointerup', { clientX: x, clientY: y, pointerId: id, isPrimary: id === 1, shiftKey });
+    const click = (x: number, y: number) => {
+      down(x, y);
+      up(x, y);
+    };
+    const drag = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      down(from.x, from.y);
+      move(to.x, to.y);
+      up(to.x, to.y);
+    };
+    const wheel = (deltaY: number, timeStamp: number) => {
+      const e = Object.assign(new Event('wheel', { cancelable: true }), { deltaY });
+      Object.defineProperty(e, 'timeStamp', { value: timeStamp });
+      t.dispatchEvent(e);
+      return e;
+    };
+    return { ...c, off, down, move, up, click, drag, wheel };
   }
-  it('selects and wakes through pick', () => {
+
+  it('a click selects and wakes through pick; dispose removes the listeners', () => {
     const m = mk('wake');
-    m.down();
+    m.click(10, 12);
     expect(m.sel).toEqual(['a']);
     expect(m.acts).toEqual([{ verb: 'wake', who: 'a' }]);
     m.off();
-    m.down();
+    m.click(10, 12);
     expect(m.acts.length).toBe(1);
   });
-  it('place snaps the clicked scene point to the nearest bench', () => {
+  it('a click with place snaps the scene point to the nearest bench, and moves the cursor there', () => {
     const m = mk('place');
-    m.down(500, 200);
-    m.down(520, 140);
+    m.click(500, 200);
+    m.click(280, 200);
     expect(m.acts).toEqual([
       { verb: 'place', x: 1050, y: 300 },
-      { verb: 'place', x: 1050, y: 300 },
+      { verb: 'place', x: 600, y: 430 },
     ]);
-    m.down(280, 200);
-    expect(m.acts[2]).toEqual({ verb: 'place', x: 600, y: 430 });
+    expect(m.cursor()).toEqual({ x: 560, y: 400 });
+  });
+  it('a click acts as Enter at its scene point: shine, fog (Shift clears), a gust east', () => {
+    const shine = mk('shine');
+    shine.click(30, 40);
+    const fog = mk('fog');
+    fog.down(30, 40);
+    fog.up(30, 40, 1, true);
+    const blow = mk('blow');
+    blow.click(30, 40);
+    expect([...shine.acts, ...fog.acts, ...blow.acts]).toEqual([
+      { verb: 'shine', x: 60, y: 80 },
+      { verb: 'fog', x: 60, y: 80, clear: true },
+      { verb: 'blow', x: 60, y: 80, dx: 300, dy: 0 },
+    ]);
+  });
+  it('a click with whisper opens the card for the creature it picks', () => {
+    const m = mk('whisper');
+    m.click(100, 100);
+    expect(m.whispers).toEqual(['c']);
+  });
+  it('a blow drag of 40 pixels or more sends the drag as the gust; a shorter one is a click', () => {
+    const m = mk('blow');
+    m.drag({ x: 10, y: 50 }, { x: 34, y: 82 }); // 40 pixels
+    m.drag({ x: 10, y: 50 }, { x: 30, y: 50 }); // 20 pixels: a click at its end
+    expect(m.acts).toEqual([
+      { verb: 'blow', x: 20, y: 100, dx: 48, dy: 64 },
+      { verb: 'blow', x: 60, y: 100, dx: 300, dy: 0 },
+    ]);
+  });
+  it('a thread drag in Cosmos from node to node cuts a friendship or ties strangers', () => {
+    const m = mk('thread', { view: () => 'cosmos' });
+    m.drag(A, { x: 105, y: 95 });
+    const strangers = mk('thread', { view: () => 'cosmos', isFriend: () => false });
+    strangers.drag(C, { x: 12, y: 8 });
+    expect([...m.acts, ...strangers.acts]).toEqual([
+      { verb: 'thread', a: 'a', b: 'c', on: false },
+      { verb: 'thread', a: 'c', b: 'a', on: true },
+    ]);
+  });
+  it('a thread drag ending on its start, on no node, or on an away creature sends nothing', () => {
+    const m = mk('thread', { view: () => 'cosmos' });
+    m.drag(A, { x: 4, y: 4 });
+    m.drag(A, { x: 60, y: 60 });
+    m.drag(C, B); // b is away
+    m.drag(B, C);
+    expect(m.acts).toEqual([]);
+  });
+  it('a thread drag in the Meadow sends nothing; clicks there mark and then thread', () => {
+    const m = mk('thread');
+    m.drag(A, C);
+    expect(m.acts).toEqual([]);
+    m.click(10, 10);
+    m.click(100, 100);
+    expect(m.acts).toEqual([{ verb: 'thread', a: 'a', b: 'c', on: false }]);
+  });
+  it('the wheel zooms one step per 300 ms, and not while zoom is locked', () => {
+    const m = mk('wake');
+    expect(m.wheel(100, 1000).defaultPrevented).toBe(true);
+    m.wheel(100, 1100);
+    m.wheel(-100, 1299);
+    m.wheel(-100, 1300);
+    expect(m.zooms).toEqual(['out', 'in']);
+    const locked = mk('wake', { tools: () => ['wake'] });
+    expect(locked.wheel(100, 1000).defaultPrevented).toBe(false);
+    expect(locked.zooms).toEqual([]);
+  });
+  it('a two-pointer spread zooms in once and a pinch zooms out once per gesture, and neither clicks', () => {
+    const m = mk('wake');
+    m.down(100, 100, 1);
+    m.down(200, 100, 2); // 100 apart
+    m.move(230, 100, 2); // 1.3
+    m.move(300, 100, 2); // 2.0: the same gesture
+    m.up(300, 100, 2);
+    m.up(100, 100, 1);
+    m.down(100, 100, 1);
+    m.down(200, 100, 2);
+    m.move(170, 100, 2); // 0.7
+    m.move(120, 100, 2);
+    m.up(120, 100, 2);
+    m.up(100, 100, 1);
+    expect(m.zooms).toEqual(['in', 'out']);
+    expect(m.sel).toEqual([]);
+    expect(m.acts).toEqual([]);
+  });
+  it('a spread between 0.8 and 1.25 times does not zoom', () => {
+    const m = mk('wake');
+    m.down(100, 100, 1);
+    m.down(200, 100, 2);
+    m.move(224, 100, 2);
+    m.move(181, 100, 2);
+    expect(m.zooms).toEqual([]);
+  });
+  it('a primary pointer down forgets a pointer whose up was lost', () => {
+    const m = mk('wake');
+    m.down(100, 100, 2); // its up lands outside the target
+    m.click(10, 10);
+    expect(m.acts).toEqual([{ verb: 'wake', who: 'a' }]);
   });
 });
 

@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import type { Writable } from 'svelte/store';
+  import type { InputContext } from '../../input/keyboard.ts';
   import type { BenchSpot } from '../../input/verbs.ts';
+  import type { ViewName } from '../../input/zoom.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
   import type { BidReply } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
   import { displayName } from '../../story/names.ts';
-  import { WORLD_VERBS } from '../../story/verbs.ts';
+  import { VERBS, WORLD_VERBS } from '../../story/verbs.ts';
   import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
@@ -17,6 +19,7 @@
   import Drawer from '../components/Drawer.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import ToolTray from '../components/ToolTray.svelte';
+  import WhisperCard from '../components/WhisperCard.svelte';
 
   let {
     game,
@@ -26,13 +29,27 @@
   }: { game: GameService; settings: Writable<Settings>; resume: boolean; onExit: () => void } = $props();
 
   /**
-   * One line of prompt text per new verb (spec 12.6). The bet card is its own prompt; a verb with
-   * no line here gets none.
+   * The verbs with a line of prompt text when new (spec 12.6): each tray verb, also when a chapter
+   * brings two, and zoom. The bet card is its own prompt.
    */
-  const HINTS: Partial<Record<Verb, string>> = {
+  const HINT_VERBS = [...WORLD_VERBS, 'zoom'] as const;
+  const HINTS: Record<(typeof HINT_VERBS)[number], string> = {
     wake: '[PLACEHOLDER] Pick a sleeper with Tab or a click, then press Enter to wake it.',
     respond: '[PLACEHOLDER] When Pim waves, press G, H, or R, then Enter to answer the sky.',
     place: '[PLACEHOLDER] Choose a spot with the arrow keys or a click, then press Enter to set a bench.',
+    shine:
+      '[PLACEHOLDER] Move the spot with the arrow keys or a click, then press Enter to shine the sun there.',
+    whisper: '[PLACEHOLDER] Pick a creature, then press Enter to whisper to it about another.',
+    thread:
+      '[PLACEHOLDER] Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
+    fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
+    blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
+    zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
+  };
+  const VIEW_NAMES: Record<ViewName, string> = {
+    meadow: 'The meadow',
+    cosmos: 'The Cosmos: who is friends with whom',
+    soul: 'The Soul view',
   };
   const STATES: Record<string, string> = {
     sleep: 'asleep',
@@ -53,6 +70,8 @@
   let tool: Verb | null = $state(null);
   /** Tools used up in this chapter (a bench is placed once, spec 6.2). */
   let used: Verb[] = $state([]);
+  /** How many things the place tool has set in this chapter. */
+  let placed = 0;
   let reply: BidReply = $state('toward');
   /** The last few story lines, hints, and results; new ones are announced. */
   let lines: { id: number; text: string }[] = $state([]);
@@ -65,6 +84,11 @@
   let ghost: Verb | null = $state(null);
   let speedNow = $state(0);
   let ended: 'done' | 'failed' | null = $state(null);
+  let view: ViewName = $state('meadow');
+  /** The creature the thread tool marked. */
+  let threadFrom: string | null = $state(null);
+  /** The open whisper card: the creature it whispers to, and those it can be about. */
+  let whisperCard: { target: string; others: string[] } | null = $state(null);
 
   let stage: Stage | null = null;
   let runner: ChapterRunner | null = null;
@@ -82,6 +106,7 @@
   const overPoke = untrack(() => game.input.createOverPoke());
 
   const chapter = $derived(game.chapters[index]);
+  const placeKind = $derived(chapter?.place?.kind ?? 'bench');
   /** "Chapter n: Title" with n from the id `ch<n>`, or "Interlude: Title". */
   const heading = $derived(
     chapter
@@ -100,13 +125,19 @@
     }
     return best ? best.id.replace(/-/g, ' ') : '';
   });
-  /** What the tool would act on, as text: the bench spot, or the picked creature. */
+  /** What the tool would act on, as text: the bench spot or the picked creature, the thread mark, and the view. */
   const status = $derived(
-    tool === 'place'
-      ? `Bench spot: ${spotName}`
-      : picked
-        ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
-        : '',
+    [
+      tool === 'place' && placeKind === 'bench'
+        ? `Bench spot: ${spotName}`
+        : picked
+          ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
+          : '',
+      tool === 'thread' && threadFrom !== null ? `Thread from ${displayName(threadFrom)}` : '',
+      view === 'meadow' ? '' : VIEW_NAMES[view],
+    ]
+      .filter((part) => part !== '')
+      .join('. '),
   );
 
   function say(text: string): void {
@@ -118,7 +149,10 @@
     if (!runner) return;
     if (runner.verb(v)) {
       hints.used(v.verb);
-      if (v.verb === 'place') used = [...used, 'place'];
+      if (v.verb === 'place') {
+        placed += 1;
+        if (placed === (chapter?.place?.limit ?? 1)) used = [...used, 'place'];
+      }
     } else if (v.verb === 'respond') {
       say(NO_BID);
     }
@@ -163,7 +197,10 @@
     bet = null;
     betRunning = false;
     picked = null;
+    threadFrom = null;
+    whisperCard = null;
     used = [];
+    placed = 0;
     prev = next = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
     const verb = chapter.newVerb;
@@ -173,6 +210,8 @@
     stage.setFocus(null);
     stage.setSeason(chapter.season);
     stage.showHeatmap(false);
+    view = 'meadow';
+    stage.setView('meadow', null);
 
     const r = game.startChapter(chapter, flags);
     runner = r;
@@ -180,11 +219,12 @@
     r.onCamera((shot) => stage?.setShot(shot));
     r.onFocus((id) => stage?.setFocus(id));
     r.onShow(() => stage?.showHeatmap(true));
-    // The new verb's line comes at once; the ghost hand waits for 10 s of idle (spec 12.6).
-    const hint = verb === null ? undefined : HINTS[verb];
-    if (verb !== null && hint !== undefined && chapter.verbs.includes(verb)) {
-      say(hint);
-      hints.unlock(verb);
+    // A new verb's line comes at once; a new tool's ghost hand waits for 10 s of idle (spec 12.6).
+    const known = new Set(game.chapters.slice(0, i).flatMap((c) => c.verbs));
+    for (const v of HINT_VERBS) {
+      if (!chapter.verbs.includes(v) || known.has(v)) continue;
+      say(HINTS[v]);
+      if (v !== 'zoom') hints.unlock(v);
     }
     r.done.then(
       (out) => {
@@ -227,8 +267,28 @@
     }
   }
 
+  /** Escape moves to the tools, unless the keyboard took it to let go of a thread mark. */
   function onSceneKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape') trayEl?.querySelector('button')?.focus();
+    if (e.key === 'Escape' && !e.defaultPrevented) trayEl?.querySelector('button')?.focus();
+  }
+
+  function isFriend(a: string, b: string): boolean {
+    const t = next?.ties.find((t) => (t.a === a && t.b === b) || (t.a === b && t.b === a));
+    return t !== undefined && t.ab > game.friendThreshold && t.ba > game.friendThreshold;
+  }
+
+  /** Opens the whisper card for `target`, about every other named creature (spec 5.3) not gone, in id order. */
+  function openWhisper(target: string): void {
+    const others = (next?.creatures ?? [])
+      .filter((c) => !c.gone && c.id !== target && !c.id.startsWith('villager-'))
+      .map((c) => c.id);
+    whisperCard = { target, others: others.sort() };
+  }
+
+  function whisper(about: string, sign: 1 | -1): void {
+    const card = whisperCard;
+    whisperCard = null;
+    if (card) act({ verb: 'whisper', target: card.target, about, sign });
   }
 
   onMount(() => {
@@ -264,21 +324,38 @@
         return;
       }
       stage = s;
-      const ctx = {
-        tools: () => tools,
+      const ctx: InputContext = {
+        // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
+        tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
         creatures: () =>
           [...(next?.creatures ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
         benchSpots: () => s.benchSpots,
+        placeKind: () => placeKind,
+        water: () => next?.water ?? [],
         cursor: () => cursor,
         tool: () => tool,
-        setTool: (v: Verb) => (tool = v),
+        setTool: (v) => (tool = v),
         reply: () => reply,
-        setReply: (r: BidReply) => (reply = r),
+        setReply: (r) => (reply = r),
         act,
         togglePause,
         picked: () => picked,
-        select: (id: string | null) => (picked = id),
-        moveCursor: (p: { x: number; y: number }) => (cursor = p),
+        select: (id) => {
+          picked = id;
+          if (view === 'cosmos') s.setView('cosmos', id);
+        },
+        moveCursor: (p) => (cursor = p),
+        view: () => view,
+        zoom: (dir) => {
+          const v = game.input.nextView(view, dir, picked);
+          if (v === view) return;
+          view = v;
+          s.setView(v, picked);
+        },
+        isFriend,
+        threadFrom: () => threadFrom,
+        setThreadFrom: (id) => (threadFrom = id),
+        openWhisper,
       };
       offs.push(game.input.createKeyboard(sceneEl, ctx));
       offs.push(
@@ -315,22 +392,22 @@
 </script>
 
 <div class="game">
-  <!-- Everything but the bet card goes inert while the card is open. -->
-  <div class="layer" inert={bet !== null}>
+  <!-- Everything but the bet or whisper card goes inert while a card is open. -->
+  <div class="layer" inert={bet !== null || whisperCard !== null}>
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
       class="scene"
       role="application"
-      aria-label="The meadow"
+      aria-label={VIEW_NAMES[view]}
       aria-describedby="scene-help"
       tabindex="0"
       bind:this={sceneEl}
       onkeydown={onSceneKey}
     ></div>
     <p id="scene-help" class="sr-only">
-      Tab picks a creature, the arrow keys move the bench spot, Enter uses the tool, Space pauses, and Escape
-      moves to the tools.
+      Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves
+      to the tools.{chapter?.verbs.includes('zoom') ? ' Z zooms out and X zooms in.' : ''}
     </p>
 
     {#if ended}
@@ -358,6 +435,7 @@
           <div bind:this={trayEl}>
             <ToolTray
               {tools}
+              {placeKind}
               {used}
               active={tool}
               {reply}
@@ -382,6 +460,14 @@
   </div>
   {#if bet}
     <BetCard question={bet.question} options={bet.options} label={displayName} onAnswer={answer} />
+  {:else if whisperCard}
+    <WhisperCard
+      target={whisperCard.target}
+      others={whisperCard.others}
+      label={displayName}
+      onWhisper={whisper}
+      onCancel={() => (whisperCard = null)}
+    />
   {/if}
 </div>
 
@@ -395,6 +481,8 @@
   .scene {
     position: absolute;
     inset: 0;
+    /* Pinches and drags are the game's, not the browser's. */
+    touch-action: none;
   }
   .scene:focus-visible {
     outline-offset: -6px;

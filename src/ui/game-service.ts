@@ -3,7 +3,7 @@ import type { createKeyboard } from '../input/keyboard.ts';
 import type { createPointer } from '../input/pointer.ts';
 import type { Hints } from '../input/hints.ts';
 import type { BenchSpot } from '../input/verbs.ts';
-import type { ViewName } from '../input/zoom.ts';
+import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
@@ -41,6 +41,8 @@ export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHe
 export interface GameService {
   chapters: readonly Chapter[];
   defaultFlags: Flags;
+  /** Two creatures are friends when both warmths are above this (tuning friend.threshold). */
+  friendThreshold: number;
   /** The chapter Begin starts at: 0, or ?chapter=N in a dev build. */
   firstChapter: number;
   createStage(el: HTMLElement): Promise<Stage>;
@@ -68,5 +70,6 @@ export interface GameService {
     createHints: () => Hints;
     /** An over-poke detector with the tuning's window and count. */
     createOverPoke: () => { poke(): boolean };
+    nextView: typeof nextView;
   };
 }

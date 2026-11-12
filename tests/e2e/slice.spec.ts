@@ -85,6 +85,44 @@ test('chapter 3: one bench, the tray shows it used, and a reply with no wave get
   await expect(live(page)).toContainText('Nobody is waving at the sky');
 });
 
+test('the place tool is named by what it sets', async ({ page }) => {
+  const tray = page.getByRole('group', { name: 'Tools' });
+  // ch6 sets lanterns and ch9 bridges (index 9 and 14 in play order).
+  for (const [index, name] of [
+    [9, 'Lantern'],
+    [14, 'Bridge'],
+  ] as const) {
+    await page.goto(`/?chapter=${String(index)}`);
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(tray.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+    await expect(tray.getByRole('button', { name: /Bench/ })).toHaveCount(0);
+  }
+});
+
+test('Z zooms out to the Cosmos and X back in; Escape lets go of a thread mark first', async ({ page }) => {
+  // ch5 (index 7): whisper, thread, and zoom.
+  await page.goto('/?chapter=7');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(scene(page)).toBeFocused();
+  await expect(live(page)).toContainText('Late summer'); // the first snapshot is in, so Tab has creatures
+  await page.keyboard.press('z');
+  const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
+  await expect(cosmos).toBeFocused();
+  await expect(page.getByRole('status')).toContainText('The Cosmos');
+  await page.keyboard.press('x');
+  await expect(scene(page)).toBeFocused();
+  // Thread is tool 3: Tab picks a creature, Enter marks it, Escape lets go and keeps focus here.
+  await page.keyboard.press('3');
+  await tabTo(page, 'Pim');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status')).toContainText('Thread from');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('status')).not.toContainText('Thread from');
+  await expect(scene(page)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group', { name: 'Tools' }).getByRole('button').first()).toBeFocused();
+});
+
 test('the notes drawer opens with a button, takes focus, and closes with Escape', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
@@ -384,6 +422,19 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(live(page)).toContainText('A bench sits under the tree');
   await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
+});
+
+test('the end screen takes focus, and its button returns to the title', async ({ page }) => {
+  // Chapter 10 is the last in play order (index 15); skipping it ends the year so far.
+  await page.goto('/?chapter=15');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(chapter(page, 10)).toBeVisible();
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  const endTitle = page.getByRole('heading', { name: 'End of the year so far' });
+  await expect(endTitle).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });
 
 test.describe('on a phone', () => {

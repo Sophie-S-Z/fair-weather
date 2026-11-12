@@ -396,6 +396,18 @@ describe('sky bids', () => {
     expect(cmds(f).slice(3)).toEqual([{ t: 'respond', to: 'pim', reply: 'toward' }]);
   });
 
+  test('an unanswered ambient bid gets away and is not prompted again', () => {
+    const f = fakePort();
+    createChapterRunner(f.port, inkOf(CH1_KNOTS), { ...ch1, exit: { afterDays: 10 } }, flags);
+    f.step(); // snapshot tick 1: the wave beat prompts Pim's bid
+    f.step([{ t: 'skyBid', who: 'krit', ambient: true }]); // events tick 1: away is due at tick 61
+    f.steps(200);
+    expect(cmds(f)).toEqual([
+      { t: 'promptSkyBid', who: 'pim' },
+      { t: 'respond', to: 'krit', reply: 'away' },
+    ]);
+  });
+
   test("chapter 1 ends on the snapshot after the first reply, with Pim's opinion from its sky warmth", async () => {
     const f = fakePort();
     const ink = inkOf(CH1_KNOTS);

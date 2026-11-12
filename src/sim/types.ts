@@ -172,7 +172,7 @@ export type SimEvent =
   | { t: 'imitate'; who: string; from: string; dial: DialKey }
   | { t: 'arrive' | 'leave' | 'return'; who: string }
   | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' }
-  | { t: 'skyBid'; who: string }
+  | { t: 'skyBid'; who: string; ambient?: true } // ambient: a dusk bid of its own (ADR 0012 item 4)
   | { t: 'wake'; who: string }
   | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
   | { t: 'dance'; who: string }

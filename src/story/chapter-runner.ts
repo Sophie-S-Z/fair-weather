@@ -146,7 +146,7 @@ export function createChapterRunner(
   let stepEvents: SimEvent[] = []; // the events of the step that the next snapshot follows
   const early: { tick: number; list: SimEvent[] }[] = []; // events before the first snapshot
   const firedBeats = new Set<string>();
-  const skyBids: { who: string; tick: number }[] = [];
+  const skyBids: { who: string; tick: number; ambient?: true }[] = [];
   /** A bid that got the automatic 'away' is prompted again at `tick`, so the player gets another chance. */
   const rePrompts: { who: string; tick: number }[] = [];
   let bet: { phase: 'idle' | 'open' | 'revealed' } | { phase: 'running'; answer: string; until: number } = {
@@ -301,7 +301,8 @@ export function createChapterRunner(
     for (let bid = skyBids[0]; bid && t >= bid.tick + replyTicks; bid = skyBids[0]) {
       skyBids.shift();
       send({ t: 'respond', to: bid.who, reply: 'away' });
-      rePrompts.push({ who: bid.who, tick: t + Math.round(tuning.story.skyBidRepeatSeconds * sps) });
+      if (!bid.ambient)
+        rePrompts.push({ who: bid.who, tick: t + Math.round(tuning.story.skyBidRepeatSeconds * sps) });
     }
     if (bet.phase === 'running' && config.bet && t >= bet.until) {
       const answer = bet.answer;
@@ -331,7 +332,8 @@ export function createChapterRunner(
     }
     stepEvents = list;
     for (const e of list) {
-      if (e.t === 'skyBid') skyBids.push({ who: e.who, tick: t });
+      if (e.t === 'skyBid')
+        skyBids.push(e.ambient ? { who: e.who, tick: t, ambient: true } : { who: e.who, tick: t });
       for (const beat of config.beats) {
         const trigger = beat.trigger;
         if (firedBeats.has(beat.id) || !('event' in trigger) || trigger.event !== e.t) continue;

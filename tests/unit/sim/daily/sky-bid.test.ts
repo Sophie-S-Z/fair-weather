@@ -17,7 +17,7 @@ function skyWorld() {
 test('ambient: with chance draw 0.4, the awake creature with the highest sky warmth bids; at 0.6 nobody does', () => {
   // d is warmest but asleep; b and c tie, so the lower id bids.
   const low = scriptedRng([0.4]);
-  expect(ambientSkyBid(skyWorld(), t, low)).toEqual([{ t: 'skyBid', who: 'b' }]);
+  expect(ambientSkyBid(skyWorld(), t, low)).toEqual([{ t: 'skyBid', who: 'b', ambient: true }]);
   expect(low.used()).toBe(1);
   const high = scriptedRng([0.6]);
   expect(ambientSkyBid(skyWorld(), t, high)).toEqual([]);
@@ -28,7 +28,7 @@ test('ambient: away creatures never bid', () => {
   const w = skyWorld();
   get(w, 'b').state = 'away';
   get(w, 'c').state = 'away';
-  expect(ambientSkyBid(w, t, scriptedRng([0]))).toEqual([{ t: 'skyBid', who: 'a' }]);
+  expect(ambientSkyBid(w, t, scriptedRng([0]))).toEqual([{ t: 'skyBid', who: 'a', ambient: true }]);
 });
 
 test('ambient: a world without ambientSkyBids takes no draw at dusk', () => {

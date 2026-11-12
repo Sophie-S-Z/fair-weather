@@ -15,5 +15,5 @@ export const ambientSkyBid: DailyRule = (world, t, rng) => {
     if (c.state === 'away' || c.state === 'sleep') continue;
     if (!best || c.skyWarmth > best.skyWarmth || (c.skyWarmth === best.skyWarmth && c.id < best.id)) best = c;
   }
-  return best ? [{ t: 'skyBid', who: best.id }] : [];
+  return best ? [{ t: 'skyBid', who: best.id, ambient: true }] : [];
 };

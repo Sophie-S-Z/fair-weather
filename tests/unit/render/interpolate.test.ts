@@ -24,6 +24,7 @@ const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   structures: [],
   water: [],
   mushroom: null,
+  bushes: [],
   ties: [],
   rumor: null,
 });

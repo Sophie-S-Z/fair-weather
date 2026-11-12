@@ -247,6 +247,33 @@ function drawLantern(g: Graphics, { x, y }: Structure, palette: Palette, w: numb
     .stroke(plainStroke(palette, w * 0.8));
 }
 
+/** A bush: three leafy lobes [dx, dy, r] from its foot, and where up to five berries show. */
+const BUSH_LOBES: [number, number, number][] = [
+  [-11, -11, 11],
+  [0, -19, 13],
+  [11, -11, 11],
+];
+const BUSH_POINTS = 10;
+const BERRY_SPOTS: [number, number][] = [
+  [-11, -12],
+  [2, -22],
+  [11, -10],
+  [-3, -11],
+  [7, -19],
+];
+const BERRY_RADIUS = 2.6;
+
+/** One bush in the leaf color, with an ink dot for each berry it has, up to five. */
+function drawBush(g: Graphics, b: WorldLite['bushes'][number], palette: Palette, w: number): void {
+  // Outlined, then filled, so only the outer edge of the lobes stays.
+  for (const [dx, dy, r] of BUSH_LOBES)
+    disc(g, b.x + dx, b.y + dy, r, BUSH_POINTS).stroke(plainStroke(palette, 2 * w));
+  for (const [dx, dy, r] of BUSH_LOBES) disc(g, b.x + dx, b.y + dy, r, BUSH_POINTS).fill(palette.leaf);
+  for (const [dx, dy] of BERRY_SPOTS.slice(0, Math.floor(b.berries))) {
+    disc(g, b.x + dx, b.y + dy, BERRY_RADIUS, DEW_POINTS).fill(palette.ink);
+  }
+}
+
 /** How far a bridge reaches past each bank, and half its deck's width. */
 const BRIDGE_REACH = 14;
 const BRIDGE_HALF = 16;
@@ -288,9 +315,81 @@ const inRect = (r: Rect, x: number, y: number): boolean =>
   x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
 /**
- * The water and the bridges over it: flat on the ground, under everything that stands. Each
- * rectangle is outlined at twice the line width and then filled, so where rectangles meet their
- * outlines are covered and one bank line runs round the whole water.
+ * Water corners round off this much where no other water meets them. An islet's ground is drawn
+ * this much past its edge, so its bank line lies on the water and all of the land shows.
+ */
+const WATER_CORNER = 14;
+const ISLET_MARGIN = 5;
+
+/**
+ * Ground that water closes in on every side: the dry cells, of the grid the water's edges make,
+ * that no dry path joins to the open meadow.
+ */
+function islets(water: readonly Rect[]): Rect[] {
+  const edges = (a: number[]): number[] => [...new Set(a)].sort((p, q) => p - q);
+  const xs = edges(water.flatMap((r) => [r.x, r.x + r.w]));
+  const ys = edges(water.flatMap((r) => [r.y, r.y + r.h]));
+  const cols = xs.length - 1;
+  const rows = ys.length - 1;
+  const cell = (k: number): Rect => {
+    const [i, j] = [k % cols, Math.floor(k / cols)];
+    const [x, y] = [xs[i] ?? 0, ys[j] ?? 0];
+    return { x, y, w: (xs[i + 1] ?? 0) - x, h: (ys[j + 1] ?? 0) - y };
+  };
+  const dry = (k: number): boolean => {
+    const c = cell(k);
+    return !water.some((r) => inRect(r, c.x + c.w / 2, c.y + c.h / 2));
+  };
+  // Flood the dry cells from the grid's border; the dry cells left over are islets.
+  const open = new Set<number>();
+  const todo: number[] = [];
+  for (let k = 0; k < cols * rows; k++) {
+    const [i, j] = [k % cols, Math.floor(k / cols)];
+    if ((i === 0 || j === 0 || i === cols - 1 || j === rows - 1) && dry(k)) todo.push(k);
+  }
+  for (let k = todo.pop(); k !== undefined; k = todo.pop()) {
+    if (open.has(k)) continue;
+    open.add(k);
+    const [i, j] = [k % cols, Math.floor(k / cols)];
+    for (const [di, dj] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const [a, b] = [i + di, j + dj];
+      if (a >= 0 && b >= 0 && a < cols && b < rows && dry(b * cols + a)) todo.push(b * cols + a);
+    }
+  }
+  const out: Rect[] = [];
+  for (let k = 0; k < cols * rows; k++) if (dry(k) && !open.has(k)) out.push(cell(k));
+  return out;
+}
+
+/** A rectangle whose corners round off where `round(x, y)` is true. */
+function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean): Graphics {
+  const radius = Math.min(WATER_CORNER, r.w / 2, r.h / 2);
+  const c: [number, number][] = [
+    [r.x + r.w, r.y],
+    [r.x + r.w, r.y + r.h],
+    [r.x, r.y + r.h],
+    [r.x, r.y],
+  ];
+  g.moveTo(r.x + r.w / 2, r.y);
+  c.forEach(([x, y], k) => {
+    const [nx, ny] = c[(k + 1) % 4] ?? [x, y];
+    if (round(x, y)) g.arcTo(x, y, nx, ny, radius);
+    else g.lineTo(x, y);
+  });
+  return g.closePath();
+}
+
+/**
+ * The water and the bridges over it: flat on the ground, under everything that stands. An islet
+ * (ground that water closes in) is filled as water first, so the pond is one shape. Each piece is
+ * outlined at twice the line width and then filled, so where pieces meet their outlines are covered
+ * and one bank line runs round the whole water. A corner rounds off unless other water touches it.
+ * Each islet is then drawn as its own patch of ground with a bank line, out on the water a little.
  */
 function drawLand(
   g: Graphics,
@@ -300,8 +399,13 @@ function drawLand(
   w: number,
 ): void {
   g.clear();
-  for (const r of water) g.rect(r.x, r.y, r.w, r.h).stroke(inkStroke(palette, 2 * w));
-  for (const r of water) g.rect(r.x, r.y, r.w, r.h).fill(palette.water);
+  const isles = islets(water);
+  const pond = [...water, ...isles];
+  const shapes = pond.map(
+    (r) => (piece: Graphics) => softRect(piece, r, (x, y) => !pond.some((o) => o !== r && inRect(o, x, y))),
+  );
+  for (const shape of shapes) shape(g).stroke(inkStroke(palette, 2 * w));
+  for (const shape of shapes) shape(g).fill(palette.water);
   for (const r of water) {
     const cols = Math.max(1, Math.round(r.w / RIPPLE_STEP));
     const rows = Math.max(1, Math.round(r.h / RIPPLE_STEP));
@@ -311,6 +415,13 @@ function drawLand(
     }
   }
   g.stroke(inkStroke(palette, w * 0.6, FAR_ALPHA));
+  for (const r of isles) {
+    const m = ISLET_MARGIN;
+    const ground = { x: r.x - m, y: r.y - m, w: r.w + 2 * m, h: r.h + 2 * m };
+    softRect(g, ground, () => true)
+      .fill(palette.background)
+      .stroke(inkStroke(palette, w));
+  }
   for (const s of bridges) {
     const r = water.find((rect) => inRect(rect, s.x, s.y));
     if (r) drawBridge(g, s, r, palette, w);
@@ -404,8 +515,8 @@ export function createMeadowView(
     actors.addChild(g);
     return { tree, g };
   });
-  /** Benches and lanterns, by structure id. Bridges are drawn with the water. */
-  const props = new Map<string, Graphics>();
+  /** Benches, lanterns, and bushes by id, each with the key it was drawn for. Bridges are drawn with the water. */
+  const props = new Map<string, { g: Graphics; key: string }>();
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
   actors.addChild(mushroom);
   let landKey = '';
@@ -473,7 +584,7 @@ export function createMeadowView(
         lineWidth = w;
         drawGround(ground, scene, palette, w);
         for (const { tree, g } of trees) drawTree(g, tree, palette, w);
-        for (const g of props.values()) g.destroy();
+        for (const { g } of props.values()) g.destroy();
         props.clear();
         landKey = mushroomKey = '';
       }
@@ -484,18 +595,29 @@ export function createMeadowView(
         drawLand(land, next.water, bridges, palette, w);
       }
       const standing = new Set<string>();
+      /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
+      const redraw = (id: string, y: number, key: string): Graphics | null => {
+        standing.add(id);
+        if (props.get(id)?.key === key) return null;
+        props.get(id)?.g.destroy();
+        const g = new Graphics({ label: id, zIndex: y });
+        props.set(id, { g, key });
+        actors.addChild(g);
+        return g;
+      };
       for (const s of next.structures) {
         if (s.kind === 'bridge') continue;
-        standing.add(s.id);
-        if (props.has(s.id)) continue;
-        const g = new Graphics({ label: s.id, zIndex: s.y });
-        if (s.kind === 'lantern') drawLantern(g, s, palette, w);
-        else drawBench(g, s, palette, w);
-        props.set(s.id, g);
-        actors.addChild(g);
+        const g = redraw(s.id, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
+        if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
+        else if (g) drawBench(g, s, palette, w);
       }
-      // A structure from an earlier chapter that this one does not have.
-      for (const [id, g] of props) {
+      for (const b of next.bushes) {
+        const berries = Math.min(Math.floor(b.berries), BERRY_SPOTS.length);
+        const g = redraw(b.id, b.y, `${String(b.x)},${String(b.y)},${String(berries)}`);
+        if (g) drawBush(g, b, palette, w);
+      }
+      // A prop from an earlier chapter that this one does not have.
+      for (const [id, { g }] of props) {
         if (standing.has(id)) continue;
         g.destroy();
         props.delete(id);

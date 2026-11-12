@@ -131,6 +131,7 @@ function lite(
     structures: o.structures ?? (o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : []),
     water: [],
     mushroom: null,
+    bushes: [],
     ties: [],
     rumor: null,
   };

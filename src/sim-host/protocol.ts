@@ -35,10 +35,12 @@ export interface WorldLite {
   rumor: { about: string; sign: 1 | -1; holders: string[] } | null;
   /** The light lens. */
   light: { x: number; y: number } | null;
+  /** The fog the sim uses in each cell: the cell's fog, lessened at a cell center near a lantern. */
   fog: { w: number; h: number; cells: Float32Array };
   /** Whole-world numbers the story reads (ADR 0011 item 3). */
   metrics: { averageWarmth: number; friendPairs: number };
   structures: Structure[];
+  bushes: { id: string; x: number; y: number; berries: number }[];
   /** The water rectangles; [] with none. */
   water: Rect[];
   /** The dew mushroom, with the drops left today; null with none. */

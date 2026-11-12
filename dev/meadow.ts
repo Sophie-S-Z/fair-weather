@@ -79,7 +79,7 @@ if (land === 'brook') {
     { t: 'place', kind: 'lantern', x: 960, y: 820 },
   );
 }
-if (land === 'islet') setup.push({ t: 'place', kind: 'lantern', x: 500, y: 470 });
+if (land === 'islet') setup.push({ t: 'place', kind: 'lantern', x: 900, y: 470 });
 const heat = params.get('heat') === '1';
 /** With ?heat=1 the lens rests at each spot in turn, longest at the first. */
 const lensPath: [number, number, number][] = [

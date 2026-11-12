@@ -11,7 +11,12 @@ import { RigSchema, type Rig } from '../../../src/render/line/rig.ts';
 import { bodyHeight, createMeadowView, dewColor, rigArea } from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { SceneSchema } from '../../../src/render/scene.ts';
+import scenarioJson from '../../../content/scenarios/m0.json';
+import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
+import { parseTuning } from '../../../src/sim/tuning.ts';
+import type { Scenario } from '../../../src/sim/types.ts';
+import { createWorld } from '../../../src/sim/world.ts';
 import { SEASONS } from '../../../src/sim/types.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 
@@ -73,6 +78,7 @@ const snapshot = (
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
   water: [],
   mushroom: null,
+  bushes: [],
   ties: [],
   rumor: null,
 });
@@ -338,23 +344,80 @@ test('the mushroom shows one dot per drop', () => {
   expect(dots(4)).toBe(4);
 });
 
+/** How many of a creature's line points have no width: the gaps between its dashes. */
+function gapsOf(app: Application, id: string): number {
+  const line = creatureIn(app, id).children[1];
+  if (!(line instanceof Mesh) || !(line.geometry instanceof MeshGeometry)) throw new Error('no line');
+  const p = line.geometry.positions;
+  let n = 0;
+  for (let k = 0; k < p.length; k += 4) if (p[k] === p[k + 2] && p[k + 1] === p[k + 3]) n += 1;
+  return n;
+}
+
 test('a creature in fog is drawn in dashes', () => {
-  /** How many of Pim's line points have no width. */
   const gaps = (fog: number): number => {
     const app = fakeApp(800, 450);
     const world = snapshot([['pim', 400, 400]]);
     world.fog.cells.fill(fog);
     createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
-    const line = creatureIn(app, 'pim').children[1];
-    if (!(line instanceof Mesh) || !(line.geometry instanceof MeshGeometry)) throw new Error('no line');
-    const p = line.geometry.positions;
-    let n = 0;
-    for (let k = 0; k < p.length; k += 4) if (p[k] === p[k + 2] && p[k + 1] === p[k + 3]) n += 1;
-    return n;
+    return gapsOf(app, 'pim');
   };
   expect(gaps(0)).toBe(0);
   expect(gaps(0.2)).toBe(0);
   expect(gaps(0.5)).toBeGreaterThan(30);
+});
+
+test('a creature beside a lantern is not dashed where the raw fog would dash it', () => {
+  // Fog 0.4 dashes a line; a lantern halves it to 0.2 (lantern.fogFactor), under the dash threshold.
+  const gaps = (lantern: boolean): number => {
+    const tuning = parseTuning(tuningJson);
+    const world = createWorld(1, tuning, scenarioJson as Scenario);
+    world.fields.fog.fill(0.4);
+    if (lantern) world.structures.push({ id: 'l1', kind: 'lantern', x: 460, y: 400 });
+    const pim = world.creatures.find((c) => c.id === 'pim');
+    if (pim) [pim.x, pim.y] = [400, 400];
+    const lite = toLite(world, tuning);
+    const app = fakeApp(800, 450);
+    createMeadowView(app, scene, rigs, palette, options).update(lite, lite, 1, settings);
+    return gapsOf(app, 'pim');
+  };
+  expect(gaps(false)).toBeGreaterThan(30);
+  expect(gaps(true)).toBe(0);
+});
+
+test('bushes show one ink dot per berry, up to five', () => {
+  const app = fakeApp(800, 450);
+  const world: WorldLite = {
+    ...snapshot([]),
+    bushes: [
+      { id: 'bush-1', x: 300, y: 300, berries: 3 },
+      { id: 'bush-2', x: 500, y: 300, berries: 0 },
+      { id: 'bush-3', x: 700, y: 300, berries: 9 },
+    ],
+  };
+  createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+  const berries = (id: string): number =>
+    fillsOf(graphicsIn(app, id)).filter((f) => f.color === palette.ink).length;
+  expect([berries('bush-1'), berries('bush-2'), berries('bush-3')]).toEqual([3, 0, 5]);
+});
+
+test('ground the water closes in is drawn as an islet', () => {
+  const app = fakeApp(800, 450);
+  // The ch6 pond: a ring of water round a 60 x 60 islet at (990, 390).
+  const water = [
+    { x: 950, y: 350, w: 140, h: 40 },
+    { x: 950, y: 450, w: 140, h: 40 },
+    { x: 950, y: 390, w: 40, h: 60 },
+    { x: 1050, y: 390, w: 40, h: 60 },
+  ];
+  const world: WorldLite = { ...snapshot([]), water };
+  createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+  const isle = fillsOf(graphicsIn(app, 'land')).filter((f) => f.color === palette.background);
+  expect(isle).toHaveLength(1);
+  // Its ground covers the islet and reaches a little onto the water.
+  expect(isle[0]?.minX).toBeLessThan(990);
+  expect(isle[0]?.maxX).toBeGreaterThan(1050);
+  expect(isle[0]?.maxX).toBeLessThan(1090);
 });
 
 test('dancing creatures hop, and reduced motion stops the hop', () => {

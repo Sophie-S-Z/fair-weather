@@ -24,6 +24,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
     structures: [],
     water: [],
     mushroom: null,
+    bushes: [],
     ties: [],
     rumor: null,
   };

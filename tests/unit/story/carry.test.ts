@@ -30,6 +30,7 @@ test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', ()
     structures: [{ id: 'bench-1', kind: 'bench', x: 1, y: 1 }],
     water: [],
     mushroom: null,
+    bushes: [],
   };
   const carry = carryFrom(lite, new Map([['pim', ['Danced.']]]));
   expect(carry).toEqual({

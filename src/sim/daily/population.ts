@@ -64,9 +64,10 @@ export const regrowBushes: DailyRule = (world, t) => {
 /**
  * On every population.returnEveryDays-th dusk (day % returnEveryDays === returnEveryDays - 1),
  * when average warmth is above population.returnMinAvgWarmth, each away creature returns at the
- * gate with chance population.returnChanceWeekly, its hunger count reset.
+ * gate with chance population.returnChanceWeekly, its hunger count reset. A gone creature never
+ * returns.
  *
- * PRNG draws: one per away creature, in `world.creatures` order, only when the day and the
+ * PRNG draws: one per away creature not gone, in `world.creatures` order, only when the day and the
  * warmth both qualify. Average warmth is read once, before anyone returns.
  */
 export function returnAway(world: World, t: Tuning, rng: Rng): SimEvent[] {
@@ -74,7 +75,7 @@ export function returnAway(world: World, t: Tuning, rng: Rng): SimEvent[] {
   if (world.day % returnEveryDays !== returnEveryDays - 1) return [];
   if (averageWarmth(world) <= returnMinAvgWarmth) return [];
   const events: SimEvent[] = [];
-  for (const c of world.creatures.filter((x) => x.state === 'away')) {
+  for (const c of world.creatures.filter((x) => x.state === 'away' && !x.gone)) {
     if (rng.next() >= returnChanceWeekly) continue;
     c.state = 'wander';
     c.x = c.goalX = t.scene.gateX;

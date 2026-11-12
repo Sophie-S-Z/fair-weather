@@ -155,3 +155,39 @@ test('averageWarmth does not depend on tie insertion order', () => {
   };
   expect(build(pairs)).toBe(build([...pairs].reverse()));
 });
+
+test('scenario ties become ties that are not first meetings', () => {
+  const w = createWorld(1, tuning, {
+    ...scenario,
+    ties: [{ a: 'pim', b: 'krit', ab: { warmth: 0.5, slights: 1 }, ba: { warmth: -2, slights: 0 } }],
+  });
+  const tie = getTie(w, 'pim', 'krit');
+  expect(tie).toMatchObject({ meetings: 1, lastDay: -1 });
+  expect(side(tie!, 'pim')).toEqual({ warmth: 0.5, slights: 1 });
+  expect(side(tie!, 'krit').warmth).toBe(-1);
+  expect(w.ties.size).toBe(1);
+});
+
+test('a scenario tie with an unknown or repeated id is dropped', () => {
+  const s = { warmth: 0.5, slights: 0 };
+  const w = createWorld(1, tuning, {
+    ...scenario,
+    ties: [
+      { a: 'pim', b: 'nobody', ab: s, ba: s },
+      { a: 'pim', b: 'pim', ab: s, ba: s },
+    ],
+  });
+  expect(w.ties.size).toBe(0);
+});
+
+test('a scenario sets sky warmth (clamped) and gone; neither key changes an unset creature', () => {
+  const [pim, krit, ...rest] = scenario.creatures;
+  const w = createWorld(1, tuning, {
+    ...scenario,
+    creatures: [{ ...pim!, skyWarmth: 2 }, { ...krit!, skyWarmth: -0.4, gone: true }, ...rest],
+  });
+  expect(byId(w, 'pim')!.skyWarmth).toBe(1);
+  expect(byId(w, 'krit')).toMatchObject({ skyWarmth: -0.4, gone: true });
+  expect(byId(w, 'echo')!.skyWarmth).toBe(0);
+  expect('gone' in byId(w, 'pim')!).toBe(false);
+});

@@ -48,6 +48,7 @@ const settings: Settings = {
   analytics: false,
 };
 const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 const snapshot = (
   creatures: [string, number, number, WorldLite['creatures'][number]['state']?][],
 ): WorldLite => ({
@@ -59,11 +60,14 @@ const snapshot = (
     shell,
     berries: 0,
     skyWarmth: 0,
+    dials,
   })),
   light: { x: 800, y: 450 },
   fog: { w: 40, h: 23, cells: new Float32Array(40 * 23).fill(0.5) },
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
+  ties: [],
+  rumor: null,
 });
 
 /** A stand-in for a Pixi Application: the view reads only the stage, screen, and ticker. */
@@ -165,9 +169,9 @@ test('only the focus creature wears the accent; the rest show shell color as a m
   const world: WorldLite = {
     ...snapshot([]),
     creatures: [
-      { id: 'pim', x: 300, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0 },
-      { id: 'krit', x: 600, y: 400, state: 'wander', shell: warm, berries: 0, skyWarmth: 0 },
-      { id: 'villager-1', x: 900, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0 },
+      { id: 'pim', x: 300, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials },
+      { id: 'krit', x: 600, y: 400, state: 'wander', shell: warm, berries: 0, skyWarmth: 0, dials },
+      { id: 'villager-1', x: 900, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials },
     ],
   };
   view.setFocus('pim');

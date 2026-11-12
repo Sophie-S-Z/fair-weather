@@ -16,30 +16,48 @@ export const T2_TICKS_PER_DAY = 20;
 /** The longest run: 8 days, so a run can pass the weekly return dusk (day % 7 === 6). */
 export const T2_MAX_TICKS = 8 * T2_TICKS_PER_DAY;
 
-/** 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. */
-export const scenarioArb: fc.Arbitrary<Scenario> = fc.record({
-  valleyId: fc.constant('kith'),
-  season: fc.constantFrom(...SEASONS),
-  ticksPerDay: fc.constant(T2_TICKS_PER_DAY),
-  creatures: fc
-    .array(
-      fc.record({
-        x: sx,
-        y: sy,
-        berries: fc.integer({ min: 0, max: 5 }),
-        dials: fc.record({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
-        shell: fc.record({ tightness: unit, bristle: unit, color: unit, softness: unit }),
-      }),
-      { minLength: 2, maxLength: 12 },
-    )
-    .map((cs) => cs.map((c, i) => ({ ...c, id: `c${String(i)}`, speciesId: 'kith', name: `C${String(i)}` }))),
-  bushes: fc
-    .array(fc.record({ x: sx, y: sy, berries: fc.integer({ min: 0, max: 6 }) }), { maxLength: 4 })
-    .map((bs) => bs.map((b, i) => ({ ...b, id: `bush-s${String(i)}` }))),
-  structures: fc
-    .array(fc.record({ x: sx, y: sy }), { maxLength: 2 })
-    .map((ss) => ss.map((s, i) => ({ ...s, id: `bench-s${String(i)}`, kind: 'bench' as const }))),
-});
+const sideArb = fc.record({ warmth: fc.double({ min: -2, max: 2, noNaN: true }), slights: fc.nat(3) });
+
+/**
+ * 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. Sky
+ * warmth runs past [-1, 1] and some scenario ties name an unknown id, to test the clamp and drop.
+ */
+export const scenarioArb: fc.Arbitrary<Scenario> = fc
+  .record({
+    valleyId: fc.constant('kith'),
+    season: fc.constantFrom(...SEASONS),
+    ticksPerDay: fc.constant(T2_TICKS_PER_DAY),
+    creatures: fc
+      .array(
+        fc.record({
+          x: sx,
+          y: sy,
+          berries: fc.integer({ min: 0, max: 5 }),
+          dials: fc.record({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
+          shell: fc.record({ tightness: unit, bristle: unit, color: unit, softness: unit }),
+          skyWarmth: fc.double({ min: -2, max: 2, noNaN: true }),
+        }),
+        { minLength: 2, maxLength: 12 },
+      )
+      .map((cs) =>
+        cs.map((c, i) => ({ ...c, id: `c${String(i)}`, speciesId: 'kith', name: `C${String(i)}` })),
+      ),
+    bushes: fc
+      .array(fc.record({ x: sx, y: sy, berries: fc.integer({ min: 0, max: 6 }) }), { maxLength: 4 })
+      .map((bs) => bs.map((b, i) => ({ ...b, id: `bush-s${String(i)}` }))),
+    structures: fc
+      .array(fc.record({ x: sx, y: sy }), { maxLength: 2 })
+      .map((ss) => ss.map((s, i) => ({ ...s, id: `bench-s${String(i)}`, kind: 'bench' as const }))),
+  })
+  .chain((scenario) => {
+    const id = fc.oneof(
+      { weight: 9, arbitrary: fc.constantFrom(...scenario.creatures.map((c) => c.id)) },
+      { weight: 1, arbitrary: fc.constant('nobody') },
+    );
+    return fc
+      .array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 })
+      .map((ties) => ({ ...scenario, ties }));
+  });
 
 /** A coordinate-sized number, NaN 5% of the time. */
 const num = (min: number, max: number) =>

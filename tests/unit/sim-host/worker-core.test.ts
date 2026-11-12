@@ -77,8 +77,25 @@ test('the snapshot holds the world-lite fields only', () => {
   send({ t: 'advance', ticks: 1 });
   const lite = ofType(got, 'snapshot')[0]?.lite;
   const c = lite?.creatures[0];
-  expect(Object.keys(c ?? {}).sort()).toEqual(['berries', 'id', 'shell', 'skyWarmth', 'state', 'x', 'y']);
-  expect(Object.keys(lite ?? {}).sort()).toEqual(['creatures', 'fog', 'light', 'metrics', 'structures']);
+  expect(Object.keys(c ?? {}).sort()).toEqual([
+    'berries',
+    'dials',
+    'id',
+    'shell',
+    'skyWarmth',
+    'state',
+    'x',
+    'y',
+  ]);
+  expect(Object.keys(lite ?? {}).sort()).toEqual([
+    'creatures',
+    'fog',
+    'light',
+    'metrics',
+    'rumor',
+    'structures',
+    'ties',
+  ]);
   expect(lite?.fog.cells).toBeInstanceOf(Float32Array);
 });
 

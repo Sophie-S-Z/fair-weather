@@ -120,6 +120,15 @@ test('return: no draw when average warmth is 0.2 or less, or on other days', () 
   expect(returnAway(returnWorld(13), t, scriptedRng([0.1]))).toHaveLength(1);
 });
 
+test('return: a gone creature never returns and takes no draw', () => {
+  const w = returnWorld(6, 0.9);
+  get(w, 'c').gone = true;
+  const rng = scriptedRng([0]);
+  expect(returnAway(w, t, rng)).toEqual([]);
+  expect(get(w, 'c').state).toBe('away');
+  expect(rng.used()).toBe(0);
+});
+
 test('leave: a sleeper never leaves, even with hungry dusks and no friends', () => {
   const w = makeWorld([{ id: 'a', berries: 0 }]);
   const a = get(w, 'a');

@@ -4,7 +4,8 @@ import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { activeCreatures, friendsOf } from '../world.ts';
 
-function holds(c: Creature, about: string, sign: 1 | -1, t: Tuning): boolean {
+/** True when `c` holds an opinion of `about` with this sign (ADR 0002 item 5). */
+export function holds(c: Creature, about: string, sign: 1 | -1, t: Tuning): boolean {
   const v = c.opinions[about];
   return v !== undefined && Math.abs(v) >= t.opinion.holdAt && Math.sign(v) === sign;
 }

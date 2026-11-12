@@ -54,6 +54,8 @@ export interface Creature {
   diary: DiaryEntry[]; // last 20
   /** Set by overPoke: the creature gets no sky warmth from the lens through this day. */
   lensAvoidUntilDay?: number;
+  /** Left over the east ridge for good (ADR 0012 item 3): never returns. */
+  gone?: true;
 }
 export interface Side {
   warmth: number;
@@ -161,7 +163,11 @@ export interface Scenario {
     dials: Dials;
     shell?: Shell;
     state?: CreatureState;
+    skyWarmth?: number;
+    gone?: true;
   }[];
+  /** Ties that start already met (ADR 0012 item 1). */
+  ties?: { a: string; b: string; ab: Side; ba: Side }[];
   bushes: { id: string; x: number; y: number; berries: number }[];
   structures: Structure[];
 }

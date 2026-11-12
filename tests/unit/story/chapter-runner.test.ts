@@ -99,6 +99,7 @@ const CH2_KNOTS = ['ch2_intro', 'ch2_bet', 'ch2_exploit', 'ch2_close_call'];
 const CH3_KNOTS = ['ch3_intro', 'ch3_bench', 'ch3_warm', 'ch3_close_call'];
 
 const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 function lite(
   o: {
     berries?: Record<string, number>;
@@ -117,11 +118,14 @@ function lite(
       shell,
       berries: b,
       skyWarmth: id === 'pim' ? (o.pimSky ?? 0) : 0,
+      dials,
     })),
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
     structures: o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : [],
+    ties: [],
+    rumor: null,
   };
 }
 

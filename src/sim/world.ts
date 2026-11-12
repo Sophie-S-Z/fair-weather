@@ -13,7 +13,7 @@ function zeroShell(): Shell {
 /** A fresh creature from a scenario entry: at rest, no ties, opinions, or memories. */
 export function newCreature(s: Scenario['creatures'][number]): Creature {
   const shell = s.shell ? { ...s.shell } : zeroShell();
-  return {
+  const c: Creature = {
     id: s.id,
     speciesId: s.speciesId,
     name: s.name,
@@ -30,7 +30,7 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     dials: { ...s.dials },
     shell,
     restShell: { ...shell },
-    skyWarmth: 0,
+    skyWarmth: clamp(s.skyWarmth ?? 0, -1, 1),
     skyLightToday: 0,
     opinions: {},
     hungryDusks: 0,
@@ -38,12 +38,21 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     benchMemory: null,
     diary: [],
   };
+  if (s.gone) c.gone = true; // only when set, so other creatures keep the same keys (and hash)
+  return c;
 }
 
 export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): World {
   const fogW = Math.ceil(tuning.scene.width / tuning.fog.cellSize);
   const fogH = Math.ceil(tuning.scene.height / tuning.fog.cellSize);
   const creatures = scenario.creatures.map(newCreature);
+  const ids = new Set(creatures.map((c) => c.id));
+  const ties = new Map<string, Tie>();
+  const clampSide = (s: Side): Side => ({ warmth: clamp(s.warmth, -1, 1), slights: s.slights });
+  for (const { a, b, ab, ba } of scenario.ties ?? []) {
+    if (a === b || !ids.has(a) || !ids.has(b)) continue;
+    ties.set(tieKey(a, b), { a, b, ab: clampSide(ab), ba: clampSide(ba), meetings: 1, lastDay: -1 });
+  }
   return {
     seed,
     rngState: seed >>> 0,
@@ -55,7 +64,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     nextId: 1,
     artStreak: 0,
     creatures,
-    ties: new Map(),
+    ties,
     fields: { light: null, fog: new Float32Array(fogW * fogH), fogW, fogH, gusts: [] },
     bushes: scenario.bushes.map((b) => ({ ...b })),
     structures: scenario.structures.map((s) => ({ ...s })),

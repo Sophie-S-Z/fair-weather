@@ -1,5 +1,14 @@
 // The worker message protocol (ADR 0009). Types only, so every module may import it.
-import type { Command, CreatureState, Scenario, Shell, SimEvent, Structure, World } from '../sim/types.ts';
+import type {
+  Command,
+  CreatureState,
+  Dials,
+  Scenario,
+  Shell,
+  SimEvent,
+  Structure,
+  World,
+} from '../sim/types.ts';
 
 /** What render, audio, and ui read from a step (ADR 0009 item 4). */
 export interface WorldLite {
@@ -11,7 +20,15 @@ export interface WorldLite {
     shell: Shell;
     berries: number;
     skyWarmth: number;
+    dials: Dials;
   }[];
+  /** Every tie's two warmths, in tie-key order (ADR 0012 item 2). */
+  ties: { a: string; b: string; ab: number; ba: number }[];
+  /**
+   * The latest rumor. `holders` are the creatures, not away and not `about`, whose opinion of
+   * `about` has its sign and is at least opinion.holdAt in size, in id order.
+   */
+  rumor: { about: string; sign: 1 | -1; holders: string[] } | null;
   /** The light lens. */
   light: { x: number; y: number } | null;
   fog: { w: number; h: number; cells: Float32Array };

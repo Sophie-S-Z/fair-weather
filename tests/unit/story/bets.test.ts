@@ -3,6 +3,7 @@ import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import { measureBet } from '../../../src/story/bets.ts';
 
 const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 0): WorldLite {
   return {
     creatures: Object.entries(berries).map(([id, b]) => ({
@@ -13,11 +14,14 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
       shell,
       berries: b,
       skyWarmth: 0,
+      dials,
     })),
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: { averageWarmth, friendPairs },
     structures: [],
+    ties: [],
+    rumor: null,
   };
 }
 

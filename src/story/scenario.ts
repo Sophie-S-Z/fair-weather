@@ -75,6 +75,7 @@ function apply(s: Scenario, o: Overrides): void {
   if (o.mushroom) s.mushroom = { ...o.mushroom };
   if (o.ambientSkyBids) s.ambientSkyBids = true;
   if (o.rumorFirst) s.rumorFirst = true;
+  if (o.friendsForgive) s.friendsForgive = true;
 }
 
 /**

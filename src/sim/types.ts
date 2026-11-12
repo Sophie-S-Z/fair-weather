@@ -152,6 +152,8 @@ export interface World {
   ambientSkyBids?: true;
   /** Set only with the scenario's: a holder of the latest rumor shares it first at dusk (ADR 0012 item 15). */
   rumorFirst?: true;
+  /** Set only with the scenario's: a giver with mutual friends forgives as they do, when they forgive more (ADR 0012 item 16). */
+  friendsForgive?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -206,4 +208,5 @@ export interface Scenario {
   mushroom?: { x: number; y: number };
   ambientSkyBids?: true;
   rumorFirst?: true;
+  friendsForgive?: true;
 }

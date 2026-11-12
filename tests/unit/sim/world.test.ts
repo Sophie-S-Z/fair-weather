@@ -72,6 +72,11 @@ test('createWorld sets rumorFirst only when the scenario does', () => {
   expect('rumorFirst' in createWorld(1, tuning, scenario)).toBe(false);
 });
 
+test('createWorld sets friendsForgive only when the scenario does', () => {
+  expect(createWorld(1, tuning, { ...scenario, friendsForgive: true }).friendsForgive).toBe(true);
+  expect('friendsForgive' in createWorld(1, tuning, scenario)).toBe(false);
+});
+
 test('tieKey sorts the ids', () => {
   expect(tieKey('pim', 'krit')).toBe('krit|pim');
   expect(tieKey('krit', 'pim')).toBe(tieKey('pim', 'krit'));

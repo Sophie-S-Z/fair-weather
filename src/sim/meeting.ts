@@ -5,7 +5,7 @@ import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
 import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
-import { benchesOf, ensureTie, getTie, side, tieKey } from './world.ts';
+import { benchesOf, ensureTie, friendsOf, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
 const DIARY_LENGTH = 20; // spec 9.1
@@ -85,14 +85,38 @@ function pickReply(w: number, replier: Creature, boost: number, draw: number, t:
   return w < t.bid.againstBelowWarmth ? 'against' : 'away';
 }
 
+/**
+ * The Forgiveness a giver weighs remembered slights against: its own, or with `world.friendsForgive`
+ * the mean Forgiveness of its mutual friends when it has at least mushroom.trustFriends of them and
+ * that mean is higher (ADR 0012 item 16).
+ */
+function forgivenessOf(world: World, giver: Creature, t: Tuning): number {
+  const own = giver.dials.forgiveness;
+  if (!world.friendsForgive) return own;
+  const mutual = friendsOf(world, giver, t).filter((f) => {
+    const tie = getTie(world, giver.id, f.id);
+    return tie !== undefined && side(tie, f.id).warmth > t.friend.threshold;
+  });
+  if (mutual.length < t.mushroom.trustFriends) return own;
+  const mean = mutual.reduce((sum, f) => sum + f.dials.forgiveness, 0) / mutual.length;
+  return Math.max(own, mean);
+}
+
 /** Chance that `giver` gives to its partner before light (ADR 0003 item 6). */
-function baseGiveChance(giverSide: Side, giver: Creature, firstMeeting: boolean, t: Tuning): number {
+function baseGiveChance(
+  world: World,
+  giverSide: Side,
+  giver: Creature,
+  firstMeeting: boolean,
+  t: Tuning,
+): number {
   if (firstMeeting) return giver.dials.opener;
   const remembered = Math.round(giverSide.slights);
-  return remembered > Math.round(t.gift.maxSlightsPerForgiveness * giver.dials.forgiveness) ? 0 : 1;
+  return remembered > Math.round(t.gift.maxSlightsPerForgiveness * forgivenessOf(world, giver, t)) ? 0 : 1;
 }
 
 function pickGift(
+  world: World,
   giverSide: Side,
   giver: Creature,
   firstMeeting: boolean,
@@ -102,7 +126,7 @@ function pickGift(
 ): GiftMove {
   // Below gift.cost a creature cannot pay for a gift, so it keeps (and berries never go negative).
   if (giver.berries < t.gift.cost) return 'keep';
-  const p = clamp(baseGiveChance(giverSide, giver, firstMeeting, t) + boost, 0, 1);
+  const p = clamp(baseGiveChance(world, giverSide, giver, firstMeeting, t) + boost, 0, 1);
   return draw < p ? 'give' : 'keep';
 }
 
@@ -200,8 +224,8 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
 
   // Gifts.
   const giftBoost = boost('give', 'keep');
-  const bidderMove = pickGift(bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
-  const replierMove = pickGift(replierSide, replier, first, giftBoost, draw.replierGift, t);
+  const bidderMove = pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
+  const replierMove = pickGift(world, replierSide, replier, first, giftBoost, draw.replierGift, t);
   const misread = (m: GiftMove, d: number): GiftMove =>
     m === 'give' && d < t.fog.giftMisreadFactor * fog ? 'keep' : m;
   const bidderSeen = misread(bidderMove, draw.bidderGiftFog); // as the replier saw it

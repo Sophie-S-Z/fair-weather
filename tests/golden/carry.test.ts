@@ -1,11 +1,45 @@
-// The stored carries (ADR 0012 item 1): one seeded headless year, ch3 to ch7. Each carried
+// The stored carries (ADR 0012 item 1): one seeded headless year, ch3 to ch10. Each carried
 // chapter's T3 run starts from its file here; after a content change, rewrite them with `-u`.
 import { expect, test } from 'vitest';
+import versesJson from '../../content/myth/verses.json';
+import { extractFeatures } from '../../src/myth/features.ts';
+import { tellMyth, VersesSchema } from '../../src/myth/grammar.ts';
+import type { YearLog } from '../../src/story/action-log.ts';
+import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
 
 test('the seed-1 year gives the stored carries', async () => {
-  const { carries } = await runYear(1, 'ch7');
-  expect(Object.keys(carries)).toEqual(['i3', 'ch4', 'i4', 'ch5', 'i5', 'ch6', 'ch7']);
+  const { carries } = await runYear(1, 'ch10');
+  expect(Object.keys(carries)).toEqual([
+    'i3',
+    'ch4',
+    'i4',
+    'ch5',
+    'i5',
+    'ch6',
+    'ch7',
+    'i7',
+    'ch8',
+    'i8',
+    'ch9',
+    'ch10',
+  ]);
   for (const [id, carry] of Object.entries(carries))
     await expect(`${JSON.stringify(carry, null, 2)}\n`).toMatchFileSnapshot(`carry/${id}.json`);
+});
+
+// ADR 0012 item 11: the real year log, ch3 to ch9 as main.ts keeps it, reads through the myth.
+test('the seed-1 year log through ch9 tells five verses with no open slot', async () => {
+  const { results } = await runYear(1, 'ch9');
+  const year: YearLog = Object.entries(results).map(([chapterId, r]) => ({ chapterId, log: r.log }));
+  const ch9 = results.ch9;
+  if (!ch9) throw new Error('the year has no ch9');
+  const skyWarmth = Object.fromEntries(ch9.last.creatures.map((c) => [c.id, c.skyWarmth]));
+  const page = tellMyth(
+    extractFeatures(year, ch9.flags, skyWarmth),
+    VersesSchema.parse(versesJson),
+    displayName,
+  );
+  expect(page.verses).toHaveLength(5);
+  for (const v of page.verses) expect(`${v.text} ${v.note ?? ''}`).not.toMatch(/\{|\}|undefined|null/);
 });

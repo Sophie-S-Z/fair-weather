@@ -98,4 +98,22 @@ export const PLAYERS = {
       },
     };
   },
+  i7: finishes('done'),
+  /** Answers the bet with its first option, and nothing else. */
+  ch8: () => ({ onPrompt: firstOption }),
+  i8: finishes('done'),
+  /** Places a bridge at (810, 300) and one at (810, 600), as soon as the runner takes them. */
+  ch9: () => {
+    const bridges = [
+      { x: 810, y: 300 },
+      { x: 810, y: 600 },
+    ];
+    return {
+      onTick(_tick, runner) {
+        const at = bridges[0];
+        if (at && runner.verb({ verb: 'place', ...at })) bridges.shift();
+      },
+    };
+  },
+  ch10: finishes('heard'),
 } satisfies Record<string, () => ScriptedPlayer>;

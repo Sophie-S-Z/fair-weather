@@ -212,6 +212,7 @@ describe('buildScenario', () => {
         mushroom: { x: 200, y: 600 },
         ambientSkyBids: true,
         rumorFirst: true,
+        friendsForgive: true,
       },
     };
     const s = buildScenario(chapter, flags, base);
@@ -223,6 +224,7 @@ describe('buildScenario', () => {
       mushroom: { x: 200, y: 600 },
       ambientSkyBids: true,
       rumorFirst: true,
+      friendsForgive: true,
     });
     expect(s.creatures.find((c) => c.id === 'wisp')).toMatchObject({ gone: true, state: 'away' });
     expect(s.creatures.find((c) => c.id === 'bell')?.danceThreshold).toBe(3);

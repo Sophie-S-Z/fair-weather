@@ -1,0 +1,71 @@
+{
+  "id": "i7",
+  "kind": "interlude",
+  "activity": "postcard",
+  "title": "Wisp's Postcard",
+  "season": "autumn",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ]
+  },
+  "beats": [
+    {
+      "id": "i7_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "i7_intro"
+        }
+      ]
+    },
+    {
+      "id": "i7_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "i7_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "i7_end"
+  },
+  "feeling": "[PLACEHOLDER] Longing, a word in the path",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Paths and places",
+      "science": "[PLACEHOLDER] People often walk back toward the places they knew.",
+      "limits": "[PLACEHOLDER] The path here is drawn by hand; nothing in the sim walks it.",
+      "counter": "[PLACEHOLDER] Some say people leave for good and never look back.",
+      "question": "[PLACEHOLDER] What would your path spell?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

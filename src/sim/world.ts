@@ -82,6 +82,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   }
   if (scenario.ambientSkyBids) world.ambientSkyBids = true;
   if (scenario.rumorFirst) world.rumorFirst = true;
+  if (scenario.friendsForgive) world.friendsForgive = true;
   return world;
 }
 

@@ -26,3 +26,8 @@ INCLUDE ch5.ink
 INCLUDE i5.ink
 INCLUDE ch6.ink
 INCLUDE ch7.ink
+INCLUDE i7.ink
+INCLUDE ch8.ink
+INCLUDE i8.ink
+INCLUDE ch9.ink
+INCLUDE ch10.ink

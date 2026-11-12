@@ -146,6 +146,8 @@ export const OverridesSchema = z.strictObject({
   ambientSkyBids: z.literal(true).optional(),
   /** A holder of the latest rumor shares it before its strongest opinion (ADR 0012 item 15). */
   rumorFirst: z.literal(true).optional(),
+  /** A giver with mutual friends forgives as they do, when they forgive more (ADR 0012 item 16). */
+  friendsForgive: z.literal(true).optional(),
   weather: z
     .strictObject({
       light: z.strictObject({ x: z.number(), y: z.number() }).nullable().optional(),

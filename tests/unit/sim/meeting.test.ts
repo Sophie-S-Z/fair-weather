@@ -239,6 +239,33 @@ test('Forgiveness 0 and Memory 1: a slight faded to 0.51 still keeps; at 0.49 it
   expect(giftFrom(resolveMeeting(p.w, p.a, p.b, t, draws({ bidderGift: 0.99 })), 'a').move).toBe('give');
 });
 
+test('friendsForgive: a Grudger with one slight gives when two mutual friends forgive at 0.5, else keeps', () => {
+  /** `a` (Forgiveness 0, one slight toward `b`) with friends c and d at warmth `ac`, who feel `ca` back. */
+  const run = (friendsForgive: boolean, ac: number, ca: number, friends = ['c', 'd']) => {
+    const w = makeWorld(
+      [
+        { id: 'a', x: 800, opener: 0.6, forgiveness: 0, memory: 1 },
+        { id: 'b', x: 810, opener: 0.4 },
+        { id: 'c', x: 100, forgiveness: 0.5 },
+        { id: 'd', x: 300, forgiveness: 0.5 },
+      ],
+      friendsForgive ? { friendsForgive: true } : {},
+    );
+    const a = byId(w, 'a')!;
+    side(metBefore(w, a, byId(w, 'b')!), 'a').slights = 1;
+    for (const id of friends) {
+      const tie = metBefore(w, a, byId(w, id)!);
+      side(tie, 'a').warmth = ac;
+      side(tie, id).warmth = ca;
+    }
+    return giftFrom(resolveMeeting(w, a, byId(w, 'b')!, t, draws({ bidderGift: 0.99 })), 'a').move;
+  };
+  expect(run(true, 0.5, 0.5)).toBe('give');
+  expect(run(false, 0.5, 0.5)).toBe('keep');
+  expect(run(true, 0.5, 0.2)).toBe('keep'); // c and d do not count a as a friend
+  expect(run(true, 0.5, 0.5, ['c'])).toBe('keep'); // one mutual friend is fewer than mushroom.trustFriends
+});
+
 test('a gift costs the giver 1 and gives the receiver 3; in winter the receiver gets 2', () => {
   let p = pair({ berries: 3 }, { berries: 3 });
   resolveMeeting(p.w, p.a, p.b, t, draws({ bidderGift: 0 }));

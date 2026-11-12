@@ -1,0 +1,72 @@
+{
+  "id": "i8",
+  "kind": "interlude",
+  "activity": "stillness",
+  "title": "The Long Night",
+  "season": "winter",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "gone": ["wisp"]
+  },
+  "beats": [
+    {
+      "id": "i8_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "i8_intro"
+        }
+      ]
+    },
+    {
+      "id": "i8_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "i8_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "i8_end"
+  },
+  "feeling": "[PLACEHOLDER] Quiet, the weather that does nothing",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Doing nothing",
+      "science": "[PLACEHOLDER] Sometimes the kindest help is to wait and be there.",
+      "limits": "[PLACEHOLDER] The stillness here changes nothing in the sim.",
+      "counter": "[PLACEHOLDER] Some say waiting is only a way to avoid acting.",
+      "question": "[PLACEHOLDER] When is it best to do nothing?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

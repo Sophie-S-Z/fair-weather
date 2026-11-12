@@ -11,7 +11,7 @@
 import diaryJson from '../../content/diary.json';
 import flagsJson from '../../content/flags.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
-import type { Command, SimEvent } from '../sim/types.ts';
+import type { Command, DialKey, Dials, SimEvent } from '../sim/types.ts';
 import { YEAR_EVENTS } from './action-log.ts';
 import type { ActionLog, YearEvent } from './action-log.ts';
 import { parseBeatTag } from './beat-tags.ts';
@@ -21,7 +21,7 @@ import { DiarySchema, diaryLines } from './diary.ts';
 import { FLAG_KEYS, parseFlags } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
-import { chapterTicksPerDay } from './scenario.ts';
+import { chapterTicksPerDay, chosenOverrides } from './scenario.ts';
 import type { Chapter, ChapterBeat } from './schema.ts';
 import { tuning } from './tuning.ts';
 import { checkTwist } from './twists.ts';
@@ -148,12 +148,15 @@ const yearEvents = (log: ActionLog): YearEvent[] => log.flatMap((e) => (e.kind =
  * gives 1, below 0 gives -1, exactly 0 gives 0.
  * litConflict is the share of this chapter's lit meetings with an `against` or a `keep`.
  * festivalShare is the share of the creatures not away that dance.
+ * echoForgiveness is Echo's Forgiveness as the carry passes it on: the value the chapter received
+ * when its overrides set it (ADR 0012 item 15), else the end value.
  */
 const FLAG_SOURCES: {
   [K in FlagKey]: (
     lite: WorldLite | null,
     twistFired: boolean | undefined,
     log: ActionLog,
+    dial: (id: string, key: DialKey) => number | undefined,
   ) => Flags[K] | undefined;
 } = {
   pimSkyBond: (lite) => {
@@ -175,7 +178,7 @@ const FLAG_SOURCES: {
     return conflicts.length / lit.length;
   },
   rumorStuck: (_lite, twistFired) => twistFired,
-  echoForgiveness: (lite) => creature(lite, 'echo')?.dials.forgiveness,
+  echoForgiveness: (_lite, _twist, _log, dial) => dial('echo', 'forgiveness'),
   wispPushed: (_lite, twistFired) => twistFired,
   mossShared: (_lite, twistFired) => twistFired,
   winterLeft: (_lite, _twist, log) => yearEvents(log).filter((e) => e.t === 'leave').length,
@@ -202,6 +205,8 @@ export function createChapterRunner(
   flags: Flags,
   /** Diary lines carried from the chapter before (`carriedDiaries`); empty for a fresh start. */
   carried: ReadonlyMap<string, readonly string[]> = new Map(),
+  /** Each creature's dials as the chapter received them, before its overrides (`receivedDials`). */
+  received: ReadonlyMap<string, Dials> = new Map(),
 ): ChapterRunner {
   const sps = tuning.sim.stepsPerSecond;
   const ticksPerDay = chapterTicksPerDay(config);
@@ -338,7 +343,12 @@ export function createChapterRunner(
     if (finished || !exitReady || bet.phase === 'open' || bet.phase === 'running') return;
     // Wait for the snapshot after the step that ran the last command sent, so flags see it.
     if (unaccepted > 0 || tick <= lastAcceptedTick) return;
-    finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired, log)));
+    const overridden = chosenOverrides(config, flags);
+    const dial = (id: string, key: DialKey): number | undefined =>
+      overridden.some((o) => o.dials?.[id]?.[key] !== undefined)
+        ? received.get(id)?.[key]
+        : creature(latest, id)?.dials[key];
+    finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired, log, dial)));
   }
 
   /** Opens the twist window once, at `tick`; retries count from here. */

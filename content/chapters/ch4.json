@@ -468,7 +468,10 @@
   "twist": {
     "id": "thornsGrow",
     "withinDays": 6,
-    "retryArrange": ["krit", "echo"]
+    "retryArrange": ["krit", "echo"],
+    "opensOn": {
+      "verb": "shine"
+    }
   },
   "reads": [],
   "writes": ["litConflict"],

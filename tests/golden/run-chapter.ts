@@ -8,7 +8,7 @@ import type { FromWorker, SimPort, WorldLite } from '../../src/sim-host/protocol
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import type { Scenario } from '../../src/sim/types.ts';
 import type { ActionLog } from '../../src/story/action-log.ts';
-import { carriedDiaries } from '../../src/story/carry.ts';
+import { carriedDiaries, receivedDials } from '../../src/story/carry.ts';
 import type { Carry } from '../../src/story/carry.ts';
 import { createChapterRunner } from '../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../src/story/chapter-runner.ts';
@@ -88,6 +88,7 @@ export async function runChapterHeadless(
     config,
     flags,
     carry && carriedDiaries(carry, base),
+    receivedDials(carry, base),
   );
   runner.onPrompt((p) => player.onPrompt?.(p, runner));
   const done = runner.done.finally(() => {

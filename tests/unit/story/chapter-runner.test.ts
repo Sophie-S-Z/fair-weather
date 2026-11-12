@@ -938,6 +938,21 @@ describe('the year log', () => {
       mossShared: true,
     });
   });
+
+  test("echoForgiveness is the received value when the chapter's overrides set Echo's Forgiveness", async () => {
+    const f = fakePort();
+    const chapter: Chapter = {
+      ...quiet,
+      overrides: { dials: { echo: { forgiveness: 0 } } },
+      writes: ['echoForgiveness'],
+      exit: { afterDays: 1 },
+    };
+    const received = new Map([['echo', { ...dials, forgiveness: 0.6 }]]);
+    const runner = createChapterRunner(f.port, inkOf([]), chapter, flags, new Map(), received);
+    f.step();
+    f.steps(600, lite({ patch: { echo: { dials: { ...dials, forgiveness: 0 } } } }));
+    await expect(runner.done).resolves.toEqual({ ...flags, echoForgiveness: 0.6 });
+  });
 });
 
 describe('activities', () => {

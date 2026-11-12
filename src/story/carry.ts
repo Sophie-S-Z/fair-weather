@@ -84,6 +84,12 @@ export function applyCarry(s: Scenario, carry: Carry): void {
   ];
 }
 
+/** Each base creature's dials as a chapter receives them, before its overrides: from `carry` when it has the creature, else from `base`. */
+export function receivedDials(carry: Carry | undefined, base: Scenario): Map<string, Dials> {
+  const kept = new Map(carry?.creatures.map((c) => [c.id, c.dials]));
+  return new Map(base.creatures.map((c) => [c.id, { ...(kept.get(c.id) ?? c.dials) }]));
+}
+
 /** The carried diaries of the base creatures of `s`, the ones applyCarry keeps; a newcomer's stays behind. */
 export function carriedDiaries(carry: Carry, s: Scenario): Map<string, string[]> {
   const ids = new Set(s.creatures.map((c) => c.id));

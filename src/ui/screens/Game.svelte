@@ -336,7 +336,7 @@
         </h1>
         <p>
           {ended === 'done'
-            ? '[PLACEHOLDER] Chapters 0 to 3 are done, and that is all of this slice for now.'
+            ? '[PLACEHOLDER] The chapters so far are done, and the rest of the year is still to come.'
             : 'Something in the chapter content went wrong.'}
         </p>
         <button type="button" onclick={onExit}>Back to title</button>

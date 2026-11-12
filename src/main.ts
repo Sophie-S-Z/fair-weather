@@ -38,7 +38,7 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carriedDiaries, carryFrom, restoreDials } from './story/carry.ts';
+import { carriedDiaries, carryFrom, receivedDials, restoreDials } from './story/carry.ts';
 import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
@@ -305,6 +305,7 @@ const game: GameService = {
       chapter,
       flags,
       carry && carriedDiaries(carry, scenarioJson as Scenario),
+      receivedDials(carry, scenarioJson as Scenario),
     );
     lastRunner = runner;
     const keep = (): void => {

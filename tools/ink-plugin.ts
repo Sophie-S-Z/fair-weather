@@ -5,6 +5,7 @@ import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { PosixFileHandler } from 'inkjs/compiler/FileHandler/PosixFileHandler';
 import { ErrorType } from 'inkjs/engine/Error';
 import type { Plugin } from 'vite';
+import type {} from 'vitest/config'; // adds the configureVitest hook to Plugin
 
 /** Compiles an Ink file (with its INCLUDEs, resolved beside it) to the story JSON string. Throws with the Ink line on error. */
 export function compileInk(source: string, path: string): string {
@@ -43,10 +44,23 @@ export function inkIncludes(source: string, path: string, seen = new Set<string>
   return [...seen];
 }
 
+/** The INCLUDEd files' text, so a cached compile goes stale when any of them changes. */
+export function inkCacheKey(source: string, path: string): string {
+  return inkIncludes(source, path)
+    .map((file) => (existsSync(file) ? readFileSync(file, 'utf8') : ''))
+    .join('\0');
+}
+
 /** Turns `import story from '...ink'` into the compiled story JSON string. */
 export function inkPlugin(): Plugin {
   return {
     name: 'fair-weather:ink',
+    configureVitest({ defineCacheKeyGenerator }) {
+      defineCacheKeyGenerator(({ id, sourceCode }) => {
+        const path = id.split('?')[0] ?? id;
+        return path.endsWith('.ink') ? inkCacheKey(sourceCode, path) : undefined;
+      });
+    },
     transform(code, id) {
       const path = id.split('?')[0] ?? id;
       if (!path.endsWith('.ink')) return null;

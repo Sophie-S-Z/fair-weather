@@ -6,7 +6,7 @@ import story from '../../../content/ink/main.ink';
 import { parseBeatTag } from '../../../src/story/beat-tags.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import { createInk } from '../../../src/story/ink.ts';
-import { compileInk } from '../../../tools/ink-plugin.ts';
+import { compileInk, inkCacheKey } from '../../../tools/ink-plugin.ts';
 
 const CHAPTERS = join(import.meta.dirname, '../../../content/chapters');
 
@@ -49,6 +49,16 @@ describe('ink plugin', () => {
     const src = 'INCLUDE part.ink\n=== m ===\nHi.\n-> END\n';
     writeFileSync(join(dir, 'main.ink'), src);
     expect(() => compileInk(src, join(dir, 'main.ink'))).toThrow(/part\.ink[\s\S]*line 3/);
+  });
+
+  test('the cache key changes when an INCLUDEd file changes, so a cached compile never goes stale', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ink-'));
+    const main = join(dir, 'main.ink');
+    const src = 'INCLUDE part.ink\n=== m ===\nHi.\n-> END\n';
+    writeFileSync(join(dir, 'part.ink'), '=== p ===\nOne.\n-> END\n');
+    const before = inkCacheKey(src, main);
+    writeFileSync(join(dir, 'part.ink'), '=== p ===\nTwo.\n-> END\n');
+    expect(inkCacheKey(src, main)).not.toBe(before);
   });
 
   test('chapter scripts: every line is #placeholder or a spec 5.3 voice line, and beat tags parse', () => {

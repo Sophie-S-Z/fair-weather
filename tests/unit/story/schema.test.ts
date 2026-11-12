@@ -37,7 +37,7 @@ describe('ChapterSchema', () => {
 
   test('a beat with an unknown action fails', () => {
     const ch = load('chapters/ch0') as { beats: { actions: unknown[] }[] };
-    const beats = [{ ...ch.beats[0], actions: [{ dance: true }] }];
+    const beats = [{ ...ch.beats[0], actions: [{ teleport: true }] }];
     expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
   });
 

@@ -4,7 +4,7 @@ import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Dials, Scenario, Shell } from '../sim/types.ts';
 
 export interface Carry {
-  creatures: { id: string; dials: Dials; shell: Shell; skyWarmth: number; away: boolean }[];
+  creatures: { id: string; dials: Dials; shell: Shell; skyWarmth: number; away: boolean; gone: boolean }[];
   ties: { a: string; b: string; ab: number; ba: number }[];
 }
 
@@ -17,6 +17,7 @@ export function carryFrom(lite: WorldLite): Carry {
       shell: { ...c.shell },
       skyWarmth: c.skyWarmth,
       away: c.state === 'away',
+      gone: c.gone,
     })),
     ties: lite.ties.map((t) => ({ ...t })),
   };
@@ -24,7 +25,7 @@ export function carryFrom(lite: WorldLite): Carry {
 
 /**
  * Applies `carry` to the base creatures of `s` (a newcomer in the carry is dropped): dials, shell
- * (the sim makes it the resting shell too), sky warmth, and `away`; then every tie between two
+ * (the sim makes it the resting shell too), sky warmth, `away`, and `gone`; then every tie between two
  * base creatures, with 0 slights on both sides.
  */
 export function applyCarry(s: Scenario, carry: Carry): void {
@@ -36,6 +37,7 @@ export function applyCarry(s: Scenario, carry: Carry): void {
     c.shell = { ...k.shell };
     c.skyWarmth = k.skyWarmth;
     if (k.away) c.state = 'away';
+    if (k.gone) c.gone = true;
   }
   const ids = new Set(s.creatures.map((c) => c.id));
   s.ties = [

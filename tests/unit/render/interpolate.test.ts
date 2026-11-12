@@ -13,6 +13,7 @@ const creature = (id: string, x: number, y: number) => ({
   berries: 0,
   skyWarmth: 0,
   dancing: false,
+  gone: false,
   dials,
 });
 const lite = (creatures: WorldLite['creatures']): WorldLite => ({

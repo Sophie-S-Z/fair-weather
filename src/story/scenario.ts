@@ -43,7 +43,8 @@ function apply(s: Scenario, o: Overrides): void {
       if (value !== undefined) c.dials[key as DialKey] = value;
   }
   const { '*': every, ...named } = o.state ?? {};
-  if (every) for (const c of s.creatures) c.state = every;
+  // `'*'` leaves an away creature away (a carried leaver stays gone); a named id can still wake it.
+  if (every) for (const c of s.creatures) if (c.state !== 'away' && !c.gone) c.state = every;
   for (const [id, state] of Object.entries(named)) creature(id).state = state;
   for (const id of o.gone ?? []) {
     const c = creature(id);
@@ -75,7 +76,10 @@ function apply(s: Scenario, o: Overrides): void {
   if (o.ambientSkyBids) s.ambientSkyBids = true;
 }
 
-/** Throws when a creature still in the valley, a bush, a bench, or the gate is in water or at or past the ridge. */
+/**
+ * Throws when a creature still in the valley, a bush, a bench, or the gate is in water or at or
+ * past the ridge, or a bridge is outside every water rectangle (ADR 0012 item 3).
+ */
 function checkLand(s: Scenario): void {
   const wet = (r: Rect, x: number, y: number): boolean =>
     x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
@@ -86,6 +90,9 @@ function checkLand(s: Scenario): void {
     ...s.structures.filter((x) => x.kind === 'bench'),
     { id: 'the gate', x: gateX, y: gateY },
   ];
+  for (const b of s.structures.filter((x) => x.kind === 'bridge')) {
+    if (!s.water?.some((r) => wet(r, b.x, b.y))) throw new Error(`${b.id} stands on dry land`);
+  }
   for (const t of things) {
     if (s.water?.some((r) => wet(r, t.x, t.y))) throw new Error(`${t.id} stands in water`);
     if (s.ridgeX !== undefined && t.x >= s.ridgeX) throw new Error(`${t.id} stands at or past the ridge`);

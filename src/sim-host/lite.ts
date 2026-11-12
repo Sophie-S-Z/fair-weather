@@ -30,6 +30,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       skyWarmth: c.skyWarmth,
       dials: { ...c.dials },
       dancing: c.dancing === true,
+      gone: c.gone === true,
     })),
     ties: [...w.ties]
       .sort(([x], [y]) => byCodeUnit(x, y))

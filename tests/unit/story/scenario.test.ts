@@ -107,15 +107,21 @@ describe('buildScenario', () => {
   });
 
   const shell = { tightness: 0.5, bristle: 0.1, color: 0.2, softness: 0.3 };
-  const carried = (id: string, opener: number, away = false): Carry['creatures'][number] => ({
+  const carried = (id: string, opener: number, away = false, gone = false): Carry['creatures'][number] => ({
     id,
     dials: { opener, forgiveness: 0.1, memory: 0.2, ear: 0.3, wanderlust: 0.4 },
     shell,
     skyWarmth: -0.25,
     away,
+    gone,
   });
   const carry: Carry = {
-    creatures: [carried('pim', 0.2), carried('krit', 0.4, true), carried('kith-31', 0.5)],
+    creatures: [
+      carried('pim', 0.2),
+      carried('krit', 0.4, true),
+      carried('wisp', 0.4, true, true),
+      carried('kith-31', 0.5),
+    ],
     ties: [
       { a: 'krit', b: 'moss', ab: 0.3, ba: -0.2 },
       { a: 'kith-31', b: 'pim', ab: 0.9, ba: 0.9 },
@@ -141,6 +147,16 @@ describe('buildScenario', () => {
     const kritOf = (s: Scenario) => s.creatures.find((c) => c.id === 'krit');
     expect(kritOf(buildScenario(carried4, flags, base, carry))?.state).toBe('away');
     expect(kritOf(buildScenario(ch3, flags, base))?.state).toBeUndefined();
+  });
+
+  test("a carried leaver stays away under '*', and a carried gone creature stays gone", () => {
+    const chapter: Chapter = { ...carried4, overrides: { state: { '*': 'sleep', wisp: 'wander' } } };
+    const s = buildScenario(chapter, flags, base, carry);
+    const of = (id: string) => s.creatures.find((c) => c.id === id);
+    expect(of('krit')?.state).toBe('away');
+    expect(of('wisp')).toMatchObject({ gone: true }); // the sim keeps a gone creature away
+    expect(pimOf(s)?.state).toBe('sleep');
+    expect(buildScenario(carried4, flags, base).creatures.some((c) => c.gone)).toBe(false);
   });
 
   test('grudges set the holder side slights on the carried tie', () => {
@@ -224,6 +240,9 @@ describe('buildScenario', () => {
     expect(() =>
       build({ ...wetAt(800, 500), structures: [{ id: 'bridge-1', kind: 'bridge', x: 800, y: 500 }] }),
     ).not.toThrow();
+    expect(() => build({ structures: [{ id: 'bridge-1', kind: 'bridge', x: 800, y: 500 }] })).toThrow(
+      'bridge-1 stands on dry land',
+    );
     expect(() => build(wetAt(40, 450))).toThrow('the gate stands in water');
     expect(() => build({ ridgeX: 1440 })).toThrow('bell stands at or past the ridge');
     // A gone creature is over the ridge already, so it is not checked.

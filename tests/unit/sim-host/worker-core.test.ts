@@ -90,6 +90,7 @@ test('the snapshot holds the world-lite fields only', () => {
     'berries',
     'dancing',
     'dials',
+    'gone',
     'id',
     'shell',
     'skyWarmth',

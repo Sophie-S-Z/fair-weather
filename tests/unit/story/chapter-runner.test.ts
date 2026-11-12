@@ -15,9 +15,9 @@ import { createWorld } from '../../../src/sim/world.ts';
 import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
 import type { FromWorker, SimPort, ToWorker, WorldLite } from '../../../src/sim-host/protocol.ts';
 import {
-  assertRunnerCommand,
+  assertStoryCommand,
   createChapterRunner,
-  RUNNER_COMMANDS,
+  STORY_COMMANDS,
 } from '../../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../../src/story/chapter-runner.ts';
 import type { Flags } from '../../../src/story/flags.ts';
@@ -121,6 +121,7 @@ function lite(
       berries: b,
       skyWarmth: id === 'pim' ? (o.pimSky ?? 0) : 0,
       dancing: false,
+      gone: false,
       dials,
     })),
     light: null,
@@ -765,19 +766,51 @@ describe('skip', () => {
 });
 
 describe('honesty', () => {
-  test('the one send check throws on a command outside the allowed list', () => {
+  test('the one send check throws on a command the story may not send on its own', () => {
+    for (const cmd of [
+      { t: 'shine', x: 1, y: 1 },
+      { t: 'paintFog', x: 1, y: 1, r: 1, amount: 1 },
+      { t: 'place', kind: 'bench', x: 1, y: 1 },
+      { t: 'wake', who: 'pim' },
+      { t: 'setSeason', season: 'winter' },
+    ] satisfies Command[]) {
+      expect(() => {
+        assertStoryCommand(cmd);
+      }).toThrow(`may not send '${cmd.t}'`);
+    }
     expect(() => {
-      assertRunnerCommand({ t: 'teleport' } as unknown as Command);
-    }).toThrow("may not send 'teleport'");
-    expect(() => {
-      assertRunnerCommand({ t: 'overPoke' });
+      assertStoryCommand({ t: 'overPoke' });
     }).not.toThrow();
     expect(() => {
-      assertRunnerCommand({ t: 'arrangeMeeting', a: 'krit', b: 'pim' });
+      assertStoryCommand({ t: 'arrangeMeeting', a: 'krit', b: 'pim' });
     }).not.toThrow();
   });
 
-  test('over a full chapter the runner sends only commands from its allowed list', async () => {
+  test('every beat action sends only story commands', () => {
+    const f = fakePort();
+    const chapter: Chapter = {
+      ...ch0,
+      beats: [
+        {
+          id: 'all',
+          trigger: { at: 0 },
+          actions: [
+            { arrange: ['krit', 'pim'] },
+            { promptSkyBid: 'pim' },
+            { rumor: { target: 'echo', about: 'krit', sign: -1 } },
+            { dance: 'pim' },
+          ],
+        },
+      ],
+      exit: { afterDays: 10 },
+    };
+    createChapterRunner(f.port, inkOf([]), chapter, flags);
+    f.step();
+    expect(cmds(f).map((c) => c.t)).toEqual(['arrangeMeeting', 'promptSkyBid', 'whisper', 'dance']);
+    expect(cmds(f).every((c) => STORY_COMMANDS.has(c.t))).toBe(true);
+  });
+
+  test('over a full chapter the story sends only story commands; the player verbs send their own', async () => {
     const f = fakePort();
     const ink = inkOf(CH2_KNOTS);
     const runner = createChapterRunner(f.port, ink, ch2, flags);
@@ -792,7 +825,12 @@ describe('honesty', () => {
     f.steps(12500); // the bet reveals, every retry runs, then the close call ends the chapter
     await expect(runner.done).resolves.toEqual({ ...flags, pimScar: false });
 
-    expect(cmds(f).filter((c) => !RUNNER_COMMANDS.has(c.t))).toEqual([]);
+    // The first two are the player's wake and respond; everything after is the story's.
+    expect(
+      cmds(f)
+        .slice(2)
+        .filter((c) => !STORY_COMMANDS.has(c.t)),
+    ).toEqual([]);
     expect(cmds(f)).toEqual([
       { t: 'wake', who: 'pim' },
       { t: 'respond', to: 'pim', reply: 'toward' },

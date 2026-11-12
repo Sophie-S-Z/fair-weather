@@ -15,6 +15,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
       berries: b,
       skyWarmth: 0,
       dancing: false,
+      gone: false,
       dials,
     })),
     light: null,

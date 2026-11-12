@@ -1,7 +1,8 @@
 // The chapter runner (spec 10.1 to 10.4, 6.3): plays one chapter's beats, bets, twist window, and
 // exit. Time is sim ticks from `snapshot` messages, never the wall clock, so a run over a direct
-// port is deterministic. Honesty rule (spec 10.2): the runner arranges meetings and answers for
-// the player only as listed in RUNNER_COMMANDS; it never edits a sim result.
+// port is deterministic. Honesty rule (spec 10.2): what the story sends on its own (beats, twist
+// retries, sky bid re-prompts and the automatic away, overPoke) is only the kinds in
+// STORY_COMMANDS; it never edits a sim result. Player verbs send their own commands.
 //
 // Nothing runs before the first snapshot: events that arrive earlier wait for it, and verb()
 // returns false. The exit resolves on a snapshot taken after the step that applied the last
@@ -53,26 +54,19 @@ export interface ChapterRunner {
   readonly log: ActionLog;
 }
 
-/** Every command the runner may send (spec 10.2). Sim speed goes through `port.speed`. */
-export const RUNNER_COMMANDS: ReadonlySet<Command['t']> = new Set<Command['t']>([
+/** Every command the story may send on its own (spec 10.2). Sim speed goes through `port.speed`. */
+export const STORY_COMMANDS: ReadonlySet<Command['t']> = new Set<Command['t']>([
   'arrangeMeeting',
-  'setSeason',
   'promptSkyBid',
-  'wake',
   'respond',
-  'place',
-  'overPoke',
-  'shine',
-  'paintFog',
-  'blow',
-  'thread',
   'whisper',
   'dance',
+  'overPoke',
 ]);
 
-/** The one honesty check: throws on a command outside RUNNER_COMMANDS. */
-export function assertRunnerCommand(cmd: Command): void {
-  if (!RUNNER_COMMANDS.has(cmd.t)) throw new Error(`The chapter runner may not send '${cmd.t}'`);
+/** The one honesty check: throws on a story command outside STORY_COMMANDS. */
+export function assertStoryCommand(cmd: Command): void {
+  if (!STORY_COMMANDS.has(cmd.t)) throw new Error(`The story may not send '${cmd.t}'`);
 }
 
 const DEFAULT_FLAGS = parseFlags(flagsJson);
@@ -197,9 +191,13 @@ export function createChapterRunner(
 
   function send(cmd: Command): void {
     if (finished) return;
-    assertRunnerCommand(cmd);
     unaccepted += 1;
     port.send([cmd]);
+  }
+  /** A command the story sends on its own, checked against STORY_COMMANDS. */
+  function tell(cmd: Command): void {
+    assertStoryCommand(cmd);
+    send(cmd);
   }
   function speed(multiplier: number): void {
     if (!finished) port.speed(multiplier);
@@ -232,13 +230,13 @@ export function createChapterRunner(
   function act(a: ChapterBeat['actions'][number] | BeatAction): void {
     if (finished) return;
     if ('ink' in a) say(a.ink);
-    else if ('arrange' in a) send({ t: 'arrangeMeeting', a: a.arrange[0], b: a.arrange[1] });
+    else if ('arrange' in a) tell({ t: 'arrangeMeeting', a: a.arrange[0], b: a.arrange[1] });
     else if ('camera' in a) for (const cb of [...cameraListeners]) cb(a.camera);
     else if ('focus' in a) for (const cb of [...focusListeners]) cb(a.focus);
     else if ('pause' in a) speed(0);
-    else if ('promptSkyBid' in a) send({ t: 'promptSkyBid', who: a.promptSkyBid });
-    else if ('rumor' in a) send({ t: 'whisper', ...a.rumor });
-    else if ('dance' in a) send({ t: 'dance', who: a.dance });
+    else if ('promptSkyBid' in a) tell({ t: 'promptSkyBid', who: a.promptSkyBid });
+    else if ('rumor' in a) tell({ t: 'whisper', ...a.rumor });
+    else if ('dance' in a) tell({ t: 'dance', who: a.dance });
     else openBet();
   }
 
@@ -296,7 +294,7 @@ export function createChapterRunner(
       if (twist.retries < tuning.story.honestyRetries) {
         twist.retries += 1;
         twist.deadline = t + withinDays * ticksPerDay;
-        send({ t: 'arrangeMeeting', a: retryArrange[0], b: retryArrange[1] });
+        tell({ t: 'arrangeMeeting', a: retryArrange[0], b: retryArrange[1] });
         return;
       }
       twistFired = false;
@@ -322,12 +320,12 @@ export function createChapterRunner(
     }
     for (let r = rePrompts[0]; r && t >= r.tick; r = rePrompts[0]) {
       rePrompts.shift();
-      send({ t: 'promptSkyBid', who: r.who });
+      tell({ t: 'promptSkyBid', who: r.who });
     }
     const replyTicks = tuning.story.skyBidReplySeconds * sps;
     for (let bid = skyBids[0]; bid && t >= bid.tick + replyTicks; bid = skyBids[0]) {
       skyBids.shift();
-      send({ t: 'respond', to: bid.who, reply: 'away' });
+      tell({ t: 'respond', to: bid.who, reply: 'away' });
       if (!bid.ambient)
         rePrompts.push({ who: bid.who, tick: t + Math.round(tuning.story.skyBidRepeatSeconds * sps) });
     }
@@ -426,7 +424,7 @@ export function createChapterRunner(
       speed(tuning.bet.revealSpeed);
     },
     overPoke() {
-      if (origin !== null) send({ t: 'overPoke' });
+      if (origin !== null) tell({ t: 'overPoke' });
     },
     skip() {
       const skipped = withWrites((key) => DEFAULT_FLAGS[key]);

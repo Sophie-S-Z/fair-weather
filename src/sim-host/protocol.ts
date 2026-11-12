@@ -23,6 +23,8 @@ export interface WorldLite {
     skyWarmth: number;
     dials: Dials;
     dancing: boolean;
+    /** Left over the ridge for good (ADR 0012 item 3). */
+    gone: boolean;
   }[];
   /** Every tie's two warmths, in tie-key order (ADR 0012 item 2). */
   ties: { a: string; b: string; ab: number; ba: number }[];

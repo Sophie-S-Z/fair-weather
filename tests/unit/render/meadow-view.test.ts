@@ -61,6 +61,7 @@ const snapshot = (
     berries: 0,
     skyWarmth: 0,
     dancing: false,
+    gone: false,
     dials,
   })),
   light: { x: 800, y: 450 },
@@ -172,7 +173,18 @@ test('only the focus creature wears the accent; the rest show shell color as a m
   const world: WorldLite = {
     ...snapshot([]),
     creatures: [
-      { id: 'pim', x: 300, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials, dancing: false },
+      {
+        id: 'pim',
+        x: 300,
+        y: 400,
+        state: 'wander',
+        shell,
+        berries: 0,
+        skyWarmth: 0,
+        dials,
+        dancing: false,
+        gone: false,
+      },
       {
         id: 'krit',
         x: 600,
@@ -183,6 +195,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
         skyWarmth: 0,
         dials,
         dancing: false,
+        gone: false,
       },
       {
         id: 'villager-1',
@@ -194,6 +207,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
         skyWarmth: 0,
         dials,
         dancing: false,
+        gone: false,
       },
     ],
   };

@@ -1,7 +1,8 @@
 // The year carry (ADR 0012 item 1): what a `carry: true` chapter keeps from the chapter before it.
 // All of it lives here, so buildScenario has one call to drop if the carry goes.
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { Dials, Scenario, Shell } from '../sim/types.ts';
+import type { DialKey, Dials, Scenario, Shell } from '../sim/types.ts';
+import type { Overrides } from './schema.ts';
 
 export interface Carry {
   creatures: {
@@ -34,6 +35,28 @@ export function carryFrom(lite: WorldLite, diaries: ReadonlyMap<string, readonly
     })),
     ties: lite.ties.map((t) => ({ ...t })),
   };
+}
+
+/**
+ * A chapter's dial overrides end with it: in `carry`, from that chapter's end, each dial that its
+ * `overrides` (its own and its chosen variant's) set goes back to the value the chapter received,
+ * from `received` (the carry it started from) or else `base`. Every other dial keeps its end value,
+ * so imitation and gusts stay history.
+ */
+export function restoreDials(
+  carry: Carry,
+  received: Carry | undefined,
+  base: Scenario,
+  overrides: readonly Overrides[],
+): void {
+  for (const o of overrides) {
+    for (const [id, dials] of Object.entries(o.dials ?? {})) {
+      const to = carry.creatures.find((c) => c.id === id);
+      const from = (received ?? base).creatures.find((c) => c.id === id);
+      if (!to || !from) continue;
+      for (const key of Object.keys(dials) as DialKey[]) to.dials[key] = from.dials[key];
+    }
+  }
 }
 
 /**

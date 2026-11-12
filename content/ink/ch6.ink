@@ -1,5 +1,5 @@
 === ch6_intro ===
-Autumn fog rolls in, and Echo still remembers what was said about Krit. #placeholder
+Autumn fog rolls in. Echo and Krit sit on the islet by the crooked tree, where each gives as the other gave last. #placeholder
 -> END
 
 === ch6_bet ===

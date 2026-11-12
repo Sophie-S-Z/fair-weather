@@ -67,6 +67,11 @@ test('createWorld takes ticksPerDay from the scenario when given', () => {
   expect(createWorld(1, tuning, { ...scenario, ticksPerDay: 123 }).ticksPerDay).toBe(123);
 });
 
+test('createWorld sets rumorFirst only when the scenario does', () => {
+  expect(createWorld(1, tuning, { ...scenario, rumorFirst: true }).rumorFirst).toBe(true);
+  expect('rumorFirst' in createWorld(1, tuning, scenario)).toBe(false);
+});
+
 test('tieKey sorts the ids', () => {
   expect(tieKey('pim', 'krit')).toBe('krit|pim');
   expect(tieKey('krit', 'pim')).toBe(tieKey('pim', 'krit'));

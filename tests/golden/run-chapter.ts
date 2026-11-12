@@ -14,7 +14,7 @@ import { createChapterRunner } from '../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../src/story/chapter-runner.ts';
 import type { Flags } from '../../src/story/flags.ts';
 import { createInk } from '../../src/story/ink.ts';
-import { buildScenario } from '../../src/story/scenario.ts';
+import { buildScenario, chapterTicksPerDay } from '../../src/story/scenario.ts';
 import type { Chapter } from '../../src/story/schema.ts';
 
 /** A player that makes the obvious choices. Make a new one per run: it may keep state. */
@@ -128,6 +128,31 @@ export async function runChapterHeadless(
 function snapshot(lite: WorldLite | null): WorldLite {
   if (!lite) throw new Error('the run ended before its first snapshot');
   return lite;
+}
+
+/**
+ * The control form of ch3-control.test.ts: `config` from `carry`, with its twist window opened at
+ * tick 1 instead of on a verb, played by `player` (made anew per seed) through that first window
+ * only, since retries are a separate honest mechanism. Returns how many of the 200 seeds fired.
+ */
+export async function controlFired(
+  config: Chapter,
+  player: () => ScriptedPlayer,
+  flags: Flags,
+  carry: Carry,
+): Promise<number> {
+  const twist = config.twist;
+  if (!twist) throw new Error(`${config.id} has no twist`);
+  const control: Chapter = {
+    ...config,
+    twist: { id: twist.id, withinDays: twist.withinDays, retryArrange: twist.retryArrange },
+  };
+  // The window opens on the snapshot of tick 1 and its last check is at tick 1 + withinDays days.
+  const firstWindow = 1 + twist.withinDays * chapterTicksPerDay(config);
+  let fired = 0;
+  for (const seed of SEEDS)
+    if ((await runChapterHeadless(control, seed, player(), flags, firstWindow, carry)).twistFired) fired += 1;
+  return fired;
 }
 
 /** Seeds 1 to 200. */

@@ -74,6 +74,7 @@ function apply(s: Scenario, o: Overrides): void {
   if (o.ridgeX !== undefined) s.ridgeX = o.ridgeX;
   if (o.mushroom) s.mushroom = { ...o.mushroom };
   if (o.ambientSkyBids) s.ambientSkyBids = true;
+  if (o.rumorFirst) s.rumorFirst = true;
 }
 
 /**
@@ -99,6 +100,12 @@ function checkLand(s: Scenario): void {
   }
 }
 
+/** The chapter's overrides, then the first variant in array order whose every `when` condition matches `flags`. */
+export function chosenOverrides(chapter: Chapter, flags: Flags): Overrides[] {
+  const variant = chapter.variants.find((v) => [v.when].flat().every((c) => matches(c, flags)));
+  return variant ? [chapter.overrides, variant.overrides] : [chapter.overrides];
+}
+
 /**
  * A deep copy of `base` (never mutated) for this chapter: season from the chapter, then `carry`
  * when given (ADR 0012 item 1), then `chapter.overrides`, then the first variant in array order
@@ -110,9 +117,7 @@ export function buildScenario(chapter: Chapter, flags: Flags, base: Scenario, ca
   const s = structuredClone(base);
   s.season = chapter.season;
   if (carry) applyCarry(s, carry);
-  apply(s, chapter.overrides);
-  const variant = chapter.variants.find((v) => [v.when].flat().every((c) => matches(c, flags)));
-  if (variant) apply(s, variant.overrides);
+  for (const o of chosenOverrides(chapter, flags)) apply(s, o);
   s.ticksPerDay = chapterTicksPerDay(chapter);
   checkLand(s);
   return s;

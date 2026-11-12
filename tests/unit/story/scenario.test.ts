@@ -198,7 +198,7 @@ describe('buildScenario', () => {
     expect(pimOf(buildScenario(chapter, { ...flags, friendThreads: 4 }, base))?.dials.opener).toBe(0.1);
   });
 
-  test('land, gone, festival, and mushroom overrides set the scenario', () => {
+  test('land, gone, festival, mushroom, and rumor overrides set the scenario', () => {
     const bushes = [{ id: 'bush-9', x: 300, y: 300, berries: 2 }];
     const chapter: Chapter = {
       ...ch3,
@@ -211,6 +211,7 @@ describe('buildScenario', () => {
         danceThreshold: { bell: 3 },
         mushroom: { x: 200, y: 600 },
         ambientSkyBids: true,
+        rumorFirst: true,
       },
     };
     const s = buildScenario(chapter, flags, base);
@@ -221,6 +222,7 @@ describe('buildScenario', () => {
       ridgeX: 1500,
       mushroom: { x: 200, y: 600 },
       ambientSkyBids: true,
+      rumorFirst: true,
     });
     expect(s.creatures.find((c) => c.id === 'wisp')).toMatchObject({ gone: true, state: 'away' });
     expect(s.creatures.find((c) => c.id === 'bell')?.danceThreshold).toBe(3);

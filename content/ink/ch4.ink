@@ -1,5 +1,5 @@
 === ch4_intro ===
-Summer is hot, and every look lingers. #placeholder
+Summer is hot. Nobody shares first, and nobody shares with Krit at all. #placeholder
 -> END
 
 === ch4_bet ===

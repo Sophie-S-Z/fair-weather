@@ -81,6 +81,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     world.mushroom = { x, y, drops: tuning.mushroom.drops, taken: 0, witherDays: 0 };
   }
   if (scenario.ambientSkyBids) world.ambientSkyBids = true;
+  if (scenario.rumorFirst) world.rumorFirst = true;
   return world;
 }
 

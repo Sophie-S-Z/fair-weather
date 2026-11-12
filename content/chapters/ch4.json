@@ -17,7 +17,391 @@
         "y": 430
       }
     ],
-    "ambientSkyBids": true
+    "ambientSkyBids": true,
+    "dials": {
+      "pim": {
+        "opener": 0
+      },
+      "krit": {
+        "opener": 0
+      },
+      "echo": {
+        "opener": 0
+      },
+      "moss": {
+        "opener": 0
+      },
+      "wisp": {
+        "opener": 0
+      },
+      "bell": {
+        "opener": 0
+      },
+      "villager-1": {
+        "opener": 0
+      },
+      "villager-2": {
+        "opener": 0
+      },
+      "villager-3": {
+        "opener": 0
+      },
+      "villager-4": {
+        "opener": 0
+      },
+      "villager-5": {
+        "opener": 0
+      },
+      "villager-6": {
+        "opener": 0
+      },
+      "villager-7": {
+        "opener": 0
+      },
+      "villager-8": {
+        "opener": 0
+      },
+      "villager-9": {
+        "opener": 0
+      },
+      "villager-10": {
+        "opener": 0
+      },
+      "villager-11": {
+        "opener": 0
+      },
+      "villager-12": {
+        "opener": 0
+      },
+      "villager-13": {
+        "opener": 0
+      },
+      "villager-14": {
+        "opener": 0
+      },
+      "villager-15": {
+        "opener": 0
+      },
+      "villager-16": {
+        "opener": 0
+      },
+      "villager-17": {
+        "opener": 0
+      },
+      "villager-18": {
+        "opener": 0
+      },
+      "villager-19": {
+        "opener": 0
+      },
+      "villager-20": {
+        "opener": 0
+      },
+      "villager-21": {
+        "opener": 0
+      },
+      "villager-22": {
+        "opener": 0
+      },
+      "villager-23": {
+        "opener": 0
+      },
+      "villager-24": {
+        "opener": 0
+      }
+    },
+    "grudges": [
+      {
+        "holder": "pim",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "pim",
+        "slights": 4
+      },
+      {
+        "holder": "echo",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "echo",
+        "slights": 4
+      },
+      {
+        "holder": "moss",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "moss",
+        "slights": 4
+      },
+      {
+        "holder": "wisp",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "wisp",
+        "slights": 4
+      },
+      {
+        "holder": "bell",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "bell",
+        "slights": 4
+      },
+      {
+        "holder": "villager-1",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-1",
+        "slights": 4
+      },
+      {
+        "holder": "villager-2",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-2",
+        "slights": 4
+      },
+      {
+        "holder": "villager-3",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-3",
+        "slights": 4
+      },
+      {
+        "holder": "villager-4",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-4",
+        "slights": 4
+      },
+      {
+        "holder": "villager-5",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-5",
+        "slights": 4
+      },
+      {
+        "holder": "villager-6",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-6",
+        "slights": 4
+      },
+      {
+        "holder": "villager-7",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-7",
+        "slights": 4
+      },
+      {
+        "holder": "villager-8",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-8",
+        "slights": 4
+      },
+      {
+        "holder": "villager-9",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-9",
+        "slights": 4
+      },
+      {
+        "holder": "villager-10",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-10",
+        "slights": 4
+      },
+      {
+        "holder": "villager-11",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-11",
+        "slights": 4
+      },
+      {
+        "holder": "villager-12",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-12",
+        "slights": 4
+      },
+      {
+        "holder": "villager-13",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-13",
+        "slights": 4
+      },
+      {
+        "holder": "villager-14",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-14",
+        "slights": 4
+      },
+      {
+        "holder": "villager-15",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-15",
+        "slights": 4
+      },
+      {
+        "holder": "villager-16",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-16",
+        "slights": 4
+      },
+      {
+        "holder": "villager-17",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-17",
+        "slights": 4
+      },
+      {
+        "holder": "villager-18",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-18",
+        "slights": 4
+      },
+      {
+        "holder": "villager-19",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-19",
+        "slights": 4
+      },
+      {
+        "holder": "villager-20",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-20",
+        "slights": 4
+      },
+      {
+        "holder": "villager-21",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-21",
+        "slights": 4
+      },
+      {
+        "holder": "villager-22",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-22",
+        "slights": 4
+      },
+      {
+        "holder": "villager-23",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-23",
+        "slights": 4
+      },
+      {
+        "holder": "villager-24",
+        "against": "krit",
+        "slights": 4
+      },
+      {
+        "holder": "krit",
+        "against": "villager-24",
+        "slights": 4
+      }
+    ]
   },
   "beats": [
     {

@@ -249,7 +249,7 @@
     {
       "id": "villager-1",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.2,
         "forgiveness": 0.35,
         "memory": 0.5,
         "ear": 0.65,
@@ -290,7 +290,7 @@
     {
       "id": "villager-2",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.35,
         "forgiveness": 0.65,
         "memory": 0.2,
         "ear": 0.5,
@@ -331,7 +331,7 @@
     {
       "id": "villager-3",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.5,
         "forgiveness": 0.2,
         "memory": 0.65,
         "ear": 0.35,
@@ -372,7 +372,7 @@
     {
       "id": "villager-4",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.65,
         "forgiveness": 0.5,
         "memory": 0.35,
         "ear": 0.2,
@@ -413,7 +413,7 @@
     {
       "id": "villager-5",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.8,
         "forgiveness": 0.8,
         "memory": 0.8,
         "ear": 0.8,
@@ -454,7 +454,7 @@
     {
       "id": "villager-6",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.2,
         "forgiveness": 0.35,
         "memory": 0.5,
         "ear": 0.65,
@@ -495,7 +495,7 @@
     {
       "id": "villager-7",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.35,
         "forgiveness": 0.65,
         "memory": 0.2,
         "ear": 0.5,
@@ -536,7 +536,7 @@
     {
       "id": "villager-8",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.5,
         "forgiveness": 0.2,
         "memory": 0.65,
         "ear": 0.35,
@@ -577,7 +577,7 @@
     {
       "id": "villager-9",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.65,
         "forgiveness": 0.5,
         "memory": 0.35,
         "ear": 0.2,
@@ -618,7 +618,7 @@
     {
       "id": "villager-10",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.8,
         "forgiveness": 0.8,
         "memory": 0.8,
         "ear": 0.8,
@@ -659,7 +659,7 @@
     {
       "id": "villager-11",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.2,
         "forgiveness": 0.35,
         "memory": 0.5,
         "ear": 0.65,
@@ -700,7 +700,7 @@
     {
       "id": "villager-12",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.35,
         "forgiveness": 0.65,
         "memory": 0.2,
         "ear": 0.5,
@@ -741,7 +741,7 @@
     {
       "id": "villager-13",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.5,
         "forgiveness": 0.2,
         "memory": 0.65,
         "ear": 0.35,
@@ -782,7 +782,7 @@
     {
       "id": "villager-14",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.65,
         "forgiveness": 0.5,
         "memory": 0.35,
         "ear": 0.2,
@@ -823,7 +823,7 @@
     {
       "id": "villager-15",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.8,
         "forgiveness": 0.8,
         "memory": 0.8,
         "ear": 0.8,
@@ -864,7 +864,7 @@
     {
       "id": "villager-16",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.2,
         "forgiveness": 0.35,
         "memory": 0.5,
         "ear": 0.65,
@@ -905,7 +905,7 @@
     {
       "id": "villager-17",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.35,
         "forgiveness": 0.65,
         "memory": 0.2,
         "ear": 0.35,
@@ -946,7 +946,7 @@
     {
       "id": "villager-18",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.5,
         "forgiveness": 0.2,
         "memory": 0.65,
         "ear": 0.35,
@@ -987,7 +987,7 @@
     {
       "id": "villager-19",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.65,
         "forgiveness": 0.5,
         "memory": 0.35,
         "ear": 0.2,
@@ -1028,7 +1028,7 @@
     {
       "id": "villager-20",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.8,
         "forgiveness": 0.8,
         "memory": 0.8,
         "ear": 0.8,
@@ -1069,7 +1069,7 @@
     {
       "id": "villager-21",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.2,
         "forgiveness": 0.35,
         "memory": 0.5,
         "ear": 0.65,
@@ -1110,7 +1110,7 @@
     {
       "id": "villager-22",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.35,
         "forgiveness": 0.65,
         "memory": 0.2,
         "ear": 0.5,
@@ -1151,7 +1151,7 @@
     {
       "id": "villager-23",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.5,
         "forgiveness": 0.2,
         "memory": 0.65,
         "ear": 0.35,
@@ -1192,7 +1192,7 @@
     {
       "id": "villager-24",
       "dials": {
-        "opener": 0.3,
+        "opener": 0.65,
         "forgiveness": 0.5,
         "memory": 0.35,
         "ear": 0.2,

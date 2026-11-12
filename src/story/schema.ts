@@ -144,6 +144,8 @@ export const OverridesSchema = z.strictObject({
   danceThreshold: z.record(id, z.number().int().positive()).optional(),
   mushroom: point.optional(),
   ambientSkyBids: z.literal(true).optional(),
+  /** A holder of the latest rumor shares it before its strongest opinion (ADR 0012 item 15). */
+  rumorFirst: z.literal(true).optional(),
   weather: z
     .strictObject({
       light: z.strictObject({ x: z.number(), y: z.number() }).nullable().optional(),

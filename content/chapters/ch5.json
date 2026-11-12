@@ -18,17 +18,7 @@
       }
     ],
     "ambientSkyBids": true,
-    "state": {
-      "krit": "sleep",
-      "echo": "sleep",
-      "pim": "sleep",
-      "villager-1": "sleep",
-      "villager-2": "sleep",
-      "villager-3": "sleep",
-      "villager-5": "sleep",
-      "villager-6": "sleep",
-      "villager-8": "sleep"
-    },
+    "rumorFirst": true,
     "dials": {
       "pim": {
         "ear": 0.1
@@ -137,7 +127,7 @@
     {
       "id": "ch5_whisper",
       "trigger": {
-        "at": 2
+        "at": 38
       },
       "actions": [
         {

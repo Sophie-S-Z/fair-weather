@@ -1,6 +1,7 @@
 // Scripted players for the T3 runs and the year run, by chapter id. Make a new one per run: a
 // player may keep state.
 import sceneJson from '../../content/scenes/kith-meadow.json';
+import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { creature } from '../../src/story/bets.ts';
 import type { ScriptedPlayer } from './run-chapter.ts';
 
@@ -9,7 +10,7 @@ if (!spot) throw new Error('kith-meadow has no bench spot under the crooked tree
 const bench = spot;
 
 /** Answers a bet with its first option; leaves sky bids to the runner's automatic 'away'. */
-const firstOption: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
+export const firstOption: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
   if (p.kind === 'bet' && p.options[0] !== undefined) runner.answerBet(p.options[0]);
 };
 
@@ -23,8 +24,17 @@ const finishes = (result: string) => (): ScriptedPlayer => {
   };
 };
 
-/** The villagers ch5.json sets asleep beside Echo (ADR 0012 item 15). */
-const VILLAGERS = ['villager-1', 'villager-2', 'villager-3', 'villager-5', 'villager-6', 'villager-8'];
+/** The `n` villagers nearest `id` in `lite`, nearest first. */
+function nearestVillagers(lite: WorldLite, id: string, n: number): string[] {
+  const at = creature(lite, id);
+  if (!at) return [];
+  const d = (c: { x: number; y: number }) => (c.x - at.x) ** 2 + (c.y - at.y) ** 2;
+  return lite.creatures
+    .filter((c) => c.id.startsWith('villager-') && c.state !== 'away')
+    .sort((a, b) => d(a) - d(b))
+    .slice(0, n)
+    .map((c) => c.id);
+}
 
 export const PLAYERS = {
   ch2: () => ({ onPrompt: firstOption }),
@@ -50,15 +60,16 @@ export const PLAYERS = {
     };
   },
   i4: finishes('done'),
-  /** Threads Echo to Pim and to six villagers on its first tick; answers the bet with its first option. */
+  /** Threads Echo to Pim and to the six villagers nearest her on its first tick; answers the bet with its first option. */
   ch5: () => {
     let threaded = false;
     return {
       onPrompt: firstOption,
-      onTick(_tick, runner) {
+      onTick(_tick, runner, lite) {
         if (threaded) return;
         threaded = true;
-        for (const b of ['pim', ...VILLAGERS]) runner.verb({ verb: 'thread', a: 'echo', b, on: true });
+        for (const b of ['pim', ...nearestVillagers(lite, 'echo', 6)])
+          runner.verb({ verb: 'thread', a: 'echo', b, on: true });
       },
     };
   },

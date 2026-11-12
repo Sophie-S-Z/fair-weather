@@ -1,5 +1,5 @@
 === ch5_intro ===
-Late summer: Krit, Echo, and her friends doze in the heat, and the talk is thick in the grass. #placeholder
+Late summer, and the talk is thick in the grass. By dusk, someone will have a story to tell. #placeholder
 -> END
 
 === ch5_whisper ===

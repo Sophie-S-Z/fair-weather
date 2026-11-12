@@ -150,6 +150,8 @@ export interface World {
   mushroom?: { x: number; y: number; drops: number; taken: number; witherDays: number };
   /** Set only with the scenario's: a creature may bid to the sky at dusk (ADR 0012 item 4). */
   ambientSkyBids?: true;
+  /** Set only with the scenario's: a holder of the latest rumor shares it first at dusk (ADR 0012 item 15). */
+  rumorFirst?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -203,4 +205,5 @@ export interface Scenario {
   ridgeX?: number;
   mushroom?: { x: number; y: number };
   ambientSkyBids?: true;
+  rumorFirst?: true;
 }

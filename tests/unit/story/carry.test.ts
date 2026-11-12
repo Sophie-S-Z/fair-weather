@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
-import { carriedDiaries, carryFrom } from '../../../src/story/carry.ts';
+import { carriedDiaries, carryFrom, restoreDials } from '../../../src/story/carry.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 
@@ -58,4 +58,30 @@ test("carriedDiaries keeps the base creatures' diaries; a newcomer's stays behin
   const carry: Carry = { creatures: [entry('pim', ['Left.']), entry('newcomer-40', ['Came.'])], ties: [] };
   const base = { creatures: [{ id: 'pim' }, { id: 'krit' }] } as Scenario;
   expect(carriedDiaries(carry, base)).toEqual(new Map([['pim', ['Left.']]]));
+});
+
+test('restoreDials puts back the overridden dials only, from the received carry or else the base', () => {
+  const end = { opener: 0.9, forgiveness: 0.1, memory: 0.6, ear: 0.3, wanderlust: 0.8 };
+  const entry = (id: string) => ({
+    id,
+    dials: { ...end },
+    shell,
+    skyWarmth: 0,
+    away: false,
+    gone: false,
+    diary: [],
+  });
+  const carry: Carry = { creatures: [entry('pim'), entry('krit')], ties: [] };
+  const base = {
+    creatures: [
+      { id: 'pim', dials },
+      { id: 'krit', dials },
+    ],
+  } as unknown as Scenario;
+  restoreDials(carry, undefined, base, [{ dials: { pim: { opener: 1 } } }, { dials: { krit: { ear: 0 } } }]);
+  expect(carry.creatures[0]?.dials).toEqual({ ...end, opener: 0.2 });
+  expect(carry.creatures[1]?.dials).toEqual({ ...end, ear: 0.7 });
+  const received: Carry = { creatures: [{ ...entry('pim'), dials: { ...dials, opener: 0.4 } }], ties: [] };
+  restoreDials(carry, received, base, [{ dials: { pim: { opener: 1 } } }]);
+  expect(carry.creatures[0]?.dials.opener).toBe(0.4);
 });

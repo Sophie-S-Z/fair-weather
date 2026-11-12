@@ -18,21 +18,225 @@
       }
     ],
     "ambientSkyBids": true,
-    "grudges": [
-      {
-        "holder": "echo",
-        "against": "krit",
-        "slights": 2
-      }
-    ],
-    "dials": {
+    "positions": {
       "echo": {
-        "opener": 0.05
+        "x": 605,
+        "y": 420
       },
       "krit": {
-        "forgiveness": 0
+        "x": 635,
+        "y": 420
+      },
+      "villager-9": {
+        "x": 800,
+        "y": 450
       }
-    }
+    },
+    "dials": {
+      "pim": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "krit": {
+        "forgiveness": 0,
+        "memory": 0,
+        "opener": 0
+      },
+      "echo": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "moss": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "wisp": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "bell": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-1": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-2": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-3": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-4": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-5": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-6": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-7": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-8": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-9": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-10": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-11": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-12": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-13": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-14": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-15": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-16": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-17": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-18": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-19": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-20": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-21": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-22": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-23": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-24": {
+        "forgiveness": 0,
+        "memory": 0
+      }
+    },
+    "water": [
+      {
+        "x": 550,
+        "y": 350,
+        "w": 140,
+        "h": 40
+      },
+      {
+        "x": 550,
+        "y": 450,
+        "w": 140,
+        "h": 40
+      },
+      {
+        "x": 550,
+        "y": 390,
+        "w": 40,
+        "h": 60
+      },
+      {
+        "x": 650,
+        "y": 390,
+        "w": 40,
+        "h": 60
+      }
+    ],
+    "bushes": [
+      {
+        "id": "bush-1",
+        "x": 240,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-2",
+        "x": 613,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-3",
+        "x": 986,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-4",
+        "x": 1359,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-5",
+        "x": 330,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-6",
+        "x": 703,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-7",
+        "x": 1076,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-8",
+        "x": 1449,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-isle",
+        "x": 620,
+        "y": 440,
+        "berries": 5
+      }
+    ]
   },
   "place": {
     "kind": "lantern",
@@ -47,13 +251,6 @@
       "actions": [
         {
           "camera": "meadow-wide"
-        },
-        {
-          "rumor": {
-            "target": "echo",
-            "about": "krit",
-            "sign": -1
-          }
         },
         {
           "ink": "ch6_intro"
@@ -71,28 +268,6 @@
         },
         {
           "openBet": true
-        }
-      ]
-    },
-    {
-      "id": "ch6_meet_day2",
-      "trigger": {
-        "at": 41
-      },
-      "actions": [
-        {
-          "arrange": ["echo", "krit"]
-        }
-      ]
-    },
-    {
-      "id": "ch6_meet_day3",
-      "trigger": {
-        "at": 81
-      },
-      "actions": [
-        {
-          "arrange": ["echo", "krit"]
         }
       ]
     },
@@ -137,7 +312,10 @@
   "twist": {
     "id": "revengeLoop",
     "withinDays": 5,
-    "retryArrange": ["echo", "krit"]
+    "retryArrange": ["echo", "krit"],
+    "opensOn": {
+      "verb": "fog"
+    }
   },
   "reads": [],
   "writes": ["echoForgiveness"],

@@ -140,3 +140,26 @@ test('gossip, simple: once a subject is adopted, the other sign about it takes n
   expect(gossip(w, t, rng)).toEqual([{ t: 'opinion', holder: 'L', about: 'X', value: 0.8 }]);
   expect(rng.used()).toBe(1);
 });
+
+/** L's one friend F holds Y at 0.9 and the latest rumor, about X, at -0.6. */
+function rumorWorld(rumorFirst: boolean) {
+  const w = makeWorld([{ id: 'L', ear: 0.5 }, { id: 'F' }, { id: 'X' }, { id: 'Y' }]);
+  befriend(w, 'L', 'F');
+  get(w, 'F').opinions.Y = 0.9;
+  get(w, 'F').opinions.X = -0.6;
+  w.rumors.push({ about: 'X', sign: -1, strength: 0.6, origin: 'F', tick: 0 });
+  if (rumorFirst) w.rumorFirst = true;
+  return w;
+}
+
+test('gossip: without rumorFirst the strongest opinion is shared, not the rumor', () => {
+  const w = rumorWorld(false);
+  gossip(w, t, scriptedRng([]));
+  expect(get(w, 'L').opinions).toEqual({ Y: 0.9 });
+});
+
+test('gossip: with rumorFirst a holder of the latest rumor shares it first', () => {
+  const w = rumorWorld(true);
+  gossip(w, t, scriptedRng([]));
+  expect(get(w, 'L').opinions).toEqual({ X: -0.6 });
+});

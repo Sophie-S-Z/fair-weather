@@ -38,13 +38,15 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carriedDiaries, carryFrom } from './story/carry.ts';
+import { carriedDiaries, carryFrom, restoreDials } from './story/carry.ts';
+import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
 import { createInk } from './story/ink.ts';
-import { buildScenario } from './story/scenario.ts';
+import { buildScenario, chosenOverrides } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
+import type { Overrides } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
@@ -191,6 +193,8 @@ let resuming: SaveV1 | null = null;
 let lastLite: WorldLite | null = null;
 /** The last chapter's runner: a carried chapter keeps its diaries. */
 let lastRunner: ChapterRunner | null = null;
+/** What the last chapter started from and its dial overrides, which the carry puts back. */
+let lastStart: { carry: Carry | undefined; overrides: Overrides[] } | null = null;
 host.onMessage((m) => {
   if (m.t === 'snapshot') lastLite = m.lite;
 });
@@ -263,6 +267,9 @@ const game: GameService = {
   startChapter(chapter, flags) {
     const carry =
       chapter.carry && lastLite ? carryFrom(lastLite, lastRunner?.diaries ?? new Map()) : undefined;
+    if (carry && lastStart)
+      restoreDials(carry, lastStart.carry, scenarioJson as Scenario, lastStart.overrides);
+    lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;

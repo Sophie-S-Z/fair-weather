@@ -1,9 +1,13 @@
 // The year run (ADR 0012 item 1): the chapters from ch3 on, one after another, headless, each
 // with its scripted player, the flags the one before wrote, and the carry main.ts would give it.
 import flagsJson from '../../content/flags.json';
-import { carryFrom } from '../../src/story/carry.ts';
+import scenarioJson from '../../content/scenarios/m0.json';
+import type { Scenario } from '../../src/sim/types.ts';
+import { carryFrom, restoreDials } from '../../src/story/carry.ts';
 import type { Carry } from '../../src/story/carry.ts';
+import type { Flags } from '../../src/story/flags.ts';
 import { parseFlags } from '../../src/story/flags.ts';
+import { chosenOverrides } from '../../src/story/scenario.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter } from '../../src/story/schema.ts';
 import { PLAYERS } from './players.ts';
@@ -48,15 +52,24 @@ export async function runYear(
   const results: Record<string, HeadlessResult> = {};
   const carries: Record<string, Carry> = {};
   let flags = parseFlags(flagsJson);
-  let before: HeadlessResult | undefined;
+  let before: { result: HeadlessResult; carry: Carry | undefined; config: Chapter; flags: Flags } | undefined;
   for (const id of CHAPTER_ORDER.slice(from, to + 1)) {
     const config = CHAPTERS.get(id);
     const player = (PLAYERS as Record<string, (() => ScriptedPlayer) | undefined>)[id];
     if (!config || !player) throw new Error(`chapter ${id} has no config or no scripted player`);
-    const carry = config.carry && before ? carryFrom(before.last, before.diaries) : undefined;
+    // As main.ts: the carry from the last chapter's end, with its dial overrides put back.
+    const carry = config.carry && before ? carryFrom(before.result.last, before.result.diaries) : undefined;
+    if (carry && before)
+      restoreDials(
+        carry,
+        before.carry,
+        scenarioJson as Scenario,
+        chosenOverrides(before.config, before.flags),
+      );
     if (carry) carries[id] = carry;
-    before = results[id] = await runChapterHeadless(config, seed, player(), flags, undefined, carry);
-    flags = before.flags;
+    const result = (results[id] = await runChapterHeadless(config, seed, player(), flags, undefined, carry));
+    before = { result, carry, config, flags };
+    flags = result.flags;
   }
   return { results, carries };
 }

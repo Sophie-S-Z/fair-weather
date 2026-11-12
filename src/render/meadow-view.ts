@@ -365,7 +365,7 @@ export function createMeadowView(
   scene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
-  options: { lensRadius: number; bridgeRadius: number; cast: Map<string, Cast> },
+  options: { lensRadius: number; cast: Map<string, Cast> },
 ): MeadowView {
   let palette = firstPalette;
   const world = new Container();
@@ -452,11 +452,10 @@ export function createMeadowView(
         props.clear();
         landKey = mushroomKey = '';
       }
-      const bridges = next.structures.filter((s) => s.kind === 'bridge');
-      const key = JSON.stringify([next.water, bridges]);
+      const key = JSON.stringify([next.water, next.decks]);
       if (key !== landKey) {
         landKey = key;
-        drawLand(land, next.water, bridges, palette, w, options.bridgeRadius, scene);
+        drawLand(land, next.water, next.decks, palette, w, scene);
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */

@@ -113,7 +113,6 @@ const settings: Settings = {
 };
 const meadow = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
-  bridgeRadius: tuning.bridge.radius,
   cast,
 });
 /** The timeline band as the game's HTML lays it out at 1280 x 720: a line of label, then the strip's slot. */

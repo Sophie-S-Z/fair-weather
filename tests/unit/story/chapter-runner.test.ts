@@ -130,6 +130,7 @@ function lite(
     metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
     structures: o.structures ?? (o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : []),
     water: [],
+    decks: [],
     mushroom: null,
     bushes: [],
     ties: [],

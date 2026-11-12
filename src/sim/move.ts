@@ -5,7 +5,7 @@ import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { inRect, nearestBridgeOn, waterBlocking } from './land.ts';
+import { bridgeDeck, inRect, nearestBridgeOn, waterBlocking } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
 
@@ -133,23 +133,23 @@ function takeDrop(c: Creature, world: World, tuning: Tuning): void {
 }
 
 /**
- * A refused step into `water` (ADR 0012 item 3). The creature stops and heads for the nearest
- * bridge on that water: for the bridge's foot on the water's edge on its own side, or, from inside
- * the water, on its goal's side. When no bridge can help (none on that water, or it already heads
- * for the foot or stands within move.arriveRadius of it), it counts its goal's cell as visited as
- * often as its most visited cell and picks a random least-visited cell, so the refused goal cannot
- * come straight back.
+ * A refused step into `water` or its bank (ADR 0012 item 3). The creature stops and heads for the
+ * nearest bridge on that water: for the foot of its deck, just past the bank, on its own side, or,
+ * from on the deck, on its goal's side. When no bridge can help (none on that water, or it already
+ * heads for the foot or stands within move.arriveRadius of it), it counts its goal's cell as
+ * visited as often as its most visited cell and picks a random least-visited cell, so the refused
+ * goal cannot come straight back.
  */
 function turnFromWater(c: Creature, water: Rect, world: World, tuning: Tuning, rng: Rng): void {
   c.vx = 0;
   c.vy = 0;
   const bridge = nearestBridgeOn(world, water, c.x, c.y);
-  if (bridge) {
-    const [sx, sy] = inRect(water, c.x, c.y) ? [c.goalX, c.goalY] : [c.x, c.y];
-    const right = water.x + water.w;
-    const bottom = water.y + water.h;
-    const fx = sx < water.x ? water.x : sx > right ? right : bridge.x;
-    const fy = sy < water.y ? water.y : sy > bottom ? bottom : bridge.y;
+  const deck = bridge && bridgeDeck(bridge, world.water ?? [], tuning);
+  if (bridge && deck) {
+    const [sx, sy] = inRect(deck, c.x, c.y) ? [c.goalX, c.goalY] : [c.x, c.y];
+    const [fx, fy] = deck.eastWest
+      ? [sx < bridge.x ? deck.x : deck.x + deck.w, bridge.y]
+      : [bridge.x, sy < bridge.y ? deck.y : deck.y + deck.h];
     const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
     if ((fx !== c.goalX || fy !== c.goalY) && dist2(c.x, c.y, fx, fy) > arrive2) {
       setGoal(c, fx, fy, world, tuning);

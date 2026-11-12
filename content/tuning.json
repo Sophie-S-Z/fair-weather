@@ -76,6 +76,7 @@
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
   "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6 },
   "bet": { "revealSpeed": 8 },
-  "bridge": { "radius": 32 },
+  "bridge": { "radius": 32, "landing": 14 },
+  "bank": { "side": 52, "below": 128 },
   "lantern": { "radius": 120, "fogFactor": 0.5 }
 }

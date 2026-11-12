@@ -3,6 +3,7 @@ import type { World } from '../sim/types.ts';
 import type { Tuning } from '../sim/tuning.ts';
 import type { WorldLite } from './protocol.ts';
 import { holds } from '../sim/daily/gossip.ts';
+import { decksOf } from '../sim/land.ts';
 import { fogAt } from '../sim/light.ts';
 import { friendPairs } from '../sim/metrics.ts';
 import { byCodeUnit } from '../sim/math.ts';
@@ -58,6 +59,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
     structures: w.structures.map((s) => ({ ...s })),
     bushes: w.bushes.map((b) => ({ ...b })),
     water: (w.water ?? []).map((r) => ({ ...r })),
+    decks: decksOf(w, tuning),
     mushroom: w.mushroom
       ? {
           x: w.mushroom.x,

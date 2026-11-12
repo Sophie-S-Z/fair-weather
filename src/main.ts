@@ -280,7 +280,6 @@ const game: GameService = {
     el.appendChild(app.canvas);
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
-      bridgeRadius: tuning.bridge.radius,
       cast,
     });
     const threshold = tuning.friend.threshold;

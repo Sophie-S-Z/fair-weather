@@ -2,7 +2,7 @@
 import type { World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { DIAL_KEYS } from './types.ts';
-import { bridgeNear, inWater } from './land.ts';
+import { decksOf, inRect, inWater } from './land.ts';
 import { tieKey } from './world.ts';
 
 const SHELL_KEYS = ['tightness', 'bristle', 'color', 'softness'] as const;
@@ -29,7 +29,7 @@ function inRange(x: number, lo: number, hi: number): boolean {
 /**
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
- * the scene; no creature, unless away, in water away from a bridge; population <= cap.sandbox;
+ * the scene; no creature, unless away, in water off a bridge deck; population <= cap.sandbox;
  * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops].
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
@@ -39,6 +39,7 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     out.push(`population ${String(world.creatures.length)} > cap.sandbox ${String(t.cap.sandbox)}`);
   }
   const ids = new Set<string>();
+  const decks = decksOf(world, t);
   for (const c of world.creatures) {
     if (ids.has(c.id)) out.push(`duplicate creature id ${c.id}`);
     ids.add(c.id);
@@ -46,8 +47,8 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (!inRange(c.x, 0, t.scene.width) || !inRange(c.y, 0, t.scene.height)) {
       out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is outside the scene`);
     }
-    if (c.state !== 'away' && inWater(world, c.x, c.y) && !bridgeNear(world, c.x, c.y, t)) {
-      out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is in water away from a bridge`);
+    if (c.state !== 'away' && inWater(world, c.x, c.y) && !decks.some((d) => inRect(d, c.x, c.y))) {
+      out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is in water off a bridge deck`);
     }
     if (!inRange(c.skyWarmth, -1, 1)) out.push(`${c.id}.skyWarmth ${String(c.skyWarmth)}`);
     if (!inRange(c.skyLightToday, 0, t.sky.lightDailyCap)) {

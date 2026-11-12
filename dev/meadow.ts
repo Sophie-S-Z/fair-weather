@@ -142,7 +142,6 @@ const settings: Settings = {
 };
 const view = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
-  bridgeRadius: tuning.bridge.radius,
   cast,
 });
 view.setFocus('pim');

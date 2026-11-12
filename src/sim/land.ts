@@ -1,4 +1,4 @@
-// Water, bridges, and the east ridge (ADR 0012 item 3).
+// Water, its bank, bridge decks, and the east ridge (ADR 0012 item 3).
 import type { Rect, SimEvent, Structure, World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { dist2 } from './math.ts';
@@ -11,10 +11,40 @@ export function inWater(world: World, x: number, y: number): boolean {
   return world.water?.some((r) => inRect(r, x, y)) ?? false;
 }
 
-/** The first bridge, in structure order, within bridge.radius of (x, y), edge included. */
-export function bridgeNear(world: World, x: number, y: number, t: Tuning): Structure | null {
-  const r2 = t.bridge.radius * t.bridge.radius;
-  return world.structures.find((s) => s.kind === 'bridge' && dist2(x, y, s.x, s.y) <= r2) ?? null;
+/** `r` grown by the bank: tuning `bank.side` left, right, and above, and `bank.below` under it. */
+export function withBank(r: Rect, t: Tuning): Rect {
+  const { side, below } = t.bank;
+  return { x: r.x - side, y: r.y - side, w: r.w + 2 * side, h: r.h + side + below };
+}
+
+/** A bridge's deck: the one place where feet may be in water or its bank (ADR 0012 item 3). */
+export type Deck = Rect & { eastWest: boolean };
+
+/**
+ * The deck of `bridge`, or null when it stands in no water. It crosses the first water rectangle
+ * that holds the bridge the short way (a tall one, a brook running north to south, east to west),
+ * over the bank on both sides and bridge.landing past it, so its ends rest on clear ground. Along
+ * the water it reaches bridge.radius each side of the bridge.
+ */
+export function bridgeDeck(bridge: Structure, water: readonly Rect[], t: Tuning): Deck | null {
+  const r = water.find((rect) => inRect(rect, bridge.x, bridge.y));
+  if (!r) return null;
+  const g = withBank(r, t);
+  const { radius: half, landing } = t.bridge;
+  if (r.w <= r.h)
+    return { x: g.x - landing, y: bridge.y - half, w: g.w + 2 * landing, h: 2 * half, eastWest: true };
+  return { x: bridge.x - half, y: g.y - landing, w: 2 * half, h: g.h + 2 * landing, eastWest: false };
+}
+
+/** Every bridge's deck, in structure order. */
+export function decksOf(world: World, t: Tuning): Deck[] {
+  const water = world.water ?? [];
+  const out: Deck[] = [];
+  for (const s of world.structures) {
+    const deck = s.kind === 'bridge' ? bridgeDeck(s, water, t) : null;
+    if (deck) out.push(deck);
+  }
+  return out;
 }
 
 /**
@@ -41,8 +71,10 @@ function clip(r: Rect, ax: number, ay: number, bx: number, by: number): [number,
 }
 
 /**
- * The first water rectangle that the step from (ax, ay) to (bx, by) enters away from a bridge, or
- * null. The step's part in a rectangle must start and end within bridge.radius of a bridge.
+ * The first water rectangle whose bank the step from (ax, ay) to (bx, by) enters off a deck, or
+ * null. The step's part inside the rectangle grown by its bank (withBank) must start and end on
+ * one deck. A creature that stands in a bank off every deck (it started there) is held only by the
+ * water itself, under the same rule, so it can walk out and is never stuck.
  */
 export function waterBlocking(
   world: World,
@@ -52,12 +84,17 @@ export function waterBlocking(
   by: number,
   t: Tuning,
 ): Rect | null {
+  const water = world.water ?? [];
+  if (water.length === 0) return null;
+  const decks = decksOf(world, t);
   const at = (u: number): [number, number] =>
     u === 0 ? [ax, ay] : u === 1 ? [bx, by] : [ax + u * (bx - ax), ay + u * (by - ay)];
-  for (const r of world.water ?? []) {
-    const span = clip(r, ax, ay, bx, by);
+  const inBank = !decks.some((d) => inRect(d, ax, ay)) && water.some((r) => inRect(withBank(r, t), ax, ay));
+  for (const r of water) {
+    const span = clip(inBank ? r : withBank(r, t), ax, ay, bx, by);
     if (!span) continue;
-    if (span.some((u) => !bridgeNear(world, ...at(u), t))) return r;
+    const [from, to] = [at(span[0]), at(span[1])];
+    if (!decks.some((d) => inRect(d, ...from) && inRect(d, ...to))) return r;
   }
   return null;
 }

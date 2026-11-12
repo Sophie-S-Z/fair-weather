@@ -10,6 +10,7 @@ import type {
   Structure,
   World,
 } from '../sim/types.ts';
+import type { Deck } from '../sim/land.ts';
 
 /** What render, audio, and ui read from a step (ADR 0009 item 4). */
 export interface WorldLite {
@@ -43,6 +44,8 @@ export interface WorldLite {
   bushes: { id: string; x: number; y: number; berries: number }[];
   /** The water rectangles; [] with none. */
   water: Rect[];
+  /** Each bridge's deck (sim/land.ts bridgeDeck), in structure order; [] with none. */
+  decks: Deck[];
   /** The dew mushroom, with the drops left today; null with none. */
   mushroom: { x: number; y: number; drops: number; witherDays: number } | null;
 }

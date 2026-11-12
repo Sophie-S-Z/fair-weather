@@ -1,11 +1,10 @@
 // The land on the Meadow's ground: water, the islets it closes in, and the bridges over it.
 import type { Graphics } from 'pixi.js';
-import type { Rect, Structure } from '../sim/types.ts';
+import type { Deck } from '../sim/land.ts';
+import type { Rect } from '../sim/types.ts';
 import { FAR_ALPHA, inkStroke, TUFT_ALPHA } from './ink.ts';
 import type { Palette } from './palette.ts';
 
-/** How far a bridge reaches past each bank. */
-const BRIDGE_REACH = 14;
 /** Planks are this far apart along the deck. */
 const PLANK_STEP = 12;
 /** Ripple marks sit about this far apart on the water, each this wide. */
@@ -23,27 +22,8 @@ function drawRipple(g: Graphics, x: number, y: number): void {
 const inRect = (r: Rect, x: number, y: number): boolean =>
   x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
-/**
- * A bridge's deck, or null when the bridge stands in no water: across the first water rectangle
- * that holds it, the short way, reaching a little onto each bank, and `2 * half` wide, the sim's
- * bridge radius each side. A tall rectangle (a brook running north to south) is crossed east to
- * west. Every point in water where the sim lets a creature stand lies on a deck
- * (tests/property/brook.test.ts).
- */
-export function bridgeDeck(
-  { x, y }: Structure,
-  water: readonly Rect[],
-  half: number,
-): (Rect & { eastWest: boolean }) | null {
-  const r = water.find((rect) => inRect(rect, x, y));
-  if (!r) return null;
-  const reach = BRIDGE_REACH;
-  if (r.w <= r.h) return { x: r.x - reach, y: y - half, w: r.w + 2 * reach, h: 2 * half, eastWest: true };
-  return { x: x - half, y: r.y - reach, w: 2 * half, h: r.h + 2 * reach, eastWest: false };
-}
-
 /** A bridge's deck in paper with an ink outline, and planks across the way it is crossed. */
-function drawBridge(g: Graphics, deck: Rect & { eastWest: boolean }, palette: Palette, w: number): void {
+function drawBridge(g: Graphics, deck: Deck, palette: Palette, w: number): void {
   g.rect(deck.x, deck.y, deck.w, deck.h).fill(palette.paper).stroke(inkStroke(palette, w));
   const { eastWest } = deck;
   const [from, to] = eastWest ? [deck.x, deck.x + deck.w] : [deck.y, deck.y + deck.h];
@@ -125,7 +105,7 @@ function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean
 }
 
 /**
- * The water and the bridges over it: flat on the ground, under everything that stands. An islet
+ * The water and the bridge decks over it (from the snapshot, the sim's own decks): flat on the ground, under everything that stands. An islet
  * (ground that water closes in) is filled as water first, so the pond is one shape. Each piece is
  * outlined at twice the line width and then filled, so where pieces meet their outlines are covered
  * and one bank line runs round the whole water. A corner rounds off unless other water touches it or it lies on the scene's edge.
@@ -134,10 +114,9 @@ function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean
 export function drawLand(
   g: Graphics,
   water: readonly Rect[],
-  bridges: Structure[],
+  decks: readonly Deck[],
   palette: Palette,
   w: number,
-  bridgeRadius: number,
   scene: { width: number; height: number },
 ): void {
   g.clear();
@@ -167,8 +146,5 @@ export function drawLand(
       .fill(palette.background)
       .stroke(inkStroke(palette, w));
   }
-  for (const s of bridges) {
-    const deck = bridgeDeck(s, water, bridgeRadius);
-    if (deck) drawBridge(g, deck, palette, w);
-  }
+  for (const deck of decks) drawBridge(g, deck, palette, w);
 }

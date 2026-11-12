@@ -32,6 +32,7 @@ export function lite(
     structures: [],
     bushes: [],
     water: [],
+    decks: [],
     mushroom: null,
   };
 }

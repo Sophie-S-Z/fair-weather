@@ -101,6 +101,7 @@ test('the snapshot holds the world-lite fields only', () => {
   expect(Object.keys(lite ?? {}).sort()).toEqual([
     'bushes',
     'creatures',
+    'decks',
     'fog',
     'light',
     'metrics',

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { bridgeNear, inWater } from '../../../src/sim/land.ts';
+import { bridgeDeck, inRect, inWater, waterBlocking, withBank } from '../../../src/sim/land.ts';
 import { fogAt } from '../../../src/sim/light.ts';
 import { step } from '../../../src/sim/step.ts';
 import type { Rect, SimEvent, Structure, World } from '../../../src/sim/types.ts';
@@ -29,23 +29,24 @@ test('with no bridge, no creature crosses the brook in 10 days', () => {
   while (w.day < 10) {
     step(w, [], t);
     for (const c of w.creatures) {
-      if (west.has(c.id)) expect(c.x).toBeLessThan(brook.x);
-      else expect(c.x).toBeGreaterThan(brook.x + brook.w);
+      if (west.has(c.id)) expect(c.x).toBeLessThan(brook.x - t.bank.side);
+      else expect(c.x).toBeGreaterThan(brook.x + brook.w + t.bank.side);
     }
   }
 });
 
-test('with one bridge at (810, 450), a creature crosses only within 32 units of it', () => {
+test('with one bridge at (810, 450), a creature enters the bank only on its deck, and crosses', () => {
   const bridge: Structure = { id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 };
   const w = brookWorld([bridge]);
+  const bank = withBank(brook, t);
+  const deck = bridgeDeck(bridge, [brook], t);
   const startWest = new Map(w.creatures.map((c) => [c.id, c.x < 780]));
   const crossed = new Set<string>();
   while (w.day < 10) {
     step(w, [], t);
     for (const c of activeCreatures(w)) {
-      if (inWater(w, c.x, c.y))
-        expect(Math.sqrt((c.x - 810) ** 2 + (c.y - 450) ** 2)).toBeLessThanOrEqual(32);
-      if (c.x < brook.x !== startWest.get(c.id) && !inWater(w, c.x, c.y)) crossed.add(c.id);
+      if (inRect(bank, c.x, c.y)) expect(deck && inRect(deck, c.x, c.y)).toBe(true);
+      if (c.x < brook.x !== startWest.get(c.id) && !inRect(bank, c.x, c.y)) crossed.add(c.id);
     }
   }
   expect(crossed.size).toBeGreaterThan(0);
@@ -101,17 +102,49 @@ test('a world with no water has no water anywhere', () => {
   expect(inWater(w, 800, 450)).toBe(false);
 });
 
-test('bridgeNear finds a bridge within 32 units, edge included, and nothing else', () => {
-  const w = makeWorld([], {
-    water: [brook],
-    structures: [
-      { id: 'bench-s0', kind: 'bench', x: 810, y: 300 },
-      { id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 },
-    ],
+test('a bank grows water by bank.side left, right and above, and bank.below under it', () => {
+  const { side, below } = t.bank;
+  expect(withBank({ x: 100, y: 200, w: 60, h: 40 }, t)).toEqual({
+    x: 100 - side,
+    y: 200 - side,
+    w: 60 + 2 * side,
+    h: 40 + side + below,
   });
-  expect(bridgeNear(w, 810, 482, t)?.id).toBe('bridge-s0');
-  expect(bridgeNear(w, 810, 483, t)).toBeNull();
-  expect(bridgeNear(w, 810, 300, t)).toBeNull();
+});
+
+test('a deck crosses the water and its bank the short way, bridge.landing past each side', () => {
+  const { radius, landing } = t.bridge;
+  const { side, below } = t.bank;
+  const bridge: Structure = { id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 };
+  expect(bridgeDeck(bridge, [brook], t)).toEqual({
+    x: 780 - side - landing,
+    y: 450 - radius,
+    w: 60 + 2 * side + 2 * landing,
+    h: 2 * radius,
+    eastWest: true,
+  });
+  const river: Rect = { x: 0, y: 400, w: 1600, h: 60 };
+  expect(bridgeDeck({ ...bridge, x: 500, y: 430 }, [river], t)).toEqual({
+    x: 500 - radius,
+    y: 400 - side - landing,
+    w: 2 * radius,
+    h: 60 + side + below + 2 * landing,
+    eastWest: false,
+  });
+  expect(bridgeDeck({ ...bridge, x: 100 }, [brook], t)).toBeNull();
+});
+
+test('a step into the bank is refused off a deck and allowed along one', () => {
+  const bridge: Structure = { id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 };
+  const w = makeWorld([], { water: [brook], structures: [bridge] });
+  const edge = brook.x - t.bank.side;
+  expect(waterBlocking(w, edge - 2, 200, edge + 1, 200, t)).toEqual(brook);
+  expect(waterBlocking(w, edge - 2, 200, edge - 1, 200, t)).toBeNull();
+  expect(waterBlocking(w, edge - 2, 450, edge + 2, 450, t)).toBeNull();
+  expect(waterBlocking(w, 810, 450, 810, 450 + t.bridge.radius + 1, t)).toEqual(brook);
+  // A creature already in the bank off every deck (it started there) may walk out, not in.
+  expect(waterBlocking(w, edge + 4, 200, edge + 1, 200, t)).toBeNull();
+  expect(waterBlocking(w, edge + 4, 200, brook.x + 1, 200, t)).toEqual(brook);
 });
 
 test('a lantern halves the fog within 120 units and nowhere else', () => {

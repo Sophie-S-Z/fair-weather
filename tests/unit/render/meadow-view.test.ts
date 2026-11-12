@@ -14,6 +14,7 @@ import { SceneSchema } from '../../../src/render/scene.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
+import { bridgeDeck } from '../../../src/sim/land.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
@@ -39,7 +40,8 @@ const cast = new Map<string, Cast>(
       return [c.id, c];
     }),
 );
-const options = { lensRadius: tuningJson.light.lensRadius, bridgeRadius: tuningJson.bridge.radius, cast };
+const tuning = parseTuning(tuningJson);
+const options = { lensRadius: tuning.light.lensRadius, cast };
 const rig = (id: string): Rig => {
   const r = rigs.get(id);
   if (!r) throw new Error(`no rig ${id}`);
@@ -77,6 +79,7 @@ const snapshot = (
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
   water: [],
+  decks: [],
   mushroom: null,
   bushes: [],
   ties: [],
@@ -308,6 +311,7 @@ test('water, a bridge, a lantern, and the mushroom add a few objects, none per c
       { id: 'br1', kind: 'bridge', x: 810, y: 300 },
       { id: 'l1', kind: 'lantern', x: 400, y: 300 },
     ],
+    decks: [{ x: 714, y: 268, w: 192, h: 64, eastWest: true }],
     mushroom: { x: 1000, y: 500, drops: 4, witherDays: 0 },
   };
   const count = (world: WorldLite): number => {
@@ -370,7 +374,6 @@ test('a creature in fog is drawn in dashes', () => {
 test('a creature beside a lantern is not dashed where the raw fog would dash it', () => {
   // Fog 0.4 dashes a line; a lantern halves it to 0.2 (lantern.fogFactor), under the dash threshold.
   const gaps = (lantern: boolean): number => {
-    const tuning = parseTuning(tuningJson);
     const world = createWorld(1, tuning, scenarioJson as Scenario);
     world.fields.fog.fill(0.4);
     if (lantern) world.structures.push({ id: 'l1', kind: 'lantern', x: 460, y: 400 });
@@ -401,20 +404,24 @@ test('bushes show one ink dot per berry, up to five', () => {
   expect([berries('bush-1'), berries('bush-2'), berries('bush-3')]).toEqual([3, 0, 5]);
 });
 
-test('a bridge deck is as wide as the sim lets creatures stand on it', () => {
+test("a bridge deck is drawn where the snapshot puts it, the sim's own deck", () => {
   const app = fakeApp(800, 450);
-  const world: WorldLite = {
-    ...snapshot([]),
-    water: [{ x: 780, y: 0, w: 60, h: 900 }],
-    structures: [{ id: 'br1', kind: 'bridge', x: 810, y: 300 }],
-  };
+  const water = [{ x: 780, y: 0, w: 60, h: 900 }];
+  const bridge = { id: 'br1', kind: 'bridge' as const, x: 810, y: 300 };
+  const deck = bridgeDeck(bridge, water, tuning);
+  if (!deck) throw new Error('no deck');
+  const world: WorldLite = { ...snapshot([]), water, structures: [bridge], decks: [deck] };
   createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
-  const deck = fillsOf(graphicsIn(app, 'land')).find((f) => f.color === palette.paper);
-  const r = tuningJson.bridge.radius;
-  expect([deck?.minY, deck?.maxY]).toEqual([300 - r, 300 + r]);
-  // It crosses the brook and reaches onto both banks.
-  expect(deck?.minX).toBeLessThan(780);
-  expect(deck?.maxX).toBeGreaterThan(840);
+  const drawn = fillsOf(graphicsIn(app, 'land')).find((f) => f.color === palette.paper);
+  expect([drawn?.minX, drawn?.minY, drawn?.maxX, drawn?.maxY]).toEqual([
+    deck.x,
+    deck.y,
+    deck.x + deck.w,
+    deck.y + deck.h,
+  ]);
+  // It crosses the brook and its banks.
+  expect(drawn?.minX).toBeLessThan(780 - tuning.bank.side);
+  expect(drawn?.maxX).toBeGreaterThan(840 + tuning.bank.side);
 });
 
 test('ground the water closes in is drawn as an islet', () => {

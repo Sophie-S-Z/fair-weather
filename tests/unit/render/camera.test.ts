@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { lerpTransform, toScene, viewTransform } from '../../../src/render/camera.ts';
+import { lerpTransform, toScene, toScreen, viewTransform } from '../../../src/render/camera.ts';
 
 test('fits the whole scene into the screen and centers it', () => {
   // 1600 x 900 into 800 x 600: width limits, scale 0.5, scene height 450 centered in 600.
@@ -20,6 +20,13 @@ test('a shot near the edge stops at the scene border', () => {
 test('toScene inverts the transform', () => {
   const t = viewTransform(1600, 900, 1280, 720, { x: 500, y: 400, zoom: 1.5 });
   const [x, y] = toScene(t, 500 * t.scale + t.x, 400 * t.scale + t.y);
+  expect(x).toBeCloseTo(500, 9);
+  expect(y).toBeCloseTo(400, 9);
+});
+
+test('toScreen is the inverse of toScene', () => {
+  const t = viewTransform(1600, 900, 1280, 720, { x: 500, y: 400, zoom: 1.5 });
+  const [x, y] = toScene(t, ...toScreen(t, 500, 400));
   expect(x).toBeCloseTo(500, 9);
   expect(y).toBeCloseTo(400, 9);
 });

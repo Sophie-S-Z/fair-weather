@@ -41,6 +41,11 @@ export function toScene(t: ViewTransform, sx: number, sy: number): [number, numb
   return [(sx - t.x) / t.scale, (sy - t.y) / t.scale];
 }
 
+/** The screen point over a scene point. */
+export function toScreen(t: ViewTransform, x: number, y: number): [number, number] {
+  return [x * t.scale + t.x, y * t.scale + t.y];
+}
+
 /** Moves `from` toward `to` by the fraction `k`; k = 1 arrives. */
 export function lerpTransform(from: ViewTransform, to: ViewTransform, k: number): ViewTransform {
   return {

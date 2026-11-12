@@ -2,11 +2,11 @@ import { Container, Graphics, type Application } from 'pixi.js';
 import type { Structure } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
-import { lerpTransform, toScene, viewTransform, type Shot, type ViewTransform } from './camera.ts';
+import { lerpTransform, toScene, toScreen, viewTransform, type Shot, type ViewTransform } from './camera.ts';
 import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
-import { FAR_ALPHA, inkStroke, TUFT_ALPHA } from './ink.ts';
+import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
 import { drawLand } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
@@ -31,8 +31,6 @@ const SWAY_SECONDS = 3;
 const CAMERA_RATE = 3;
 /** Scenery line width in scene units. */
 const SCENERY_WIDTH = 6;
-/** High contrast thickens every line by half again, on top of the bold default (spec 11.6). */
-const HIGH_CONTRAST_WIDTH = 1.5;
 /** A dancing creature hops this high, in scene units, once every this many seconds. */
 const HOP_HEIGHT = 7;
 const HOP_SECONDS = 0.5;
@@ -47,6 +45,8 @@ export interface MeadowView {
   pick(x: number, y: number): string | null;
   /** The scene point under a screen point, through the camera of the last update. */
   toScene(x: number, y: number): [number, number];
+  /** The screen point over a scene point, through the camera of the last update. */
+  toScreen(x: number, y: number): [number, number];
   /** The creature the current beat is about: the only one drawn in the accent (spec 11.1). */
   setFocus(id: string | null): void;
   /** A camera shot from the scene's `cameras`, or null for the whole scene. */
@@ -518,6 +518,9 @@ export function createMeadowView(
     },
     toScene(x, y) {
       return camera ? toScene(camera, x, y) : [x, y];
+    },
+    toScreen(x, y) {
+      return camera ? toScreen(camera, x, y) : [x, y];
     },
     setFocus(id) {
       focus = id;

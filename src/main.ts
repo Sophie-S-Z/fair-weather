@@ -29,11 +29,15 @@ import { createHints } from './input/hints.ts';
 import { createKeyboard } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
+import type { ViewName } from './input/zoom.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
-import { createMeadowView } from './render/meadow-view.ts';
+import { createCosmosView } from './render/cosmos-view.ts';
+import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
+import { createSoulView } from './render/soul-view.ts';
+import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
 import type { SaveV1 } from './persist/format.ts';
 import { createSlots } from './persist/slots.ts';
@@ -57,6 +61,8 @@ import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
 import { createSpeedControl } from './ui/speed.ts';
 
 const KEY = 'fair-weather.settings';
+/** The Cosmos timeline takes one point per this many ticks: one a second at 1x. */
+const TIMELINE_EVERY = 10;
 /** Every player gets the same valley in M1; seed links come in M4. */
 const SEED = 1;
 const tuning = parseTuning(tuningJson);
@@ -245,6 +251,24 @@ const game: GameService = {
       bridgeRadius: tuning.bridge.radius,
       cast,
     });
+    const threshold = tuning.friend.threshold;
+    const cosmos = createCosmosView(app, palette, threshold);
+    const soul = createSoulView(app, palette, rigs, threshold);
+    app.stage.addChild(cosmos.container, soul.container);
+    let current: ViewName = 'meadow';
+    let soulId: string | null = null;
+    /** The beat's camera shot; the Cosmos and Soul views show the whole valley under them. */
+    let shot: string | null = null;
+    const showView = (): void => {
+      cosmos.container.visible = current === 'cosmos';
+      soul.container.visible = current === 'soul';
+      view.setShot(current === 'meadow' ? shot : null);
+    };
+    showView();
+    /** This run's timeline; a snapshot from an earlier tick than the last point starts a new run. */
+    const points: TimelinePoint[] = [];
+    const breaks: number[] = [];
+    let lastSeen: WorldLite | null = null;
     // Every live snapshot as it arrives; a rewound world comes as `rewound` and is not counted.
     const stopCounting = host.onMessage((m) => {
       if (m.t === 'snapshot') view.countLens(m.lite);
@@ -253,13 +277,18 @@ const game: GameService = {
       const r = app.canvas.getBoundingClientRect();
       return [x - r.left, y - r.top];
     };
+    // A node sits on its creature's body center, a villager's half height above its feet.
+    const nodeAt = (x: number, y: number): [number, number] => view.toScreen(x, y - CREATURE_HEIGHT / 2);
+    const views = { meadow: view, cosmos, soul };
     return {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
         if (import.meta.env.DEV) dev.frames += 1;
         view.update(prev, next, alpha, s);
+        if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks });
+        if (current === 'soul') soul.update(next, s, soulId);
         app.ticker.update(); // advances the view's clock and renders
       },
-      pick: (x, y) => view.pick(...local(x, y)),
+      pick: (x, y) => views[current].pick(...local(x, y)),
       toScene(x, y) {
         const [sx, sy] = view.toScene(...local(x, y));
         return { x: sx, y: sy };
@@ -268,11 +297,30 @@ const game: GameService = {
         view.setFocus(id);
       },
       setShot: (name) => {
-        view.setShot(name);
+        shot = name;
+        showView();
       },
+      setView(v, id) {
+        current = v;
+        soulId = id;
+        showView();
+      },
+      snapshot(tick, lite) {
+        if (tick < (points.at(-1)?.tick ?? 0)) {
+          points.length = 0;
+          breaks.length = 0;
+          lastSeen = null;
+        }
+        sampleTimeline(points, tick, lite, TIMELINE_EVERY);
+        if (lastSeen && friendshipBreaks(lastSeen, lite, threshold).length > 0) breaks.push(tick);
+        lastSeen = lite;
+      },
+      timeline: () => ({ points, breaks }),
       setSeason(s) {
         const p = paletteOf(s);
         view.setPalette(p);
+        cosmos.setPalette(p);
+        soul.setPalette(p);
         app.renderer.background.color = p.background;
       },
       showHeatmap: (on) => {
@@ -352,7 +400,7 @@ const game: GameService = {
   },
   onSnapshot(cb) {
     return host.onMessage((m) => {
-      if (m.t === 'snapshot') cb(m.lite);
+      if (m.t === 'snapshot') cb(m.lite, m.tick);
     });
   },
   speed: (m) => {

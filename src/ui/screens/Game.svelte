@@ -247,7 +247,8 @@
       ghostTimer = setTimeout(() => (ghost = null), GHOST_MS);
     });
     offs.push(
-      game.onSnapshot((lite) => {
+      game.onSnapshot((lite, at) => {
+        stage?.snapshot(at, lite);
         prev = next ?? lite;
         next = lite;
         prevAt = nextAt;

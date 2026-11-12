@@ -84,7 +84,8 @@ export function assertStoryCommand(cmd: Command): void {
   if (!STORY_COMMANDS.has(cmd.t)) throw new Error(`The story may not send '${cmd.t}'`);
 }
 
-const DEFAULT_FLAGS = parseFlags(flagsJson);
+/** content/flags.json: the gentle values for skips, and for the flags an old save lacks. */
+export const DEFAULT_FLAGS = parseFlags(flagsJson);
 const DIARY = DiarySchema.parse(diaryJson);
 /** A diary keeps a creature's last 20 events (spec 9.1). */
 const DIARY_LENGTH = 20;

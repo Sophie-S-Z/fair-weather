@@ -143,6 +143,7 @@ const settings: Settings = {
 const view = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
   cast,
+  gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
 view.setFocus('pim');
 for (const lite of snapshots) view.countLens(lite);

@@ -26,11 +26,12 @@ import versesJson from '../content/myth/verses.json';
 import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
-import { createHints } from './input/hints.ts';
+import { createHints, realTimer } from './input/hints.ts';
 import { createHoldStill } from './input/hold-still.ts';
 import { createKeyboard } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
+import { createWait } from './input/wait.ts';
 import { nextView, type ViewName } from './input/zoom.ts';
 import { extractFeatures } from './myth/features.ts';
 import { tellMyth, VersesSchema } from './myth/grammar.ts';
@@ -44,7 +45,8 @@ import { createSoulView } from './render/soul-view.ts';
 import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
-import type { SaveV1 } from './persist/format.ts';
+import type { SaveV2 } from './persist/format.ts';
+import { createProfile } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
@@ -73,6 +75,8 @@ const KEY = 'fair-weather.settings';
 const TIMELINE_EVERY = 10;
 /** Every player gets the same valley in M1; seed links come in M4. */
 const SEED = 1;
+/** Three minutes of real time with no input bring the Quiet Visitor (spec 6.4). */
+const QUIET_VISIT_MS = 180_000;
 const tuning = parseTuning(tuningJson);
 
 const storage: SettingsStorage = {
@@ -234,9 +238,11 @@ const slotsReady = createSlots(indexedDB, () => {
   noticeEl.textContent =
     'Saving is not available in this browser, so progress will not be kept. You can keep playing.';
 });
+/** The Book of Skies and the feathers; blocked storage keeps them for this visit only. */
+const profileReady = createProfile(indexedDB);
 const tuningHash = hashTuning(JSON.stringify(tuningJson));
 /** The loaded autosave, held until its chapter starts. */
-let resuming: SaveV1 | null = null;
+let resuming: SaveV2 | null = null;
 /** The last snapshot of the run so far: a carried chapter starts from it, a skip included. */
 let lastLite: WorldLite | null = null;
 /** The last chapter's runner: a carried chapter keeps its diaries. */
@@ -248,7 +254,7 @@ host.onMessage((m) => {
 });
 /** The scenario the current chapter was built from, variants included; peek reads its rules. */
 let scenarioNow: Scenario | null = null;
-/** Every chapter's log this visit, in play order (spec 10.4); the myth reads it. */
+/** Every chapter's log this year, in play order (spec 10.4); the myth reads it, and a Continue restores it. */
 const yearLog: YearLog = [];
 
 const game: GameService = {
@@ -292,6 +298,7 @@ const game: GameService = {
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
       cast,
+      gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
     });
     const threshold = tuning.friend.threshold;
     const cosmos = createCosmosView(app, palette, cast, threshold);
@@ -384,6 +391,7 @@ const game: GameService = {
       setCursor: (p) => {
         view.setCursor(p);
       },
+      visitor: () => view.visitor(),
       benchSpots: scene.benchSpots,
       sceneSize: { width: scene.width, height: scene.height },
       destroy() {
@@ -408,10 +416,18 @@ const game: GameService = {
     return (await slotsReady).hasAuto();
   },
   startChapter(chapter, flags) {
-    const carry =
-      chapter.carry && lastLite ? carryFrom(lastLite, lastRunner?.diaries ?? new Map()) : undefined;
-    if (carry && lastStart)
-      restoreDials(carry, lastStart.carry, scenarioJson as Scenario, lastStart.overrides);
+    const resumed = resuming?.chapterId === chapter.id ? resuming : null;
+    resuming = null;
+    let carry: Carry | undefined;
+    if (resumed) {
+      // Continue: the carry and the year so far come from the save (spec 15.1).
+      carry = resumed.carry ?? undefined;
+      yearLog.splice(0, yearLog.length, ...resumed.year);
+    } else {
+      carry = chapter.carry && lastLite ? carryFrom(lastLite, lastRunner?.diaries ?? new Map()) : undefined;
+      if (carry && lastStart)
+        restoreDials(carry, lastStart.carry, scenarioJson as Scenario, lastStart.overrides);
+    }
     lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
@@ -423,8 +439,6 @@ const game: GameService = {
     }
     greeting = at > songFrom ? RHYTHMS[flags.greetingSong] : undefined;
     scenarioNow = scenario;
-    const resumed = resuming?.chapterId === chapter.id ? resuming : null;
-    resuming = null;
     host.post({
       t: 'init',
       seed: SEED,
@@ -433,18 +447,21 @@ const game: GameService = {
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
     });
     if (!resumed) {
-      // The autosave at the chapter start: the world now, and Ink before the chapter plays.
+      // The autosave at the chapter start: the world now, Ink before the chapter plays, the year
+      // log of the chapters before it, and the carry it started from.
       const inkState = ink.state();
+      const year = yearLog.slice();
       host.requestCheckpoint().then(
         async ({ world }) =>
           (await slotsReady).save('auto', {
-            version: 1,
+            version: 2,
             seed: SEED,
             tuningHash,
             ink: inkState,
             flags,
             chapterId: chapter.id,
-            log: [], // the action log is kept from M2 (spec 10.4; the myth reads it)
+            year,
+            carry: carry ?? null,
             checkpoint: world,
           }),
         () => undefined, // the worker gave up; the chapter plays without this save
@@ -476,6 +493,18 @@ const game: GameService = {
     const skyWarmth = Object.fromEntries(here.map((c) => [c.id, c.skyWarmth]));
     return tellMyth(extractFeatures(yearLog, flags, skyWarmth), verses, displayName);
   },
+  async book() {
+    return (await profileReady).pages();
+  },
+  async keepMyth(page) {
+    await (await profileReady).keepMyth(page, SEED);
+  },
+  async feathers() {
+    return (await profileReady).feathers();
+  },
+  async addFeather() {
+    return (await profileReady).addFeather();
+  },
   onSnapshot(cb) {
     return host.onMessage((m) => {
       if (m.t === 'snapshot') cb(m.lite, m.tick);
@@ -492,6 +521,7 @@ const game: GameService = {
     createOverPoke: () =>
       createOverPoke(tuning.overPoke.windowSeconds, tuning.overPoke.count, () => performance.now()),
     createHoldStill: () => createHoldStill(() => performance.now()),
+    createWait: () => createWait(QUIET_VISIT_MS, realTimer),
     nextView,
   },
 };

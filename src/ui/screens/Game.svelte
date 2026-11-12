@@ -5,6 +5,7 @@
   import type { BenchSpot } from '../../input/verbs.ts';
   import type { ViewName } from '../../input/zoom.ts';
   import type { MythPage } from '../../myth/grammar.ts';
+  import type { BookPage } from '../../persist/profile.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
   import type { BidReply } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
@@ -30,6 +31,7 @@
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
+  import BookOfSkies from './BookOfSkies.svelte';
 
   let {
     game,
@@ -80,6 +82,8 @@
   const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
+  const VISITOR_COMES = '[PLACEHOLDER] A quiet visitor walks in and sits down to rest.';
+  const VISITOR_GOES = '[PLACEHOLDER] The visitor left a feather. It is kept in the Book of Skies.';
 
   let sceneEl: HTMLElement;
   let trayEl: HTMLElement | undefined = $state();
@@ -143,6 +147,14 @@
   let stripEl: HTMLElement | undefined = $state();
   let bandWidth = $state(0);
   let bandHeight = $state(0);
+  /** The open Book of Skies, a modal dialog with the sim paused, and the speed it puts back. */
+  let book: { pages: BookPage[]; feathers: number } | null = $state.raw(null);
+  let bookOpening = false;
+  let speedBeforeBook = 0;
+  /** The finished year's myth on its way into the book. */
+  let kept: Promise<void> = Promise.resolve();
+  /** The Quiet Visitor comes once per chapter (ADR 0012 item 12). */
+  let visited = false;
 
   let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
@@ -158,6 +170,7 @@
   // The service never changes, so these are made once.
   const hints = untrack(() => game.input.createHints());
   const overPoke = untrack(() => game.input.createOverPoke());
+  const wait = untrack(() => game.input.createWait());
 
   const chapter = $derived(game.chapters[index]);
   /** The world drawn now, and what the Cosmos panel and the drawer say about it. */
@@ -253,6 +266,40 @@
     }
   }
 
+  /**
+   * Opens the Book of Skies with the sim paused, after the year's myth is kept. Not while a bet's
+   * answer plays, since the pause would take the runner's speed.
+   */
+  async function openBook(): Promise<void> {
+    if (book || bookOpening || betRunning) return;
+    bookOpening = true;
+    if (!ended) {
+      speedBeforeBook = game.currentSpeed();
+      setSpeed(0);
+    }
+    await kept;
+    const [pages, feathers] = await Promise.all([game.book(), game.feathers()]);
+    bookOpening = false;
+    book = { pages, feathers };
+  }
+  function closeBook(): void {
+    book = null;
+    if (!ended) setSpeed(speedBeforeBook);
+  }
+
+  /** Brings the Quiet Visitor, once per chapter, while the Meadow shows and nothing covers it. */
+  function visit(): void {
+    if (visited || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
+    visited = true;
+    say(VISITOR_COMES);
+    void stage
+      .visitor()
+      .then(() => game.addFeather())
+      .then(() => {
+        say(VISITOR_GOES);
+      });
+  }
+
   /** Pauses the sim on the first move of the range, and asks for the world at `t`. */
   function rewindTo(t: number): void {
     if (rewindAt === null) {
@@ -314,6 +361,9 @@
     used = [];
     placed = 0;
     prev = next = null;
+    // Each chapter is a new scene, with its own three-minute wait.
+    visited = false;
+    wait.activity();
     // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so it
     // stays a short time to be read, and then goes.
     lines = lines.filter((l) => l.reveal);
@@ -368,6 +418,9 @@
   }
 
   function finish(how: 'done' | 'failed'): void {
+    // The finished year's myth becomes the next page of the Book of Skies (spec 10.6 item 7).
+    const page = how === 'done' ? (myth ?? (flagsNow ? game.myth(flagsNow) : null)) : null;
+    if (page) kept = game.keepMyth(page);
     runner = null;
     setSpeed(0);
     if (raf !== null) cancelAnimationFrame(raf);
@@ -440,6 +493,7 @@
     if (e.key === 'Escape' && !e.defaultPrevented) trayEl?.querySelector('button')?.focus();
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
     if (plain && e.key.toLowerCase() === 'p' && diary?.peek) drawerAt = { section: 'peek', focus: true };
+    if (plain && e.key.toLowerCase() === 'b') void openBook();
   }
 
   /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
@@ -477,7 +531,9 @@
     const isGone = (): boolean => gone;
     const activity = (): void => {
       hints.activity();
+      wait.activity();
     };
+    wait.onVisit(visit);
     window.addEventListener('keydown', activity);
     window.addEventListener('pointerdown', activity);
     document.addEventListener('visibilitychange', onVisibility);
@@ -576,6 +632,7 @@
       window.removeEventListener('pointerdown', activity);
       document.removeEventListener('visibilitychange', onVisibility);
       hints.dispose();
+      wait.dispose();
       game.speed(0);
       stage?.destroy();
     };
@@ -583,8 +640,8 @@
 </script>
 
 <div class="game">
-  <!-- Everything but the bet or whisper card goes inert while a card is open. -->
-  <div class="layer" inert={bet !== null || whisperCard !== null}>
+  <!-- Everything but the bet card, the whisper card, or the Book of Skies goes inert while one is open. -->
+  <div class="layer" inert={bet !== null || whisperCard !== null || book !== null}>
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -607,31 +664,33 @@
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
         ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
-        : ''}
+        : ''} B opens the Book of Skies.
     </p>
 
     {#if ended}
       <main class="end">
         <h1 id="end-title" tabindex="-1">
-          {ended === 'done' ? 'End of the year so far' : 'This chapter stopped'}
+          {ended === 'done' ? 'End of Part 1' : 'This chapter stopped'}
         </h1>
-        <p>
-          {ended === 'done'
-            ? '[PLACEHOLDER] The year in Kith is done, and Part 2 is still to come.'
-            : 'Something in the chapter content went wrong.'}
-        </p>
-        {#if ended === 'done' && myth}
-          <!-- The whole story stays here, so the last verse can be read after the fire. -->
-          <section class="told" aria-labelledby="told-heading">
-            <h2 id="told-heading">The Sky Story, told by {displayName(myth.narrator)}</h2>
-            {#each myth.verses as verse (verse.title)}
-              <h3>{verse.title}</h3>
-              <p>{verse.text}</p>
-              {#if verse.note}<p class="note">What the sky did: {verse.note}</p>{/if}
-            {/each}
-          </section>
+        {#if ended === 'done'}
+          <p>
+            [PLACEHOLDER] The year in Kith is done. Its sky story is a page in the Book of Skies now, and Part
+            2 is still to come.
+          </p>
+          <!-- The whole story stays in the book, so the last verse can be read after the fire. -->
+          <div class="end-actions">
+            <button
+              type="button"
+              onclick={() => {
+                void openBook();
+              }}>Open the Book of Skies</button
+            >
+            <button type="button" onclick={onExit}>Back to title</button>
+          </div>
+        {:else}
+          <p>Something in the chapter content went wrong.</p>
+          <button type="button" onclick={onExit}>Back to title</button>
         {/if}
-        <button type="button" onclick={onExit}>Back to title</button>
       </main>
     {:else}
       <main class="hud">
@@ -738,7 +797,9 @@
       </main>
     {/if}
   </div>
-  {#if bet}
+  {#if book}
+    <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
+  {:else if bet}
     <BetCard question={bet.question} options={bet.options} label={displayName} onAnswer={answer} />
   {:else if whisperCard}
     <WhisperCard
@@ -866,13 +927,10 @@
     overflow-y: auto;
     background: var(--bg);
   }
-  .told h2,
-  .told h3 {
-    font-size: 1rem;
-  }
-  .told .note {
-    font-style: italic;
-    color: var(--muted);
+  .end-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
   .activity {
     max-width: min(40rem, calc(100vw - 1.5rem));

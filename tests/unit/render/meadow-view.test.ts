@@ -7,7 +7,14 @@ import springJson from '../../../content/palettes/spring.json';
 import meadowJson from '../../../content/scenes/kith-meadow.json';
 import { bodyColor } from '../../../src/render/line/fill.ts';
 import type { Rig } from '../../../src/render/line/rig.ts';
-import { bodyHeight, createMeadowView, dewColor, rigArea } from '../../../src/render/meadow-view.ts';
+import {
+  bodyHeight,
+  createMeadowView,
+  dewColor,
+  rigArea,
+  VISITOR_SIT_SECONDS,
+  VISITOR_SPEED,
+} from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { SceneSchema } from '../../../src/render/scene.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
@@ -25,7 +32,11 @@ const scene = SceneSchema.parse(meadowJson);
 const palette = PaletteSchema.parse(springJson);
 const autumn = PaletteSchema.parse(autumnJson);
 const tuning = parseTuning(tuningJson);
-const options = { lensRadius: tuning.light.lensRadius, cast };
+const options = {
+  lensRadius: tuning.light.lensRadius,
+  cast,
+  gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
+};
 const rig = (id: string): Rig => {
   const r = rigs.get(id);
   if (!r) throw new Error(`no rig ${id}`);
@@ -608,4 +619,86 @@ test('a creature on a bridge deck has its shadow on the deck, not under it', () 
     ]);
   expect(centers('deck-shadows')).toEqual([[810, 300]]);
   expect(centers('shadows')).toEqual([[400, 500]]);
+});
+
+test('the Quiet Visitor walks from the gate to the nearest bench, sits 20 s with a feather, and walks out', async () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = snapshot([['pim', 400, 400]]);
+  /** Draws frames 0.1 s apart from `now` up to `seconds`. */
+  let now = 99.9;
+  const at = (seconds: number, w: WorldLite = world, s: Settings = settings): void => {
+    do {
+      now = Math.min(seconds, now + 0.1);
+      (app.ticker as { lastTime: number }).lastTime = now * 1000;
+      view.update(w, w, 1, s);
+    } while (now < seconds);
+  };
+  const { gate } = options;
+  // The bench b1 at (600, 425) is nearer the gate than any bench spot.
+  const walk = Math.hypot(600 - gate.x, 425 - gate.y) / VISITOR_SPEED;
+  let gone = false;
+  void view.visitor().then(() => (gone = true));
+  at(100);
+  const visitor = creatureIn(app, 'visitor');
+  const feather = graphicsIn(app, 'feather');
+  expect([visitor.visible, visitor.x, visitor.y]).toEqual([true, gate.x, gate.y]);
+  expect(feather.visible).toBe(false);
+  at(100 + walk / 2);
+  expect(visitor.x).toBeGreaterThan(gate.x);
+  expect(visitor.x).toBeLessThan(600);
+  // Seated on the bench, drawn in front of it, with its feather beside it.
+  at(100 + walk + 0.1);
+  expect(visitor.x).toBe(600);
+  expect(visitor.y).toBeLessThan(425);
+  expect(visitor.zIndex).toBeGreaterThan(425);
+  expect(feather.visible).toBe(true);
+  at(100 + walk + VISITOR_SIT_SECONDS - 0.1);
+  expect(visitor.x).toBe(600);
+  expect(view.pick(...view.toScreen(600, 400))).toBeNull();
+  at(100 + walk * 1.5 + VISITOR_SIT_SECONDS);
+  expect(visitor.x).toBeLessThan(600);
+  expect(gone).toBe(false);
+  at(100 + walk * 2 + VISITOR_SIT_SECONDS + 0.1);
+  await Promise.resolve();
+  expect(gone).toBe(true);
+  expect(visitor.visible).toBe(false);
+  expect(feather.visible).toBe(false);
+
+  // Without a bench it sits at the bench spot nearest the gate; reduced motion shows it seated, then gone.
+  const still = { ...settings, reducedMotion: true };
+  const open = { ...world, structures: [] };
+  void view.visitor().then(() => (gone = true));
+  gone = false;
+  now = 199.9;
+  at(200, open, still);
+  expect([visitor.visible, visitor.x, visitor.y]).toEqual([true, 290, 700]);
+  at(200 + VISITOR_SIT_SECONDS - 0.2, open, still);
+  expect([visitor.visible, visitor.x, feather.visible]).toEqual([true, 290, true]);
+  at(200 + VISITOR_SIT_SECONDS + 0.2, open, still);
+  await Promise.resolve();
+  expect([gone, visitor.visible, feather.visible]).toEqual([true, false, false]);
+});
+
+test('a stalled page does not skip the visit: one late frame moves it on a quarter second at most', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = snapshot([['pim', 400, 400]]);
+  const frame = (seconds: number): void => {
+    (app.ticker as { lastTime: number }).lastTime = seconds * 1000;
+    view.update(world, world, 1, settings);
+  };
+  frame(1);
+  void view.visitor();
+  frame(1.1);
+  frame(200);
+  const visitor = creatureIn(app, 'visitor');
+  expect(visitor.visible).toBe(true);
+  expect(visitor.x).toBeCloseTo(
+    options.gate.x +
+      0.25 *
+        VISITOR_SPEED *
+        ((600 - options.gate.x) / Math.hypot(600 - options.gate.x, 425 - options.gate.y)),
+    5,
+  );
 });

@@ -44,6 +44,13 @@ describe('placeholderGuard', () => {
   test('fails a production build that imports an INCLUDEd .ink file with #placeholder', async () => {
     await expect(buildFixture('ink-source', 'production')).rejects.toThrow(/part\.ink/);
   });
+  // The myth verses (content/myth/verses.json), and so the Book of Skies pages made from them.
+  test('fails a production build that imports JSON content with [PLACEHOLDER] text and names it', async () => {
+    await expect(buildFixture('json', 'production')).rejects.toThrow(/\[PLACEHOLDER\] in .*verses\.json/);
+  });
+  test('builds the JSON placeholder fixture in development mode', async () => {
+    await expect(buildFixture('json', 'development')).resolves.toBeDefined();
+  });
   test('builds the Ink placeholder fixture in development mode', async () => {
     await expect(buildFixture('ink-source', 'development')).resolves.toBeDefined();
   });

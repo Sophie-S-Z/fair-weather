@@ -3,10 +3,12 @@ import type { createKeyboard } from '../input/keyboard.ts';
 import type { createPointer } from '../input/pointer.ts';
 import type { Hints } from '../input/hints.ts';
 import type { createHoldStill } from '../input/hold-still.ts';
+import type { createWait } from '../input/wait.ts';
 import type { BenchSpot } from '../input/verbs.ts';
 import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MythPage } from '../myth/grammar.ts';
 import type { Band } from '../render/cosmos-view.ts';
+import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
@@ -21,7 +23,10 @@ import type { Settings } from './settings.ts';
  * The Meadow, Cosmos, and Soul views in a canvas that fills its element. Screen points are client
  * coordinates.
  */
-export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor'> {
+export interface Stage extends Pick<
+  MeadowView,
+  'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor'
+> {
   /** Draws every view in the season's palette (spec 11.3). */
   setSeason(season: Season): void;
   /**
@@ -89,6 +94,14 @@ export interface GameService {
    * last snapshot; the narrator is one of the creatures there, not away and not gone.
    */
   myth(flags: Flags): MythPage;
+  /** The Book of Skies (spec 10.6 item 7): one page per finished year, from year 1. */
+  book(): Promise<BookPage[]>;
+  /** Keeps a finished year's myth as the next page of the Book of Skies, with this valley's seed. */
+  keepMyth(page: MythPage): Promise<void>;
+  /** The Quiet Visitor's feathers so far (ADR 0012 item 12). */
+  feathers(): Promise<number>;
+  /** Counts one more feather; returns the new count. */
+  addFeather(): Promise<number>;
   /** Every live snapshot with its tick (the next tick to run). */
   onSnapshot(cb: (lite: WorldLite, tick: number) => void): () => void;
   /**
@@ -106,6 +119,8 @@ export interface GameService {
     createOverPoke: () => { poke(): boolean };
     /** A hold-still timer on the page clock, for the Long Night. */
     createHoldStill: () => ReturnType<typeof createHoldStill>;
+    /** The Quiet Visitor's wait: three minutes of real time with no input (ADR 0012 item 12). */
+    createWait: () => ReturnType<typeof createWait>;
     nextView: typeof nextView;
   };
 }

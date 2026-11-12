@@ -50,6 +50,16 @@ export const SHADOW_HEIGHT = 0.24;
 const SHADOW_ALPHA = 0.3;
 const SHADOW_ALPHA_HIGH_CONTRAST = 0.45;
 const SHADOW_POINTS = 12;
+/**
+ * The Quiet Visitor (spec 6.4, ADR 0012 item 12) is drawn only: its rig, its walk speed in scene
+ * units a second, how long it sits, and how far above a bench's feet it sits.
+ */
+const VISITOR_RIG = 'visitor';
+export const VISITOR_SPEED = 50;
+export const VISITOR_SIT_SECONDS = 20;
+const SEAT_LIFT = 10;
+/** A visit moves on at most this many seconds a frame, so a stalled or hidden page does not skip it. */
+const VISIT_STEP_MAX = 0.25;
 
 export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
@@ -76,6 +86,14 @@ export interface MeadowView {
   showHeatmap(on: boolean): void;
   /** The keyboard cursor, a still ink ring at a scene point, or null to hide it. */
   setCursor(p: { x: number; y: number } | null): void;
+  /**
+   * The Quiet Visitor walks in from the gate to the bench nearest it (or to the nearest bench spot,
+   * where it sits on the grass), sits 20 seconds with a feather beside it, and walks out; with
+   * reduced motion it shows seated, then is gone. It walks only on drawn frames, so a hidden or
+   * stalled page does not skip it. Resolves when it has gone. It never enters the sim, and pick
+   * never finds it.
+   */
+  visitor(): Promise<void>;
 }
 
 /** The area inside a rig's outline, in rig units (loops cut out, as for the body fill). */
@@ -97,6 +115,9 @@ export function bodyHeight(rig: Rig, villagerArea: number, castScale: number): n
   const factor = Math.sqrt(villagerArea / rigArea(rig));
   return CREATURE_HEIGHT * Math.min(Math.max(factor, AREA_FACTOR_MIN), AREA_FACTOR_MAX) * castScale;
 }
+
+/** The Quiet Visitor's shell: no tightness, bristle, color, or softness. */
+const VISITOR_SHELL = { tightness: 0, bristle: 0, color: 0, softness: 0 };
 
 /** A phase in [0, 1) from a creature id, so creatures sway out of step. */
 function phaseOf(id: string): number {
@@ -214,6 +235,19 @@ function drawTree(g: Graphics, tree: SceneData['trees'][number], palette: Palett
       .arc(x, y + r * 0.1, c, Math.PI - 0.5, 0.5, true)
       .stroke(inkStroke(palette, w * 0.6, TUFT_ALPHA));
   }
+}
+
+/** A feather lying on a seat or the grass, its quill end at the left, with its middle at (x, y). */
+function drawFeather(g: Graphics, x: number, y: number, palette: Palette, w: number): void {
+  g.clear()
+    .moveTo(x - 14, y)
+    .quadraticCurveTo(x - 3, y - 12, x + 14, y - 5)
+    .quadraticCurveTo(x, y + 4, x - 14, y)
+    .fill(palette.paper)
+    .stroke(inkStroke(palette, w * 0.4))
+    .moveTo(x - 19, y + 2)
+    .lineTo(x + 14, y - 5)
+    .stroke(inkStroke(palette, w * 0.4));
 }
 
 /** One bench: a seat, a back, and two legs, with its feet at (x, y). */
@@ -365,7 +399,7 @@ export function createMeadowView(
   scene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
-  options: { lensRadius: number; cast: Map<string, Cast> },
+  options: { lensRadius: number; cast: Map<string, Cast>; gate: { x: number; y: number } },
 ): MeadowView {
   let palette = firstPalette;
   const world = new Container();
@@ -397,6 +431,23 @@ export function createMeadowView(
   actors.addChild(mushroom);
   let landKey = '';
   let mushroomKey = '';
+  const feather = new Graphics({ label: 'feather', visible: false });
+  actors.addChild(feather);
+  /** What the feather was drawn for; '' redraws it. */
+  let featherKey = '';
+  /**
+   * The visit under way: its seconds so far and the clock at its last frame, its seat, and its walk
+   * each way in seconds.
+   */
+  let visit: {
+    done: () => void;
+    t: number;
+    last: number;
+    /** `bench` is false at a bench spot with no bench, where it sits on the grass. */
+    seat: { x: number; y: number; bench: boolean };
+    walk: number;
+  } | null = null;
+  let visitAsked: (() => void) | null = null;
 
   const villager = rigs.get(VILLAGER_RIG);
   const villagerArea = villager ? rigArea(villager) : 1;
@@ -541,6 +592,69 @@ export function createMeadowView(
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
 
+      if (visitAsked) {
+        // The bench nearest the gate, or else the nearest bench spot.
+        const benches = next.structures.filter((st) => st.kind === 'bench');
+        const { gate } = options;
+        const away = (p: { x: number; y: number }): number => Math.hypot(p.x - gate.x, p.y - gate.y);
+        let seat = (benches.length > 0 ? benches : scene.benchSpots)[0] ?? gate;
+        for (const p of benches.length > 0 ? benches : scene.benchSpots) if (away(p) < away(seat)) seat = p;
+        visit = {
+          done: visitAsked,
+          t: 0,
+          last: seconds,
+          seat: { x: seat.x, y: seat.y, bench: benches.length > 0 },
+          walk: motion ? away(seat) / VISITOR_SPEED : 0,
+        };
+        visitAsked = null;
+      }
+      feather.visible = false;
+      if (visit) {
+        visit.t += Math.min(Math.max(0, seconds - visit.last), VISIT_STEP_MAX);
+        visit.last = seconds;
+        const { seat, walk, t } = visit;
+        const entry = viewFor(VISITOR_RIG);
+        if (t >= 2 * walk + VISITOR_SIT_SECONDS || !entry) {
+          visit.done();
+          visit = null;
+        } else {
+          const { gate } = options;
+          // 0 at the gate, 1 on the seat.
+          const along =
+            t < walk
+              ? t / walk
+              : t < walk + VISITOR_SIT_SECONDS
+                ? 1
+                : 1 - (t - walk - VISITOR_SIT_SECONDS) / walk;
+          const seated = along === 1;
+          const x = gate.x + (seat.x - gate.x) * along;
+          const y = gate.y + (seat.y - gate.y) * along;
+          const { container } = entry.view;
+          container.visible = true;
+          container.rotation = 0;
+          const onBench = seated && seat.bench;
+          container.position.set(x, onBench ? y - SEAT_LIFT : y);
+          // In front of the bench it sits on.
+          container.zIndex = y + 1;
+          if (!onBench) {
+            const h = entry.height;
+            oval(shadows, x, y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
+          }
+          entry.view.update(VISITOR_SHELL, seconds, settings.reducedMotion, 0, {
+            body: palette.paper,
+            widthScale,
+          });
+          // The feather stays on the seat from when it sits until it has gone.
+          feather.visible = t >= walk;
+          const key = `${String(seat.x)},${String(seat.y)},${String(seat.bench)},${String(w)}`;
+          if (key !== featherKey) {
+            featherKey = key;
+            drawFeather(feather, seat.x + 30, seat.bench ? seat.y - SEAT_LIFT : seat.y, palette, w);
+            feather.zIndex = seat.y + 2;
+          }
+        }
+      }
+
       const { width, height } = app.screen;
       const target = viewTransform(scene.width, scene.height, width, height, framing(), topInset);
       const k = 1 - Math.exp((-CAMERA_RATE * app.ticker.deltaMS) / 1000);
@@ -584,7 +698,7 @@ export function createMeadowView(
     setPalette(p) {
       if (p === palette) return;
       palette = p;
-      cursorKey = '';
+      cursorKey = featherKey = '';
       // The next update redraws the scenery; creatures get new views in the new ink.
       lineWidth = 0;
       for (const { view } of views.values()) view.container.destroy({ children: true });
@@ -611,6 +725,15 @@ export function createMeadowView(
       const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor((y / scene.height) * HEAT_ROWS)));
       heatCounts[row * HEAT_COLS + col] = (heatCounts[row * HEAT_COLS + col] ?? 0) + 1;
       if (heatShown) drawHeat();
+    },
+    visitor() {
+      return new Promise((resolve) => {
+        // A new visit replaces one under way, which counts as gone.
+        visit?.done();
+        visit = null;
+        visitAsked?.();
+        visitAsked = resolve;
+      });
     },
     showHeatmap(on) {
       heatShown = on;

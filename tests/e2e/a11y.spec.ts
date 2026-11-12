@@ -344,13 +344,72 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
     await expect(verse.getByRole('heading', { name: title })).toBeVisible();
   }
   await page.keyboard.press('Enter');
-  const end = page.getByRole('heading', { name: 'End of the year so far' });
+  const end = page.getByRole('heading', { name: 'End of Part 1' });
   await expect(end).toBeFocused();
-  // The end page keeps the whole story, the last verse too.
-  const told = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
-  for (const title of [...titles, 'The Asking'])
-    await expect(told.getByRole('heading', { name: title })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+  // The whole story, the last verse too, is the first page of the Book of Skies.
+  const open = page.getByRole('button', { name: 'Open the Book of Skies' });
+  await open.click();
+  const book = page.getByRole('dialog', { name: 'Book of Skies' });
+  const year = book.getByRole('article', { name: 'Year 1' });
+  await expect(year.getByText(/^Told by \S/)).toBeVisible();
+  for (const title of [...titles, 'The Asking'])
+    await expect(year.getByRole('heading', { name: title })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(book).toBeHidden();
+  await expect(open).toBeFocused();
+
+  // The title's Book of Skies opens now that it has a page.
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  const button = page.getByRole('button', { name: 'Book of Skies' });
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Book of Skies' })).toBeFocused();
+  await expect(
+    page.getByRole('article', { name: 'Year 1' }).getByRole('heading', { name: 'The Asking' }),
+  ).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+});
+
+test('B opens the Book of Skies as a modal dialog with the sim paused; Escape closes it and gives focus back', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Book of Skies' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  const speeds = () =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+  await expect.poll(speeds).toBe(1);
+  await page.keyboard.press('b');
+  const book = page.getByRole('dialog', { name: 'Book of Skies' });
+  await expect(book.getByRole('heading', { name: 'Book of Skies' })).toBeFocused();
+  await expect(book).toContainText('No year is written here yet');
+  await expect.poll(speeds).toBe(0);
+  expect(await seriousViolations(page)).toEqual([]);
+  // Tab stays inside the dialog, on its one button.
+  const back = book.getByRole('button', { name: 'Back' });
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('Tab');
+    await expect(back).toBeFocused();
+  }
+  await page.keyboard.press('Shift+Tab');
+  await expect(back).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(book).toBeHidden();
+  await expect(scene).toBeFocused();
+  await expect.poll(speeds).toBe(1);
+  // Back closes it too.
+  await page.keyboard.press('b');
+  await book.getByRole('button', { name: 'Back' }).click();
+  await expect(book).toBeHidden();
+  await expect(scene).toBeFocused();
 });
 
 test('the myth tells only this year: five gusts show behind a toggle, and the next year does not count them', async ({
@@ -406,4 +465,35 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
   for (let i = 0; i < 3; i++) await listen.click();
   await expect(moods.getByRole('heading', { name: "The Sky's Moods" })).toBeVisible();
   await expect(moods).not.toContainText('huffed');
+});
+
+test('touching nothing for three minutes brings the Quiet Visitor once; its feather is kept in the book', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  // Reduced motion: it shows seated for its 20 s, then is gone, with no walk.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  const lines = page.locator('.beat-line');
+  await page.clock.fastForward(179_000);
+  await expect(lines).not.toContainText('quiet visitor');
+  await page.clock.fastForward(2_000);
+  await expect(lines).toContainText('A quiet visitor walks in and sits down to rest.');
+  // The visit runs on drawn frames, so a jump in the clock does not skip it; the canvas is hidden
+  // from readers, so the lines say when it comes and goes.
+  await page.clock.fastForward(30_000);
+  await expect(lines).not.toContainText('left a feather');
+  await expect(lines).toContainText('The visitor left a feather.', { timeout: 30_000 });
+  await page.keyboard.press('b');
+  const book = page.getByRole('dialog', { name: 'Book of Skies' });
+  await expect(book).toContainText('Feathers from the Quiet Visitor: 1');
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  // Once per chapter: three more idle minutes bring no second visit.
+  await page.clock.fastForward(200_000);
+  await page.waitForTimeout(500);
+  await expect(lines.getByText('A quiet visitor walks in and sits down to rest.')).toHaveCount(1);
 });

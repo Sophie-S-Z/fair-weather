@@ -1,25 +1,36 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Writable } from 'svelte/store';
+  import type { BookPage } from '../persist/profile.ts';
   import type { GameService } from './game-service.ts';
   import type { Settings } from './settings.ts';
   import Title from './screens/Title.svelte';
   import SettingsScreen from './screens/Settings.svelte';
   import Game from './screens/Game.svelte';
+  import BookOfSkies from './screens/BookOfSkies.svelte';
 
   let { settings, hasSave, game }: { settings: Writable<Settings>; hasSave: boolean; game: GameService } =
     $props();
 
-  let screen: 'title' | 'settings' | 'game' = $state('title');
+  let screen: 'title' | 'settings' | 'game' | 'book' = $state('title');
   let saved = $state(false);
   let resume = $state(false);
+  let book: { pages: BookPage[]; feathers: number } = $state.raw({ pages: [], feathers: 0 });
 
-  // The title shows Continue once the saves have been read.
-  onMount(() => {
-    if (hasSave) saved = true;
+  /** Reads the saves and the Book of Skies, for Continue and the Book of Skies buttons. */
+  function readStore(): void {
     void game.hasSave().then((s) => {
       saved = s;
     });
+    void Promise.all([game.book(), game.feathers()]).then(([pages, feathers]) => {
+      book = { pages, feathers };
+    });
+  }
+
+  // The title shows Continue and the Book of Skies once the saves have been read.
+  onMount(() => {
+    if (hasSave) saved = true;
+    readStore();
   });
 
   function play(fromSave: boolean): void {
@@ -28,9 +39,7 @@
   }
   function leaveGame(): void {
     screen = 'title';
-    void game.hasSave().then((s) => {
-      saved = s;
-    });
+    readStore();
   }
 
   $effect(() => {
@@ -48,6 +57,8 @@
     {#if screen === 'title'}
       <Title
         hasSave={saved}
+        hasBook={book.pages.length > 0}
+        onBook={() => (screen = 'book')}
         onBegin={() => {
           play(false);
         }}
@@ -56,6 +67,8 @@
         }}
         onSettings={() => (screen = 'settings')}
       />
+    {:else if screen === 'book'}
+      <BookOfSkies pages={book.pages} feathers={book.feathers} onBack={() => (screen = 'title')} />
     {:else}
       <SettingsScreen {settings} onBack={() => (screen = 'title')} />
     {/if}

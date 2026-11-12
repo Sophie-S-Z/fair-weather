@@ -238,6 +238,64 @@ test('Continue is enabled after a chapter has started, and resumes it', async ({
   await expect(live(page)).toContainText('press Enter to wake it');
 });
 
+/** The chapter id of the autosave in IndexedDB, or null. */
+function autosaveChapter(page: Page): Promise<string | null> {
+  return page.evaluate(
+    () =>
+      new Promise<string | null>((resolve) => {
+        const open = indexedDB.open('fair-weather');
+        open.onerror = () => {
+          resolve(null);
+        };
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('saves')) {
+            db.close();
+            resolve(null);
+            return;
+          }
+          const get = db.transaction('saves').objectStore('saves').get('auto');
+          get.onsuccess = () => {
+            db.close();
+            resolve((get.result as { chapterId?: string } | undefined)?.chapterId ?? null);
+          };
+          get.onerror = () => {
+            db.close();
+            resolve(null);
+          };
+        };
+      }),
+  );
+}
+
+test('Continue keeps the year so far: gusts blown in chapter 7 reach the myth after a reload', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  // Chapter 7 is index 10 in play order; its tool is picked, and the arrows aim the gust.
+  await page.goto('/?chapter=10');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  await expect(page.locator('.beat-line')).toContainText('The autumn wind'); // the runner takes verbs after a snapshot
+  await page.keyboard.press('ArrowRight');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  await expect(page.getByRole('heading', { name: /^Interlude: Wisp's Postcard/ })).toBeVisible();
+  await expect.poll(() => autosaveChapter(page)).toBe('i7');
+
+  // A new visit: only the save holds chapter 7's log and the carry into the chapters after it.
+  await page.reload();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('heading', { name: /^Interlude: Wisp's Postcard/ })).toBeVisible();
+  for (const name of ['Chapter 8', 'Interlude: The Long Night', 'Chapter 9', 'Chapter 10']) {
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+    await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) })).toBeVisible();
+  }
+  const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
+  for (let i = 0; i < 3; i++) await scroll.getByRole('button', { name: 'Listen' }).click();
+  await expect(scroll.locator('[aria-live="polite"]')).toContainText('The sky huffed at us 5 times');
+});
+
 // Whole-slice runs (M1.12, spec T7). They drive the real UI only: keys, clicks, and taps.
 
 const FAST = '10';
@@ -443,8 +501,10 @@ test('the end screen takes focus, and its button returns to the title', async ({
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(chapter(page, 10)).toBeVisible();
   await page.getByRole('button', { name: 'Skip chapter' }).click();
-  const endTitle = page.getByRole('heading', { name: 'End of the year so far' });
+  const endTitle = page.getByRole('heading', { name: 'End of Part 1' });
   await expect(endTitle).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Open the Book of Skies' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();

@@ -114,6 +114,7 @@ const settings: Settings = {
 const meadow = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
   cast,
+  gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
 /** The timeline band as the game's HTML lays it out at 1280 x 720: a line of label, then the strip's slot. */
 const band: Band = { strip: { x: W / 4, y: 40, w: W / 2, h: 24 }, bottom: 68 };

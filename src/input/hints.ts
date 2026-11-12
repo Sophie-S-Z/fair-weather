@@ -16,7 +16,8 @@ export type HintTimer = {
   clear(handle: unknown): void;
 };
 
-const realTimer: HintTimer = {
+/** The page clock: setTimeout and clearTimeout. */
+export const realTimer: HintTimer = {
   set: (fn, ms) => setTimeout(fn, ms),
   clear: (h) => {
     clearTimeout(h as ReturnType<typeof setTimeout>);

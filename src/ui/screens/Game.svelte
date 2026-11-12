@@ -157,6 +157,10 @@
   let speedBeforeBook = 0;
   /** The finished year's myth on its way into the book. */
   let keptMyth: Promise<void> = Promise.resolve();
+  /** Back to the title once the year's page is kept, so the title reads the saves after it. */
+  function exit(): void {
+    void keptMyth.then(onExit);
+  }
   /**
    * The Quiet Visitor comes once per chapter (ADR 0012 item 12). `due` is set when the wait fires,
    * and the visit waits until nothing covers the Meadow. `visitToken` changes when a visit is cut
@@ -720,11 +724,11 @@
                 void openBook();
               }}>Open the Book of Skies</button
             >
-            <button type="button" onclick={onExit}>Back to title</button>
+            <button type="button" onclick={exit}>Back to title</button>
           </div>
         {:else}
           <p>Something in the chapter content went wrong.</p>
-          <button type="button" onclick={onExit}>Back to title</button>
+          <button type="button" onclick={exit}>Back to title</button>
         {/if}
       </main>
     {:else}

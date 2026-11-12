@@ -78,6 +78,8 @@ export const TuningSchema = obj({
   wisp: obj({ minWarmth: signed, minKithWarmth: signed }),
   halcyon: obj({ giftWarmthMultiplier: prob, keepsakeWarmth: signed }),
   bet: obj({ revealSpeed: pos }),
+  bridge: obj({ radius: pos }),
+  lantern: obj({ radius: pos, fogFactor: prob }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

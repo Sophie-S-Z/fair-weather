@@ -3,6 +3,7 @@ import type {
   Command,
   CreatureState,
   Dials,
+  Rect,
   Scenario,
   Shell,
   SimEvent,
@@ -35,6 +36,8 @@ export interface WorldLite {
   /** Whole-world numbers the story reads (ADR 0011 item 3). */
   metrics: { averageWarmth: number; friendPairs: number };
   structures: Structure[];
+  /** The water rectangles; [] with none. */
+  water: Rect[];
 }
 
 /**

@@ -2,7 +2,9 @@
 import fc from 'fast-check';
 import tuningJson from '../../content/tuning.json';
 import { parseTuning } from '../../src/sim/tuning.ts';
-import type { Command, Scenario, Season } from '../../src/sim/types.ts';
+import { step } from '../../src/sim/step.ts';
+import type { Command, Rect, Scenario, Season, World } from '../../src/sim/types.ts';
+import { createWorld } from '../../src/sim/world.ts';
 
 export const tuning = parseTuning(tuningJson);
 
@@ -82,7 +84,7 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
     fc.record({ t: fc.constant('blow' as const), x, y, dx: d, dy: d }),
     fc.record({
       t: fc.constant('place' as const),
-      kind: fc.constantFrom('bench' as const, 'bush' as const),
+      kind: fc.constantFrom('bench' as const, 'bush' as const, 'bridge' as const, 'lantern' as const),
       x,
       y,
     }),
@@ -131,3 +133,79 @@ export const runArb: fc.Arbitrary<Run> = fc
       )
       .map((schedule) => ({ seed, scenario, ticks, schedule })),
   );
+
+/** A point inside `r`. */
+const inside = (r: Rect) =>
+  fc.record({
+    x: fc.double({ min: r.x, max: r.x + r.w, noNaN: true }),
+    y: fc.double({ min: r.y, max: r.y + r.h, noNaN: true }),
+  });
+
+const inAny = (water: Rect[], x: number, y: number) =>
+  water.some((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+
+/** 1 to 200 units wide and high, east of the gate, so returns and newcomers arrive on land. */
+const rectArb: fc.Arbitrary<Rect> = fc
+  .record({
+    x: fc.double({ min: tuning.scene.gateX + 10, max: tuning.scene.width - 1, noNaN: true }),
+    y: fc.double({ min: 0, max: tuning.scene.height - 1, noNaN: true }),
+    w: fc.double({ min: 1, max: 200, noNaN: true }),
+    h: fc.double({ min: 1, max: 200, noNaN: true }),
+  })
+  .map((r) => ({
+    ...r,
+    w: Math.min(r.w, tuning.scene.width - r.x),
+    h: Math.min(r.h, tuning.scene.height - r.y),
+  }));
+
+/**
+ * `runArb` with 0 to 2 water rectangles, 0 to 2 bridges in them, 0 to 2 lanterns, and sometimes
+ * a ridge. Creatures that would start in water are dropped.
+ */
+export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
+  fc.array(rectArb, { maxLength: 2 }).chain((water) =>
+    fc
+      .record({
+        bridges:
+          water.length > 0
+            ? fc.array(fc.constantFrom(...water).chain(inside), { maxLength: 2 })
+            : fc.constant<{ x: number; y: number }[]>([]),
+        lanterns: fc.array(fc.record({ x: sx, y: sy }), { maxLength: 2 }),
+        ridgeX: fc.option(fc.double({ min: 200, max: tuning.scene.width, noNaN: true }), { nil: undefined }),
+      })
+      .map(({ bridges, lanterns, ridgeX }) => {
+        const scenario: Scenario = {
+          ...run.scenario,
+          creatures: run.scenario.creatures.filter((c) => !inAny(water, c.x, c.y)),
+          structures: [
+            ...run.scenario.structures,
+            ...bridges.map((p, i) => ({ ...p, id: `bridge-s${String(i)}`, kind: 'bridge' as const })),
+            ...lanterns.map((p, i) => ({ ...p, id: `lantern-s${String(i)}`, kind: 'lantern' as const })),
+          ],
+          water,
+        };
+        if (ridgeX !== undefined) scenario.ridgeX = ridgeX;
+        return { ...run, scenario };
+      }),
+  ),
+);
+
+export function commandsAt(run: Run, tick: number): Command[] {
+  return run.schedule.filter((s) => s.tick === tick).map((s) => s.cmd);
+}
+
+/** Steps `w` from its current tick to `run.ticks`, calling `onTick` after every step. */
+export function playOn(w: World, run: Run, onTick?: (w: World) => void): World {
+  while (w.tick < run.ticks) {
+    step(w, commandsAt(run, w.tick), tuning);
+    onTick?.(w);
+  }
+  return w;
+}
+
+/** Plays `run` from a fresh world, calling `onTick` on the start state and after every step. */
+export function replay(run: Run, onTick?: (w: World) => void): World {
+  const w = createWorld(run.seed, tuning, run.scenario);
+  onTick?.(w);
+  return playOn(w, run, onTick);
+}

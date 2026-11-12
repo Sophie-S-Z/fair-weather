@@ -53,7 +53,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     if (a === b || !ids.has(a) || !ids.has(b)) continue;
     ties.set(tieKey(a, b), { a, b, ab: clampSide(ab), ba: clampSide(ba), meetings: 1, lastDay: -1 });
   }
-  return {
+  const world: World = {
     seed,
     rngState: seed >>> 0,
     tick: 0,
@@ -71,6 +71,10 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     rumors: [],
     boosts: [],
   };
+  // Only when set, so a world without land keeps the same keys (and hash).
+  if (scenario.water) world.water = scenario.water.map((r) => ({ ...r }));
+  if (scenario.ridgeX !== undefined) world.ridgeX = scenario.ridgeX;
+  return world;
 }
 
 /** The two ids sorted by code unit and joined with `|` (ADR 0002). */
@@ -111,8 +115,6 @@ export function byId(world: World, id: string): Creature | undefined {
 
 /** The structures that count as benches (ADR 0003 item 9). */
 export function benchesOf(world: World): Structure[] {
-  // Structure['kind'] is only 'bench' today; the check keeps later kinds (spec 9.1) from counting.
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
   return world.structures.filter((s) => s.kind === 'bench');
 }
 

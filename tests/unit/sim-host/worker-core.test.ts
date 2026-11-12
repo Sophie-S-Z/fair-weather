@@ -95,6 +95,7 @@ test('the snapshot holds the world-lite fields only', () => {
     'rumor',
     'structures',
     'ties',
+    'water',
   ]);
   expect(lite?.fog.cells).toBeInstanceOf(Float32Array);
 });

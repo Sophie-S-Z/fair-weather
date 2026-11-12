@@ -1,18 +1,19 @@
 // Steering, goal choice, foraging, and visit counts (ADR 0005, ADR 0004 item 2, ADR 0003 item 9).
 // Velocity is in world units per second; position advances by velocity / stepsPerSecond per tick.
-import type { Creature, Structure, World } from './types.ts';
+import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { inRect, nearestBridgeOn, waterBlocking } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendsOf } from './world.ts';
 
 const COLS = 8;
 const ROWS = 4;
 
-function visitCell(c: Creature, tuning: Tuning): number {
-  const col = clamp(Math.floor((c.x / tuning.scene.width) * COLS), 0, COLS - 1);
-  const row = clamp(Math.floor((c.y / tuning.scene.height) * ROWS), 0, ROWS - 1);
+function visitCell(x: number, y: number, tuning: Tuning): number {
+  const col = clamp(Math.floor((x / tuning.scene.width) * COLS), 0, COLS - 1);
+  const row = clamp(Math.floor((y / tuning.scene.height) * ROWS), 0, ROWS - 1);
   return row * COLS + col;
 }
 
@@ -62,7 +63,7 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
     c.goalY = f.y;
     return;
   }
-  // 4. A random point in a least-visited cell.
+  // 4. A random point in a least-visited cell, west of any ridge (ADR 0012 item 3).
   let least = Infinity;
   for (const v of c.visits) least = Math.min(least, v);
   const cells: number[] = [];
@@ -74,6 +75,15 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
   const ch = tuning.scene.height / ROWS;
   c.goalX = ((cell % COLS) + rng.next()) * cw;
   c.goalY = (Math.floor(cell / COLS) + rng.next()) * ch;
+  if (world.ridgeX !== undefined) c.goalX = clamp(c.goalX, 0, world.ridgeX - ridgeMargin(tuning));
+}
+
+/**
+ * How far west of the ridge a random goal stays: the arrival radius plus the distance a creature
+ * at full speed needs to stop, so it never drifts over while it turns to its next goal.
+ */
+function ridgeMargin(t: Tuning): number {
+  return t.move.arriveRadius + (t.move.speed * t.move.speed) / (2 * t.move.accel);
 }
 
 function forage(c: Creature, world: World, tuning: Tuning): void {
@@ -95,7 +105,33 @@ function forage(c: Creature, world: World, tuning: Tuning): void {
   c.forageReadyTick = world.tick + tuning.forage.cooldownTicks;
 }
 
-function steer(c: Creature, tuning: Tuning): void {
+/**
+ * A refused step into `water` (ADR 0012 item 3). The creature stops and heads for the nearest
+ * bridge on that water: for the bridge's foot on the water's edge on its own side, or, from inside
+ * the water, on its goal's side. With no bridge, or when it already heads there, it counts its goal's
+ * cell as visited as often as its most visited cell, so the new goal it picks lies elsewhere.
+ */
+function turnFromWater(c: Creature, water: Rect, world: World, tuning: Tuning, rng: Rng): void {
+  c.vx = 0;
+  c.vy = 0;
+  const bridge = nearestBridgeOn(world, water, c.x, c.y);
+  if (bridge) {
+    const [sx, sy] = inRect(water, c.x, c.y) ? [c.goalX, c.goalY] : [c.x, c.y];
+    const right = water.x + water.w;
+    const bottom = water.y + water.h;
+    const fx = sx < water.x ? water.x : sx > right ? right : bridge.x;
+    const fy = sy < water.y ? water.y : sy > bottom ? bottom : bridge.y;
+    if (fx !== c.goalX || fy !== c.goalY) {
+      c.goalX = fx;
+      c.goalY = fy;
+      return;
+    }
+  }
+  c.visits[visitCell(c.goalX, c.goalY, tuning)] = Math.max(...c.visits);
+  pickGoal(c, world, tuning, rng);
+}
+
+function steer(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
   const sps = tuning.sim.stepsPerSecond;
   const maxSpeed = tuning.move.speed;
   const maxDv = tuning.move.accel / sps;
@@ -118,8 +154,15 @@ function steer(c: Creature, tuning: Tuning): void {
     c.vx = (c.vx / sp) * maxSpeed;
     c.vy = (c.vy / sp) * maxSpeed;
   }
-  c.x = clamp(c.x + c.vx / sps, 0, tuning.scene.width);
-  c.y = clamp(c.y + c.vy / sps, 0, tuning.scene.height);
+  const nx = clamp(c.x + c.vx / sps, 0, tuning.scene.width);
+  const ny = clamp(c.y + c.vy / sps, 0, tuning.scene.height);
+  const water = waterBlocking(world, c.x, c.y, nx, ny, tuning);
+  if (water) {
+    turnFromWater(c, water, world, tuning, rng);
+    return;
+  }
+  c.x = nx;
+  c.y = ny;
 }
 
 /** An avoiding creature inside the lens heads for the point just outside it, straight from the centre. */
@@ -147,7 +190,8 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     forage(c, world, tuning);
     if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, tuning, rng);
     leaveLens(c, world, tuning);
-    steer(c, tuning);
-    c.visits[visitCell(c, tuning)] = (c.visits[visitCell(c, tuning)] ?? 0) + 1;
+    steer(c, world, tuning, rng);
+    const cell = visitCell(c.x, c.y, tuning);
+    c.visits[cell] = (c.visits[cell] ?? 0) + 1;
   }
 }

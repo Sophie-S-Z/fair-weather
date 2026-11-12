@@ -37,6 +37,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
     light: w.fields.light ? { ...w.fields.light } : null,
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: w.fields.fog.slice() },
     structures: w.structures.map((s) => ({ ...s })),
+    water: (w.water ?? []).map((r) => ({ ...r })),
     metrics: {
       averageWarmth: averageWarmth(w),
       friendPairs: friendPairs(w, tuning),

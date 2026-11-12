@@ -66,6 +66,7 @@ const snapshot = (
   fog: { w: 40, h: 23, cells: new Float32Array(40 * 23).fill(0.5) },
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
+  water: [],
   ties: [],
   rumor: null,
 });

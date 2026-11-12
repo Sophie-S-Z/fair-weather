@@ -116,7 +116,7 @@ const FLAG_SOURCES: {
     return warmth > 0 ? 1 : warmth < 0 ? -1 : 0;
   },
   pimScar: (_lite, twistFired) => twistFired,
-  benchPlaced: (lite) => (lite ? lite.structures.length > 0 : undefined), // benches are the only structure
+  benchPlaced: (lite) => (lite ? lite.structures.some((s) => s.kind === 'bench') : undefined),
   friendThreads: (lite) => lite?.metrics.friendPairs,
 };
 

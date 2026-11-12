@@ -124,6 +124,7 @@ function lite(
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
     structures: o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : [],
+    water: [],
     ties: [],
     rumor: null,
   };

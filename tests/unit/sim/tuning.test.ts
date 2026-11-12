@@ -80,6 +80,8 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.wisp).toEqual({ minWarmth: 0.6, minKithWarmth: 0.2 });
   expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6 });
   expect(t.bet).toEqual({ revealSpeed: 8 });
+  expect(t.bridge).toEqual({ radius: 32 });
+  expect(t.lantern).toEqual({ radius: 120, fogFactor: 0.5 });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

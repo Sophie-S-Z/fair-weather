@@ -75,9 +75,16 @@ export interface Bush {
   y: number;
   berries: number;
 }
+/** An axis-aligned rectangle, edges included. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 export interface Structure {
   id: string;
-  kind: 'bench';
+  kind: 'bench' | 'bridge' | 'lantern';
   x: number;
   y: number;
 }
@@ -126,12 +133,16 @@ export interface World {
   structures: Structure[];
   rumors: Rumor[];
   boosts: BehaviorBoost[];
+  /** Water rectangles (ADR 0012 item 3), set only when the scenario has them. */
+  water?: Rect[];
+  /** The east ridge: a wandering creature at or past it leaves for good. Set only with the scenario's. */
+  ridgeX?: number;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
   | { t: 'paintFog'; x: number; y: number; r: number; amount: number }
   | { t: 'blow'; x: number; y: number; dx: number; dy: number }
-  | { t: 'place'; kind: 'bench' | 'bush'; x: number; y: number }
+  | { t: 'place'; kind: 'bench' | 'bush' | 'bridge' | 'lantern'; x: number; y: number }
   | { t: 'thread'; a: string; b: string; on: boolean }
   | { t: 'whisper'; target: string; about: string; sign: 1 | -1 }
   | { t: 'respond'; to: string; reply: BidReply }
@@ -170,4 +181,6 @@ export interface Scenario {
   ties?: { a: string; b: string; ab: Side; ba: Side }[];
   bushes: { id: string; x: number; y: number; berries: number }[];
   structures: Structure[];
+  water?: Rect[];
+  ridgeX?: number;
 }

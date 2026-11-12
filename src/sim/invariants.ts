@@ -2,6 +2,7 @@
 import type { World } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { DIAL_KEYS } from './types.ts';
+import { bridgeNear, inWater } from './land.ts';
 import { tieKey } from './world.ts';
 
 const SHELL_KEYS = ['tightness', 'bristle', 'color', 'softness'] as const;
@@ -28,7 +29,8 @@ function inRange(x: number, lo: number, hi: number): boolean {
 /**
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
- * the scene; population <= cap.sandbox; unique creature ids; each tie stored under tieKey(a, b).
+ * the scene; no creature, unless away, in water away from a bridge; population <= cap.sandbox;
+ * unique creature ids; each tie stored under tieKey(a, b).
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -43,6 +45,9 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (!(c.berries >= 0)) out.push(`${c.id}.berries ${String(c.berries)} < 0`);
     if (!inRange(c.x, 0, t.scene.width) || !inRange(c.y, 0, t.scene.height)) {
       out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is outside the scene`);
+    }
+    if (c.state !== 'away' && inWater(world, c.x, c.y) && !bridgeNear(world, c.x, c.y, t)) {
+      out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is in water away from a bridge`);
     }
     if (!inRange(c.skyWarmth, -1, 1)) out.push(`${c.id}.skyWarmth ${String(c.skyWarmth)}`);
     if (!inRange(c.skyLightToday, 0, t.sky.lightDailyCap)) {

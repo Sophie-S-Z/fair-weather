@@ -9,6 +9,7 @@ const lite = (averageWarmth: number, friendPairs: number): WorldLite => ({
   fog: { w: 0, h: 0, cells: new Float32Array(0) },
   metrics: { averageWarmth, friendPairs },
   structures: [],
+  water: [],
   ties: [],
   rumor: null,
 });

@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
-import { friendshipBreaks, sampleTimeline, type TimelinePoint } from '../../../src/render/timeline.ts';
+import { TIMELINE_HEIGHT } from '../../../src/render/cosmos-view.ts';
+import {
+  friendshipBreaks,
+  sampleTimeline,
+  seriesRange,
+  type TimelinePoint,
+} from '../../../src/render/timeline.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import { lite } from './lite-fixture.ts';
 
@@ -31,4 +37,18 @@ test('friendshipBreaks names a pair whose friendship falls from 0.5 to 0.2', () 
   ]);
   expect(friendshipBreaks(prev, next, 0.3)).toEqual([{ a: 'echo', b: 'krit' }]);
   expect(friendshipBreaks(next, prev, 0.3)).toEqual([]);
+});
+
+test('a trust change of 0.05 moves the trust line, in its half of the strip, at least 2 pixels', () => {
+  const [lo, hi] = seriesRange([0.1, 0.12, 0.15], 0.2);
+  expect((0.05 / (hi - lo)) * (TIMELINE_HEIGHT / 2)).toBeGreaterThanOrEqual(2);
+});
+
+test('seriesRange spans the values, padded, and widens a flat series about its middle', () => {
+  const [lo, hi] = seriesRange([-0.5, 0.5], 0.2);
+  expect(lo).toBeLessThan(-0.5);
+  expect(hi).toBeGreaterThan(0.5);
+  const [flatLo, flatHi] = seriesRange([30, 30, 30], 2);
+  expect((flatLo + flatHi) / 2).toBeCloseTo(30);
+  expect(flatHi - flatLo).toBeGreaterThanOrEqual(2);
 });

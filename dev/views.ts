@@ -1,6 +1,8 @@
 // Dev page: the Cosmos or the Soul view over the Meadow, from ch6 played on its stored carry for
 // a fixed number of ticks, drawn once at boil frame 0. ?view=cosmos (default) or ?view=soul;
-// ?soul=<id> picks the Soul view's creature (Echo by default); ?contrast=1 sets high contrast.
+// ?soul=<id> picks the creature (Echo by default): the Soul view's, and the Cosmos view's picked
+// one, whose friendships stand out. ?contrast=1 sets high contrast. The views baselines come from
+// the stored ch6 carry: re-approve them whenever the golden carries are regenerated.
 // body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
@@ -120,7 +122,7 @@ if (which === 'cosmos') {
   const cosmos = createCosmosView(app, palette, threshold);
   app.stage.addChild(cosmos.container);
   const nodeAt = (x: number, y: number): [number, number] => meadow.toScreen(x, y - CREATURE_HEIGHT / 2);
-  cosmos.update(prev, settings, nodeAt, { points, breaks });
+  cosmos.update(prev, settings, nodeAt, { points, breaks }, soulId);
 } else {
   const soul = createSoulView(app, palette, rigs, threshold);
   app.stage.addChild(soul.container);

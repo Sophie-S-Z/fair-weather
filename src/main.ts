@@ -256,6 +256,7 @@ const game: GameService = {
     const soul = createSoulView(app, palette, rigs, threshold);
     app.stage.addChild(cosmos.container, soul.container);
     let current: ViewName = 'meadow';
+    /** The Soul view's creature, and under Cosmos the picked creature whose friendships stand out. */
     let soulId: string | null = null;
     /** The beat's camera shot; the Cosmos and Soul views show the whole valley under them. */
     let shot: string | null = null;
@@ -284,7 +285,7 @@ const game: GameService = {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
         if (import.meta.env.DEV) dev.frames += 1;
         view.update(prev, next, alpha, s);
-        if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks });
+        if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, soulId);
         if (current === 'soul') soul.update(next, s, soulId);
         app.ticker.update(); // advances the view's clock and renders
       },

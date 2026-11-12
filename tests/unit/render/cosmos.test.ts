@@ -37,7 +37,7 @@ test('cosmosEdges keeps friends and scars, and leaves out plain ties and creatur
 
 test('Cosmos pick snaps to a node 40 pixels away, but not 50', () => {
   const cosmos = createCosmosView(fakeApp(), palette, 0.3);
-  cosmos.update(lite([['pim', 'wander', 300, 200]], []), settings, same, noTimeline);
+  cosmos.update(lite([['pim', 'wander', 300, 200]], []), settings, same, noTimeline, null);
   expect(cosmos.pick(340, 200)).toBe('pim');
   expect(cosmos.pick(300, 250)).toBeNull();
 });
@@ -52,7 +52,7 @@ test('Cosmos pick takes the nearest node, and never one away', () => {
     ],
     [],
   );
-  cosmos.update(w, settings, same, noTimeline);
+  cosmos.update(w, settings, same, noTimeline, null);
   expect(cosmos.pick(318, 200)).toBe('krit');
   expect(cosmos.pick(312, 200)).toBe('pim');
 });
@@ -60,9 +60,57 @@ test('Cosmos pick takes the nearest node, and never one away', () => {
 test('Cosmos fades the meadow to 25% under a wash of the page color', () => {
   const app = fakeApp();
   const cosmos = createCosmosView(app, palette, 0.3);
-  cosmos.update(lite([], []), settings, same, noTimeline);
+  cosmos.update(lite([], []), settings, same, noTimeline, null);
   const veil = cosmos.container.getChildByLabel('veil');
   if (!(veil instanceof Graphics)) throw new Error('no veil');
   const fill = veil.context.instructions.find((i) => i.action === 'fill');
   expect(fill?.data.style).toMatchObject({ color: palette.background, alpha: 0.75 });
+});
+
+/** The width and alpha of every stroke the Cosmos drew between nodes. */
+function edgeStrokes(cosmos: ReturnType<typeof createCosmosView>): { width: number; alpha: number }[] {
+  const edges = cosmos.container.getChildByLabel('edges');
+  if (!(edges instanceof Graphics)) throw new Error('no edges');
+  return edges.context.instructions
+    .filter((i) => i.action === 'stroke')
+    .map((i) => {
+      const { width, alpha } = i.data.style as { width: number; alpha: number };
+      return { width, alpha };
+    });
+}
+
+test('Cosmos draws friendships only, fainter the cooler, and the picked creature’s at full ink', () => {
+  const w = lite(
+    [['pim'], ['krit'], ['echo'], ['bell']],
+    [
+      ['krit', 'pim', 0.9, 0.9],
+      ['bell', 'echo', 0.4, 0.4],
+      ['echo', 'krit', -0.5, -0.5],
+      ['echo', 'pim', 0.9, 0.9],
+    ],
+  );
+  const cosmos = createCosmosView(fakeApp(), palette, 0.3);
+  cosmos.update(w, settings, same, noTimeline, null);
+  const [warm, cool, warm2, ...rest] = edgeStrokes(cosmos);
+  expect(rest).toEqual([]);
+  expect(warm).toEqual(warm2);
+  expect(cool?.width).toBe(warm?.width);
+  expect(cool?.alpha).toBeLessThan(warm?.alpha ?? 0);
+
+  cosmos.update(w, settings, same, noTimeline, 'pim');
+  const strokes = edgeStrokes(cosmos);
+  expect(strokes).toHaveLength(2);
+  expect(strokes[1]).toEqual({ width: expect.any(Number) as number, alpha: 1 });
+  expect(strokes[1]?.width).toBeGreaterThan(cool?.width ?? 0);
+});
+
+test('Cosmos raises the faintest friendship in high contrast', () => {
+  const w = lite([['bell'], ['echo']], [['bell', 'echo', 0.31, 0.31]]);
+  const cosmos = createCosmosView(fakeApp(), palette, 0.3);
+  cosmos.update(w, settings, same, noTimeline, null);
+  const [plain] = edgeStrokes(cosmos);
+  cosmos.update(w, { ...settings, highContrast: true }, same, noTimeline, null);
+  const [strong] = edgeStrokes(cosmos);
+  expect(strong?.alpha).toBeGreaterThanOrEqual(0.5);
+  expect(strong?.alpha).toBeGreaterThan(plain?.alpha ?? 1);
 });

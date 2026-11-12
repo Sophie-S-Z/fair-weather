@@ -20,7 +20,11 @@ import type { Settings } from './settings.ts';
 export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHeatmap'> {
   /** Draws every view in the season's palette (spec 11.3). */
   setSeason(season: Season): void;
-  /** Shows a view; `soul` is the creature the Soul view is about. Under Cosmos and Soul the camera shows the whole valley. */
+  /**
+   * Shows a view. `soul` is the creature the Soul view is about, and under Cosmos the picked
+   * creature, whose friendships are drawn in full ink. Under Cosmos and Soul the camera shows the
+   * whole valley.
+   */
   setView(view: ViewName, soul: string | null): void;
   /** Feeds a live snapshot to the Cosmos timeline and its break marks. An earlier tick starts a new run. */
   snapshot(tick: number, lite: WorldLite): void;

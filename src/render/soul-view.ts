@@ -1,16 +1,14 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
-import { nearestNode, SNAP_PIXELS, tieKind } from './cosmos-view.ts';
 import { dashedLine, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
 import { createLineView } from './line/line-view.ts';
 import type { Rig } from './line/rig.ts';
 import type { Palette } from './palette.ts';
+import { nearestNode, SNAP_PIXELS, tieKind } from './ties.ts';
 
 /** The rig for a creature with none of its own. */
 const FALLBACK_RIG = 'villager';
-/** The diary drawer takes about this many pixels on the right (22rem and its margin, spec 12.2). */
-const DRAWER_PIXELS = 384;
 /** The constellation fills this share of the room it has. */
 const FILL = 0.8;
 /** Star distances as shares of the constellation radius: warmth 1 is nearest, warmth -1 farthest. */
@@ -56,10 +54,9 @@ export function soulLayout(
   });
 }
 
-/** The constellation's center and radius on a screen, in pixels, left of the diary drawer when there is room. */
+/** The constellation's center and radius on a screen, in pixels: centered on the canvas. */
 export function soulFrame(width: number, height: number): { x: number; y: number; radius: number } {
-  const room = width >= 2 * DRAWER_PIXELS ? width - DRAWER_PIXELS : width;
-  return { x: room / 2, y: height / 2, radius: (Math.min(room, height) / 2) * FILL };
+  return { x: width / 2, y: height / 2, radius: (Math.min(width, height) / 2) * FILL };
 }
 
 /** One of the palette's six full colors for a creature, the same every time. */

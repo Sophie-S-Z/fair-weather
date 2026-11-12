@@ -22,14 +22,18 @@ import i8 from '../content/chapters/i8.json';
 import ch9 from '../content/chapters/ch9.json';
 import ch10 from '../content/chapters/ch10.json';
 import inkStory from '../content/ink/main.ink';
+import versesJson from '../content/myth/verses.json';
 import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
 import { createHints } from './input/hints.ts';
+import { createHoldStill } from './input/hold-still.ts';
 import { createKeyboard } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
 import { nextView, type ViewName } from './input/zoom.ts';
+import { extractFeatures } from './myth/features.ts';
+import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
@@ -52,6 +56,7 @@ import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { parseFlags } from './story/flags.ts';
+import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
 import { buildScenario, chosenOverrides } from './story/scenario.ts';
@@ -59,6 +64,7 @@ import { ChapterSchema } from './story/schema.ts';
 import type { Overrides } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
+import { RHYTHMS } from './ui/interludes/activities.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
 import { createSpeedControl } from './ui/speed.ts';
 
@@ -134,6 +140,9 @@ const chapters = [ch0, ch1, ch2, ch3, i3, ch4, i4, ch5, i5, ch6, ch7, i7, ch8, i
   ChapterSchema.parse(c),
 );
 const ink = createInk(inkStory);
+const verses = VersesSchema.parse(versesJson);
+/** The interlude whose rhythm becomes the village greeting song (spec 6.4). */
+const songFrom = chapters.findIndex((c) => c.activity === 'rhythm');
 
 const host = createSimHost(
   () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
@@ -170,6 +179,8 @@ const port: SimPort = {
 
 // Sound (spec 11.5): the engine makes no AudioContext until the first unmute.
 let season: Season = 'spring';
+/** The greeting song's rhythm in the chapters after the Door for Two. */
+let greeting: readonly number[] | undefined;
 const engine = createAudioEngine(() => new AudioContext(), {
   season: () => season,
   voice(who) {
@@ -193,7 +204,7 @@ settings.subscribe((s) => {
 host.onMessage((m) => {
   if (m.t === 'events') {
     for (const e of m.list) {
-      const cue = soundFor(e);
+      const cue = soundFor(e, greeting);
       if (cue) engine.play(cue);
     }
   } else if (m.t === 'snapshot') {
@@ -404,6 +415,7 @@ const game: GameService = {
     lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
+    greeting = chapters.indexOf(chapter) > songFrom ? RHYTHMS[flags.greetingSong] : undefined;
     scenarioNow = scenario;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
@@ -453,6 +465,11 @@ const game: GameService = {
   async rewind(tick) {
     return (await host.rewind(tick)).lite;
   },
+  myth(flags) {
+    const here = (lastLite?.creatures ?? []).filter((c) => !c.gone && c.state !== 'away');
+    const skyWarmth = Object.fromEntries(here.map((c) => [c.id, c.skyWarmth]));
+    return tellMyth(extractFeatures(yearLog, flags, skyWarmth), verses, displayName);
+  },
   onSnapshot(cb) {
     return host.onMessage((m) => {
       if (m.t === 'snapshot') cb(m.lite, m.tick);
@@ -468,6 +485,7 @@ const game: GameService = {
     createHints: () => createHints(),
     createOverPoke: () =>
       createOverPoke(tuning.overPoke.windowSeconds, tuning.overPoke.count, () => performance.now()),
+    createHoldStill: () => createHoldStill(() => performance.now()),
     nextView,
   },
 };

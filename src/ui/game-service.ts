@@ -2,8 +2,10 @@
 import type { createKeyboard } from '../input/keyboard.ts';
 import type { createPointer } from '../input/pointer.ts';
 import type { Hints } from '../input/hints.ts';
+import type { createHoldStill } from '../input/hold-still.ts';
 import type { BenchSpot } from '../input/verbs.ts';
 import type { nextView, ViewName } from '../input/zoom.ts';
+import type { MythPage } from '../myth/grammar.ts';
 import type { Band } from '../render/cosmos-view.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
@@ -82,6 +84,11 @@ export interface GameService {
    * does not change (ADR 0012 item 10).
    */
   rewind(tick: number): Promise<WorldLite>;
+  /**
+   * The fireside myth (spec 10.6) of this visit's year log, `flags`, and the sky warmths of the
+   * last snapshot; the narrator is one of the creatures there, not away and not gone.
+   */
+  myth(flags: Flags): MythPage;
   /** Every live snapshot with its tick (the next tick to run). */
   onSnapshot(cb: (lite: WorldLite, tick: number) => void): () => void;
   /**
@@ -97,6 +104,8 @@ export interface GameService {
     createHints: () => Hints;
     /** An over-poke detector with the tuning's window and count. */
     createOverPoke: () => { poke(): boolean };
+    /** A hold-still timer on the page clock, for the Long Night. */
+    createHoldStill: () => ReturnType<typeof createHoldStill>;
     nextView: typeof nextView;
   };
 }

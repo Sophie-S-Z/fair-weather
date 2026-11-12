@@ -4,6 +4,7 @@
   import type { InputContext } from '../../input/keyboard.ts';
   import type { BenchSpot } from '../../input/verbs.ts';
   import type { ViewName } from '../../input/zoom.ts';
+  import type { MythPage } from '../../myth/grammar.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
   import type { BidReply } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
@@ -20,9 +21,15 @@
   import ChapterRibbon from '../components/ChapterRibbon.svelte';
   import CosmosPanel from '../components/CosmosPanel.svelte';
   import Drawer from '../components/Drawer.svelte';
+  import MythScroll from '../components/MythScroll.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import ToolTray from '../components/ToolTray.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
+  import Bubbles from '../interludes/Bubbles.svelte';
+  import Postcard from '../interludes/Postcard.svelte';
+  import Rhythm from '../interludes/Rhythm.svelte';
+  import Stillness from '../interludes/Stillness.svelte';
+  import Telephone from '../interludes/Telephone.svelte';
 
   let {
     game,
@@ -73,6 +80,8 @@
   const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
+  /** The interlude activities that take only the world and `finish`; the Long Night also gets a timer. */
+  const ACTIVITIES = { rhythm: Rhythm, telephone: Telephone, bubbles: Bubbles, postcard: Postcard };
 
   let sceneEl: HTMLElement;
   let trayEl: HTMLElement | undefined = $state();
@@ -97,6 +106,9 @@
   let ghost: Verb | null = $state(null);
   let speedNow = $state(0);
   let ended: 'done' | 'failed' | null = $state(null);
+  /** The flags the chapter started with, and the fire's myth once its first snapshot is in. */
+  let flagsNow: Flags | null = null;
+  let myth: MythPage | null = $state.raw(null);
   let view: ViewName = $state('meadow');
   /** The creature the thread tool marked. */
   let threadFrom: string | null = $state(null);
@@ -274,6 +286,10 @@
     }
   }
 
+  function finishActivity(result: string): void {
+    runner?.finishActivity(result);
+  }
+
   function answer(option: string): void {
     hints.used('bet');
     bet = null;
@@ -296,6 +312,10 @@
     used = [];
     placed = 0;
     prev = next = null;
+    // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
+    live = null;
+    flagsNow = flags;
+    myth = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
     const verb = chapter.newVerb;
     tool = tools.find((v) => v === verb) ?? tools[0] ?? null;
@@ -454,6 +474,7 @@
         if (stage) timeline = stage.timeline();
         live = lite;
         liveTick = at;
+        if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
         prev = next ?? lite;
         next = lite;
         prevAt = nextAt;
@@ -575,9 +596,20 @@
         </h1>
         <p>
           {ended === 'done'
-            ? '[PLACEHOLDER] The chapters so far are done, and the rest of the year is still to come.'
+            ? '[PLACEHOLDER] The year in Kith is done, and Part 2 is still to come.'
             : 'Something in the chapter content went wrong.'}
         </p>
+        {#if ended === 'done' && myth}
+          <!-- The whole story stays here, so the last verse can be read after the fire. -->
+          <section class="told" aria-labelledby="told-heading">
+            <h2 id="told-heading">The Sky Story, told by {displayName(myth.narrator)}</h2>
+            {#each myth.verses as verse (verse.title)}
+              <h3>{verse.title}</h3>
+              <p>{verse.text}</p>
+              {#if verse.note}<p class="note">What the sky did: {verse.note}</p>{/if}
+            {/each}
+          </section>
+        {/if}
         <button type="button" onclick={onExit}>Back to title</button>
       </main>
     {:else}
@@ -620,22 +652,51 @@
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <div bind:this={trayEl}>
-              <ToolTray
-                {tools}
-                {placeKind}
-                {used}
-                active={tool}
-                {reply}
-                {ghost}
-                onPick={(v: Verb) => {
-                  hints.activity();
-                  tool = v;
-                }}
-                onReply={(r: BidReply) => {
-                  reply = r;
-                  act({ verb: 'respond', reply: r });
-                }}
-              />
+              {#if chapter?.activity}
+                <!-- The activity stands in for the tool tray; Escape from the scene reaches its first button. -->
+                {#if chapter.activity === 'fire'}
+                  {#if myth}
+                    <div class="activity">
+                      <MythScroll
+                        page={myth}
+                        finish={() => {
+                          finishActivity('heard');
+                        }}
+                      />
+                    </div>
+                  {/if}
+                {:else if live}
+                  <div class="activity">
+                    {#if chapter.activity === 'stillness'}
+                      <Stillness
+                        lite={live}
+                        finish={finishActivity}
+                        createHoldStill={game.input.createHoldStill}
+                      />
+                    {:else}
+                      {@const Activity = ACTIVITIES[chapter.activity]}
+                      <Activity lite={live} finish={finishActivity} />
+                    {/if}
+                  </div>
+                {/if}
+              {:else}
+                <ToolTray
+                  {tools}
+                  {placeKind}
+                  {used}
+                  active={tool}
+                  {reply}
+                  {ghost}
+                  onPick={(v: Verb) => {
+                    hints.activity();
+                    tool = v;
+                  }}
+                  onReply={(r: BidReply) => {
+                    reply = r;
+                    act({ verb: 'respond', reply: r });
+                  }}
+                />
+              {/if}
             </div>
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
@@ -776,7 +837,26 @@
     max-width: 32rem;
     margin: 0 auto;
     padding: 2rem 1rem;
+    overflow-y: auto;
     background: var(--bg);
+  }
+  .told h2,
+  .told h3 {
+    font-size: 1rem;
+  }
+  .told .note {
+    font-style: italic;
+    color: var(--muted);
+  }
+  .activity {
+    max-width: min(40rem, calc(100vw - 1.5rem));
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border: 2px solid var(--fg);
+    border-radius: 0.6rem;
+  }
+  .activity :global(p) {
+    margin: 0.25rem 0;
   }
   .sr-only {
     position: absolute;

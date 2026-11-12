@@ -332,7 +332,7 @@
     {#if ended}
       <main class="end">
         <h1 id="end-title" tabindex="-1">
-          {ended === 'done' ? 'End of the first spring' : 'This chapter stopped'}
+          {ended === 'done' ? 'End of the year so far' : 'This chapter stopped'}
         </h1>
         <p>
           {ended === 'done'

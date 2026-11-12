@@ -6,7 +6,7 @@ import { RIG_POINTS, type Rig } from './rig.ts';
 import { buildStrip, stripIndices, taperedWidth } from './strip.ts';
 
 /** Ink line width in rig units. */
-const INK_WIDTH = 0.025;
+const INK_WIDTH = 0.05;
 /** How far the body moves from paper toward the accent at shell color 1 (spec 5.2). */
 const ACCENT_MIX = 0.6;
 /** Eye and blush radii in rig units (spec 5.1: two dot eyes, two blush marks). */
@@ -30,14 +30,26 @@ const VERTICES = RIG_POINTS * 2;
  * to `scale` pixels and y is flipped, so the container origin is the rig's base center. All three
  * parts batch, so a whole scene of creatures takes few draw calls. The body is opaque paper tinted
  * toward the accent by shell color, so a creature in front hides the one behind. It is rebuilt only
- * when the shell changes, and it leaves out bristle and boil so it never folds over itself. The
- * face moves with the tightness pull, and the second blush mirrors the first across the eyes.
+ * when the shell or the accent changes, and it leaves out bristle and boil so it never folds over
+ * itself. The face moves with the tightness pull, and the second blush mirrors the first across the eyes.
+ *
+ * `look` lets a view set the body color (paper tinted by shell color toward the accent by default)
+ * and scale the ink width (high contrast thickens it). Both are plain per-frame values, so batching
+ * is unchanged.
  */
 export function createLineView(
   rig: Rig,
   colors: { ink: number; accent: number; paper: number },
   scale = 120,
-): { container: Container; update(shell: Shell, seconds: number, reducedMotion: boolean): void } {
+): {
+  container: Container;
+  update(
+    shell: Shell,
+    seconds: number,
+    reducedMotion: boolean,
+    look?: { body: number; widthScale: number },
+  ): void;
+} {
   const container = new Container();
   container.scale.set(scale, -scale);
 
@@ -60,7 +72,9 @@ export function createLineView(
 
   const points = new Float32Array(RIG_POINTS * 2);
   const outline = new Float32Array(RIG_POINTS * 2);
-  const width = taperedWidth(INK_WIDTH, RIG_POINTS);
+  const taper = taperedWidth(INK_WIDTH, RIG_POINTS);
+  let widthScale = 1;
+  const width = (i: number): number => taper(i) * widthScale;
   const [cx, cy] = bodyCenter(rig);
   const { eyeL, eyeR, blush } = rig.markers;
   const blushR: [number, number] = [eyeL[0] + eyeR[0] - blush[0], blush[1]];
@@ -83,19 +97,18 @@ export function createLineView(
 
   return {
     container,
-    update(shell, seconds, reducedMotion) {
+    update(shell, seconds, reducedMotion, look) {
+      widthScale = look?.widthScale ?? 1;
+      const fill = look?.body ?? bodyColor(paper, accent, shell.color * ACCENT_MIX);
       deform(rig, shell, boilFrameAt(seconds, reducedMotion), points);
       buildStrip(points, width, line.geometry.positions);
       line.geometry.getBuffer('aPosition').update();
-      const key = `${String(shell.tightness)},${String(shell.bristle)},${String(shell.color)},${String(shell.softness)}`;
+      const key = `${String(shell.tightness)},${String(shell.bristle)},${String(shell.color)},${String(shell.softness)},${String(fill)}`;
       if (key !== bodyShell) {
         bodyShell = key;
         drawDots(shell);
         deform(rig, { ...shell, bristle: 0 }, 0, outline);
-        body
-          .clear()
-          .poly(fillOutline(outline), true)
-          .fill(bodyColor(paper, accent, shell.color * ACCENT_MIX));
+        body.clear().poly(fillOutline(outline), true).fill(fill);
       }
     },
   };

@@ -1,2 +1,294 @@
+// The composition root (ADR 0011): the only file that imports every module.
+import { Application } from 'pixi.js';
+import { mount } from 'svelte';
+import tuningJson from '../content/tuning.json';
+import flagsJson from '../content/flags.json';
+import scenarioJson from '../content/scenarios/m0.json';
+import springJson from '../content/palettes/spring.json';
+import meadowJson from '../content/scenes/kith-meadow.json';
+import ch0 from '../content/chapters/ch0.json';
+import ch1 from '../content/chapters/ch1.json';
+import ch2 from '../content/chapters/ch2.json';
+import ch3 from '../content/chapters/ch3.json';
+import inkStory from '../content/ink/main.ink';
+import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
+import { soundFor } from './audio/event-sounds.ts';
+import { VoiceSchema, type Timbre } from './audio/voices.ts';
+import { createHints } from './input/hints.ts';
+import { createKeyboard } from './input/keyboard.ts';
+import { createOverPoke } from './input/over-poke.ts';
+import { createPointer } from './input/pointer.ts';
+import { CastSchema, type Cast } from './render/cast.ts';
+import { RigSchema, type Rig } from './render/line/rig.ts';
+import { createMeadowView } from './render/meadow-view.ts';
+import { PaletteSchema } from './render/palette.ts';
+import { SceneSchema } from './render/scene.ts';
+import { hashTuning } from './persist/format.ts';
+import type { SaveV1 } from './persist/format.ts';
+import { createSlots } from './persist/slots.ts';
+import { createSimHost } from './sim-host/host.ts';
+import type { SimPort, WorldLite } from './sim-host/protocol.ts';
+import { parseTuning } from './sim/tuning.ts';
+import type { Scenario, Season } from './sim/types.ts';
+import { createChapterRunner } from './story/chapter-runner.ts';
+import { parseFlags } from './story/flags.ts';
+import { createInk } from './story/ink.ts';
+import { buildScenario } from './story/scenario.ts';
+import { ChapterSchema } from './story/schema.ts';
+import App from './ui/App.svelte';
+import type { GameService } from './ui/game-service.ts';
+import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
+import { createSpeedControl } from './ui/speed.ts';
+
+const KEY = 'fair-weather.settings';
+/** Every player gets the same valley in M1; seed links come in M4. */
+const SEED = 1;
+const tuning = parseTuning(tuningJson);
+
+const storage: SettingsStorage = {
+  load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      return raw === null ? undefined : (JSON.parse(raw) as unknown);
+    } catch {
+      return undefined;
+    }
+  },
+  save(s) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch {
+      // Blocked storage: settings last for this visit only.
+    }
+  },
+};
+
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const settings = createSettingsStore(storage, reduced);
+
+const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
+const rigs = new Map<string, Rig>(
+  Object.values(rigFiles).map((json) => {
+    const rig = RigSchema.parse(json);
+    return [rig.id, rig];
+  }),
+);
+const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
+const cast = new Map<string, Cast>(
+  Object.values(castFiles).map((json) => {
+    const c = CastSchema.parse(json);
+    return [c.id, c];
+  }),
+);
+// Audio reads its own field (`timbre`) from the same cast files; render's CastSchema ignores it.
+const timbres = new Map<string, Timbre>(
+  Object.values(castFiles).map((json) => {
+    const v = VoiceSchema.parse(json);
+    return [v.id, v.timbre];
+  }),
+);
+const palette = PaletteSchema.parse(springJson);
+const scene = SceneSchema.parse(meadowJson);
+const chapters = [ch0, ch1, ch2, ch3].map((c) => ChapterSchema.parse(c));
+const ink = createInk(inkStory);
+
+const host = createSimHost(
+  () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
+);
+/** Dev only: every speed sent to the sim, and frames drawn, so e2e can see the tab-hidden pause. */
+const dev = { speeds: [] as number[], frames: 0 };
+if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = dev;
+const params = new URLSearchParams(location.search);
+/** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
+const devFast = Number(params.get('fast'));
+const fast = import.meta.env.DEV && devFast > 0 ? devFast : 1;
+function send(multiplier: number): void {
+  if (import.meta.env.DEV) dev.speeds.push(multiplier);
+  host.speed(multiplier * fast);
+}
+// The runner's speed times the player's 1x or 2x; 0 while the tab is hidden (src/ui/speed.ts).
+const speedControl = createSpeedControl(send, document.visibilityState === 'hidden');
+document.addEventListener('visibilitychange', () => {
+  speedControl.setHidden(document.visibilityState === 'hidden');
+});
+const port: SimPort = {
+  ...host,
+  speed: (m) => {
+    speedControl.runner(m);
+  },
+};
+
+// Sound (spec 11.5): the engine makes no AudioContext until the first unmute.
+let season: Season = 'spring';
+const engine = createAudioEngine(() => new AudioContext(), {
+  season: () => season,
+  voice(who) {
+    const timbre = timbres.get(who);
+    const length = rigs.get(who)?.length;
+    return timbre && length !== undefined ? { timbre, lineLength: length } : undefined;
+  },
+});
+let soundOn = false;
+let firstSettings = true;
+settings.subscribe((s) => {
+  soundOn = s.sound;
+  if (firstSettings) {
+    firstSettings = false;
+    // A saved "on" waits for the first gesture; the browser would keep a context made now suspended.
+    if (s.sound) enableOnGesture(engine, document, () => soundOn);
+    return;
+  }
+  engine.setEnabled(s.sound);
+});
+host.onMessage((m) => {
+  if (m.t === 'events') {
+    for (const e of m.list) {
+      const cue = soundFor(e);
+      if (cue) engine.play(cue);
+    }
+  } else if (m.t === 'snapshot') {
+    const cells = m.lite.fog.cells;
+    let sum = 0;
+    for (const c of cells) sum += c;
+    engine.setFog(cells.length > 0 ? sum / cells.length : 0);
+  }
+});
+
+const devChapter = Number(params.get('chapter'));
+const firstChapter =
+  import.meta.env.DEV && Number.isInteger(devChapter) && devChapter >= 0 && devChapter < chapters.length
+    ? devChapter
+    : 0;
+
+// Saves (spec 15.1). The notice is role=status, a polite live region. If storage is blocked or full, one polite notice says so and play goes on.
+const noticeEl = document.createElement('p');
+noticeEl.setAttribute('role', 'status');
+noticeEl.style.cssText =
+  'position:fixed;left:0.75rem;bottom:0.75rem;z-index:10;margin:0;padding:0.25rem 0.5rem;max-width:30rem;background:var(--bg);color:var(--fg);border:2px solid var(--accent);border-radius:0.4rem';
+noticeEl.hidden = true;
+document.body.appendChild(noticeEl);
+// Not awaited at the top, so the title screen mounts without waiting for the database.
+const slotsReady = createSlots(indexedDB, () => {
+  noticeEl.hidden = false;
+  noticeEl.textContent =
+    'Saving is not available in this browser, so progress will not be kept. You can keep playing.';
+});
+const tuningHash = hashTuning(JSON.stringify(tuningJson));
+/** The loaded autosave, held until its chapter starts. */
+let resuming: SaveV1 | null = null;
+
+const game: GameService = {
+  chapters,
+  defaultFlags: parseFlags(flagsJson),
+  firstChapter,
+  async createStage(el) {
+    const app = new Application();
+    // The HTML UI owns accessibility and input, so Pixi's browser extensions stay out: no Pixi
+    // accessibility layer (its touch hook button and Tab hook), no Pixi events, no DOM or filters.
+    await app.init({
+      resizeTo: el,
+      background: palette.background,
+      antialias: true,
+      autoStart: false,
+      skipExtensionImports: true,
+    });
+    app.canvas.setAttribute('aria-hidden', 'true');
+    el.appendChild(app.canvas);
+    const view = createMeadowView(app, scene, rigs, palette, {
+      lensRadius: tuning.light.lensRadius,
+      cast,
+    });
+    const local = (x: number, y: number): [number, number] => {
+      const r = app.canvas.getBoundingClientRect();
+      return [x - r.left, y - r.top];
+    };
+    return {
+      draw(prev: WorldLite, next: WorldLite, alpha, s) {
+        if (import.meta.env.DEV) dev.frames += 1;
+        view.update(prev, next, alpha, s);
+        app.ticker.update(); // advances the view's clock and renders
+      },
+      pick: (x, y) => view.pick(...local(x, y)),
+      toScene(x, y) {
+        const [sx, sy] = view.toScene(...local(x, y));
+        return { x: sx, y: sy };
+      },
+      setFocus: (id) => {
+        view.setFocus(id);
+      },
+      setShot: (name) => {
+        view.setShot(name);
+      },
+      benchSpots: scene.benchSpots,
+      destroy() {
+        app.destroy(true, true);
+      },
+    };
+  },
+  async resume() {
+    const save = await (await slotsReady).load('auto');
+    const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
+    if (!save || index < 0) return null;
+    try {
+      ink.load(save.ink);
+    } catch {
+      return null;
+    }
+    resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
+    return { index, flags: save.flags };
+  },
+  async hasSave() {
+    return (await slotsReady).hasAuto();
+  },
+  startChapter(chapter, flags) {
+    const scenario = buildScenario(chapter, flags, scenarioJson as Scenario);
+    season = scenario.season;
+    const resumed = resuming?.chapterId === chapter.id ? resuming : null;
+    resuming = null;
+    host.post({
+      t: 'init',
+      seed: SEED,
+      tuning: tuningJson,
+      scenario,
+      ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
+    });
+    if (!resumed) {
+      // The autosave at the chapter start: the world now, and Ink before the chapter plays.
+      const inkState = ink.state();
+      host.requestCheckpoint().then(
+        async ({ world }) =>
+          (await slotsReady).save('auto', {
+            version: 1,
+            seed: SEED,
+            tuningHash,
+            ink: inkState,
+            flags,
+            chapterId: chapter.id,
+            log: [], // the action log is kept from M2 (spec 10.4; the myth reads it)
+            checkpoint: world,
+          }),
+        () => undefined, // the worker gave up; the chapter plays without this save
+      );
+    }
+    return createChapterRunner(port, ink, chapter, flags);
+  },
+  onSnapshot(cb) {
+    return host.onMessage((m) => {
+      if (m.t === 'snapshot') cb(m.lite);
+    });
+  },
+  speed: (m) => {
+    speedControl.player(m);
+  },
+  currentSpeed: () => speedControl.current(),
+  input: {
+    createKeyboard,
+    createPointer,
+    createHints: () => createHints(),
+    createOverPoke: () =>
+      createOverPoke(tuning.overPoke.windowSeconds, tuning.overPoke.count, () => performance.now()),
+  },
+};
+
 const app = document.getElementById('app');
-if (app) app.textContent = 'Fair Weather is in development.';
+if (app) mount(App, { target: app, props: { settings, hasSave: false, game } });

@@ -647,6 +647,9 @@ M1 uses placeholder art and placeholder text (ADR 0010) until the designer and t
 | `src/story/flags.ts` | Carry-forward flag type; defaults come from `content/flags.json` |
 | `src/story/twists.ts` | Named twist predicates (logic stays out of `content/`) |
 | `src/story/chapter-runner.ts` | Runs one chapter: verbs, beats, bets, twist retries, variants, exit |
+| `src/story/scenario.ts` | Builds a chapter scenario: overrides, the matching variant, ticks per day |
+| `src/story/tuning.ts` | The typed tuning the story reads |
+| `src/story/verbs.ts` | Verb and VerbInput types (ADR 0011) |
 | `src/story/bets.ts` | Opens a bet, runs the reveal at 8×, measures, logs |
 | `src/story/action-log.ts` | The accepted log plus verbs and bet results |
 | `tools/ink-plugin.ts` | Vite plugin: compiles `.ink` on import |
@@ -718,6 +721,8 @@ The scripts hold the beat structure for chapters 0 to 3, one sentence per beat (
 
 **Files:** Create `src/render/scene.ts`, `meadow-view.ts`, `camera.ts`, `effects/light.ts`, `effects/fog.ts`, `content/scenes/kith-meadow.json`, placeholder SVGs and rigs for the 6 cast members and 1 shared villager body. Test `tests/unit/render/interpolate.test.ts`, `tests/visual/meadow.spec.ts`.
 
+M1 draws fog as a soft wash. Spec 11.3 (lines inside fog break into dashes) moves to M2 with the Autumn fog chapter.
+
 **Interfaces:** `createMeadowView(app: Application, scene: SceneData, rigs: Map<string, Rig>, palette: Palette): { update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void; pick(x: number, y: number): string | null }`. Interpolate positions between two snapshots. The creature that the current beat is about is the only one drawn in the accent color (spec 11.1 contrast). High contrast doubles line width. Reduced motion stops the boil, the sway, and camera moves.
 
 - [ ] **Step 1: Write the failing tests:** interpolation at alpha 0, 0.5, and 1; `pick` returns the nearest creature within its hit radius and `null` elsewhere; a visual snapshot of the meadow at a fixed tick in normal and high-contrast modes.
@@ -787,7 +792,7 @@ Each milestone gets a detailed plan, in the same format, after the one before it
 
 | Milestone | Contents | Exit check |
 | --- | --- | --- |
-| **M2: Part 1 complete** | Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs |
+| **M2: Part 1 complete** | Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. Persist the runner action log in saves (spec 10.4; myth needs it). | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs |
 | **M3: Part 2, Stage 1** | `RulePack` interface (spec 9.5) and `heroGift`/`localVerb` commands. Bridge scene and hero choice with naming (six designed heroes, knacks as exact rules from spec 5.5). Rule packs for Murmuration Fen, Hearsay Hollow, Halcyon (ADR 0007). Reputation (spec 9.6), postcards with Kith fast-forward, travel journal with keepsakes and "What they say about you". Homecoming and the sixth myth verse. Wisp's choice (spec 7.4). | T3 for each valley; every hero playtested in every valley; playtest |
 | **M4: Launch quality** | Sandbox (4 panels, timeline, 3 challenges, modes from finished valleys). Seed links with fflate (`#v1.<data>`, file fallback above 2 KB) and the broken-link page. Postcard GIF ring buffer and PNG page exports. Opt-in count-only analytics. Accessibility pass and a manual screen-reader pass. Phone performance at 30 fps on the reference phone. No-WebGL still-image fallback. Asset retry. Offline after first load (service worker). "Where this model is wrong" page. | T7 to T11 pass |
 | **M5: Stage 2** | Foglight Heights, Toadstool Council, Lily Shallows rule packs. Rule cards. Travelers by code. Remix tree for seed links. | T3 and T5 pass |

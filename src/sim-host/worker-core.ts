@@ -61,7 +61,7 @@ export function createWorkerCore(
         }
       }
       post({ t: 'events', tick, list: events });
-      post({ t: 'snapshot', tick: w.tick, lite: toLite(w) });
+      post({ t: 'snapshot', tick: w.tick, lite: toLite(w, t) });
       if (tick % w.ticksPerDay === w.ticksPerDay - 1) {
         post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
       }
@@ -116,6 +116,14 @@ export function createWorkerCore(
         return;
       case 'hash':
         post({ t: 'hash', tick: world.tick, value: hashWorld(world) });
+        return;
+      case 'checkpoint':
+        post({
+          t: 'checkpoint',
+          tick: world.tick,
+          world: structuredClone(world),
+          ...(m.id === undefined ? {} : { id: m.id }),
+        });
         return;
       case 'advance':
         for (let i = 0; i < m.ticks; i++) if (!stepOnce(world, tuning)) break;

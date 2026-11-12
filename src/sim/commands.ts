@@ -1,12 +1,11 @@
 // Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4).
 import type { BidReply, Command, Creature, Season, SimEvent, World } from './types.ts';
-import { DIAL_KEYS } from './types.ts';
+import { DIAL_KEYS, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { byId, ensureTie, side } from './world.ts';
 
-const SEASONS: readonly Season[] = ['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'];
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
 
 /** The creature with `id` when it exists and is not away. */
@@ -155,8 +154,27 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       return [];
     }
     case 'setSeason':
-      if (!SEASONS.includes(cmd.season)) return [];
+      if (!(SEASONS as readonly Season[]).includes(cmd.season)) return [];
       world.season = cmd.season;
+      return [];
+    case 'wake': {
+      // The event marks a real change: waking a creature that is not asleep does nothing.
+      const c = present(world, cmd.who);
+      if (c?.state !== 'sleep') return [];
+      c.state = 'wander';
+      return [{ t: 'wake', who: c.id }];
+    }
+    case 'promptSkyBid': {
+      // The 6-second auto-respond with `away` is the story director's job, not the sim's.
+      const c = present(world, cmd.who);
+      return c ? [{ t: 'skyBid', who: c.id }] : [];
+    }
+    case 'overPoke':
+      for (const c of world.creatures) {
+        if (c.state === 'away') continue;
+        c.skyWarmth = clamp(c.skyWarmth + t.overPoke.skyWarmth, -1, 1);
+        c.lensAvoidUntilDay = world.day + t.light.days;
+      }
       return [];
     default:
       return [];

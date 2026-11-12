@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 27 63.5 C 33 66 39 66 44 64.5 C 49 63 55 63 60 64.5 C 66 66 71 62.5 73 64 C 74.5 65.1 75 70 76 76 C 77 81 80 84 80 87 C 80 89.5 70 90 60 90 C 53 90 47 90 40 90 C 30 90 20 89.5 20 87 C 20 84 23 81 24 76 C 25 70 25.5 66 26 60 C 26.5 50 25 40 28 32 C 31 24 37 18 44 18 C 48 18 51 16 52 12 C 53 8 50 5 47 7 C 44 9 46 13 49 15 C 51 17 54 18 57 18 C 63 18 69 24 72 32 C 75 40 73.5 50 73.9 62.3" />
+  <circle id="eye-l" cx="45" cy="42" r="2" />
+  <circle id="eye-r" cx="55" cy="42" r="2" />
+  <circle id="blush" cx="61.5" cy="48" r="3" />
+  <line id="neck" x1="24" y1="56" x2="76" y2="56" />
+  <line id="base" x1="20" y1="88" x2="80" y2="88" />
+</svg>

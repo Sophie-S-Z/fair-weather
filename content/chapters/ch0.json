@@ -1,0 +1,109 @@
+{
+  "id": "ch0",
+  "title": "First Light",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 60,
+  "verbs": ["wake"],
+  "newVerb": "wake",
+  "overrides": {
+    "state": {
+      "pim": "sleep",
+      "krit": "sleep",
+      "echo": "sleep",
+      "moss": "sleep",
+      "wisp": "sleep",
+      "bell": "sleep",
+      "villager-1": "sleep",
+      "villager-2": "sleep",
+      "villager-3": "sleep",
+      "villager-4": "sleep",
+      "villager-5": "sleep",
+      "villager-6": "sleep",
+      "villager-7": "sleep",
+      "villager-8": "sleep",
+      "villager-9": "sleep",
+      "villager-10": "sleep",
+      "villager-11": "sleep",
+      "villager-12": "sleep",
+      "villager-13": "sleep",
+      "villager-14": "sleep",
+      "villager-15": "sleep",
+      "villager-16": "sleep",
+      "villager-17": "sleep",
+      "villager-18": "sleep",
+      "villager-19": "sleep",
+      "villager-20": "sleep",
+      "villager-21": "sleep",
+      "villager-22": "sleep",
+      "villager-23": "sleep",
+      "villager-24": "sleep"
+    }
+  },
+  "beats": [
+    {
+      "id": "dawn",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "focus": "pim"
+        },
+        {
+          "ink": "ch0_dawn"
+        }
+      ]
+    },
+    {
+      "id": "first_wake",
+      "trigger": {
+        "event": "wake",
+        "who": "pim"
+      },
+      "actions": [
+        {
+          "focus": "pim"
+        },
+        {
+          "ink": "ch0_pim_wakes"
+        },
+        {
+          "camera": "pim-close"
+        },
+        {
+          "promptSkyBid": "pim"
+        }
+      ]
+    },
+    {
+      "id": "pim_looks_up",
+      "trigger": {
+        "event": "skyBid",
+        "who": "pim"
+      },
+      "actions": [
+        {
+          "ink": "ch0_pim_looks_up"
+        },
+        {
+          "pause": true
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": ["pimSkyBond"],
+  "variants": [],
+  "exit": {
+    "onBeat": "pim_looks_up"
+  },
+  "feeling": "[PLACEHOLDER] Wonder",
+  "notes": [
+    "[PLACEHOLDER] Why a first look matters: attention starts the trust game.",
+    "[PLACEHOLDER] Limit: Pim looking up is a model rule, not proof of awareness."
+  ]
+}

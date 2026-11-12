@@ -82,6 +82,9 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
     }),
     fc.record({ t: fc.constant('arrangeMeeting' as const), a: id, b: id }),
     fc.record({ t: fc.constant('setSeason' as const), season: fc.constantFrom(...SEASONS) }),
+    fc.record({ t: fc.constant('wake' as const), who: id }),
+    fc.record({ t: fc.constant('promptSkyBid' as const), who: id }),
+    fc.record({ t: fc.constant('overPoke' as const) }),
   );
 }
 

@@ -1,14 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { svgPathProperties } from 'svg-path-properties';
 import { describe, expect, test } from 'vitest';
 import { RigSchema } from '../../../src/render/line/rig.ts';
 import { rigToJson, svgToRig } from '../../../tools/svg-to-rig/svg-to-rig.ts';
 
-const svgPath = 'content/placeholder/PLACEHOLDER-pim.svg';
-const rigPath = 'content/rigs/PLACEHOLDER-pim.rig.json';
-const svg = readFileSync(svgPath, 'utf8');
-/** The y1 of the svg's `<line id=...>` marker. */
-const lineY = (id: string): number => Number(new RegExp(`id="${id}"[^>]*y1="([^"]+)"`).exec(svg)?.[1]);
+/** Every placeholder body: the rig id is the part of the file name after `PLACEHOLDER-`. */
+const bodies = readdirSync('content/placeholder')
+  .filter((f) => f.endsWith('.svg'))
+  .sort()
+  .map((f) => ({ id: f.slice('PLACEHOLDER-'.length, -'.svg'.length), file: f }));
 
 /** Indexed read that fails loudly instead of returning undefined. */
 function at<T>(a: readonly T[], i: number): T {
@@ -55,9 +55,14 @@ function arcPositionNear(
   return pos;
 }
 
-describe('svgToRig', () => {
+describe.each(bodies)('svgToRig on $file', ({ id, file }) => {
+  const svg = readFileSync(`content/placeholder/${file}`, 'utf8');
+  /** The y1 of the svg's `<line id=...>` marker. */
+  const lineY = (marker: string): number =>
+    Number(new RegExp(`id="${marker}"[^>]*y1="([^"]+)"`).exec(svg)?.[1]);
+
   test('samples exactly 128 points spaced by equal arc length', () => {
-    const rig = svgToRig(svg, 'pim');
+    const rig = svgToRig(svg, id);
     expect(RigSchema.parse(rig)).toEqual(rig);
     expect(rig.points).toHaveLength(256);
     expect(rig.region).toHaveLength(128);
@@ -95,7 +100,7 @@ describe('svgToRig', () => {
   });
 
   test('normalizes: base center at origin, height 1, y up', () => {
-    const rig = svgToRig(svg, 'pim');
+    const rig = svgToRig(svg, id);
     const ys = rig.points.filter((_, i) => i % 2 === 1);
     const xs = rig.points.filter((_, i) => i % 2 === 0);
     expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(1, 2);
@@ -108,7 +113,7 @@ describe('svgToRig', () => {
   });
 
   test('assigns regions by neck and base lines', () => {
-    const rig = svgToRig(svg, 'pim');
+    const rig = svgToRig(svg, id);
     // Rig y is (base - y) / height. The left eye gives the height, so the neck line sits at this rig y.
     const eyeCy = Number(/id="eye-l"[^>]*cy="([^"]+)"/.exec(svg)?.[1]);
     const height = (lineY('base') - eyeCy) / rig.markers.eyeL[1];
@@ -129,11 +134,11 @@ describe('svgToRig', () => {
   });
 
   test('is byte-identical across runs', () => {
-    expect(rigToJson(svgToRig(svg, 'pim'))).toBe(rigToJson(svgToRig(svg, 'pim')));
+    expect(rigToJson(svgToRig(svg, id))).toBe(rigToJson(svgToRig(svg, id)));
   });
 
   test('rounds to 4 decimals and ends with a newline', () => {
-    const json = rigToJson(svgToRig(svg, 'pim'));
+    const json = rigToJson(svgToRig(svg, id));
     expect(json.endsWith('}\n')).toBe(true);
     for (const m of json.matchAll(/-?\d+\.\d+/g))
       expect(at(m[0].split('.'), 1).length).toBeLessThanOrEqual(4);
@@ -157,8 +162,10 @@ describe('svgToRig', () => {
   });
 });
 
-describe('checked-in rig', () => {
+describe.each(bodies)('checked-in rig for $file', ({ id, file }) => {
   test('equals the tool output', () => {
-    expect(readFileSync(rigPath, 'utf8')).toBe(rigToJson(svgToRig(svg, 'pim')));
+    const svg = readFileSync(`content/placeholder/${file}`, 'utf8');
+    const rig = readFileSync(`content/rigs/${file.replace('.svg', '.rig.json')}`, 'utf8');
+    expect(rig).toBe(rigToJson(svgToRig(svg, id)));
   });
 });

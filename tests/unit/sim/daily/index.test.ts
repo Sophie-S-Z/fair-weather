@@ -49,3 +49,20 @@ test('runDusk on a world with 0 creatures and with 1 creature leaves no NaN anyw
     expect(w.creatures).toHaveLength(ids.length);
   }
 });
+
+test('runDusk: a sleeper with 0 berries does not get hungry and stays after 30 dusks', () => {
+  const w = makeWorld([
+    { id: 'sleeper', berries: 0 },
+    { id: 'awake', berries: 0 },
+  ]);
+  get(w, 'sleeper').state = 'sleep';
+  const rng = createRng(1);
+  const events = [];
+  for (let d = 0; d < 30; d++) events.push(...runDusk(w, t, rng));
+  const s = get(w, 'sleeper');
+  expect(s.state).toBe('sleep');
+  expect(s.hungryDusks).toBe(0);
+  expect(s.shell.bristle).toBe(0);
+  expect(events).not.toContainEqual({ t: 'leave', who: 'sleeper' });
+  expect(events).toContainEqual({ t: 'leave', who: 'awake' }); // the same rules still move an awake creature
+});

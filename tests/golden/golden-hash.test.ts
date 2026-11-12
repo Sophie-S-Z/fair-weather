@@ -5,7 +5,9 @@ import { runGolden } from './run-golden.ts';
 import { hashWorld } from '../../src/sim/hash.ts';
 import type { Command } from '../../src/sim/types.ts';
 
-// A new Command kind fails typecheck here until the golden list covers it.
+// A new Command kind fails typecheck here until it is covered or listed in M1Only.
+// The M1 kinds stay out of the m0 list (that would change the stored hash); m1-commands.test.ts replays them.
+type M1Only = 'wake' | 'promptSkyBid' | 'overPoke';
 const ALL = {
   shine: true,
   paintFog: true,
@@ -16,7 +18,7 @@ const ALL = {
   respond: true,
   arrangeMeeting: true,
   setSeason: true,
-} satisfies Record<Command['t'], true>;
+} satisfies Record<Exclude<Command['t'], M1Only>, true>;
 
 test('the golden command list uses every Command kind', () => {
   const kinds = new Set(commands.map((c) => c.cmd.t));

@@ -9,12 +9,13 @@ import { activeCreatures, averageWarmth, friendCount, newCreature } from '../wor
 /**
  * A creature with population.leaveHungryDusks hungry dusks in a row and fewer than
  * population.leaveMinFriends friends goes away and keeps its memory. Friend counts are read
- * before anyone leaves. No draws.
+ * before anyone leaves. A sleeper never leaves. No draws.
  */
 export const leave: DailyRule = (world, t) => {
   const { leaveHungryDusks, leaveMinFriends } = t.population;
   const leaving = activeCreatures(world).filter(
-    (c) => c.hungryDusks >= leaveHungryDusks && friendCount(world, c, t) < leaveMinFriends,
+    (c) =>
+      c.state !== 'sleep' && c.hungryDusks >= leaveHungryDusks && friendCount(world, c, t) < leaveMinFriends,
   );
   return leaving.map((c) => {
     c.state = 'away';

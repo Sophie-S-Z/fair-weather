@@ -1,0 +1,9 @@
+{
+  "id": "bell",
+  "scale": 1.2,
+  "timbre": {
+    "wave": "sine",
+    "attack": 0.01,
+    "decay": 1.6
+  }
+}

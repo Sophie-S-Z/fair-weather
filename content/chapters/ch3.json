@@ -1,0 +1,161 @@
+{
+  "id": "ch3",
+  "title": "The Bench",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 45,
+  "verbs": ["wake", "respond", "bet", "place"],
+  "newVerb": "place",
+  "overrides": {
+    "dials": {
+      "villager-1": {
+        "opener": 0.3
+      },
+      "villager-2": {
+        "opener": 0.3
+      },
+      "villager-3": {
+        "opener": 0.3
+      },
+      "villager-4": {
+        "opener": 0.3
+      },
+      "villager-5": {
+        "opener": 0.3
+      },
+      "villager-6": {
+        "opener": 0.3
+      },
+      "villager-7": {
+        "opener": 0.3
+      },
+      "villager-8": {
+        "opener": 0.3
+      },
+      "villager-9": {
+        "opener": 0.3
+      },
+      "villager-10": {
+        "opener": 0.3
+      },
+      "villager-11": {
+        "opener": 0.3
+      },
+      "villager-12": {
+        "opener": 0.3
+      },
+      "villager-13": {
+        "opener": 0.3
+      },
+      "villager-14": {
+        "opener": 0.3
+      },
+      "villager-15": {
+        "opener": 0.3
+      },
+      "villager-16": {
+        "opener": 0.3
+      },
+      "villager-17": {
+        "opener": 0.3
+      },
+      "villager-18": {
+        "opener": 0.3
+      },
+      "villager-19": {
+        "opener": 0.3
+      },
+      "villager-20": {
+        "opener": 0.3
+      },
+      "villager-21": {
+        "opener": 0.3
+      },
+      "villager-22": {
+        "opener": 0.3
+      },
+      "villager-23": {
+        "opener": 0.3
+      },
+      "villager-24": {
+        "opener": 0.3
+      }
+    }
+  },
+  "beats": [
+    {
+      "id": "crooked_tree",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "crooked-tree"
+        },
+        {
+          "ink": "ch3_intro"
+        }
+      ]
+    },
+    {
+      "id": "bench_placed",
+      "trigger": {
+        "verb": "place"
+      },
+      "actions": [
+        {
+          "ink": "ch3_bench"
+        }
+      ]
+    },
+    {
+      "id": "warm_village",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch3_warm"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "benchWarmsVillage",
+    "withinDays": 7,
+    "retryArrange": ["pim", "echo"],
+    "opensOn": {
+      "verb": "place"
+    }
+  },
+  "reads": ["pimScar"],
+  "writes": ["benchPlaced", "friendThreads"],
+  "variants": [
+    {
+      "when": {
+        "flag": "pimScar",
+        "op": "eq",
+        "value": true
+      },
+      "overrides": {
+        "dials": {
+          "pim": {
+            "opener": 0.7
+          }
+        }
+      }
+    }
+  ],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Relief, warmth",
+  "notes": [
+    "[PLACEHOLDER] Repeated meetings make cooperation pay: the same pairs meet again.",
+    "[PLACEHOLDER] Limit: one bench is a toy stand-in for real places.",
+    "[PLACEHOLDER] Open question: how much of warmth is place and how much is people?"
+  ]
+}

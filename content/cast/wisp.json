@@ -1,0 +1,9 @@
+{
+  "id": "wisp",
+  "scale": 1.2,
+  "timbre": {
+    "wave": "sine",
+    "attack": 0.08,
+    "decay": 0.7
+  }
+}

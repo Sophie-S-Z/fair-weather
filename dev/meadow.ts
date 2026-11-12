@@ -137,9 +137,13 @@ const settings: Settings = {
   sound: false,
   analytics: false,
 };
-const view = createMeadowView(app, scene, rigs, palette, { lensRadius: tuning.light.lensRadius, cast });
+const view = createMeadowView(app, scene, rigs, palette, {
+  lensRadius: tuning.light.lensRadius,
+  bridgeRadius: tuning.bridge.radius,
+  cast,
+});
 view.setFocus('pim');
-for (const lite of snapshots) view.update(lite, lite, 1, settings);
+for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);
 app.render();

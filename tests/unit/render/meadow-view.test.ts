@@ -39,7 +39,7 @@ const cast = new Map<string, Cast>(
       return [c.id, c];
     }),
 );
-const options = { lensRadius: tuningJson.light.lensRadius, cast };
+const options = { lensRadius: tuningJson.light.lensRadius, bridgeRadius: tuningJson.bridge.radius, cast };
 const rig = (id: string): Rig => {
   const r = rigs.get(id);
   if (!r) throw new Error(`no rig ${id}`);
@@ -401,6 +401,22 @@ test('bushes show one ink dot per berry, up to five', () => {
   expect([berries('bush-1'), berries('bush-2'), berries('bush-3')]).toEqual([3, 0, 5]);
 });
 
+test('a bridge deck is as wide as the sim lets creatures stand on it', () => {
+  const app = fakeApp(800, 450);
+  const world: WorldLite = {
+    ...snapshot([]),
+    water: [{ x: 780, y: 0, w: 60, h: 900 }],
+    structures: [{ id: 'br1', kind: 'bridge', x: 810, y: 300 }],
+  };
+  createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+  const deck = fillsOf(graphicsIn(app, 'land')).find((f) => f.color === palette.paper);
+  const r = tuningJson.bridge.radius;
+  expect([deck?.minY, deck?.maxY]).toEqual([300 - r, 300 + r]);
+  // It crosses the brook and reaches onto both banks.
+  expect(deck?.minX).toBeLessThan(780);
+  expect(deck?.maxX).toBeGreaterThan(840);
+});
+
 test('ground the water closes in is drawn as an islet', () => {
   const app = fakeApp(800, 450);
   // The ch6 pond: a ring of water round a 60 x 60 islet at (990, 390).
@@ -441,10 +457,9 @@ test('the heat map shades the cell the lens stayed over most, and turning it off
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, scene, rigs, palette, options);
   const lensAt = (x: number, y: number, times: number): void => {
-    for (let i = 0; i < times; i++) {
-      const world = { ...snapshot([]), light: { x, y } };
-      view.update(world, world, 1, settings);
-    }
+    for (let i = 0; i < times; i++) view.countLens({ ...snapshot([]), light: { x, y } });
+    const drawn = snapshot([]);
+    view.update(drawn, drawn, 1, settings);
   };
   /** The wash's cells, one alpha byte per cell of the 16 x 9 grid. */
   const cells = (): number[] => {

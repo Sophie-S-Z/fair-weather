@@ -1,11 +1,13 @@
 import { Container, Graphics, type Application } from 'pixi.js';
-import type { Rect, Structure } from '../sim/types.ts';
+import type { Structure } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
 import { lerpTransform, toScene, viewTransform, type Shot, type ViewTransform } from './camera.ts';
 import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
+import { FAR_ALPHA, inkStroke, TUFT_ALPHA } from './ink.ts';
+import { drawLand } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
 import type { Rig } from './line/rig.ts';
@@ -27,10 +29,8 @@ const SWAY_ANGLE = 0.04;
 const SWAY_SECONDS = 3;
 /** How fast the camera closes on a new shot, per second. */
 const CAMERA_RATE = 3;
-/** Scenery line width in scene units, and the alpha of the far layer (spec 11.1 depth). */
+/** Scenery line width in scene units. */
 const SCENERY_WIDTH = 6;
-const FAR_ALPHA = 0.35;
-const TUFT_ALPHA = 0.5;
 /** High contrast thickens every line by half again, on top of the bold default (spec 11.6). */
 const HIGH_CONTRAST_WIDTH = 1.5;
 /** A dancing creature hops this high, in scene units, once every this many seconds. */
@@ -53,6 +53,11 @@ export interface MeadowView {
   setShot(name: string | null): void;
   /** Redraws everything in a season's colors. */
   setPalette(p: Palette): void;
+  /**
+   * Counts a live snapshot's lens center for the heat map. The caller passes each snapshot as it
+   * arrives, so frames skipped at high speed still count and rewound or peeked worlds never do.
+   */
+  countLens(lite: WorldLite): void;
   /** Shows where the lens stayed this chapter. Turning it off clears the count, for the next chapter. */
   showHeatmap(on: boolean): void;
 }
@@ -94,8 +99,6 @@ function smoothLine(g: Graphics, p: readonly number[]): Graphics {
   return g.lineTo(at(p.length - 2), at(p.length - 1));
 }
 
-const inkStroke = (palette: Palette, width: number, alpha = 1) =>
-  ({ color: palette.ink, width, alpha, cap: 'round', join: 'round' }) as const;
 /** Square ends and sharp corners: far fewer vertices than round ones, so a small prop stays in the batch. */
 const plainStroke = (palette: Palette, width: number) =>
   ({ color: palette.ink, width, cap: 'square', join: 'miter' }) as const;
@@ -274,160 +277,6 @@ function drawBush(g: Graphics, b: WorldLite['bushes'][number], palette: Palette,
   }
 }
 
-/** How far a bridge reaches past each bank, and half its deck's width. */
-const BRIDGE_REACH = 14;
-const BRIDGE_HALF = 16;
-/** Planks are this far apart along the deck. */
-const PLANK_STEP = 12;
-/** Ripple marks sit about this far apart on the water, each this wide. */
-const RIPPLE_STEP = 90;
-const RIPPLE_WIDTH = 22;
-
-/** One ripple mark, a small wave, centered at (x, y). */
-function drawRipple(g: Graphics, x: number, y: number): void {
-  const h = RIPPLE_WIDTH / 2;
-  g.moveTo(x - h, y)
-    .quadraticCurveTo(x - h / 2, y - 5, x, y)
-    .quadraticCurveTo(x + h / 2, y + 5, x + h, y);
-}
-
-/**
- * A bridge: a paper deck with ink rails and planks across the water rectangle it stands in, the
- * short way, reaching a little onto each bank.
- */
-function drawBridge(g: Graphics, { x, y }: Structure, r: Rect, palette: Palette, w: number): void {
-  // A tall rectangle (a brook running north to south) is crossed east to west.
-  const eastWest = r.w <= r.h;
-  const [from, to] = eastWest ? [r.x, r.x + r.w] : [r.y, r.y + r.h];
-  const at = (u: number, v: number): [number, number] => (eastWest ? [u, y + v] : [x + v, u]);
-  const a = from - BRIDGE_REACH;
-  const b = to + BRIDGE_REACH;
-  g.poly([...at(a, -BRIDGE_HALF), ...at(b, -BRIDGE_HALF), ...at(b, BRIDGE_HALF), ...at(a, BRIDGE_HALF)])
-    .fill(palette.paper)
-    .stroke(inkStroke(palette, w));
-  for (let u = a + PLANK_STEP; u < b - PLANK_STEP / 2; u += PLANK_STEP) {
-    g.moveTo(...at(u, -BRIDGE_HALF)).lineTo(...at(u, BRIDGE_HALF));
-  }
-  g.stroke(inkStroke(palette, w * 0.5, TUFT_ALPHA));
-}
-
-const inRect = (r: Rect, x: number, y: number): boolean =>
-  x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
-
-/**
- * Water corners round off this much where no other water meets them. An islet's ground is drawn
- * this much past its edge, so its bank line lies on the water and all of the land shows.
- */
-const WATER_CORNER = 14;
-const ISLET_MARGIN = 5;
-
-/**
- * Ground that water closes in on every side: the dry cells, of the grid the water's edges make,
- * that no dry path joins to the open meadow.
- */
-function islets(water: readonly Rect[]): Rect[] {
-  const edges = (a: number[]): number[] => [...new Set(a)].sort((p, q) => p - q);
-  const xs = edges(water.flatMap((r) => [r.x, r.x + r.w]));
-  const ys = edges(water.flatMap((r) => [r.y, r.y + r.h]));
-  const cols = xs.length - 1;
-  const rows = ys.length - 1;
-  const cell = (k: number): Rect => {
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    const [x, y] = [xs[i] ?? 0, ys[j] ?? 0];
-    return { x, y, w: (xs[i + 1] ?? 0) - x, h: (ys[j + 1] ?? 0) - y };
-  };
-  const dry = (k: number): boolean => {
-    const c = cell(k);
-    return !water.some((r) => inRect(r, c.x + c.w / 2, c.y + c.h / 2));
-  };
-  // Flood the dry cells from the grid's border; the dry cells left over are islets.
-  const open = new Set<number>();
-  const todo: number[] = [];
-  for (let k = 0; k < cols * rows; k++) {
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    if ((i === 0 || j === 0 || i === cols - 1 || j === rows - 1) && dry(k)) todo.push(k);
-  }
-  for (let k = todo.pop(); k !== undefined; k = todo.pop()) {
-    if (open.has(k)) continue;
-    open.add(k);
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    for (const [di, dj] of [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const) {
-      const [a, b] = [i + di, j + dj];
-      if (a >= 0 && b >= 0 && a < cols && b < rows && dry(b * cols + a)) todo.push(b * cols + a);
-    }
-  }
-  const out: Rect[] = [];
-  for (let k = 0; k < cols * rows; k++) if (dry(k) && !open.has(k)) out.push(cell(k));
-  return out;
-}
-
-/** A rectangle whose corners round off where `round(x, y)` is true. */
-function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean): Graphics {
-  const radius = Math.min(WATER_CORNER, r.w / 2, r.h / 2);
-  const c: [number, number][] = [
-    [r.x + r.w, r.y],
-    [r.x + r.w, r.y + r.h],
-    [r.x, r.y + r.h],
-    [r.x, r.y],
-  ];
-  g.moveTo(r.x + r.w / 2, r.y);
-  c.forEach(([x, y], k) => {
-    const [nx, ny] = c[(k + 1) % 4] ?? [x, y];
-    if (round(x, y)) g.arcTo(x, y, nx, ny, radius);
-    else g.lineTo(x, y);
-  });
-  return g.closePath();
-}
-
-/**
- * The water and the bridges over it: flat on the ground, under everything that stands. An islet
- * (ground that water closes in) is filled as water first, so the pond is one shape. Each piece is
- * outlined at twice the line width and then filled, so where pieces meet their outlines are covered
- * and one bank line runs round the whole water. A corner rounds off unless other water touches it.
- * Each islet is then drawn as its own patch of ground with a bank line, out on the water a little.
- */
-function drawLand(
-  g: Graphics,
-  water: readonly Rect[],
-  bridges: Structure[],
-  palette: Palette,
-  w: number,
-): void {
-  g.clear();
-  const isles = islets(water);
-  const pond = [...water, ...isles];
-  const shapes = pond.map(
-    (r) => (piece: Graphics) => softRect(piece, r, (x, y) => !pond.some((o) => o !== r && inRect(o, x, y))),
-  );
-  for (const shape of shapes) shape(g).stroke(inkStroke(palette, 2 * w));
-  for (const shape of shapes) shape(g).fill(palette.water);
-  for (const r of water) {
-    const cols = Math.max(1, Math.round(r.w / RIPPLE_STEP));
-    const rows = Math.max(1, Math.round(r.h / RIPPLE_STEP));
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++)
-        drawRipple(g, r.x + ((i + 0.5) * r.w) / cols, r.y + ((j + 0.5) * r.h) / rows);
-    }
-  }
-  g.stroke(inkStroke(palette, w * 0.6, FAR_ALPHA));
-  for (const r of isles) {
-    const m = ISLET_MARGIN;
-    const ground = { x: r.x - m, y: r.y - m, w: r.w + 2 * m, h: r.h + 2 * m };
-    softRect(g, ground, () => true)
-      .fill(palette.background)
-      .stroke(inkStroke(palette, w));
-  }
-  for (const s of bridges) {
-    const r = water.find((rect) => inRect(rect, s.x, s.y));
-    if (r) drawBridge(g, s, r, palette, w);
-  }
-}
-
 /** The mushroom's cap radius, stem size, and the spacing and radius of its dew dots. */
 const CAP_RADIUS = 30;
 const STEM_WIDTH = 14;
@@ -435,9 +284,9 @@ const STEM_HEIGHT = 18;
 const DEW_STEP = 7;
 const DEW_RADIUS = 3;
 
-/** Dew is the water color, deepened toward ink so it shows on the cap. */
-export const dewColor = (palette: Palette): number => bodyColor(palette.water, palette.ink, DEW_DEPTH);
+/** Dew is the water color, deepened this far toward ink so it shows on the cap. */
 const DEW_DEPTH = 0.45;
+export const dewColor = (palette: Palette): number => bodyColor(palette.water, palette.ink, DEW_DEPTH);
 
 /** Dew spots on the cap, in rows from the rim up, as offsets from the cap's center: room for 25. */
 const DEW_SPOTS: [number, number][] = [];
@@ -471,7 +320,7 @@ function drawMushroom(
 }
 
 /** The fog over (x, y), from the fog grid that spans `width` scene units. */
-function fogAt(fog: WorldLite['fog'], width: number, x: number, y: number): number {
+function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): number {
   if (fog.w === 0 || fog.h === 0) return 0;
   const cell = width / fog.w;
   const col = Math.min(fog.w - 1, Math.max(0, Math.floor(x / cell)));
@@ -486,7 +335,7 @@ function fogAt(fog: WorldLite['fog'], width: number, x: number, y: number): numb
  * and the mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
- * one hops. The heat map counts the lens center over a 16 x 9 grid in every new snapshot and shows
+ * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
  * each cell's share of the most watched cell as an ink wash. Reduced motion stops the boil, the
  * sway, the hop, and camera moves; high contrast thickens every line by half again.
  */
@@ -495,7 +344,7 @@ export function createMeadowView(
   scene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
-  options: { lensRadius: number; cast: Map<string, Cast> },
+  options: { lensRadius: number; bridgeRadius: number; cast: Map<string, Cast> },
 ): MeadowView {
   let palette = firstPalette;
   const world = new Container();
@@ -531,7 +380,6 @@ export function createMeadowView(
   let shot: string | null = null;
   let lineWidth = 0;
   const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
-  let counted: WorldLite | null = null;
 
   function viewFor(id: string): { view: ReturnType<typeof createLineView>; height: number } | undefined {
     let entry = views.get(id);
@@ -562,17 +410,6 @@ export function createMeadowView(
     heat.update({ w: HEAT_COLS, h: HEAT_ROWS, cells }, false);
   }
 
-  /** Counts the lens center of a snapshot not counted yet. */
-  function countLens(next: WorldLite): void {
-    if (next === counted) return;
-    counted = next;
-    if (!next.light) return;
-    const col = Math.min(HEAT_COLS - 1, Math.max(0, Math.floor((next.light.x / scene.width) * HEAT_COLS)));
-    const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor((next.light.y / scene.height) * HEAT_ROWS)));
-    heatCounts[row * HEAT_COLS + col] = (heatCounts[row * HEAT_COLS + col] ?? 0) + 1;
-    if (heatShown) drawHeat();
-  }
-
   return {
     update(prev, next, alpha, settings) {
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
@@ -592,7 +429,7 @@ export function createMeadowView(
       const key = JSON.stringify([next.water, bridges]);
       if (key !== landKey) {
         landKey = key;
-        drawLand(land, next.water, bridges, palette, w);
+        drawLand(land, next.water, bridges, palette, w, options.bridgeRadius, scene);
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
@@ -631,7 +468,6 @@ export function createMeadowView(
       }
       light.update(next.light);
       fog.update(next.fog, settings.highContrast);
-      countLens(next);
 
       drawn = [];
       for (const { view } of views.values()) view.container.visible = false;
@@ -655,7 +491,7 @@ export function createMeadowView(
           c.id === focus
             ? bodyColor(palette.paper, palette.accent, FOCUS_MIX + FOCUS_MIX_COLOR * c.shell.color)
             : bodyColor(palette.paper, palette.warmth, c.shell.color);
-        const fogHere = fogAt(next.fog, scene.width, c.x, c.y - entry.height / 2);
+        const fogHere = fogUnder(next.fog, scene.width, c.x, c.y - entry.height / 2);
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
 
@@ -709,6 +545,14 @@ export function createMeadowView(
       world.addChildAt(heat.sprite, world.getChildIndex(oldHeat));
       oldHeat.destroy({ texture: true, textureSource: true });
       heat.sprite.visible = false;
+      if (heatShown) drawHeat();
+    },
+    countLens(lite) {
+      if (!lite.light) return;
+      const { x, y } = lite.light;
+      const col = Math.min(HEAT_COLS - 1, Math.max(0, Math.floor((x / scene.width) * HEAT_COLS)));
+      const row = Math.min(HEAT_ROWS - 1, Math.max(0, Math.floor((y / scene.height) * HEAT_ROWS)));
+      heatCounts[row * HEAT_COLS + col] = (heatCounts[row * HEAT_COLS + col] ?? 0) + 1;
       if (heatShown) drawHeat();
     },
     showHeatmap(on) {

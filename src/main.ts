@@ -242,7 +242,12 @@ const game: GameService = {
     el.appendChild(app.canvas);
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
+      bridgeRadius: tuning.bridge.radius,
       cast,
+    });
+    // Every live snapshot as it arrives; a rewound world comes as `rewound` and is not counted.
+    const stopCounting = host.onMessage((m) => {
+      if (m.t === 'snapshot') view.countLens(m.lite);
     });
     const local = (x: number, y: number): [number, number] => {
       const r = app.canvas.getBoundingClientRect();
@@ -275,6 +280,7 @@ const game: GameService = {
       },
       benchSpots: scene.benchSpots,
       destroy() {
+        stopCounting();
         app.destroy(true, true);
       },
     };

@@ -2,20 +2,12 @@
   import { tick, untrack } from 'svelte';
   import type { WorldLite } from '../../sim-host/protocol.ts';
   import { displayName } from '../../story/names.ts';
-  import { poppable } from './activities.ts';
+  import { dreamers, poppable } from './activities.ts';
 
   let { lite, finish }: { lite: WorldLite; finish: (result: string) => void } = $props();
 
-  /** A bubble floats over each sleeper with a scar (a tie with a warmth below 0), in cast order. */
-  const bubbles = untrack(() =>
-    lite.creatures
-      .filter(
-        (c) =>
-          c.state === 'sleep' &&
-          lite.ties.some((t) => (t.a === c.id || t.b === c.id) && (t.ab < 0 || t.ba < 0)),
-      )
-      .map((c) => c.id),
-  );
+  /** The grudges that float, from the world at the start. */
+  const bubbles = untrack(() => dreamers(lite));
   /** With nothing to pop, the player lets the village sleep. */
   const calm = !bubbles.some(poppable);
 
@@ -36,11 +28,8 @@
     const at = floating.indexOf(id);
     popped = [...popped, id];
     said = `[PLACEHOLDER] ${displayName(id)}'s grudge pops and drifts away.`;
-    if (floating.every((b) => !poppable(b))) {
-      end();
-      return;
-    }
-    // The popped button is gone, so focus moves to the bubble now in its place.
+    if (floating.every((b) => !poppable(b))) end();
+    // The popped button is gone, so focus moves to the bubble now in its place, or to Moss's.
     void tick().then(() => {
       const left = list.querySelectorAll('button');
       left[Math.min(at, left.length - 1)]?.focus();
@@ -84,19 +73,15 @@
     flex-direction: column;
     align-items: center;
   }
-  /* A real year's carry can float a bubble over almost every sleeper, so the list scrolls. */
   .bubbles {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.4rem;
-    max-height: 40vh;
-    overflow-y: auto;
-    padding: 0.25rem;
+    gap: 0.5rem;
   }
   .bubble {
-    width: 4rem;
-    height: 4rem;
+    width: 4.5rem;
+    height: 4.5rem;
     padding: 0.25rem;
     font-size: 0.8em;
     border-radius: 50%;

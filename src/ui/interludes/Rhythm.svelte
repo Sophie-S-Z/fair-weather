@@ -41,8 +41,10 @@
   </p>
   <div class="rhythms">
     {#each RHYTHMS as rhythm, i (i)}
+      <!-- The name says the pattern in words; the dots show it. -->
       <button
         type="button"
+        aria-label="Tap rhythm {i + 1}: {rhythm.map((b) => (b === 1 ? 'tap' : 'rest')).join(', ')}"
         onclick={() => {
           tap(i);
         }}

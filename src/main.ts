@@ -415,7 +415,13 @@ const game: GameService = {
     lastStart = { carry, overrides: chosenOverrides(chapter, flags) };
     const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
     season = scenario.season;
-    greeting = chapters.indexOf(chapter) > songFrom ? RHYTHMS[flags.greetingSong] : undefined;
+    // A year that starts again at this chapter (Begin after an earlier year this visit) forgets
+    // what the earlier year logged from here on, so the myth tells only the year it ends.
+    const at = chapters.indexOf(chapter);
+    for (let i = yearLog.length - 1; i >= 0; i--) {
+      if (chapters.findIndex((c) => c.id === yearLog[i]?.chapterId) >= at) yearLog.splice(i, 1);
+    }
+    greeting = at > songFrom ? RHYTHMS[flags.greetingSong] : undefined;
     scenarioNow = scenario;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;

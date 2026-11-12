@@ -1,5 +1,6 @@
 // The rules of the interlude activities (spec 6.4), apart from their components. A sketch or a
 // path is a flat list of points: x0, y0, x1, y1, and so on.
+import type { WorldLite } from '../../sim-host/protocol.ts';
 
 /** The four rhythms to tap at the Door for Two: 1 is a tap and 0 a rest, four beats each. */
 export const RHYTHMS: readonly (readonly number[])[] = [
@@ -63,4 +64,33 @@ export function traceProgress(
 /** Whether a sleeper's dream bubble pops: Old Moss's will not (spec 6.4). */
 export function poppable(id: string): boolean {
   return id !== 'moss';
+}
+
+/** The most dream bubbles that float at once. */
+const MAX_DREAMERS = 6;
+
+/**
+ * The creatures whose grudge floats as a dream bubble: sleepers with a scar (a tie with a warmth
+ * below 0), coldest tie first, then cast order, at most six. Moss with a scar always has a bubble,
+ * asleep or not, in the last place if it is not colder (spec 6.4: its bubble will not pop).
+ */
+export function dreamers(lite: {
+  creatures: readonly Pick<WorldLite['creatures'][number], 'id' | 'state' | 'gone'>[];
+  ties: WorldLite['ties'];
+}): string[] {
+  const coldest = new Map<string, number>();
+  for (const t of lite.ties) {
+    const w = Math.min(t.ab, t.ba);
+    for (const id of [t.a, t.b]) coldest.set(id, Math.min(w, coldest.get(id) ?? 0));
+  }
+  const scarred = lite.creatures.filter((c) => !c.gone && (coldest.get(c.id) ?? 0) < 0);
+  // A stable sort, so cast order breaks a tie.
+  const ranked = scarred
+    .filter((c) => c.state === 'sleep')
+    .sort((a, b) => (coldest.get(a.id) ?? 0) - (coldest.get(b.id) ?? 0))
+    .map((c) => c.id)
+    .slice(0, MAX_DREAMERS);
+  const moss = scarred.find((c) => !poppable(c.id));
+  if (moss && !ranked.includes(moss.id)) ranked.splice(Math.min(ranked.length, MAX_DREAMERS - 1), 1, moss.id);
+  return ranked;
 }

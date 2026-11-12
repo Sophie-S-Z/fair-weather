@@ -1,23 +1,19 @@
 <script lang="ts">
-  import type { WorldLite } from '../../sim-host/protocol.ts';
   import { traceProgress } from './activities.ts';
 
-  // Every activity takes the same props (Game.svelte); this one does not read the world.
-  // eslint-disable-next-line svelte/no-unused-props
-  let { finish }: { lite: WorldLite; finish: (result: string) => void } = $props();
+  let { finish }: { finish: (result: string) => void } = $props();
 
   /**
-   * [PLACEHOLDER] art: Wisp's path in a 140 by 80 box, drawn by hand in parts. Joined up, it
-   * spells "home" (spec 6.4).
+   * [PLACEHOLDER] art: Wisp's path in a 140 by 80 box, drawn by hand in parts: the stem and arch
+   * of an h, a round o, the two arches of an m, and an e. Together they spell "home" (spec 6.4).
    */
   const PARTS = [
-    [10, 10, 10, 70],
-    [10, 70, 10, 46, 22, 38, 32, 46, 32, 70],
-    [32, 70, 42, 56, 52, 42, 62, 56, 52, 70, 42, 56],
-    [42, 56, 70, 70, 70, 46, 78, 40, 85, 46, 85, 70],
-    [85, 70, 85, 46, 93, 40, 100, 46, 100, 70],
-    [100, 70, 108, 58, 126, 58, 117, 44, 108, 58],
-    [108, 58, 117, 70, 130, 66],
+    [10, 8, 10, 70],
+    [10, 48, 16, 40, 24, 38, 31, 42, 33, 50, 33, 70],
+    [52, 44, 60, 47, 64, 56, 60, 65, 52, 68, 44, 65, 40, 56, 44, 47, 52, 44],
+    [72, 70, 72, 46, 72, 50, 78, 43, 84, 44, 87, 50, 87, 70],
+    [87, 50, 93, 43, 99, 44, 102, 50, 102, 70],
+    [110, 57, 128, 57, 127, 51, 122, 45, 116, 44, 111, 48, 109, 56, 111, 64, 117, 68, 124, 68, 129, 64],
   ];
   const PATH = PARTS.flat();
   /** How near the path a traced point counts, in path units. */
@@ -29,7 +25,8 @@
   let dragging = false;
   let nextPart = 0;
   let done = false;
-  const progress = $derived(traceProgress(PATH, trails.flat(), TOLERANCE));
+  /** The share traced, in steps of a quarter, so the status line speaks only at each step. */
+  const quarter = $derived(Math.floor(traceProgress(PATH, trails.flat(), TOLERANCE) * 4) * 25);
 
   function add(points: number[], fresh: boolean): void {
     if (done) return;
@@ -63,7 +60,8 @@
 </script>
 
 <section aria-label="Wisp's path">
-  <p>[PLACEHOLDER] Trace the path Wisp walked, with a finger or the pointer, or one part at a time.</p>
+  <p class="card">[PLACEHOLDER] Wisp writes: I walked this path. Follow it, and see where it goes.</p>
+  <p>[PLACEHOLDER] Trace the path with a finger or the pointer, or trace one part at a time.</p>
   <svg
     viewBox="0 0 140 80"
     role="img"
@@ -73,13 +71,15 @@
     onpointerup={() => (dragging = false)}
     onpointercancel={() => (dragging = false)}
   >
-    <polyline class="path" points={PATH.join(' ')} />
+    {#each PARTS as part, i (i)}
+      <polyline class="path" points={part.join(' ')} />
+    {/each}
     {#each trails as trail, i (i)}
       <polyline class="trail" points={trail.join(' ')} />
     {/each}
   </svg>
   <p role="status">
-    {trails.length === 0 ? '' : `${String(Math.round(progress * 100))}% of the path traced`}
+    {trails.length === 0 ? '' : `${String(quarter)}% of the path traced`}
   </p>
   <button type="button" onclick={traceNext}>Trace the next part</button>
 </section>
@@ -89,6 +89,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+  .card {
+    font-style: italic;
   }
   svg {
     width: min(21rem, 80vw);

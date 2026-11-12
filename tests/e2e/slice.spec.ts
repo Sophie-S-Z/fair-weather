@@ -170,6 +170,8 @@ test('the bet card takes focus, keeps it, ignores Escape, and gives it back', as
   await expect(live(page)).toContainText(/Your guess: Pim\. The answer: (Pim|Krit|Echo|Moss|Bell|Wisp)\./, {
     timeout: 90_000,
   });
+  // The answer can end the chapter; it stays a short time into the next one, and then goes.
+  await expect(live(page)).not.toContainText('Your guess', { timeout: 15_000 });
 });
 
 test('a hidden tab sets speed 0 and stops drawing; a visible one restores both', async ({ page }) => {

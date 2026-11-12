@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
+import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import {
   copySketch,
+  dreamers,
   poppable,
   RHYTHMS,
   sharedRhythm,
@@ -46,4 +48,61 @@ test("Moss's bubble does not pop; the others do", () => {
   expect(poppable('moss')).toBe(false);
   expect(poppable('pim')).toBe(true);
   expect(poppable('villager-3')).toBe(true);
+});
+
+type Dreamer = { id: string; state: WorldLite['creatures'][number]['state']; gone?: boolean };
+/** A world of `creatures` (asleep unless said) and ties given as [a, b, ab, ba]. */
+function world(creatures: Dreamer[], ties: [string, string, number, number][]) {
+  return {
+    creatures: creatures.map((c) => ({ id: c.id, state: c.state, gone: c.gone ?? false })),
+    ties: ties.map(([a, b, ab, ba]) => ({ a, b, ab, ba })),
+  };
+}
+const asleep = (...ids: string[]): Dreamer[] => ids.map((id) => ({ id, state: 'sleep' }));
+
+test('dreamers: sleepers with a scar, coldest tie first, cast order on a tie', () => {
+  const w = world(asleep('pim', 'krit', 'echo', 'bell'), [
+    ['pim', 'krit', 0.5, -0.2],
+    ['echo', 'bell', -0.6, 0.1],
+    ['pim', 'bell', 0.3, 0.4],
+  ]);
+  // Echo and Bell share their coldest tie (-0.6), so cast order decides; Pim and Krit share -0.2.
+  expect(dreamers(w)).toEqual(['echo', 'bell', 'pim', 'krit']);
+});
+
+test('dreamers: no scar, awake, or gone means no bubble; an empty valley has none', () => {
+  const w = world(
+    [
+      { id: 'pim', state: 'sleep' },
+      { id: 'krit', state: 'wander' },
+      { id: 'echo', state: 'sleep', gone: true },
+      ...asleep('bell'),
+    ],
+    [
+      ['pim', 'krit', -0.5, 0.2],
+      ['echo', 'bell', -0.4, 0.1],
+      ['pim', 'bell', 0.3, 0.4],
+    ],
+  );
+  expect(dreamers(w)).toEqual(['pim', 'bell']);
+  expect(dreamers(world([], []))).toEqual([]);
+});
+
+test('dreamers: at most six, and Moss with a scar is always one of them, asleep or not', () => {
+  const ids = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8'];
+  const ties: [string, string, number, number][] = ids.map((id, i) => [id, 'x', -0.9 + i * 0.1, 0.5]);
+  const w = world([...asleep(...ids), { id: 'x', state: 'wander' }], ties);
+  expect(dreamers(w)).toEqual(['v1', 'v2', 'v3', 'v4', 'v5', 'v6']);
+  // Moss is awake and only a little cold, yet it takes the last place.
+  const withMoss = world(
+    [...asleep(...ids), { id: 'x', state: 'wander' }, { id: 'moss', state: 'wander' }],
+    [...ties, ['moss', 'x', 0.2, -0.05]],
+  );
+  expect(dreamers(withMoss)).toEqual(['v1', 'v2', 'v3', 'v4', 'v5', 'moss']);
+  // Without a scar, Moss has no bubble.
+  const warmMoss = world(
+    [...asleep(...ids, 'moss'), { id: 'x', state: 'wander' }],
+    [...ties, ['moss', 'x', 0.2, 0.1]],
+  );
+  expect(dreamers(warmMoss)).not.toContain('moss');
 });

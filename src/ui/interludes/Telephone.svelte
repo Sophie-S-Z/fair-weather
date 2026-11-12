@@ -29,7 +29,13 @@
 
 <section aria-label="The sketch">
   <p>[PLACEHOLDER] {hand(0)} draws a beetle. Pass the sketch on, and each paw copies it.</p>
-  <svg viewBox="0 0 120 100" role="img" aria-label="{hand(copy)} holds copy {copy} of {COPIES}">
+  <svg
+    viewBox="0 0 120 100"
+    role="img"
+    aria-label={copy === 0
+      ? `${hand(0)}'s first sketch`
+      : `${hand(copy)} holds copy ${String(copy)} of ${String(COPIES)}`}
+  >
     <polyline {points} />
   </svg>
   <p role="status">

@@ -58,7 +58,7 @@
     peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
       '[PLACEHOLDER] In the Cosmos, move the Rewind slider to look back; each mark is a friendship that ended. Back to now returns.',
-    listen: '[PLACEHOLDER] Listen as the creatures tell their story by the fire.',
+    listen: '[PLACEHOLDER] Press Listen to hear the next verse of the story.',
   };
   const VIEW_NAMES: Record<ViewName, string> = {
     meadow: 'The meadow',
@@ -80,11 +80,11 @@
   const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
-  /** The interlude activities that take only the world and `finish`; the Long Night also gets a timer. */
-  const ACTIVITIES = { rhythm: Rhythm, telephone: Telephone, bubbles: Bubbles, postcard: Postcard };
 
   let sceneEl: HTMLElement;
   let trayEl: HTMLElement | undefined = $state();
+  /** The open activity; focus moves to its first control when it opens. */
+  let activityEl: HTMLElement | undefined = $state();
   let index = $state(0);
   let tools: WorldVerb[] = $state([]);
   let tool: Verb | null = $state(null);
@@ -94,8 +94,10 @@
   let placed = 0;
   let reply: BidReply = $state('toward');
   /** The last few story lines, hints, and results; new ones are announced. */
-  let lines: { id: number; text: string }[] = $state([]);
+  let lines: { id: number; text: string; reveal: boolean }[] = $state([]);
   let lineId = 0;
+  /** How long a bet's answer stays into the next chapter. */
+  const REVEAL_MS = 8000;
   let bet: { question: string; options: string[] } | null = $state(null);
   let betRunning = $state(false);
   let picked: string | null = $state(null);
@@ -217,8 +219,8 @@
       .join('. '),
   );
 
-  function say(text: string): void {
-    lines = [...lines.slice(-2), { id: (lineId += 1), text }];
+  function say(text: string, reveal = false): void {
+    lines = [...lines.slice(-2), { id: (lineId += 1), text, reveal }];
   }
 
   function act(v: VerbInput): void {
@@ -282,7 +284,7 @@
       bet = { question: p.question, options: p.options };
     } else {
       betRunning = false;
-      say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`);
+      say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`, true);
     }
   }
 
@@ -312,7 +314,14 @@
     used = [];
     placed = 0;
     prev = next = null;
+    // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so it
+    // stays a short time to be read, and then goes.
+    lines = lines.filter((l) => l.reveal);
+    const kept = lines.map((l) => l.id);
+    if (kept.length > 0) setTimeout(() => (lines = lines.filter((l) => !kept.includes(l.id))), REVEAL_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
+    // The host drops every message from the last chapter's worker once startChapter posts init
+    // (host.ts connect), and nothing runs between here and that post, so no old world comes back.
     live = null;
     flagsNow = flags;
     myth = null;
@@ -326,6 +335,11 @@
     stage.showHeatmap(false);
     view = 'meadow';
     stage.setView('meadow', null);
+
+    // A control that goes away with the last chapter (the last bubble) leaves focus nowhere.
+    void tick().then(() => {
+      if (document.activeElement === document.body) sceneEl.focus();
+    });
 
     const r = game.startChapter(chapter, flags);
     runner = r;
@@ -407,6 +421,10 @@
       strip: { x: r.left - at.left, y: r.top - at.top, w: r.width, h: r.height },
       bottom: bandEl.getBoundingClientRect().bottom - at.top,
     });
+  });
+
+  $effect(() => {
+    activityEl?.querySelector('button')?.focus();
   });
 
   // The Meadow draws the cursor while a point tool is active.
@@ -579,8 +597,11 @@
       onkeydown={onSceneKey}
     ></div>
     <p id="scene-help" class="sr-only">
-      Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves
-      to the tools.{chapter?.verbs.includes('zoom')
+      {chapter?.activity
+        ? 'Tab picks a creature, Space pauses, and Escape moves to the activity.'
+        : 'Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves to the tools.'}{chapter?.verbs.includes(
+        'zoom',
+      )
         ? ' Z zooms out and X zooms in.'
         : ''}{chapter?.verbs.includes('peek')
         ? ' P peeks under the hood of the picked creature.'
@@ -656,7 +677,7 @@
                 <!-- The activity stands in for the tool tray; Escape from the scene reaches its first button. -->
                 {#if chapter.activity === 'fire'}
                   {#if myth}
-                    <div class="activity">
+                    <div class="activity" bind:this={activityEl}>
                       <MythScroll
                         page={myth}
                         finish={() => {
@@ -666,16 +687,21 @@
                     </div>
                   {/if}
                 {:else if live}
-                  <div class="activity">
-                    {#if chapter.activity === 'stillness'}
+                  <div class="activity" bind:this={activityEl}>
+                    {#if chapter.activity === 'rhythm'}
+                      <Rhythm lite={live} finish={finishActivity} />
+                    {:else if chapter.activity === 'telephone'}
+                      <Telephone lite={live} finish={finishActivity} />
+                    {:else if chapter.activity === 'bubbles'}
+                      <Bubbles lite={live} finish={finishActivity} />
+                    {:else if chapter.activity === 'postcard'}
+                      <Postcard finish={finishActivity} />
+                    {:else}
                       <Stillness
-                        lite={live}
                         finish={finishActivity}
                         createHoldStill={game.input.createHoldStill}
+                        paused={speedNow === 0}
                       />
-                    {:else}
-                      {@const Activity = ACTIVITIES[chapter.activity]}
-                      <Activity lite={live} finish={finishActivity} />
                     {/if}
                   </div>
                 {/if}

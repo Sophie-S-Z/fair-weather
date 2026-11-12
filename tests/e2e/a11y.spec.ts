@@ -193,39 +193,39 @@ test('the Soul view opens the drawer at the diary; P opens it at Under the hood;
 });
 
 test.describe('the interludes, each played by keyboard alone', () => {
-  /** Starts the chapter at play-order `index`, and Escape takes focus from the scene to the activity. */
+  /** Starts the chapter at play-order `index`; focus moves into the activity when it opens. */
   async function open(page: Page, index: number, region: string) {
     await page.goto(`/?chapter=${String(index)}`);
     await page.getByRole('button', { name: 'Begin' }).click();
-    await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
     // The activity shows once the interlude's first snapshot is in.
     const activity = page.getByRole('region', { name: region });
     await expect(activity).toBeVisible();
     expect(await seriousViolations(page)).toEqual([]);
-    await page.keyboard.press('Escape');
     return activity;
   }
   const heading = (page: Page, name: string) => page.getByRole('heading', { name: new RegExp(`^${name}:`) });
 
   test('The Door for Two: tap rhythms until both sides know one', async ({ page }) => {
     const activity = await open(page, 4, 'Rhythms at the door');
-    await expect(activity.getByRole('button', { name: 'Tap rhythm 1' })).toBeFocused();
+    // Each pattern is in the button's name as words, not only as dots.
+    const first = activity.getByRole('button', { name: 'Tap rhythm 1: tap, rest, tap, rest' });
+    await expect(first).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(activity.getByRole('status')).toContainText('taps it back');
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
-    await expect(activity.getByRole('button', { name: 'Tap rhythm 3' })).toBeFocused();
+    await expect(activity.getByRole('button', { name: 'Tap rhythm 3: tap, rest, tap, tap' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(heading(page, 'Chapter 4')).toBeVisible();
   });
 
   test('The Telephone Sketch: pass it on six times', async ({ page }) => {
     const activity = await open(page, 6, 'The sketch');
-    const pass = activity.getByRole('button', { name: 'Pass it on' });
-    await expect(pass).toBeFocused();
+    await expect(activity.getByRole('img')).toHaveAccessibleName("Pim's first sketch");
+    await expect(activity.getByRole('button', { name: 'Pass it on' })).toBeFocused();
     for (let i = 1; i <= 5; i++) {
       await page.keyboard.press('Enter');
-      await expect(activity.getByRole('img')).toHaveAccessibleName(new RegExp(`copy ${String(i)} of 6`));
+      await expect(activity.getByRole('img')).toHaveAccessibleName(new RegExp(`copy ${String(i)} of 6$`));
     }
     expect(await seriousViolations(page)).toEqual([]);
     await page.keyboard.press('Enter');
@@ -243,7 +243,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
     await expect(heading(page, 'Chapter 6')).toBeVisible();
   });
 
-  test("Dream Bubbles after chapter 5: every bubble pops but Moss's, which wobbles and stays", async ({
+  test("Dream Bubbles after chapter 5: at most six bubbles; each pops but Moss's, and focus stays on them", async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -265,41 +265,64 @@ test.describe('the interludes, each played by keyboard alone', () => {
       skip?.click();
     });
     const activity = page.getByRole('region', { name: 'Dream bubbles' });
+    const bubbles = activity.getByRole('button', { name: /bubble$/ });
     const moss = activity.getByRole('button', { name: "Pop Moss's bubble" });
     await expect(moss).toBeVisible();
     expect(await seriousViolations(page)).toEqual([]);
-    await page.keyboard.press('Escape');
-    const next = heading(page, 'Chapter 6');
-    // Focus stays on the bubbles: each pop moves it to the bubble now in its place.
-    for (let i = 0; i < 60 && !(await next.isVisible()); i++) {
-      if (await moss.evaluate((el) => el === document.activeElement)) {
-        await page.keyboard.press('Enter');
+    // The coldest grudges float, six at most, and Moss's is one of them.
+    const names = await bubbles.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''));
+    expect(names.length).toBeLessThanOrEqual(6);
+    // Focus starts on the first bubble. Each pop moves it to the bubble now in its place; Moss's
+    // wobbles and stays, and Tab moves past it.
+    const left = [...names];
+    let at = 0;
+    while (left.some((n) => n !== "Pop Moss's bubble")) {
+      const name = left[at] ?? '';
+      await expect(activity.getByRole('button', { name, exact: true })).toBeFocused();
+      await page.keyboard.press('Enter');
+      if (name === "Pop Moss's bubble") {
         await expect(activity.getByRole('status')).toHaveText(/Moss's bubble wobbles and stays/);
-        await expect(moss).toBeVisible();
         await page.keyboard.press('Tab');
+        at += 1;
       } else {
-        await expect(activity.getByRole('button', { name: /bubble$/ }).first()).toBeVisible();
-        await page.keyboard.press('Enter');
+        left.splice(at, 1);
+        at = Math.min(at, left.length - 1);
       }
     }
-    await expect(next).toBeVisible();
+    // Only Moss's is left, so the interlude ends, and focus goes back to the scene.
+    await expect(heading(page, 'Chapter 6')).toBeVisible();
+    await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
   });
 
   test("Wisp's Postcard: one Enter per part traces the path", async ({ page }) => {
     const activity = await open(page, 11, "Wisp's path");
-    const trace = activity.getByRole('button', { name: 'Trace the next part' });
-    await expect(trace).toBeFocused();
+    await expect(activity).toContainText('Wisp writes:');
+    await expect(activity.getByRole('button', { name: 'Trace the next part' })).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(activity.getByRole('status')).toContainText(/\d+% of the path traced/);
+    // The status speaks in quarter steps only.
+    await expect(activity.getByRole('status')).toHaveText(/^(0|25|50|75)% of the path traced$/);
     expect(await seriousViolations(page)).toEqual([]);
     const next = heading(page, 'Chapter 8');
-    for (let i = 0; i < 20 && !(await next.isVisible()); i++) await page.keyboard.press('Enter');
+    for (let i = 0; i < 10 && !(await next.isVisible()); i++) await page.keyboard.press('Enter');
     await expect(next).toBeVisible();
   });
 
-  test('The Long Night: holding still for 5 seconds ends it', async ({ page }) => {
-    await open(page, 13, 'Hold still');
+  test('The Long Night: five still seconds end it; the meter has a label and a value', async ({ page }) => {
+    const activity = await open(page, 13, 'Hold still');
+    await expect(activity.getByLabel('Stillness')).toBeVisible();
+    await expect(activity).toContainText(/[0-5] of 5 seconds/);
     await expect(heading(page, 'Chapter 9')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('The Long Night waits while the game is paused', async ({ page }) => {
+    const activity = await open(page, 13, 'Hold still');
+    // The pause button, by pointer, so no key press resets the count.
+    await page.getByRole('button', { name: 'Pause' }).click();
+    const count = activity.getByText(/of 5 seconds$/);
+    const before = await count.textContent();
+    await page.waitForTimeout(6_000);
+    await expect(activity).toBeVisible();
+    await expect(count).toHaveText(before ?? '');
   });
 });
 
@@ -309,23 +332,16 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
   // Chapter 10 is index 15 in play order.
   await page.goto('/?chapter=15');
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
   const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
   await expect(scroll).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
-  await page.keyboard.press('Escape');
+  // Focus moves to Listen when the story opens.
   await expect(scroll.getByRole('button', { name: 'Listen' })).toBeFocused();
   const verse = scroll.locator('[aria-live="polite"]');
   const titles = ['The Waking', "The Sky's Eye", "The Sky's Moods", 'The Long Winter'];
   for (const title of titles) {
     await page.keyboard.press('Enter');
     await expect(verse.getByRole('heading', { name: title })).toBeVisible();
-    // The margin note, where a verse has one, opens behind its toggle.
-    const toggle = scroll.getByRole('button', { name: 'What the sky did' });
-    if (await toggle.isVisible()) {
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      expect(await seriousViolations(page)).toEqual([]);
-    }
   }
   await page.keyboard.press('Enter');
   const end = page.getByRole('heading', { name: 'End of the year so far' });
@@ -337,11 +353,28 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
   expect(await seriousViolations(page)).toEqual([]);
 });
 
-test("the myth reads the year: five gusts in chapter 7 tell of the sky's moods, with what the sky did behind a toggle", async ({
+test('the myth tells only this year: five gusts show behind a toggle, and the next year does not count them', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
-  // Chapter 7 (index 10) teaches the wind; its tool is picked, and the arrows aim the gust.
+  test.setTimeout(90_000);
+  /** Skips from chapter 7 to the fire. */
+  const skipToFire = async () => {
+    for (const name of [
+      "Interlude: Wisp's Postcard",
+      'Chapter 8',
+      'Interlude: The Long Night',
+      'Chapter 9',
+      'Chapter 10',
+    ]) {
+      await page.getByRole('button', { name: 'Skip chapter' }).click();
+      await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) })).toBeVisible();
+    }
+  };
+  const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
+  const listen = scroll.getByRole('button', { name: 'Listen' });
+  const moods = scroll.locator('[aria-live="polite"]');
+
+  // Year one: chapter 7 (index 10) teaches the wind; its tool is picked, and the arrows aim the gust.
   await page.goto('/?chapter=10');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
@@ -351,21 +384,9 @@ test("the myth reads the year: five gusts in chapter 7 tell of the sky's moods, 
   await expect(page.locator('.beat-line')).toContainText('The autumn wind'); // the runner takes verbs after a snapshot
   await page.keyboard.press('ArrowRight');
   for (let i = 0; i < 5; i++) await page.keyboard.press('Enter');
-  // Skip the rest of the year to the fire.
-  for (const name of [
-    "Interlude: Wisp's Postcard",
-    'Chapter 8',
-    'Interlude: The Long Night',
-    'Chapter 9',
-    'Chapter 10',
-  ]) {
-    await page.getByRole('button', { name: 'Skip chapter' }).click();
-    await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) })).toBeVisible();
-  }
-  const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
-  const listen = scroll.getByRole('button', { name: 'Listen' });
+  await skipToFire();
   for (let i = 0; i < 3; i++) await listen.click();
-  await expect(scroll.locator('[aria-live="polite"]')).toContainText('The sky huffed at us 5 times');
+  await expect(moods).toContainText('The sky huffed at us 5 times');
   const toggle = scroll.getByRole('button', { name: 'What the sky did' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await expect(scroll.getByText(/You blew 5 gusts/)).toBeHidden();
@@ -374,4 +395,15 @@ test("the myth reads the year: five gusts in chapter 7 tell of the sky's moods, 
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   await expect(scroll.getByText(/You blew 5 gusts/)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+
+  // Year two in the same visit, with no gusts: its myth does not tell year one's.
+  await listen.click();
+  await listen.click();
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { name: /^Chapter 7/ })).toBeVisible();
+  await skipToFire();
+  for (let i = 0; i < 3; i++) await listen.click();
+  await expect(moods.getByRole('heading', { name: "The Sky's Moods" })).toBeVisible();
+  await expect(moods).not.toContainText('huffed');
 });

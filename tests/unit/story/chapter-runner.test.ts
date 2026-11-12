@@ -106,6 +106,7 @@ function lite(
     pimSky?: number;
     metrics?: WorldLite['metrics'];
     bench?: boolean;
+    structures?: WorldLite['structures'];
   } = {},
 ): WorldLite {
   const berries = o.berries ?? { pim: 1, krit: 1 };
@@ -123,7 +124,7 @@ function lite(
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
-    structures: o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : [],
+    structures: o.structures ?? (o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : []),
     water: [],
     ties: [],
     rumor: null,
@@ -599,6 +600,19 @@ describe('twists', () => {
     f.steps(20000, lite({ metrics: { averageWarmth: 0.5, friendPairs: 9 } }));
     expect(f.sent).toEqual([]);
     expect(await settled(runner.done)).toBe(false);
+  });
+
+  test('a lantern or a bridge alone does not count as a placed bench', async () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
+    const structures: WorldLite['structures'] = [
+      { id: 'lantern-1', kind: 'lantern', x: 10, y: 10 },
+      { id: 'bridge-2', kind: 'bridge', x: 20, y: 10 },
+    ];
+    f.steps(10, lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 }, structures }));
+    expect(runner.verb({ verb: 'place', x: 300, y: 200 })).toBe(true);
+    f.step([], lite({ metrics: { averageWarmth: 0.25, friendPairs: 4 }, structures }));
+    await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: false, friendThreads: 4 });
   });
 
   test('the bench twist fires on the sim metrics and the flags come from the snapshot', async () => {

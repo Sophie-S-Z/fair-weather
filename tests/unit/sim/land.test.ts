@@ -1,11 +1,9 @@
-import fc from 'fast-check';
 import { expect, test } from 'vitest';
 import { bridgeNear, inWater } from '../../../src/sim/land.ts';
 import { fogAt } from '../../../src/sim/light.ts';
 import { step } from '../../../src/sim/step.ts';
 import type { Rect, SimEvent, Structure, World } from '../../../src/sim/types.ts';
 import { activeCreatures } from '../../../src/sim/world.ts';
-import { landRunArb, replay } from '../../property/arbitraries.ts';
 import { befriend, get, makeWorld, tuning as t, type CreatureSpec } from './helpers.ts';
 
 const brook: Rect = { x: 780, y: 0, w: 60, h: 900 };
@@ -53,17 +51,48 @@ test('with one bridge at (810, 450), a creature crosses only within 32 units of 
   expect(crossed.size).toBeGreaterThan(0);
 });
 
-test('a creature never stands in water away from a bridge (property, 500 runs)', () => {
-  fc.assert(
-    fc.property(landRunArb, (run) => {
-      replay(run, (w) => {
-        for (const c of activeCreatures(w)) {
-          if (inWater(w, c.x, c.y)) expect(bridgeNear(w, c.x, c.y, t)).not.toBeNull();
-        }
-      });
-    }),
-    { numRuns: 500 },
-  );
+/** The longest run of ticks in which some wandering creature does not move, over `days`. */
+function longestStill(w: World, days: number): number {
+  const last = new Map(w.creatures.map((c) => [c.id, [c.x, c.y]]));
+  const still = new Map<string, number>();
+  let longest = 0;
+  while (w.day < days) {
+    step(w, [], t);
+    for (const c of w.creatures) {
+      const [x, y] = last.get(c.id) ?? [];
+      const n = c.state === 'wander' && x === c.x && y === c.y ? (still.get(c.id) ?? 0) + 1 : 0;
+      still.set(c.id, n);
+      longest = Math.max(longest, n);
+      last.set(c.id, [c.x, c.y]);
+    }
+  }
+  return longest;
+}
+
+test('a hungry creature whose nearest bush is across a bridgeless brook does not freeze', () => {
+  const w = makeWorld([{ id: 'a', x: 700, y: 450, berries: 0, wanderlust: 1 }], {
+    water: [brook],
+    bushes: [
+      { id: 'e', x: 900, y: 450, berries: 5 },
+      { id: 'w', x: 100, y: 450, berries: 5 },
+    ],
+  });
+  expect(longestStill(w, 3)).toBeLessThanOrEqual(40);
+  expect(get(w, 'a').state).toBe('wander');
+});
+
+test('creatures do not freeze at a pond whose mid bridge neither bank can reach', () => {
+  const pond: Rect = { x: 700, y: 0, w: 200, h: 900 };
+  const specs: CreatureSpec[] = [];
+  for (let i = 0; i < 10; i++)
+    specs.push({ id: `c${String(i)}`, x: 300 + i * 30, y: 60 + i * 80, berries: 100 });
+  const w = makeWorld(specs, {
+    water: [pond],
+    structures: [{ id: 'bridge-s0', kind: 'bridge', x: 800, y: 450 }],
+  });
+  for (const c of w.creatures)
+    c.visits.fill(1000, 0, 4).fill(1000, 8, 12).fill(1000, 16, 20).fill(1000, 24, 28);
+  expect(longestStill(w, 5)).toBeLessThanOrEqual(40);
 });
 
 test('a world with no water has no water anywhere', () => {
@@ -109,6 +138,20 @@ test('with a ridge at 1500, no random goal is at x >= 1500', () => {
     }
   }
   expect(Math.max(...goals)).toBeGreaterThan(1400); // the east column was picked
+});
+
+test('a bench east of the ridge walks nobody over', () => {
+  const specs: CreatureSpec[] = [];
+  for (let i = 0; i < 10; i++)
+    specs.push({ id: `c${String(i)}`, x: 1200 + i * 20, y: 80 + i * 80, berries: 100 });
+  const w = makeWorld(specs, {
+    ridgeX: 1500,
+    structures: [{ id: 'bench-s0', kind: 'bench', x: 1550, y: 450 }],
+  });
+  while (w.day < 5) {
+    step(w, [], t);
+    for (const c of w.creatures) expect(c.gone).toBeUndefined();
+  }
 });
 
 test('a gust from (1300, 300) by (400, 0) sends Wisp to the ridge, and Wisp leaves for good', () => {

@@ -2,6 +2,7 @@
 import fc from 'fast-check';
 import tuningJson from '../../content/tuning.json';
 import { parseTuning } from '../../src/sim/tuning.ts';
+import { inRect } from '../../src/sim/land.ts';
 import { step } from '../../src/sim/step.ts';
 import type { Command, Rect, Scenario, Season, World } from '../../src/sim/types.ts';
 import { createWorld } from '../../src/sim/world.ts';
@@ -141,9 +142,6 @@ const inside = (r: Rect) =>
     y: fc.double({ min: r.y, max: r.y + r.h, noNaN: true }),
   });
 
-const inAny = (water: Rect[], x: number, y: number) =>
-  water.some((r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
-
 /** 1 to 200 units wide and high, east of the gate, so returns and newcomers arrive on land. */
 const rectArb: fc.Arbitrary<Rect> = fc
   .record({
@@ -176,14 +174,14 @@ export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
       .map(({ bridges, lanterns, ridgeX }) => {
         const scenario: Scenario = {
           ...run.scenario,
-          creatures: run.scenario.creatures.filter((c) => !inAny(water, c.x, c.y)),
+          creatures: run.scenario.creatures.filter((c) => !water.some((r) => inRect(r, c.x, c.y))),
           structures: [
             ...run.scenario.structures,
             ...bridges.map((p, i) => ({ ...p, id: `bridge-s${String(i)}`, kind: 'bridge' as const })),
             ...lanterns.map((p, i) => ({ ...p, id: `lantern-s${String(i)}`, kind: 'lantern' as const })),
           ],
-          water,
         };
+        if (water.length > 0) scenario.water = water;
         if (ridgeX !== undefined) scenario.ridgeX = ridgeX;
         return { ...run, scenario };
       }),

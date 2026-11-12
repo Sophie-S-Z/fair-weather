@@ -190,8 +190,10 @@ const ChapterObject = z.strictObject({
   verbs: z.array(verb),
   newVerb: verb.nullable(),
   overrides: OverridesSchema,
-  /** What `place` sets, and how many; absent means one bench. */
-  place: z.strictObject({ kind: structureKind, limit: z.number().int().positive() }).optional(),
+  /** What `place` sets, and how many; absent means one bench (spec 6.2). */
+  place: z
+    .strictObject({ kind: structureKind, limit: z.number().int().positive() })
+    .default({ kind: 'bench', limit: 1 }),
   beats: z.array(BeatSchema),
   bet: z
     .strictObject({

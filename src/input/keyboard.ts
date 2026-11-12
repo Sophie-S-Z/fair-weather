@@ -61,7 +61,10 @@ export function activeTool(ctx: InputContext): WorldVerb | null {
   return tools.find((v) => v === t) ?? tools[0] ?? null;
 }
 
-/** Sends a thread from the marked creature to `to`: tied unless they are friends, which cuts it. */
+/**
+ * Sends a thread from the marked creature to `to`: tied unless they are friends, which cuts it. A
+ * thread is a friendship (spec 9.1): tying one lifts both warmths above the friend threshold.
+ */
 export function threadTo(ctx: InputContext, from: string, to: string): void {
   ctx.act({ verb: 'thread', a: from, b: to, on: !ctx.isFriend(from, to) });
 }

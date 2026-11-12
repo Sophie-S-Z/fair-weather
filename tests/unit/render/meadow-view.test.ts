@@ -488,3 +488,31 @@ test('the heat map shades the cell the lens stayed over most, and turning it off
   lensAt(1250, 750, 1);
   expect(cells().filter((v) => v > 0)).toHaveLength(1);
 });
+
+test('the keyboard cursor is one still ink ring, thicker in high contrast, hidden by null', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = snapshot([]);
+  const ring = app.stage.getChildByLabel('cursor', true);
+  if (!(ring instanceof Graphics)) throw new Error('no cursor');
+  const width = (): number => {
+    const s = ring.context.instructions.find((i) => i.action === 'stroke');
+    return (s?.data.style as { width: number }).width;
+  };
+  view.update(world, world, 1, settings);
+  expect(ring.visible).toBe(false);
+  view.setCursor({ x: 300, y: 200 });
+  view.update(world, world, 1, settings);
+  expect(ring.visible).toBe(true);
+  expect(ring.getLocalBounds().x).toBeCloseTo(300 - 16 - width() / 2, 0);
+  const plain = width();
+  view.update(world, world, 1, { ...settings, highContrast: true });
+  expect(width()).toBeGreaterThan(plain);
+  // Reduced motion changes nothing: the ring never moves on its own.
+  const before = ring.getLocalBounds().x;
+  view.update(world, world, 1, { ...settings, reducedMotion: true, highContrast: true });
+  expect(ring.getLocalBounds().x).toBe(before);
+  view.setCursor(null);
+  view.update(world, world, 1, settings);
+  expect(ring.visible).toBe(false);
+});

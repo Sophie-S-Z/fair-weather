@@ -99,6 +99,17 @@ test('the place tool is named by what it sets', async ({ page }) => {
   }
 });
 
+test('with a point tool the Meadow cursor is named in the status line', async ({ page }) => {
+  // ch4 (index 5) teaches shine.
+  await page.goto('/?chapter=5');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(scene(page)).toBeFocused();
+  const status = page.getByRole('status');
+  await expect(status).toHaveText(/^Spot near: under crooked tree/);
+  for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowRight');
+  await expect(status).toHaveText(/^Spot near: east meadow/);
+});
+
 test('Z zooms out to the Cosmos and X back in; Escape lets go of a thread mark first', async ({ page }) => {
   // ch5 (index 7): whisper, thread, and zoom.
   await page.goto('/?chapter=7');

@@ -60,7 +60,9 @@ test('the game screen with a bet open has no serious axe issues', async ({ page 
   expect(await seriousViolations(page)).toEqual([]);
 });
 
-test('the whisper card has no serious axe issues, takes focus, and Escape cancels it', async ({ page }) => {
+test('the whisper card has no serious axe issues, takes focus, Escape cancels it, and Kind sends it', async ({
+  page,
+}) => {
   // ch5 (index 7) teaches whisper; Tab picks a creature once the first snapshot is in (the first line).
   await page.goto('/?chapter=7');
   await page.getByRole('button', { name: 'Begin' }).click();
@@ -79,6 +81,12 @@ test('the whisper card has no serious axe issues, takes focus, and Escape cancel
   await expect(card.getByRole('button', { name: 'Kind', exact: true })).toBeFocused();
   expect(await seriousViolations(page)).toEqual([]);
   await page.keyboard.press('Escape');
+  await expect(card).toBeHidden();
+  await expect(scene).toBeFocused();
+  // Again, and this time whisper: Kind sends it, and the card closes with focus back on the scene.
+  await page.keyboard.press('Enter');
+  await card.getByRole('button').first().click();
+  await card.getByRole('button', { name: 'Kind', exact: true }).click();
   await expect(card).toBeHidden();
   await expect(scene).toBeFocused();
 });

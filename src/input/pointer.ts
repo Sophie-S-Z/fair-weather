@@ -5,7 +5,7 @@ import type { Point } from './verbs.ts';
 
 export type PickFn = (x: number, y: number) => { creature: string | null };
 
-/** A press that moves this many screen pixels or more is a drag, not a click. */
+/** With blow, a press that moves this many screen pixels or more is a gust, not a click. */
 const DRAG_PIXELS = 40;
 /** The wheel zooms at most one step in this many milliseconds. */
 const WHEEL_MS = 300;
@@ -57,12 +57,12 @@ export function createPointer(
         return;
       }
     }
-    if (distance(from, to) < DRAG_PIXELS) {
-      click(to, shift);
-    } else if (tool === 'blow') {
+    if (tool === 'blow' && distance(from, to) >= DRAG_PIXELS) {
       const s = toScene(from.x, from.y);
       const e = toScene(to.x, to.y);
       ctx.act({ verb: 'blow', x: s.x, y: s.y, dx: e.x - s.x, dy: e.y - s.y });
+    } else {
+      click(to, shift);
     }
   };
 

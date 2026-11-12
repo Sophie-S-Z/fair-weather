@@ -236,7 +236,7 @@ export function createChapterRunner(
   let twist: { before: WorldLite; deadline: number; retries: number } | null = null;
   let twistFired: boolean | undefined;
   let exitReady = false;
-  const place = config.place ?? { kind: 'bench', limit: 1 };
+  const place = config.place;
   let placed = 0;
   /** Commands sent with no `accepted` yet, and the tick the last accepted list ran at. */
   let unaccepted = 0;

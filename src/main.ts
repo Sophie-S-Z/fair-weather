@@ -37,6 +37,7 @@ import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
 import { SceneSchema } from './render/scene.ts';
 import { createSoulView } from './render/soul-view.ts';
+import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
 import type { SaveV1 } from './persist/format.ts';
@@ -232,7 +233,11 @@ const yearLog: YearLog = [];
 const game: GameService = {
   chapters,
   defaultFlags: parseFlags(flagsJson),
-  friendThreshold: tuning.friend.threshold,
+  castIds: [...cast.keys()].sort(),
+  isFriend(lite, a, b) {
+    const t = lite.ties.find((t) => (t.a === a && t.b === b) || (t.a === b && t.b === a));
+    return t !== undefined && tieKind(t.ab, t.ba, tuning.friend.threshold) === 'friend';
+  },
   firstChapter,
   async createStage(el) {
     const app = new Application();
@@ -328,7 +333,11 @@ const game: GameService = {
       showHeatmap: (on) => {
         view.showHeatmap(on);
       },
+      setCursor: (p) => {
+        view.setCursor(p);
+      },
       benchSpots: scene.benchSpots,
+      sceneSize: { width: scene.width, height: scene.height },
       destroy() {
         stopCounting();
         app.destroy(true, true);

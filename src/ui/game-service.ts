@@ -17,7 +17,7 @@ import type { Settings } from './settings.ts';
  * The Meadow, Cosmos, and Soul views in a canvas that fills its element. Screen points are client
  * coordinates.
  */
-export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHeatmap'> {
+export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor'> {
   /** Draws every view in the season's palette (spec 11.3). */
   setSeason(season: Season): void;
   /**
@@ -35,14 +35,18 @@ export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHe
   pick(x: number, y: number): string | null;
   toScene(x: number, y: number): { x: number; y: number };
   benchSpots: readonly BenchSpot[];
+  /** The scene's size in scene units; the cursor stays inside it. */
+  sceneSize: { width: number; height: number };
   destroy(): void;
 }
 
 export interface GameService {
   chapters: readonly Chapter[];
   defaultFlags: Flags;
-  /** Two creatures are friends when both warmths are above this (tuning friend.threshold). */
-  friendThreshold: number;
+  /** The named cast (spec 5.3), in id order. */
+  castIds: readonly string[];
+  /** Both warmths of the tie above the friend threshold: a friendship the Cosmos draws (spec 9.1). */
+  isFriend(lite: WorldLite, a: string, b: string): boolean;
   /** The chapter Begin starts at: 0, or ?chapter=N in a dev build. */
   firstChapter: number;
   createStage(el: HTMLElement): Promise<Stage>;

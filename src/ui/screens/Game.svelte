@@ -51,6 +51,10 @@
     cosmos: 'The Cosmos: who is friends with whom',
     soul: 'The Soul view',
   };
+  /** The tools that act at the cursor. */
+  const POINT_TOOLS: ReadonlySet<Verb> = new Set(['place', 'shine', 'fog', 'blow']);
+  /** How near the cursor a creature is named in the status line, in scene units: two cursor steps. */
+  const NEAR = 40;
   const STATES: Record<string, string> = {
     sleep: 'asleep',
     wander: 'awake',
@@ -80,6 +84,8 @@
   let betRunning = $state(false);
   let picked: string | null = $state(null);
   let pickedState = $state('');
+  /** The creature not away nearest the cursor within NEAR, or null. */
+  let nearby: string | null = $state(null);
   let cursor = $state({ x: 0, y: 0 });
   let ghost: Verb | null = $state(null);
   let speedNow = $state(0);
@@ -90,7 +96,7 @@
   /** The open whisper card: the creature it whispers to, and those it can be about. */
   let whisperCard: { target: string; others: string[] } | null = $state(null);
 
-  let stage: Stage | null = null;
+  let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
   let prev: WorldLite | null = null;
   let next: WorldLite | null = null;
@@ -106,7 +112,9 @@
   const overPoke = untrack(() => game.input.createOverPoke());
 
   const chapter = $derived(game.chapters[index]);
-  const placeKind = $derived(chapter?.place?.kind ?? 'bench');
+  const placeKind = $derived(chapter?.place.kind ?? 'bench');
+  /** A point tool acts at the cursor, which the Meadow then draws and the status line names. */
+  const pointing = $derived(view === 'meadow' && tool !== null && POINT_TOOLS.has(tool));
   /** "Chapter n: Title" with n from the id `ch<n>`, or "Interlude: Title". */
   const heading = $derived(
     chapter
@@ -125,14 +133,19 @@
     }
     return best ? best.id.replace(/-/g, ' ') : '';
   });
-  /** What the tool would act on, as text: the bench spot or the picked creature, the thread mark, and the view. */
+  /**
+   * What the tool would act on, as text: the bench spot, the cursor's nearest spot and creature, or
+   * the picked creature; then the thread mark and the view.
+   */
   const status = $derived(
     [
       tool === 'place' && placeKind === 'bench'
         ? `Bench spot: ${spotName}`
-        : picked
-          ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
-          : '',
+        : pointing
+          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${displayName(nearby)}`}`
+          : picked
+            ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
+            : '',
       tool === 'thread' && threadFrom !== null ? `Thread from ${displayName(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
     ]
@@ -151,7 +164,7 @@
       hints.used(v.verb);
       if (v.verb === 'place') {
         placed += 1;
-        if (placed === (chapter?.place?.limit ?? 1)) used = [...used, 'place'];
+        if (placed === chapter?.place.limit) used = [...used, 'place'];
       }
     } else if (v.verb === 'respond') {
       say(NO_BID);
@@ -267,20 +280,34 @@
     }
   }
 
+  // The Meadow draws the cursor while a point tool is active.
+  $effect(() => {
+    stage?.setCursor(pointing ? { x: cursor.x, y: cursor.y } : null);
+  });
+
   /** Escape moves to the tools, unless the keyboard took it to let go of a thread mark. */
   function onSceneKey(e: KeyboardEvent): void {
     if (e.key === 'Escape' && !e.defaultPrevented) trayEl?.querySelector('button')?.focus();
   }
 
-  function isFriend(a: string, b: string): boolean {
-    const t = next?.ties.find((t) => (t.a === a && t.b === b) || (t.a === b && t.b === a));
-    return t !== undefined && t.ab > game.friendThreshold && t.ba > game.friendThreshold;
+  /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
+  function nearbyAt(p: { x: number; y: number }): string | null {
+    let best: string | null = null;
+    let bestD = NEAR;
+    for (const c of next?.creatures ?? []) {
+      const d = Math.hypot(c.x - p.x, c.y - p.y);
+      if (c.state !== 'away' && d <= bestD) {
+        bestD = d;
+        best = c.id;
+      }
+    }
+    return best;
   }
 
   /** Opens the whisper card for `target`, about every other named creature (spec 5.3) not gone, in id order. */
   function openWhisper(target: string): void {
     const others = (next?.creatures ?? [])
-      .filter((c) => !c.gone && c.id !== target && !c.id.startsWith('villager-'))
+      .filter((c) => !c.gone && c.id !== target && game.castIds.includes(c.id))
       .map((c) => c.id);
     whisperCard = { target, others: others.sort() };
   }
@@ -313,6 +340,7 @@
         next = lite;
         prevAt = nextAt;
         nextAt = performance.now();
+        nearby = nearbyAt(cursor);
         if (picked !== null)
           pickedState = STATES[lite.creatures.find((c) => c.id === picked)?.state ?? ''] ?? '';
       }),
@@ -344,7 +372,11 @@
           picked = id;
           if (view === 'cosmos') s.setView('cosmos', id);
         },
-        moveCursor: (p) => (cursor = p),
+        moveCursor: (p) => {
+          const { width, height } = s.sceneSize;
+          cursor = { x: Math.min(width, Math.max(0, p.x)), y: Math.min(height, Math.max(0, p.y)) };
+          nearby = nearbyAt(cursor);
+        },
         view: () => view,
         zoom: (dir) => {
           const v = game.input.nextView(view, dir, picked);
@@ -352,7 +384,7 @@
           view = v;
           s.setView(v, picked);
         },
-        isFriend,
+        isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
         threadFrom: () => threadFrom,
         setThreadFrom: (id) => (threadFrom = id),
         openWhisper,

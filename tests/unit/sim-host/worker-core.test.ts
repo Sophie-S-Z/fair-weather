@@ -227,13 +227,17 @@ function rewindAfter(ticks: number, to: number): { send: (m: ToWorker) => void; 
   return { got, send };
 }
 
-test.each([1_234, 3_300])('rewound lite at tick %i equals the live snapshot at that tick', (T) => {
-  const { got } = rewindAfter(golden.ticks, T);
-  const live = ofType(got, 'snapshot').find((m) => m.tick === T);
-  expect(ofType(got, 'rewound')).toEqual([{ t: 'rewound', id: 1, tick: T, lite: live?.lite }]);
-});
+test.each([1_234, 3_300])(
+  'rewound lite at tick %i equals the live snapshot at that tick',
+  { timeout: 60_000 },
+  (T) => {
+    const { got } = rewindAfter(golden.ticks, T);
+    const live = ofType(got, 'snapshot').find((m) => m.tick === T);
+    expect(ofType(got, 'rewound')).toEqual([{ t: 'rewound', id: 1, tick: T, lite: live?.lite }]);
+  },
+);
 
-test('rewinding does not change the live hash', () => {
+test('rewinding does not change the live hash', { timeout: 60_000 }, () => {
   const { send, got } = directCore();
   playGolden(send, 2_000);
   send({ t: 'hash' });

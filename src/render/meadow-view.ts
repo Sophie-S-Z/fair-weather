@@ -38,6 +38,8 @@ const HOP_SECONDS = 0.5;
 const HEAT_COLS = 16;
 const HEAT_ROWS = 9;
 const HEAT_ALPHA = 0.4;
+/** The keyboard cursor's ink ring, in scene units. */
+const CURSOR_RADIUS = 16;
 
 export interface MeadowView {
   update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
@@ -60,6 +62,8 @@ export interface MeadowView {
   countLens(lite: WorldLite): void;
   /** Shows where the lens stayed this chapter. Turning it off clears the count, for the next chapter. */
   showHeatmap(on: boolean): void;
+  /** The keyboard cursor, a still ink ring at a scene point, or null to hide it. */
+  setCursor(p: { x: number; y: number } | null): void;
 }
 
 /** The area inside a rig's outline, in rig units (loops cut out, as for the body fill). */
@@ -336,8 +340,9 @@ function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): n
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
  * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
- * each cell's share of the most watched cell as an ink wash. Reduced motion stops the boil, the
- * sway, the hop, and camera moves; high contrast thickens every line by half again.
+ * each cell's share of the most watched cell as an ink wash. The keyboard cursor is a still ink
+ * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves; high
+ * contrast thickens every line by half again.
  */
 export function createMeadowView(
   app: Application,
@@ -356,7 +361,11 @@ export function createMeadowView(
   let heat = createWash({ color: palette.ink, alpha: HEAT_ALPHA }, scene.width, 'heatmap');
   let heatShown = false;
   heat.sprite.visible = false;
-  world.addChild(ground, land, light.graphics, actors, fog.sprite, heat.sprite);
+  const cursor = new Graphics({ label: 'cursor', visible: false });
+  let cursorAt: { x: number; y: number } | null = null;
+  /** What the ring was drawn for; '' redraws it. */
+  let cursorKey = '';
+  world.addChild(ground, land, light.graphics, actors, fog.sprite, heat.sprite, cursor);
   app.stage.addChild(world);
 
   const trees = scene.trees.map((tree) => {
@@ -468,6 +477,12 @@ export function createMeadowView(
       }
       light.update(next.light);
       fog.update(next.fog, settings.highContrast);
+      cursor.visible = cursorAt !== null;
+      const ringKey = cursorAt ? `${String(cursorAt.x)},${String(cursorAt.y)},${String(w)}` : '';
+      if (cursorAt && ringKey !== cursorKey) {
+        cursor.clear().circle(cursorAt.x, cursorAt.y, CURSOR_RADIUS).stroke(plainStroke(palette, w));
+      }
+      cursorKey = ringKey;
 
       drawn = [];
       for (const { view } of views.values()) view.container.visible = false;
@@ -528,9 +543,13 @@ export function createMeadowView(
     setShot(name) {
       shot = name;
     },
+    setCursor(p) {
+      cursorAt = p;
+    },
     setPalette(p) {
       if (p === palette) return;
       palette = p;
+      cursorKey = '';
       // The next update redraws the scenery; creatures get new views in the new ink.
       lineWidth = 0;
       for (const { view } of views.values()) view.container.destroy({ children: true });

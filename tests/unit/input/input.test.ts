@@ -402,6 +402,11 @@ describe('pointer', () => {
       { verb: 'blow', x: 60, y: 100, dx: 300, dy: 0 },
     ]);
   });
+  it('a long drag with any other tool is a click at its release point', () => {
+    const m = mk('shine');
+    m.drag({ x: 10, y: 50 }, { x: 200, y: 50 });
+    expect(m.acts).toEqual([{ verb: 'shine', x: 400, y: 100 }]);
+  });
   it('a thread drag in Cosmos from node to node cuts a friendship or ties strangers', () => {
     const m = mk('thread', { view: () => 'cosmos' });
     m.drag(A, { x: 105, y: 95 });
@@ -420,13 +425,13 @@ describe('pointer', () => {
     m.drag(B, C);
     expect(m.acts).toEqual([]);
   });
-  it('a thread drag in the Meadow sends nothing; clicks there mark and then thread', () => {
+  it('a thread drag in the Meadow only marks where it ends; a click on another then threads', () => {
     const m = mk('thread');
     m.drag(A, C);
     expect(m.acts).toEqual([]);
+    expect(m.threadFrom()).toBe('c');
     m.click(10, 10);
-    m.click(100, 100);
-    expect(m.acts).toEqual([{ verb: 'thread', a: 'a', b: 'c', on: false }]);
+    expect(m.acts).toEqual([{ verb: 'thread', a: 'c', b: 'a', on: false }]);
   });
   it('the wheel zooms one step per 300 ms, and not while zoom is locked', () => {
     const m = mk('wake');

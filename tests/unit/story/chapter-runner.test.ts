@@ -6,6 +6,7 @@ import ch0Json from '../../../content/chapters/ch0.json';
 import ch1Json from '../../../content/chapters/ch1.json';
 import ch2Json from '../../../content/chapters/ch2.json';
 import ch3Json from '../../../content/chapters/ch3.json';
+import ch9Json from '../../../content/chapters/ch9.json';
 import flagsJson from '../../../content/flags.json';
 import tuningJson from '../../../content/tuning.json';
 import { hashWorld } from '../../../src/sim/hash.ts';
@@ -29,6 +30,8 @@ import type { VerbInput } from '../../../src/story/verbs.ts';
 import { buildScenario } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter } from '../../../src/story/schema.ts';
+import ch9Carry from '../../golden/carry/ch9.json';
+import { runChapterHeadless } from '../../golden/run-chapter.ts';
 import { manualClock } from '../sim-host/harness.ts';
 
 const ch0 = ChapterSchema.parse(ch0Json);
@@ -566,6 +569,29 @@ describe('beats', () => {
     expect(lines(prompts)).toEqual(['ch0_dawn line.', 'ch0_pim_looks_up line.']);
     expect(f.speeds).toEqual([1, 0]);
     await expect(runner.done).resolves.toEqual({ ...flags, pimSkyBond: 0.625 }); // (0.25 + 1) / 2
+  });
+
+  // Honesty: ch9 sends Pim's dance at 40 s, but the sim dances only a creature still here. The line
+  // that says Pim dances waits for the sim's dance event, so a year where Pim went over the ridge or
+  // away hungry never hears it.
+  test.each([
+    ['here', false],
+    ['gone', true],
+  ])("ch9's seed line plays only on the sim's dance event for Pim (Pim %s)", async (_, gone) => {
+    const ch9 = ChapterSchema.parse(ch9Json);
+    const carry = structuredClone(ch9Carry);
+    for (const c of carry.creatures) if (c.id === 'pim' && gone) Object.assign(c, { away: true, gone: true });
+    const said: string[] = [];
+    const player = { onPrompt: (p: Prompt) => p.kind === 'line' && said.push(p.text) };
+    // 45 s of chapter time: the seed beat runs at 40 s.
+    const run = await runChapterHeadless(ch9, 1, player, defaults, 450, carry);
+    const seed = run.log.find(
+      (e) => e.kind === 'accepted' && e.list.some((c) => c.t === 'dance' && c.who === 'pim'),
+    );
+    expect(seed).toBeDefined(); // the story asked in both years
+    const danced = run.log.some((e) => e.kind === 'event' && e.e.t === 'dance' && e.e.who === 'pim');
+    expect(danced).toBe(!gone);
+    expect(said.some((l) => l.includes('Pim starts to dance'))).toBe(!gone);
   });
 
   test('events before the first snapshot wait for it', async () => {

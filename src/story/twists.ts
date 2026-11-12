@@ -35,7 +35,7 @@ function meanTightness(lite: WorldLite): number {
  * thornsGrow: the mean tightness of creatures not away rose by at least 0.03 since `before`.
  * rumorDrowns: the rumor's holders are at least half of the creatures not away, `about` left out.
  * revengeLoop: both warmths of the Echo and Krit tie are below 0.
- * wispLeaves: Wisp is away. mossShares: Moss gives to Krit. bellDances: Bell is dancing.
+ * wispLeaves: Wisp is gone over the ridge. mossShares: Moss gives to Krit. bellDances: Bell is dancing.
  */
 export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, events: SimEvent[]): boolean {
   switch (id) {
@@ -53,7 +53,9 @@ export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, event
     case 'revengeLoop':
       return warmth(now, 'echo', 'krit') < 0 && warmth(now, 'krit', 'echo') < 0; // 0 with no tie
     case 'wispLeaves':
-      return creature(now, 'wisp')?.state === 'away';
+      // Gone, not only away: the line says Wisp went over the ridge, and hunger or the carry can also
+      // leave Wisp away.
+      return creature(now, 'wisp')?.gone === true;
     case 'mossShares':
       return gave(events, 'moss', 'krit', 'give');
     case 'bellDances':

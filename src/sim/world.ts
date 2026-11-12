@@ -142,6 +142,7 @@ export function activeCreatures(world: World): Creature[] {
 
 /**
  * Creatures, not away, that `c` counts as friends (warmth above friend.threshold, ADR 0002),
+ * one-sided: only c's own warmth counts, unlike the Cosmos's mutual friendships (ADR 0012 item 6);
  * sorted by id in code-unit order so PRNG picks never depend on tie insertion order.
  */
 export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[] {

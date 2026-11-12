@@ -58,7 +58,16 @@
       "actions": [
         {
           "dance": "pim"
-        },
+        }
+      ]
+    },
+    {
+      "id": "ch9_pim_dances",
+      "trigger": {
+        "event": "dance",
+        "who": "pim"
+      },
+      "actions": [
         {
           "focus": "pim"
         },

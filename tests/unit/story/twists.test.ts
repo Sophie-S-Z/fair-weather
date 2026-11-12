@@ -133,9 +133,13 @@ describe('revengeLoop', () => {
 
 describe('wispLeaves', () => {
   const w = world({});
-  test('true when Wisp is away', () => {
+  test('true when Wisp is gone over the ridge', () => {
     const now = world({ creatures: [creature('wisp', { state: 'away', gone: true })] });
     expect(checkTwist('wispLeaves', w, now, [])).toBe(true);
+  });
+  test('false when Wisp is away but not gone: left hungry, or carried in away', () => {
+    const now = world({ creatures: [creature('wisp', { state: 'away' })] });
+    expect(checkTwist('wispLeaves', w, now, [])).toBe(false);
   });
   test('false while Wisp is leaving but not yet away', () => {
     const now = world({ creatures: [creature('wisp', { state: 'leave' })] });

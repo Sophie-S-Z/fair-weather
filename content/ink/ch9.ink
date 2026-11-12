@@ -11,7 +11,7 @@ A bridge reaches across the brook. #placeholder
 -> END
 
 === ch9_dance ===
-Three of Bell's friends dance, and Bell dances too. #placeholder
+Bell's friends dance, and Bell dances too. #placeholder
 -> END
 
 === ch9_close_call ===

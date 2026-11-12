@@ -517,3 +517,76 @@ test('a Quiet Visitor that comes due in the Cosmos view waits, and walks in back
   await page.keyboard.press('x');
   await expect(lines).toContainText('A quiet visitor walks in and sits down to rest.');
 });
+
+// M2.16: every chapter's first screen in play order, and in each chapter with the zoom its Cosmos
+// and Soul views. A bet that opens at the start is checked open, then answered.
+const PLAY_ORDER = [
+  'Chapter 0',
+  'Chapter 1',
+  'Chapter 2',
+  'Chapter 3',
+  'Interlude: The Door for Two',
+  'Chapter 4',
+  'Interlude: The Telephone Sketch',
+  'Chapter 5',
+  'Interlude: Dream Bubbles',
+  'Chapter 6',
+  'Chapter 7',
+  "Interlude: Wisp's Postcard",
+  'Chapter 8',
+  'Interlude: The Long Night',
+  'Chapter 9',
+  'Chapter 10',
+];
+/** The chapters with the zoom verb, and those whose bet opens in the first second (content/chapters). */
+const ZOOM = new Set([
+  'Chapter 2',
+  'Chapter 3',
+  'Chapter 4',
+  'Chapter 5',
+  'Chapter 6',
+  'Chapter 7',
+  'Chapter 8',
+  'Chapter 9',
+]);
+const BET_AT_START = new Set(['Chapter 2', 'Chapter 4', 'Chapter 6', 'Chapter 8']);
+
+for (const [index, name] of PLAY_ORDER.entries()) {
+  test(`${name}: its first screen has no serious axe issues`, async ({ page }) => {
+    await page.goto(`/?chapter=${String(index)}`);
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(name);
+    // The first snapshot is in: the scene draws, and an interlude's activity or the fire shows.
+    const frames = () =>
+      page.evaluate(() => (window as unknown as { fairWeather: { frames: number } }).fairWeather.frames);
+    await expect.poll(frames).toBeGreaterThan(0);
+    if (name.startsWith('Interlude') || name === 'Chapter 10')
+      await expect(page.locator('.activity section')).toBeVisible();
+    const bet = page.getByRole('dialog', { name: 'A bet' });
+    if (BET_AT_START.has(name)) await expect(bet).toBeVisible({ timeout: 20_000 });
+    expect(await seriousViolations(page)).toEqual([]);
+    if (!ZOOM.has(name)) return;
+    if (await bet.isVisible()) {
+      await bet.getByRole('button').first().click();
+      await expect(bet).toBeHidden();
+    }
+    const scene = page.getByRole('application', { name: 'The meadow' });
+    await expect(scene).toBeFocused();
+    // Respond only picks, so Tab names a creature and X zooms into its Soul view.
+    // Respond is the second tool after Wake (chapters 2 and 3), else the first.
+    await page.keyboard.press(name === 'Chapter 2' || name === 'Chapter 3' ? '2' : '1');
+    await expect(
+      page.getByRole('group', { name: 'Tools' }).getByRole('button', { name: /Respond/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    const picked = page.getByRole('status').filter({ hasText: /^Picked: / });
+    for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+    await page.keyboard.press('x');
+    await expect(page.getByRole('application', { name: 'The Soul view' })).toBeFocused();
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.keyboard.press('z');
+    await page.keyboard.press('z');
+    await expect(page.getByRole('application', { name: /^The Cosmos/ })).toBeFocused();
+    await expect(page.getByRole('region', { name: 'Who is friends with whom' })).toBeVisible();
+    expect(await seriousViolations(page)).toEqual([]);
+  });
+}

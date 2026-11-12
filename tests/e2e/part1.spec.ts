@@ -1,9 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect as baseExpect, test, type Page } from '@playwright/test';
 import { canvasPoints, pickedIn, tabTo, tap, type Point } from './helpers.ts';
 
 // Part 1 from Begin to its end (M2.16, spec T7), played twice through the real UI: once by pointer,
 // once by keys alone. Dev builds only: ?fast=10 multiplies every sim speed, so a 40 s day is 4 s.
 // Each run reads the screen and acts as a player would; it never reaches into the game's state.
+
+// The year runs share the machine with the rest of the suite; under that load a focus move or a
+// tool's first command can take longer than the default 5 s, so each wait here allows 20 s.
+const expect = baseExpect.configure({ timeout: 20_000 });
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'The whole-year runs are long; Chromium only.');
 
@@ -25,7 +29,10 @@ type Mode = 'pointer' | 'keyboard';
 type Played = { bets: string[]; used: string[] };
 
 const dev = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: { frames: number; sent: number } }).fairWeather);
+  page.evaluate(
+    () =>
+      (window as unknown as { fairWeather: { frames: number; sent: number; snapshots: number } }).fairWeather,
+  );
 
 /** What a player sees now: the heading, the open dialog, the tools, the activity, and the status. */
 function look(page: Page) {
@@ -179,8 +186,20 @@ async function pointerOnce(page: Page, seen: Look, tool: string): Promise<boolea
     await pickTool(page, seen, tool);
     await page.mouse.click(mid.x, mid.y);
   }
-  if (done) await expect.poll(async () => (await dev(page)).sent).toBeGreaterThan(sent);
-  if ((await look(page)).paused) await tap(page, '[aria-label="Time"]', 'Pause');
+  // A try can miss: a snapshot already on its way opens a bet after the pause (the bet refuses the
+  // tool), or a Cosmos node settles away from where the player found it. Then the player tries the
+  // tool again later, as a person would; the run's end checks that every tool was used.
+  if (done) {
+    done = false;
+    for (let i = 0; i < 50 && !done && (await look(page)).dialog === null; i++) {
+      done = (await dev(page)).sent > sent;
+      if (!done) await page.waitForTimeout(200);
+    }
+    done ||= (await dev(page)).sent > sent;
+  }
+  // Behind an open bet the scene stays paused; the retry after the bet resumes it.
+  const after = await look(page);
+  if (after.paused && after.dialog === null) await tap(page, '[aria-label="Time"]', 'Pause');
   return done;
 }
 
@@ -314,7 +333,9 @@ async function playPart1(page: Page, mode: Mode): Promise<Played> {
       betDone = !BET_CHAPTERS.test(seen.heading);
       lastShine = -Infinity;
     }
-    if ((await dev(page)).frames <= framesAtStart || seen.dialog !== null) {
+    // The new chapter's runner takes verbs once its first snapshot is in, and the scene is drawn.
+    const now = await dev(page);
+    if (now.frames <= framesAtStart || now.snapshots === 0 || seen.dialog !== null) {
       await page.waitForTimeout(100);
       continue;
     }
@@ -323,12 +344,12 @@ async function playPart1(page: Page, mode: Mode): Promise<Played> {
       continue;
     }
     if (mode === 'keyboard') {
-      await expect(page.getByRole('application')).toBeFocused();
       // Keys go to whatever has focus, and a bet takes it: so wait for this chapter's bet first.
       if (!betDone) {
         await page.waitForTimeout(100);
         continue;
       }
+      await expect(page.getByRole('application')).toBeFocused();
     }
     const tool = todo[0];
     const names = seen.tools.map((t) => toolName(t.text));

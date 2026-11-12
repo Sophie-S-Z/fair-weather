@@ -150,11 +150,17 @@ const host = createSimHost(
   () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
 );
 /**
- * Dev only: every speed sent to the sim, frames drawn, and command lists the runner sent, so e2e can
- * see the tab-hidden pause and that a rewind sends nothing.
+ * Dev only: every speed sent to the sim, frames drawn, command lists the runner sent, and snapshots
+ * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
+ * when a new chapter's runner takes verbs (after its first snapshot).
  */
-const dev = { speeds: [] as number[], frames: 0, sent: 0 };
-if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = dev;
+const dev = { speeds: [] as number[], frames: 0, sent: 0, snapshots: 0 };
+if (import.meta.env.DEV) {
+  (window as unknown as { fairWeather: unknown }).fairWeather = dev;
+  host.onMessage((m) => {
+    if (m.t === 'snapshot') dev.snapshots += 1;
+  });
+}
 const params = new URLSearchParams(location.search);
 /** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
 const devFast = Number(params.get('fast'));
@@ -418,6 +424,7 @@ const game: GameService = {
     return (await slotsReady).hasAuto();
   },
   startChapter(chapter, flags) {
+    if (import.meta.env.DEV) dev.snapshots = 0;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
     // Continue: the carry and the year so far come from the save (spec 15.1).

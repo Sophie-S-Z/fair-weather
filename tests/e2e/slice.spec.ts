@@ -8,7 +8,9 @@ const live = (page: Page) => page.locator('[aria-live="polite"]');
 const scene = (page: Page) => page.getByRole('application', { name: 'The meadow' });
 const dev = (page: Page) =>
   page.evaluate(
-    () => (window as unknown as { fairWeather: { speeds: number[]; frames: number } }).fairWeather,
+    () =>
+      (window as unknown as { fairWeather: { speeds: number[]; frames: number; snapshots: number } })
+        .fairWeather,
   );
 
 test('Begin starts chapter 0 and its first lines are in the beat line', async ({ page }) => {
@@ -581,11 +583,24 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
     })
     .toBeGreaterThan(20);
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
-  const before = await sent();
   await page.keyboard.press('Home');
   await expect(range).toHaveValue((await range.getAttribute('min')) ?? '');
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
   await expect(page.getByRole('status').filter({ hasText: 'Rewound' })).toBeVisible();
+  // A snapshot already on its way can still run a beat that sends; count from when the sim is quiet.
+  let last = -1;
+  await expect
+    .poll(
+      async () => {
+        const n = (await dev(page)).snapshots;
+        const quiet = n === last;
+        last = n;
+        return quiet;
+      },
+      { intervals: [500] },
+    )
+    .toBe(true);
+  const before = await sent();
   // Space and the tool send nothing while rewound.
   const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
   await cosmos.focus();

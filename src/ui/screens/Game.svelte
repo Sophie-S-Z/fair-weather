@@ -841,7 +841,15 @@
   {#if book}
     <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
   {:else if bet}
-    <BetCard question={bet.question} options={bet.options} label={displayName} onAnswer={answer} />
+    <BetCard
+      question={bet.question}
+      options={bet.options}
+      label={displayName}
+      onAnswer={answer}
+      home={() => {
+        sceneEl.focus();
+      }}
+    />
   {:else if whisperCard}
     <WhisperCard
       target={whisperCard.target}

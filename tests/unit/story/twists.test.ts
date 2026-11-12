@@ -11,6 +11,7 @@ const lite = (averageWarmth: number, friendPairs: number): WorldLite => ({
   structures: [],
   water: [],
   decks: [],
+  islets: [],
   mushroom: null,
   bushes: [],
   ties: [],

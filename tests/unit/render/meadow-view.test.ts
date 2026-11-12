@@ -5,41 +5,25 @@ import tuningJson from '../../../content/tuning.json';
 import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
 import meadowJson from '../../../content/scenes/kith-meadow.json';
-import { CastSchema, type Cast } from '../../../src/render/cast.ts';
 import { bodyColor } from '../../../src/render/line/fill.ts';
-import { RigSchema, type Rig } from '../../../src/render/line/rig.ts';
+import type { Rig } from '../../../src/render/line/rig.ts';
 import { bodyHeight, createMeadowView, dewColor, rigArea } from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { SceneSchema } from '../../../src/render/scene.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
-import { bridgeDeck } from '../../../src/sim/land.ts';
+import { bridgeDeck, islets } from '../../../src/sim/land.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
 import { SEASONS } from '../../../src/sim/types.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
+import { rigs, cast } from './content-fixture.ts';
 
 const scene = SceneSchema.parse(meadowJson);
 const palette = PaletteSchema.parse(springJson);
 const autumn = PaletteSchema.parse(autumnJson);
-const rigs = new Map<string, Rig>(
-  readdirSync('content/rigs')
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => {
-      const rig = RigSchema.parse(JSON.parse(readFileSync(`content/rigs/${f}`, 'utf8')));
-      return [rig.id, rig];
-    }),
-);
-const cast = new Map<string, Cast>(
-  readdirSync('content/cast')
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => {
-      const c = CastSchema.parse(JSON.parse(readFileSync(`content/cast/${f}`, 'utf8')));
-      return [c.id, c];
-    }),
-);
 const tuning = parseTuning(tuningJson);
 const options = { lensRadius: tuning.light.lensRadius, cast };
 const rig = (id: string): Rig => {
@@ -80,6 +64,7 @@ const snapshot = (
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
   water: [],
   decks: [],
+  islets: [],
   mushroom: null,
   bushes: [],
   ties: [],
@@ -433,7 +418,7 @@ test('ground the water closes in is drawn as an islet', () => {
     { x: 950, y: 390, w: 40, h: 60 },
     { x: 1050, y: 390, w: 40, h: 60 },
   ];
-  const world: WorldLite = { ...snapshot([]), water };
+  const world: WorldLite = { ...snapshot([]), water, islets: islets(water) };
   createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
   const isle = fillsOf(graphicsIn(app, 'land')).filter((f) => f.color === palette.background);
   expect(isle).toHaveLength(1);
@@ -595,4 +580,32 @@ test('each creature has a shadow at its feet, under the water, and a hop leaves 
   // Darker in high contrast.
   view.update(world, world, 1, { ...settings, highContrast: true });
   expect(fillsOf(graphicsIn(app, 'shadows'))[0]?.alpha).toBeGreaterThan(ovals[0]?.alpha ?? 1);
+});
+
+test('a creature on a bridge deck has its shadow on the deck, not under it', () => {
+  const app = fakeApp(800, 450);
+  const water = [{ x: 780, y: 0, w: 60, h: 900 }];
+  const bridge = { id: 'br1', kind: 'bridge' as const, x: 810, y: 300 };
+  const deck = bridgeDeck(bridge, water, tuning);
+  if (!deck) throw new Error('no deck');
+  const world: WorldLite = {
+    ...snapshot([
+      ['pim', 810, 300],
+      ['villager-1', 400, 500],
+    ]),
+    water,
+    structures: [bridge],
+    decks: [deck],
+  };
+  createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+  const land = graphicsIn(app, 'land');
+  const onDeck = graphicsIn(app, 'deck-shadows');
+  expect(onDeck.parent?.getChildIndex(onDeck)).toBeGreaterThan(land.parent?.getChildIndex(land) ?? Infinity);
+  const centers = (label: string): number[][] =>
+    fillsOf(graphicsIn(app, label)).map((o) => [
+      Math.round((o.minX + o.maxX) / 2),
+      Math.round((o.minY + o.maxY) / 2),
+    ]);
+  expect(centers('deck-shadows')).toEqual([[810, 300]]);
+  expect(centers('shadows')).toEqual([[400, 500]]);
 });

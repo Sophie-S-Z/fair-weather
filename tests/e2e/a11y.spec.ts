@@ -139,6 +139,29 @@ test('the Cosmos view with its panel has no serious axe issues', async ({ page }
   expect(await seriousViolations(page)).toEqual([]);
 });
 
+test('on a phone the Cosmos band has a row of its own, clear of the title, the drawer, and the panel', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  await page.keyboard.press('z');
+  const label = page.getByText('Village size and trust this chapter');
+  await expect(label).toBeVisible();
+  const box = async (l: ReturnType<Page['locator']>) => {
+    const b = await l.boundingBox();
+    if (!b) throw new Error('not laid out');
+    return b;
+  };
+  const band = await box(label.locator('..'));
+  const meets = (a: typeof band, b: typeof band): boolean =>
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  expect(meets(band, await box(page.getByRole('heading', { level: 1 })))).toBe(false);
+  expect(meets(band, await box(page.getByRole('button', { name: 'Diary and notes' })))).toBe(false);
+  expect(meets(band, await box(page.getByRole('region', { name: 'Who is friends with whom' })))).toBe(false);
+});
+
 test('the Soul view opens the drawer at the diary; P opens it at Under the hood; no serious axe issues', async ({
   page,
 }) => {

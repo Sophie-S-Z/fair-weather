@@ -1,9 +1,8 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
-import { castColor, type Cast } from './cast.ts';
+import { creatureColor, type Cast } from './cast.ts';
 import { HIGH_CONTRAST_WIDTH, inkStroke } from './ink.ts';
-import { bodyColor } from './line/fill.ts';
 import { CREATURE_HEIGHT } from './meadow-view.ts';
 import type { Palette } from './palette.ts';
 import { nearestNode, SNAP_PIXELS, tieKind, type TieKind } from './ties.ts';
@@ -16,8 +15,6 @@ const NODE_RADIUS = 9;
 const NODE_LINE = 3;
 /** The picked node's outline, thick in every mode, so its color is never the only cue. */
 const PICKED_NODE_LINE = 5;
-/** A picked villager's node is the warm tint villagers wear in the Meadow, deepened this far toward ink. */
-const VILLAGER_DEPTH = 0.35;
 /**
  * Every friendship is one thin width; its alpha rises from the floor at the threshold by up to
  * FRIEND_ALPHA_RANGE at warmth 1, so weak ties recede. High contrast raises the floor, since a
@@ -28,12 +25,6 @@ const FRIEND_ALPHA_FLOOR = 0.15;
 const FRIEND_ALPHA_FLOOR_HIGH_CONTRAST = 0.5;
 const FRIEND_ALPHA_RANGE = 0.5;
 const PICKED_WIDTH = 3;
-
-/** The color a picked creature's node lights up in: a cast member's own, or the one all villagers share. */
-export function pickedColor(id: string, cast: Map<string, Cast>, palette: Palette): number {
-  const member = cast.get(id);
-  return member ? castColor(member, palette) : bodyColor(palette.warmth, palette.ink, VILLAGER_DEPTH);
-}
 
 /**
  * Every friend and scar tie between creatures not away, in tie order. `warmth` is the colder
@@ -166,7 +157,7 @@ export function createCosmosView(
       if (lit) {
         dots
           .circle(lit.x, lit.y, NODE_RADIUS * k)
-          .fill(pickedColor(lit.id, cast, palette))
+          .fill(creatureColor(lit.id, cast, palette))
           .stroke(inkStroke(palette, PICKED_NODE_LINE * k));
       }
       backing.clear();

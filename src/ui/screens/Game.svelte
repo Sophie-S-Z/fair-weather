@@ -726,6 +726,19 @@
   .strip {
     height: 1.5rem;
   }
+  /* Too narrow to share the title's row: the band takes a row of its own, under the title and the
+     drawer button, and the panel moves under it. */
+  @media (max-width: 960px) {
+    .band {
+      top: 3.5rem;
+      left: 0.75rem;
+      width: auto;
+      right: 0.75rem;
+    }
+    .cosmos {
+      top: 7.75rem;
+    }
+  }
   .play {
     align-self: stretch;
     display: flex;

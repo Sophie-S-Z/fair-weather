@@ -1,32 +1,15 @@
-import { readdirSync, readFileSync } from 'node:fs';
 import { Container, Graphics, type Application } from 'pixi.js';
 import { expect, test } from 'vitest';
 import springJson from '../../../content/palettes/spring.json';
-import { castColor, CastSchema, type Cast } from '../../../src/render/cast.ts';
-import { RigSchema, type Rig } from '../../../src/render/line/rig.ts';
+import { castColor, creatureColor } from '../../../src/render/cast.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { createSoulView, soulFrame, soulLayout } from '../../../src/render/soul-view.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 import { lite } from './lite-fixture.ts';
+import { rigs, cast } from './content-fixture.ts';
 
 const palette = PaletteSchema.parse(springJson);
 const none = { right: 0, bottom: 0 };
-const rigs = new Map<string, Rig>(
-  readdirSync('content/rigs')
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => {
-      const rig = RigSchema.parse(JSON.parse(readFileSync(`content/rigs/${f}`, 'utf8')));
-      return [rig.id, rig];
-    }),
-);
-const cast = new Map<string, Cast>(
-  readdirSync('content/cast')
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => {
-      const c = CastSchema.parse(JSON.parse(readFileSync(`content/cast/${f}`, 'utf8')));
-      return [c.id, c];
-    }),
-);
 const settings: Settings = {
   textScale: 1,
   highContrast: false,
@@ -99,13 +82,14 @@ test('Soul on a creature with no ties draws only the center', () => {
   expect(soul.pick(10, 10)).toBeNull();
 });
 
-test('Soul draws its stars in the full colors, and picks a star or the center', () => {
+test('Soul draws cast stars in their own colors and villagers in the shared one, and picks', () => {
   const soul = createSoulView(fakeApp(), palette, rigs, cast, 0.3);
   const w = lite(
-    [['pim'], ['krit'], ['echo']],
+    [['pim'], ['krit'], ['echo'], ['villager-3']],
     [
       ['krit', 'pim', 0.9, 0.9],
       ['echo', 'pim', -0.4, -0.4],
+      ['villager-3', 'pim', 0.8, 0.8],
     ],
   );
   soul.update(w, settings, 'pim', none);
@@ -116,14 +100,15 @@ test('Soul draws its stars in the full colors, and picks a star or the center', 
       .filter((i) => i.action === 'fill')
       .map((i) => (i.data.style as { color: number }).color),
   );
-  for (const c of colors) expect(palette.full).toContain(c);
-  // A cast member's star is its own color, as its node is in the Cosmos.
+  // A cast member's star is its own color, and a villager's the shared one, as in the Cosmos.
+  const shared = creatureColor('villager-3', cast, palette);
+  expect(palette.full).not.toContain(shared);
   const own = (id: string): number => {
     const c = cast.get(id);
     if (!c) throw new Error(`no cast ${id}`);
     return castColor(c, palette);
   };
-  expect([...colors]).toEqual(expect.arrayContaining([own('krit'), own('echo')]));
+  expect(new Set(colors)).toEqual(new Set([own('krit'), own('echo'), shared]));
   const frame = soulFrame(1280, 720, none);
   const krit = soulLayout(w, 'pim', 0.3).find((s) => s.id === 'krit');
   const at = (s: { x: number; y: number }): [number, number] => [

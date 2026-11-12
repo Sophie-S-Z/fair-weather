@@ -25,14 +25,14 @@ const AREA_FACTOR_MAX = 1.5;
 const FOCUS_MIX = 0.55;
 const FOCUS_MIX_COLOR = 0.35;
 /** Sway: a small rock about the feet, in radians, and its period in seconds (spec 11.2). */
-const SWAY_ANGLE = 0.04;
+export const SWAY_ANGLE = 0.04;
 const SWAY_SECONDS = 3;
 /** How fast the camera closes on a new shot, per second. */
 const CAMERA_RATE = 3;
 /** Scenery line width in scene units. */
 const SCENERY_WIDTH = 6;
 /** A dancing creature hops this high, in scene units, once every this many seconds. */
-const HOP_HEIGHT = 7;
+export const HOP_HEIGHT = 7;
 const HOP_SECONDS = 0.5;
 /** The heat map grid over the scene, and the alpha of its most watched cell. */
 const HEAT_COLS = 16;
@@ -42,11 +42,11 @@ const HEAT_ALPHA = 0.4;
 const CURSOR_RADIUS = 16;
 /**
  * A shadow at each creature's feet: an ink ellipse this wide and tall, as shares of its body
- * height, at this alpha (more in high contrast). It lies under the water, so a body on the bank
- * shows a shadow cut off by the bank line, and its feet read as on the land.
+ * height, at this alpha (more in high contrast), so its feet read as on the ground. The sim's bank
+ * keeps it off the water (tests/unit/render/bank.test.ts); on a bridge deck it lies on the deck.
  */
-const SHADOW_WIDTH = 0.9;
-const SHADOW_HEIGHT = 0.24;
+export const SHADOW_WIDTH = 0.9;
+export const SHADOW_HEIGHT = 0.24;
 const SHADOW_ALPHA = 0.3;
 const SHADOW_ALPHA_HIGH_CONTRAST = 0.45;
 const SHADOW_POINTS = 12;
@@ -350,9 +350,9 @@ function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): n
 /**
  * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent, in the season's
  * palette. It draws snapshots only and never changes the world. Creatures use their own rig, or
- * the villager rig. Water and bridges lie flat on the ground, over each creature's shadow, so a
- * shadow stops at the bank line. Creatures, trees, benches, lanterns,
- * and the mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
+ * the villager rig. Water and bridges lie flat on the ground; each creature's shadow lies under
+ * them, or on its deck when it stands on one. Creatures, trees, benches, lanterns, and the
+ * mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
  * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
@@ -372,6 +372,7 @@ export function createMeadowView(
   const ground = new Graphics({ label: 'ground' });
   const land = new Graphics({ label: 'land' });
   const shadows = new Graphics({ label: 'shadows' });
+  const deckShadows = new Graphics({ label: 'deck-shadows' });
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -382,7 +383,7 @@ export function createMeadowView(
   let cursorAt: { x: number; y: number } | null = null;
   /** What the ring was drawn for; '' redraws it. */
   let cursorKey = '';
-  world.addChild(ground, shadows, land, light.graphics, actors, fog.sprite, heat.sprite, cursor);
+  world.addChild(ground, shadows, land, deckShadows, light.graphics, actors, fog.sprite, heat.sprite, cursor);
   app.stage.addChild(world);
 
   const trees = scene.trees.map((tree) => {
@@ -452,10 +453,10 @@ export function createMeadowView(
         props.clear();
         landKey = mushroomKey = '';
       }
-      const key = JSON.stringify([next.water, next.decks]);
+      const key = JSON.stringify([next.water, next.decks, next.islets]);
       if (key !== landKey) {
         landKey = key;
-        drawLand(land, next.water, next.decks, palette, w, scene);
+        drawLand(land, next.water, next.decks, next.islets, palette, w, scene);
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
@@ -503,6 +504,7 @@ export function createMeadowView(
 
       drawn = [];
       shadows.clear();
+      deckShadows.clear();
       const shade = {
         color: palette.ink,
         alpha: settings.highContrast ? SHADOW_ALPHA_HIGH_CONTRAST : SHADOW_ALPHA,
@@ -514,7 +516,11 @@ export function createMeadowView(
         drawn.push({ ...c, height: entry.height });
         // On the ground, so a hop lifts the body off its shadow.
         const h = entry.height;
-        oval(shadows, c.x, c.y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
+        const onDeck = next.decks.some(
+          (d) => c.x >= d.x && c.x <= d.x + d.w && c.y >= d.y && c.y <= d.y + d.h,
+        );
+        const layer = onDeck ? deckShadows : shadows;
+        oval(layer, c.x, c.y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
         const { container } = entry.view;
         container.visible = true;
         // Dancers hop together.

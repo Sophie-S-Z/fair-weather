@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest';
-import { bridgeDeck, inRect, inWater, waterBlocking, withBank } from '../../../src/sim/land.ts';
+import {
+  bridgeDeck,
+  inRect,
+  inWater,
+  islets,
+  landOf,
+  waterBlocking,
+  withBank,
+} from '../../../src/sim/land.ts';
 import { fogAt } from '../../../src/sim/light.ts';
 import { step } from '../../../src/sim/step.ts';
 import type { Rect, SimEvent, Structure, World } from '../../../src/sim/types.ts';
@@ -53,12 +61,13 @@ test('with one bridge at (810, 450), a creature enters the bank only on its deck
 });
 
 /** The longest run of ticks in which some wandering creature does not move, over `days`. */
-function longestStill(w: World, days: number): number {
+function longestStill(w: World, days: number, each?: () => void): number {
   const last = new Map(w.creatures.map((c) => [c.id, [c.x, c.y]]));
   const still = new Map<string, number>();
   let longest = 0;
   while (w.day < days) {
     step(w, [], t);
+    each?.();
     for (const c of w.creatures) {
       const [x, y] = last.get(c.id) ?? [];
       const n = c.state === 'wander' && x === c.x && y === c.y ? (still.get(c.id) ?? 0) + 1 : 0;
@@ -136,15 +145,96 @@ test('a deck crosses the water and its bank the short way, bridge.landing past e
 
 test('a step into the bank is refused off a deck and allowed along one', () => {
   const bridge: Structure = { id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 };
-  const w = makeWorld([], { water: [brook], structures: [bridge] });
+  const land = landOf(makeWorld([], { water: [brook], structures: [bridge] }), t);
   const edge = brook.x - t.bank.side;
-  expect(waterBlocking(w, edge - 2, 200, edge + 1, 200, t)).toEqual(brook);
-  expect(waterBlocking(w, edge - 2, 200, edge - 1, 200, t)).toBeNull();
-  expect(waterBlocking(w, edge - 2, 450, edge + 2, 450, t)).toBeNull();
-  expect(waterBlocking(w, 810, 450, 810, 450 + t.bridge.radius + 1, t)).toEqual(brook);
-  // A creature already in the bank off every deck (it started there) may walk out, not in.
-  expect(waterBlocking(w, edge + 4, 200, edge + 1, 200, t)).toBeNull();
-  expect(waterBlocking(w, edge + 4, 200, brook.x + 1, 200, t)).toEqual(brook);
+  expect(waterBlocking(land, edge - 2, 200, edge + 1, 200)).toEqual(brook);
+  expect(waterBlocking(land, edge - 2, 200, edge - 1, 200)).toBeNull();
+  expect(waterBlocking(land, edge - 2, 450, edge + 2, 450)).toBeNull();
+  expect(waterBlocking(land, 810, 450, 810, 450 + t.bridge.radius + 1)).toEqual(brook);
+});
+
+test('a creature in a bank off a deck may walk out or along it, never nearer the water', () => {
+  const land = landOf(makeWorld([], { water: [brook] }), t);
+  const edge = brook.x - t.bank.side;
+  expect(waterBlocking(land, edge + 4, 200, edge + 1, 200)).toBeNull(); // out
+  expect(waterBlocking(land, edge + 4, 200, edge + 4, 210)).toBeNull(); // along
+  expect(waterBlocking(land, edge + 4, 200, edge + 6, 200)).toEqual(brook); // deeper
+  expect(waterBlocking(land, edge + 4, 200, brook.x + 1, 200)).toEqual(brook); // into the water
+});
+
+// The ch6 pond: a ring of water round a 60 x 60 islet at (990, 390).
+const pond: Rect[] = [
+  { x: 950, y: 350, w: 140, h: 40 },
+  { x: 950, y: 450, w: 140, h: 40 },
+  { x: 950, y: 390, w: 40, h: 60 },
+  { x: 1050, y: 390, w: 40, h: 60 },
+];
+
+test('the ground a ring of water closes in is an islet, walked freely but never left', () => {
+  expect(islets(pond)).toEqual([{ x: 990, y: 390, w: 60, h: 60 }]);
+  expect(islets([brook])).toEqual([]);
+  const land = landOf(makeWorld([], { water: pond }), t);
+  // The islet lies wholly in the bank, too small for a body clear of the water: its residents are
+  // held by the water only.
+  expect(waterBlocking(land, 1000, 400, 1040, 440)).toBeNull();
+  expect(waterBlocking(land, 1040, 440, 1000, 400)).toBeNull();
+  expect(waterBlocking(land, 1000, 400, 985, 400)).toEqual(pond[2]);
+});
+
+test('two creatures on an islet walk it, never stall at the water, and never leave it', () => {
+  const w = makeWorld(
+    [
+      { id: 'a', x: 1005, y: 420, berries: 100 },
+      { id: 'b', x: 1035, y: 420, berries: 100 },
+    ],
+    { water: pond },
+  );
+  const isle = { x: 990, y: 390, w: 60, h: 60 };
+  const seen = new Set<string>();
+  const check = (): void => {
+    for (const c of w.creatures) {
+      expect(inRect(isle, c.x, c.y)).toBe(true);
+      seen.add(`${String(Math.round(c.x / 10))},${String(Math.round(c.y / 10))}`);
+    }
+  };
+  expect(longestStill(w, 3, check)).toBeLessThanOrEqual(2);
+  expect(seen.size).toBeGreaterThan(4);
+});
+
+test('a creature placed in a bank starts just past it; on an islet or a deck it stays', () => {
+  const edge = brook.x - t.bank.side;
+  const w = makeWorld(
+    [
+      { id: 'bank', x: 760, y: 200 },
+      { id: 'deck', x: 760, y: 450 },
+    ],
+    { water: [brook], structures: [{ id: 'bridge-s0', kind: 'bridge', x: 810, y: 450 }] },
+  );
+  expect([get(w, 'bank').x, get(w, 'bank').y]).toEqual([edge - 1, 200]);
+  expect([get(w, 'bank').goalX, get(w, 'bank').goalY]).toEqual([edge - 1, 200]);
+  expect([get(w, 'deck').x, get(w, 'deck').y]).toEqual([760, 450]);
+  const isle = makeWorld([{ id: 'isle', x: 1005, y: 420 }], { water: pond });
+  expect([get(isle, 'isle').x, get(isle, 'isle').y]).toEqual([1005, 420]);
+});
+
+test('a creature turned back on one deck aims at that deck, not a nearer bridge beside it', () => {
+  // Bridge b is nearer the creature than bridge a, whose deck it stands on.
+  const a: Structure = { id: 'bridge-a', kind: 'bridge', x: 785, y: 300 };
+  const b: Structure = { id: 'bridge-b', kind: 'bridge', x: 835, y: 380 };
+  const deck = bridgeDeck(a, [brook], t);
+  if (!deck) throw new Error('no deck');
+  const w = makeWorld([{ id: 'c', x: 840, y: deck.y + deck.h - 1 }], {
+    water: [brook],
+    structures: [a, b],
+  });
+  const c = get(w, 'c');
+  expect((c.x - b.x) ** 2 + (c.y - b.y) ** 2).toBeLessThan((c.x - a.x) ** 2 + (c.y - a.y) ** 2);
+  // Heading south-east, off the deck's south edge into the bank: refused.
+  [c.vx, c.vy] = [0, t.move.speed];
+  [c.goalX, c.goalY] = [1000, 700];
+  step(w, [], t);
+  expect([c.x, c.y]).toEqual([840, deck.y + deck.h - 1]);
+  expect([c.goalX, c.goalY]).toEqual([deck.x + deck.w, a.y]);
 });
 
 test('a lantern halves the fog within 120 units and nowhere else', () => {

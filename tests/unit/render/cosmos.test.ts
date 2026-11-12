@@ -1,20 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs';
 import { Container, Graphics, type Application } from 'pixi.js';
 import { expect, test } from 'vitest';
 import springJson from '../../../content/palettes/spring.json';
-import { castColor, CastSchema, type Cast } from '../../../src/render/cast.ts';
+import { castColor, creatureColor } from '../../../src/render/cast.ts';
 import { viewTransform, toScreen } from '../../../src/render/camera.ts';
-import {
-  cosmosEdges,
-  createCosmosView,
-  pickedColor,
-  valleyTop,
-  type Band,
-} from '../../../src/render/cosmos-view.ts';
+import { cosmosEdges, createCosmosView, valleyTop, type Band } from '../../../src/render/cosmos-view.ts';
 import { CREATURE_HEIGHT } from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 import { lite } from './lite-fixture.ts';
+import { cast } from './content-fixture.ts';
 
 const palette = PaletteSchema.parse(springJson);
 const settings: Settings = {
@@ -28,14 +22,6 @@ const noTimeline = { points: [], breaks: [] };
 const fakeApp = (): Application =>
   ({ stage: new Container(), screen: { width: 1280, height: 720 } }) as unknown as Application;
 const same = (x: number, y: number): [number, number] => [x, y];
-const cast = new Map<string, Cast>(
-  readdirSync('content/cast')
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => {
-      const c = CastSchema.parse(JSON.parse(readFileSync(`content/cast/${f}`, 'utf8')));
-      return [c.id, c];
-    }),
-);
 
 test('cosmosEdges keeps friends and scars, and leaves out plain ties and creatures away', () => {
   const w = lite(
@@ -161,7 +147,7 @@ test('the picked node lights up on top in its own color with a thick outline; vi
   expect(lit.slice(0, -1).every((n) => n.fill === palette.paper)).toBe(true);
 
   // Each cast member has a color of its own; villagers share one more, outside the cast's.
-  const shared = pickedColor('villager-1', cast, palette);
+  const shared = creatureColor('villager-1', cast, palette);
   expect(new Set([...cast.values()].map((c) => castColor(c, palette)).concat(shared)).size).toBe(
     cast.size + 1,
   );

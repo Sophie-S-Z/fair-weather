@@ -1,7 +1,7 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Settings } from '../ui/settings.ts';
-import { castColor, type Cast } from './cast.ts';
+import { creatureColor, type Cast } from './cast.ts';
 import { dashedLine, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
 import { createLineView } from './line/line-view.ts';
 import type { Rig } from './line/rig.ts';
@@ -75,18 +75,6 @@ export function soulFrame(
   return { x: w / 2, y: h / 2, radius: (Math.min(w, h) / 2) * FILL };
 }
 
-/**
- * One of the palette's six full colors for a creature, the same every time: a cast member's own,
- * or one picked from a villager's id.
- */
-function colorOf(id: string, palette: Palette, cast: Map<string, Cast>): number {
-  const member = cast.get(id);
-  if (member) return castColor(member, palette);
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997;
-  return palette.full[h % palette.full.length] ?? palette.ink;
-}
-
 export interface SoulView {
   container: Container;
   /**
@@ -127,7 +115,7 @@ export function createSoulView(
     soul = null;
     const rig = rigs.get(id) ?? rigs.get(FALLBACK_RIG);
     if (!rig) return null;
-    const color = colorOf(id, palette, cast);
+    const color = creatureColor(id, cast, palette);
     const view = createLineView(rig, { ink: palette.ink, accent: color, paper: palette.paper });
     view.container.label = id;
     container.addChild(view.container);
@@ -154,7 +142,7 @@ export function createSoulView(
         y: frame.y + s.y * frame.radius,
       }));
       for (const s of stars) {
-        const color = colorOf(s.id, palette, cast);
+        const color = creatureColor(s.id, cast, palette);
         const g = constellation.moveTo(frame.x, frame.y);
         if (s.kind === 'friend') {
           g.lineTo(s.x, s.y).stroke({ ...inkStroke(palette, GLOW_WIDTH * k, GLOW_ALPHA), color });
@@ -172,7 +160,7 @@ export function createSoulView(
       for (const s of stars) {
         constellation
           .circle(s.x, s.y, STAR_RADIUS)
-          .fill(colorOf(s.id, palette, cast))
+          .fill(creatureColor(s.id, cast, palette))
           .stroke(inkStroke(palette, STAR_LINE * k));
       }
       nodes = [...stars, { id, x: frame.x, y: frame.y }];
@@ -185,7 +173,7 @@ export function createSoulView(
       view.container.scale.set(size, -size);
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
       view.update(shell, seconds, settings.reducedMotion, 0, {
-        body: colorOf(id, palette, cast),
+        body: creatureColor(id, cast, palette),
         widthScale: k,
       });
     },

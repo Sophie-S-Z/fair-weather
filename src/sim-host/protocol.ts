@@ -46,6 +46,8 @@ export interface WorldLite {
   water: Rect[];
   /** Each bridge's deck (sim/land.ts bridgeDeck), in structure order; [] with none. */
   decks: Deck[];
+  /** Ground the water closes in (sim/land.ts islets); [] with none. */
+  islets: Rect[];
   /** The dew mushroom, with the drops left today; null with none. */
   mushroom: { x: number; y: number; drops: number; witherDays: number } | null;
 }

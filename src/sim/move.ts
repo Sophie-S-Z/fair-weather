@@ -5,7 +5,7 @@ import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { bridgeDeck, inRect, nearestBridgeOn, waterBlocking } from './land.ts';
+import { inRect, islets, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
 
@@ -83,10 +83,21 @@ function pickRandomGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): vo
 
 /**
  * Sets the goal. With a ridge it stays west of it by the arrival radius plus the distance a
- * creature at full speed needs to stop, so only a gust sends anyone over (ADR 0012 item 3).
+ * creature at full speed needs to stop (the margin), so only a gust sends anyone over. A creature
+ * on an islet keeps its goal on the islet, the margin in from the water where the islet is wide
+ * enough (its middle where not), so it walks the islet instead of stopping at the water (ADR 0012
+ * item 3).
  */
 function setGoal(c: Creature, x: number, y: number, world: World, t: Tuning): void {
   const margin = t.move.arriveRadius + (t.move.speed * t.move.speed) / (2 * t.move.accel);
+  const isle = world.water ? islets(world.water).find((r) => inRect(r, c.x, c.y)) : undefined;
+  if (isle) {
+    const keep = (v: number, lo: number, size: number): number =>
+      size > 2 * margin ? clamp(v, lo + margin, lo + size - margin) : lo + size / 2;
+    c.goalX = keep(x, isle.x, isle.w);
+    c.goalY = keep(y, isle.y, isle.h);
+    return;
+  }
   c.goalX = world.ridgeX === undefined ? x : Math.min(x, Math.max(0, world.ridgeX - margin));
   c.goalY = y;
 }
@@ -133,23 +144,24 @@ function takeDrop(c: Creature, world: World, tuning: Tuning): void {
 }
 
 /**
- * A refused step into `water` or its bank (ADR 0012 item 3). The creature stops and heads for the
- * nearest bridge on that water: for the foot of its deck, just past the bank, on its own side, or,
- * from on the deck, on its goal's side. When no bridge can help (none on that water, or it already
- * heads for the foot or stands within move.arriveRadius of it), it counts its goal's cell as
- * visited as often as its most visited cell and picks a random least-visited cell, so the refused
- * goal cannot come straight back.
+ * A refused step into `water` or its bank (ADR 0012 item 3). The creature stops and heads for a
+ * deck foot, just past the bank: of the deck it stands on, toward its goal's side, or else of the
+ * deck on that water nearest it, on its own side. When no deck can help (none on that water, or
+ * it already heads for the foot or stands within move.arriveRadius of it), it counts its goal's
+ * cell as visited as often as its most visited cell and picks a random least-visited cell, so the
+ * refused goal cannot come straight back.
  */
-function turnFromWater(c: Creature, water: Rect, world: World, tuning: Tuning, rng: Rng): void {
+function turnFromWater(c: Creature, water: Rect, land: Land, world: World, tuning: Tuning, rng: Rng): void {
   c.vx = 0;
   c.vy = 0;
-  const bridge = nearestBridgeOn(world, water, c.x, c.y);
-  const deck = bridge && bridgeDeck(bridge, world.water ?? [], tuning);
-  if (bridge && deck) {
-    const [sx, sy] = inRect(deck, c.x, c.y) ? [c.goalX, c.goalY] : [c.x, c.y];
+  const on = land.decks.find((d) => inRect(d, c.x, c.y));
+  const deck = on ?? nearestDeckOn(land, water, c.x, c.y);
+  if (deck) {
+    const [sx, sy] = on ? [c.goalX, c.goalY] : [c.x, c.y];
+    const [mx, my] = [deck.x + deck.w / 2, deck.y + deck.h / 2];
     const [fx, fy] = deck.eastWest
-      ? [sx < bridge.x ? deck.x : deck.x + deck.w, bridge.y]
-      : [bridge.x, sy < bridge.y ? deck.y : deck.y + deck.h];
+      ? [sx < mx ? deck.x : deck.x + deck.w, my]
+      : [mx, sy < my ? deck.y : deck.y + deck.h];
     const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
     if ((fx !== c.goalX || fy !== c.goalY) && dist2(c.x, c.y, fx, fy) > arrive2) {
       setGoal(c, fx, fy, world, tuning);
@@ -160,7 +172,7 @@ function turnFromWater(c: Creature, water: Rect, world: World, tuning: Tuning, r
   pickRandomGoal(c, world, tuning, rng);
 }
 
-function steer(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
+function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng): void {
   const sps = tuning.sim.stepsPerSecond;
   const maxSpeed = tuning.move.speed;
   const maxDv = tuning.move.accel / sps;
@@ -185,9 +197,9 @@ function steer(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
   }
   const nx = clamp(c.x + c.vx / sps, 0, tuning.scene.width);
   const ny = clamp(c.y + c.vy / sps, 0, tuning.scene.height);
-  const water = waterBlocking(world, c.x, c.y, nx, ny, tuning);
+  const water = waterBlocking(land, c.x, c.y, nx, ny);
   if (water) {
-    turnFromWater(c, water, world, tuning, rng);
+    turnFromWater(c, water, land, world, tuning, rng);
     return;
   }
   c.x = nx;
@@ -209,6 +221,7 @@ function leaveLens(c: Creature, world: World, tuning: Tuning): void {
 /** One movement step for every creature, in array order. Only `wander` creatures move, forage, or take drops. */
 export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
   const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
+  const land = landOf(world, tuning);
   for (const c of world.creatures) {
     if (c.state === 'meet' && world.tick >= c.stateUntilTick) c.state = 'wander';
     if (c.state !== 'wander') {
@@ -220,7 +233,7 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     takeDrop(c, world, tuning);
     if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, tuning, rng);
     leaveLens(c, world, tuning);
-    steer(c, world, tuning, rng);
+    steer(c, land, world, tuning, rng);
     const cell = visitCell(c.x, c.y, tuning);
     c.visits[cell] = (c.visits[cell] ?? 0) + 1;
   }

@@ -3,6 +3,7 @@ import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './t
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { byCodeUnit, clamp } from './math.ts';
+import { clearOfBanks, landOf } from './land.ts';
 
 const VISIT_CELLS = 32; // 8 columns by 4 rows (ADR 0005)
 
@@ -74,7 +75,15 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     boosts: [],
   };
   // Only when set, so a world without land keeps the same keys (and hash).
-  if (scenario.water) world.water = scenario.water.map((r) => ({ ...r }));
+  if (scenario.water) {
+    world.water = scenario.water.map((r) => ({ ...r }));
+    // No body starts over water: feet in a bank, off a deck and an islet, move just past it.
+    const land = landOf(world, tuning);
+    for (const c of world.creatures) {
+      [c.x, c.y] = clearOfBanks(land, c.x, c.y, tuning);
+      [c.goalX, c.goalY] = [c.x, c.y];
+    }
+  }
   if (scenario.ridgeX !== undefined) world.ridgeX = scenario.ridgeX;
   if (scenario.mushroom) {
     const { x, y } = scenario.mushroom;

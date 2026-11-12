@@ -41,51 +41,6 @@ function drawBridge(g: Graphics, deck: Deck, palette: Palette, w: number): void 
 const WATER_CORNER = 14;
 const ISLET_MARGIN = 5;
 
-/**
- * Ground that water closes in on every side: the dry cells, of the grid the water's edges make,
- * that no dry path joins to the open meadow.
- */
-export function islets(water: readonly Rect[]): Rect[] {
-  const edges = (a: number[]): number[] => [...new Set(a)].sort((p, q) => p - q);
-  const xs = edges(water.flatMap((r) => [r.x, r.x + r.w]));
-  const ys = edges(water.flatMap((r) => [r.y, r.y + r.h]));
-  const cols = xs.length - 1;
-  const rows = ys.length - 1;
-  const cell = (k: number): Rect => {
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    const [x, y] = [xs[i] ?? 0, ys[j] ?? 0];
-    return { x, y, w: (xs[i + 1] ?? 0) - x, h: (ys[j + 1] ?? 0) - y };
-  };
-  const dry = (k: number): boolean => {
-    const c = cell(k);
-    return !water.some((r) => inRect(r, c.x + c.w / 2, c.y + c.h / 2));
-  };
-  // Flood the dry cells from the grid's border; the dry cells left over are islets.
-  const open = new Set<number>();
-  const todo: number[] = [];
-  for (let k = 0; k < cols * rows; k++) {
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    if ((i === 0 || j === 0 || i === cols - 1 || j === rows - 1) && dry(k)) todo.push(k);
-  }
-  for (let k = todo.pop(); k !== undefined; k = todo.pop()) {
-    if (open.has(k)) continue;
-    open.add(k);
-    const [i, j] = [k % cols, Math.floor(k / cols)];
-    for (const [di, dj] of [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ] as const) {
-      const [a, b] = [i + di, j + dj];
-      if (a >= 0 && b >= 0 && a < cols && b < rows && dry(b * cols + a)) todo.push(b * cols + a);
-    }
-  }
-  const out: Rect[] = [];
-  for (let k = 0; k < cols * rows; k++) if (dry(k) && !open.has(k)) out.push(cell(k));
-  return out;
-}
-
 /** A rectangle whose corners round off where `round(x, y)` is true. */
 function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean): Graphics {
   const radius = Math.min(WATER_CORNER, r.w / 2, r.h / 2);
@@ -105,16 +60,18 @@ function softRect(g: Graphics, r: Rect, round: (x: number, y: number) => boolean
 }
 
 /**
- * The water and the bridge decks over it (from the snapshot, the sim's own decks): flat on the ground, under everything that stands. An islet
- * (ground that water closes in) is filled as water first, so the pond is one shape. Each piece is
- * outlined at twice the line width and then filled, so where pieces meet their outlines are covered
- * and one bank line runs round the whole water. A corner rounds off unless other water touches it or it lies on the scene's edge.
- * Each islet is then drawn as its own patch of ground with a bank line, out on the water a little.
+ * The water, its islets, and the bridge decks over it, all from the snapshot (the sim's own): flat
+ * on the ground, under everything that stands. An islet (ground that water closes in) is filled as
+ * water first, so the pond is one shape. Each piece is outlined at twice the line width and then
+ * filled, so where pieces meet their outlines are covered and one bank line runs round the whole
+ * water. A corner rounds off unless other water touches it or it lies on the scene's edge. Each
+ * islet is then drawn as its own patch of ground with a bank line, out on the water a little.
  */
 export function drawLand(
   g: Graphics,
   water: readonly Rect[],
   decks: readonly Deck[],
+  isles: readonly Rect[],
   palette: Palette,
   w: number,
   scene: { width: number; height: number },
@@ -122,7 +79,6 @@ export function drawLand(
   g.clear();
   // Water that runs off the scene stays square there, so a brook flows on past the page.
   const onEdge = (x: number, y: number): boolean => x <= 0 || y <= 0 || x >= scene.width || y >= scene.height;
-  const isles = islets(water);
   const pond = [...water, ...isles];
   const shapes = pond.map(
     (r) => (piece: Graphics) =>

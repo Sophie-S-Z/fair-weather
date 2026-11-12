@@ -6,7 +6,7 @@ import { RIG_POINTS, type Rig } from './rig.ts';
 import { buildStrip, dashMask, stripIndices, taperedWidth } from './strip.ts';
 
 /** Ink line width in rig units. */
-const INK_WIDTH = 0.05;
+export const INK_WIDTH = 0.05;
 /** How far the body moves from paper toward the accent at shell color 1 (spec 5.2). */
 const ACCENT_MIX = 0.6;
 /** Eye and blush radii in rig units (spec 5.1: two dot eyes, two blush marks). */

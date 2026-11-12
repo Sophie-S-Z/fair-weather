@@ -96,7 +96,7 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6 });
   expect(t.bet).toEqual({ revealSpeed: 8 });
   expect(t.bridge).toEqual({ radius: 32, landing: 14 });
-  expect(t.bank).toEqual({ side: 52, below: 128 });
+  expect(t.bank).toEqual({ side: 53, below: 123 });
   expect(t.lantern).toEqual({ radius: 120, fogFactor: 0.5 });
 });
 

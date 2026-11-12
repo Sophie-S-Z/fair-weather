@@ -11,9 +11,10 @@ Format: Status, Context, Decision, Consequences. A new decision gets the next nu
 | [0003](0003-meetings.md) | Meeting rules | Accepted |
 | [0004](0004-daily-rules-and-economy.md) | Daily rules, berries, and sky warmth | Accepted |
 | [0005](0005-movement.md) | Movement and goals | Accepted |
-| [0006](0006-trust-mode-and-t4.md) | Trust mode and the T4 thresholds | Proposed (needs the user) |
+| [0006](0006-trust-mode-and-t4.md) | Trust mode and the T4 thresholds | Accepted |
 | [0007](0007-part-2-defaults.md) | Part 2 rule defaults | Accepted |
 | [0008](0008-toolchain-and-versions.md) | Toolchain and version pins | Accepted |
 | [0009](0009-worker-protocol.md) | Worker protocol and replay | Accepted |
 | [0010](0010-placeholder-content.md) | Placeholder art and placeholder text | Accepted |
 | [0011](0011-composition-root.md) | Composition root, sim speed on the port, and metrics in the snapshot | Accepted |
+| [0012](0012-part-1-rules.md) | Part 1 rules for chapters 4 to 10 | Accepted |

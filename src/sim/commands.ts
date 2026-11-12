@@ -179,6 +179,13 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       const c = present(world, cmd.who);
       return c ? [{ t: 'skyBid', who: c.id }] : [];
     }
+    case 'dance': {
+      // The event marks a real change, as for wake.
+      const c = present(world, cmd.who);
+      if (!c || c.dancing) return [];
+      c.dancing = true;
+      return [{ t: 'dance', who: c.id }];
+    }
     case 'overPoke':
       for (const c of world.creatures) {
         if (c.state === 'away') continue;

@@ -4,7 +4,7 @@ import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
-import { avoidsLens, boostAt, fogAt, recordLitMeeting } from './light.ts';
+import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
 import { benchesOf, ensureTie, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
@@ -153,7 +153,8 @@ function pushDiary(c: Creature, entries: DiaryEntry[]): void {
 
 /**
  * Resolves one meeting between `a` and `b` and returns its events: the bid, then the bidder's
- * gift, then the replier's gift.
+ * gift, then the replier's gift, then, when the meeting is lit (its midpoint in the lens and
+ * neither side avoiding it), a `lit` event with the real behaviors.
  *
  * PRNG draws: always exactly seven per meeting, taken up front in this order:
  *   1. bidder tie-break (used only when the Openers are equal: below 0.5, `a` bids)
@@ -231,8 +232,8 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   for (const bh of [reply, bidderMove, replierMove]) {
     if (bh !== 'away' && !behaviors.includes(bh)) behaviors.push(bh);
   }
-  if (!avoidsLens(world, bidder) && !avoidsLens(world, replier))
-    recordLitMeeting(world, mx, my, behaviors, t);
+  const lit = inLens(world, mx, my, t) && !avoidsLens(world, bidder) && !avoidsLens(world, replier);
+  if (lit) recordLitMeeting(world, mx, my, behaviors, t);
 
   // Meeting state, tie count, and bench memory.
   const benchId = nearBenchId(world, mx, my, t);
@@ -258,9 +259,11 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
     pushDiary(c, [entry('bid'), entry('gift'), entry('gift')]);
   }
 
-  return [
+  const events: SimEvent[] = [
     { t: 'bid', from: bidder.id, to: replier.id, reply, seenAs: replySeen },
     { t: 'gift', from: bidder.id, to: replier.id, move: bidderMove, seenAs: bidderSeen },
     { t: 'gift', from: replier.id, to: bidder.id, move: replierMove, seenAs: replierSeen },
   ];
+  if (lit) events.push({ t: 'lit', a: a.id, b: b.id, behaviors });
+  return events;
 }

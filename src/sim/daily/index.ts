@@ -8,10 +8,12 @@ import { decaySlights, driftWarmth } from './drift.ts';
 import { eat } from './eat.ts';
 import { gossip } from './gossip.ts';
 import { imitate } from './imitation.ts';
+import { mushroomDawn } from './mushroom.ts';
 import { leave, newcomer, regrowBushes, returnAway } from './population.ts';
 import { updateShells } from './shells.ts';
+import { ambientSkyBid } from './sky-bid.ts';
 
-// ADR 0004 item 1. Imitation and return check their own day.
+// ADR 0004 item 1, then the ADR 0012 rules. Imitation and return check their own day.
 const RULES: readonly DailyRule[] = [
   gossip,
   eat,
@@ -19,11 +21,13 @@ const RULES: readonly DailyRule[] = [
   leave,
   newcomer,
   regrowBushes,
+  mushroomDawn,
   driftWarmth,
   decaySlights,
   imitate,
   returnAway,
   makeArt,
+  ambientSkyBid,
 ];
 
 /** Runs all daily rules, expires boosts, resets each creature's light sky warmth for the day, and raises `day`. */

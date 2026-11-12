@@ -429,6 +429,24 @@ test('light: a lit meeting records a boost for each behavior that happened', () 
   expect(q.w.boosts.map((b) => b.behavior)).toEqual(['give']); // an away reply adds none
 });
 
+test('a meeting in the lens adds a lit event naming both creatures and the real behaviors', () => {
+  const p = pair();
+  p.w.fields.light = { x: 805, y: 450 };
+  // b replies toward, a gives, and fog would misread it: the lit event lists what really happened.
+  const ev = resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0, bidderGift: 0, bidderGiftFog: 0 }));
+  expect(ev).toHaveLength(4);
+  expect(ev[3]).toEqual({ t: 'lit', a: 'a', b: 'b', behaviors: ['toward', 'give', 'keep'] });
+
+  // Outside the lens, or with one side avoiding it, there is no lit event.
+  const far = pair();
+  far.w.fields.light = { x: 805 + t.light.lensRadius + 1, y: 450 };
+  expect(resolveMeeting(far.w, far.a, far.b, t, draws({}))).toHaveLength(3);
+  const shy = pair();
+  shy.w.fields.light = { x: 805, y: 450 };
+  shy.b.lensAvoidUntilDay = shy.w.day;
+  expect(resolveMeeting(shy.w, shy.a, shy.b, t, draws({}))).toHaveLength(3);
+});
+
 test('light: a toward boost nearby raises the reply chance, an against boost lowers it', () => {
   const pT = replyChance(0, 0.4, 0, 0, t);
   const p = pair();

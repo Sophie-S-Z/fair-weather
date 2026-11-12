@@ -30,7 +30,7 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
  * the scene; no creature, unless away, in water away from a bridge; population <= cap.sandbox;
- * unique creature ids; each tie stored under tieKey(a, b).
+ * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops].
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -69,6 +69,8 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (!inRange(tie.ab.warmth, -1, 1)) out.push(`tie ${key} ab.warmth ${String(tie.ab.warmth)}`);
     if (!inRange(tie.ba.warmth, -1, 1)) out.push(`tie ${key} ba.warmth ${String(tie.ba.warmth)}`);
   }
+  const m = world.mushroom;
+  if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);
   world.fields.fog.forEach((f, i) => {
     if (!inRange(f, 0, 1)) out.push(`fog[${String(i)}] ${String(f)}`);
   });

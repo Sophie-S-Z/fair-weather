@@ -10,6 +10,7 @@ const lite = (averageWarmth: number, friendPairs: number): WorldLite => ({
   metrics: { averageWarmth, friendPairs },
   structures: [],
   water: [],
+  mushroom: null,
   ties: [],
   rumor: null,
 });

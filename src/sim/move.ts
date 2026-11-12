@@ -1,4 +1,5 @@
-// Steering, goal choice, foraging, and visit counts (ADR 0005, ADR 0004 item 2, ADR 0003 item 9).
+// Steering, goal choice, foraging, dew drops, and visit counts (ADR 0005, ADR 0004 item 2,
+// ADR 0003 item 9, ADR 0012 item 5).
 // Velocity is in world units per second; position advances by velocity / stepsPerSecond per tick.
 import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
@@ -6,7 +7,7 @@ import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { inRect, nearestBridgeOn, waterBlocking } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
-import { benchesOf, friendsOf } from './world.ts';
+import { benchesOf, friendCount, friendsOf } from './world.ts';
 
 const COLS = 8;
 const ROWS = 4;
@@ -35,9 +36,9 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
       return;
     }
   }
-  // 2. The nearest bush with berries, when hungry.
+  // 2. The nearest bush with berries, or the mushroom with a drop for it, when hungry.
   if (c.berries < 1) {
-    let best: (typeof world.bushes)[number] | undefined;
+    let best: { x: number; y: number } | undefined;
     let bestD = Infinity;
     for (const b of world.bushes) {
       if (b.berries < 1) continue;
@@ -47,6 +48,8 @@ function pickGoal(c: Creature, world: World, tuning: Tuning, rng: Rng): void {
         best = b;
       }
     }
+    const m = world.mushroom;
+    if (m && dropFor(c, m, world.day) && dist2(c.x, c.y, m.x, m.y) < bestD) best = m;
     if (best) {
       setGoal(c, best.x, best.y, world, tuning);
       return;
@@ -105,6 +108,28 @@ function forage(c: Creature, world: World, tuning: Tuning): void {
   best.berries -= 1;
   c.berries += 1;
   c.forageReadyTick = world.tick + tuning.forage.cooldownTicks;
+}
+
+/** True when the mushroom has a drop left today and `c` has not taken one today. */
+function dropFor(c: Creature, m: NonNullable<World['mushroom']>, day: number): boolean {
+  return m.taken < m.drops && c.mushroomDay !== day;
+}
+
+/**
+ * Within meet.radius of the mushroom, as for a bush, `c` takes one drop (one berry) a day when it
+ * carries fewer than mushroom.takeBelowBerries, or fewer than forage.carryMax while it has fewer
+ * than mushroom.trustFriends friends (ADR 0012 item 5).
+ */
+function takeDrop(c: Creature, world: World, tuning: Tuning): void {
+  const m = world.mushroom;
+  if (!m || !dropFor(c, m, world.day)) return;
+  if (dist2(c.x, c.y, m.x, m.y) > tuning.meet.radius * tuning.meet.radius) return;
+  const { takeBelowBerries, trustFriends } = tuning.mushroom;
+  const hoards = c.berries < tuning.forage.carryMax && friendCount(world, c, tuning) < trustFriends;
+  if (c.berries >= takeBelowBerries && !hoards) return;
+  m.taken += 1;
+  c.berries += 1;
+  c.mushroomDay = world.day;
 }
 
 /**
@@ -181,7 +206,7 @@ function leaveLens(c: Creature, world: World, tuning: Tuning): void {
   setGoal(c, x, clamp(light.y + (len > 0 ? (dy / len) * r : 0), 0, tuning.scene.height), world, tuning);
 }
 
-/** One movement step for every creature, in array order. Only `wander` creatures move or forage. */
+/** One movement step for every creature, in array order. Only `wander` creatures move, forage, or take drops. */
 export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
   const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
   for (const c of world.creatures) {
@@ -192,6 +217,7 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
       continue;
     }
     forage(c, world, tuning);
+    takeDrop(c, world, tuning);
     if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, tuning, rng);
     leaveLens(c, world, tuning);
     steer(c, world, tuning, rng);

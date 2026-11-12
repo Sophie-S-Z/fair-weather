@@ -38,7 +38,9 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     benchMemory: null,
     diary: [],
   };
-  if (s.gone) c.gone = true; // only when set, so other creatures keep the same keys (and hash)
+  // Only when set, so other creatures keep the same keys (and hash).
+  if (s.gone) c.gone = true;
+  if (s.danceThreshold !== undefined) c.danceThreshold = s.danceThreshold;
   return c;
 }
 
@@ -74,6 +76,11 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   // Only when set, so a world without land keeps the same keys (and hash).
   if (scenario.water) world.water = scenario.water.map((r) => ({ ...r }));
   if (scenario.ridgeX !== undefined) world.ridgeX = scenario.ridgeX;
+  if (scenario.mushroom) {
+    const { x, y } = scenario.mushroom;
+    world.mushroom = { x, y, drops: tuning.mushroom.drops, taken: 0, witherDays: 0 };
+  }
+  if (scenario.ambientSkyBids) world.ambientSkyBids = true;
   return world;
 }
 

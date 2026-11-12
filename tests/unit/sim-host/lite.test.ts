@@ -38,3 +38,14 @@ test('lite rumor holders leave out away creatures', () => {
 test('lite rumor is null with no rumor', () => {
   expect(toLite(createWorld(1, t, scenario), t).rumor).toBeNull();
 });
+
+test('lite carries who dances and the mushroom with the drops left today', () => {
+  const w = createWorld(1, t, { ...scenario, mushroom: { x: 400, y: 300 } });
+  get(w, 'pim').dancing = true;
+  w.mushroom!.taken = 3;
+  const lite = toLite(w, t);
+  expect(lite.creatures.find((c) => c.id === 'pim')!.dancing).toBe(true);
+  expect(lite.creatures.find((c) => c.id === 'krit')!.dancing).toBe(false);
+  expect(lite.mushroom).toEqual({ x: 400, y: 300, drops: 7, witherDays: 0 });
+  expect(toLite(createWorld(1, t, scenario), t).mushroom).toBeNull();
+});

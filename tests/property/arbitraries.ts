@@ -106,6 +106,7 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
     fc.record({ t: fc.constant('wake' as const), who: id }),
     fc.record({ t: fc.constant('promptSkyBid' as const), who: id }),
     fc.record({ t: fc.constant('overPoke' as const) }),
+    fc.record({ t: fc.constant('dance' as const), who: id }),
   );
 }
 
@@ -158,7 +159,8 @@ const rectArb: fc.Arbitrary<Rect> = fc
 
 /**
  * `runArb` with 0 to 2 water rectangles, 0 to 2 bridges in them, 0 to 2 lanterns, and sometimes
- * a ridge. Creatures that would start in water are dropped.
+ * a ridge, a mushroom, ambient sky bids, and a dance threshold of 1 to 3 on the first creature.
+ * Creatures that would start in water are dropped.
  */
 export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
   fc.array(rectArb, { maxLength: 2 }).chain((water) =>
@@ -170,8 +172,11 @@ export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
             : fc.constant<{ x: number; y: number }[]>([]),
         lanterns: fc.array(fc.record({ x: sx, y: sy }), { maxLength: 2 }),
         ridgeX: fc.option(fc.double({ min: 200, max: tuning.scene.width, noNaN: true }), { nil: undefined }),
+        mushroom: fc.option(fc.record({ x: sx, y: sy }), { nil: undefined }),
+        ambientSkyBids: fc.boolean(),
+        danceThreshold: fc.option(fc.integer({ min: 1, max: 3 }), { nil: undefined }),
       })
-      .map(({ bridges, lanterns, ridgeX }) => {
+      .map(({ bridges, lanterns, ridgeX, mushroom, ambientSkyBids, danceThreshold }) => {
         const scenario: Scenario = {
           ...run.scenario,
           creatures: run.scenario.creatures.filter((c) => !water.some((r) => inRect(r, c.x, c.y))),
@@ -183,6 +188,11 @@ export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
         };
         if (water.length > 0) scenario.water = water;
         if (ridgeX !== undefined) scenario.ridgeX = ridgeX;
+        if (mushroom) scenario.mushroom = mushroom;
+        if (ambientSkyBids) scenario.ambientSkyBids = true;
+        const [first, ...rest] = scenario.creatures;
+        if (first && danceThreshold !== undefined)
+          scenario.creatures = [{ ...first, danceThreshold }, ...rest];
         return { ...run, scenario };
       }),
   ),

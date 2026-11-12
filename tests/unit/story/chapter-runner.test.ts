@@ -119,6 +119,7 @@ function lite(
       shell,
       berries: b,
       skyWarmth: id === 'pim' ? (o.pimSky ?? 0) : 0,
+      dancing: false,
       dials,
     })),
     light: null,
@@ -126,6 +127,7 @@ function lite(
     metrics: o.metrics ?? { averageWarmth: 0, friendPairs: 0 },
     structures: o.structures ?? (o.bench ? [{ id: 'bench-1', kind: 'bench', x: 10, y: 10 }] : []),
     water: [],
+    mushroom: null,
     ties: [],
     rumor: null,
   };

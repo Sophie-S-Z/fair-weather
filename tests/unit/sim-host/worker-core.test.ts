@@ -79,6 +79,7 @@ test('the snapshot holds the world-lite fields only', () => {
   const c = lite?.creatures[0];
   expect(Object.keys(c ?? {}).sort()).toEqual([
     'berries',
+    'dancing',
     'dials',
     'id',
     'shell',
@@ -92,6 +93,7 @@ test('the snapshot holds the world-lite fields only', () => {
     'fog',
     'light',
     'metrics',
+    'mushroom',
     'rumor',
     'structures',
     'ties',

@@ -56,6 +56,12 @@ export interface Creature {
   lensAvoidUntilDay?: number;
   /** Left over the east ridge for good (ADR 0012 item 3): never returns. */
   gone?: true;
+  /** Dancing at the festival (ADR 0012 item 6). */
+  dancing?: true;
+  /** Dancing friends needed to start; festival.threshold when unset. */
+  danceThreshold?: number;
+  /** The last day it took a dew drop (ADR 0012 item 5). */
+  mushroomDay?: number;
 }
 export interface Side {
   warmth: number;
@@ -137,6 +143,13 @@ export interface World {
   water?: Rect[];
   /** The east ridge: a wandering creature at or past it leaves for good. Set only with the scenario's. */
   ridgeX?: number;
+  /**
+   * The dew mushroom (ADR 0012 item 5), set only with the scenario's: today's `drops`, how many
+   * were `taken` today, and the withered dawns left, counting today's (0 when not withered).
+   */
+  mushroom?: { x: number; y: number; drops: number; taken: number; witherDays: number };
+  /** Set only with the scenario's: a creature may bid to the sky at dusk (ADR 0012 item 4). */
+  ambientSkyBids?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -150,7 +163,8 @@ export type Command =
   | { t: 'setSeason'; season: Season }
   | { t: 'wake'; who: string }
   | { t: 'promptSkyBid'; who: string }
-  | { t: 'overPoke' };
+  | { t: 'overPoke' }
+  | { t: 'dance'; who: string };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -159,7 +173,10 @@ export type SimEvent =
   | { t: 'arrive' | 'leave' | 'return'; who: string }
   | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' }
   | { t: 'skyBid'; who: string }
-  | { t: 'wake'; who: string };
+  | { t: 'wake'; who: string }
+  | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
+  | { t: 'dance'; who: string }
+  | { t: 'mushroom'; taken: number; drops: number };
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -176,6 +193,7 @@ export interface Scenario {
     state?: CreatureState;
     skyWarmth?: number;
     gone?: true;
+    danceThreshold?: number;
   }[];
   /** Ties that start already met (ADR 0012 item 1). A pair listed twice keeps the later entry. */
   ties?: { a: string; b: string; ab: Side; ba: Side }[];
@@ -183,4 +201,6 @@ export interface Scenario {
   structures: Structure[];
   water?: Rect[];
   ridgeX?: number;
+  mushroom?: { x: number; y: number };
+  ambientSkyBids?: true;
 }

@@ -22,6 +22,7 @@ export interface WorldLite {
     berries: number;
     skyWarmth: number;
     dials: Dials;
+    dancing: boolean;
   }[];
   /** Every tie's two warmths, in tie-key order (ADR 0012 item 2). */
   ties: { a: string; b: string; ab: number; ba: number }[];
@@ -38,6 +39,8 @@ export interface WorldLite {
   structures: Structure[];
   /** The water rectangles; [] with none. */
   water: Rect[];
+  /** The dew mushroom, with the drops left today; null with none. */
+  mushroom: { x: number; y: number; drops: number; witherDays: number } | null;
 }
 
 /**

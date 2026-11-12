@@ -83,14 +83,17 @@ function verbCommand(v: VerbInput, skyBidder: string | undefined): Command | nul
   }
 }
 
-/** The creature an event beat's `who` matches. */
-function actor(e: SimEvent): string {
+/** The creature an event beat's `who` matches; undefined for a lit meeting or the mushroom, which have no one actor. */
+function actor(e: SimEvent): string | undefined {
   switch (e.t) {
     case 'bid':
     case 'gift':
       return e.from;
     case 'opinion':
       return e.holder;
+    case 'lit':
+    case 'mushroom':
+      return undefined;
     default:
       return e.who;
   }

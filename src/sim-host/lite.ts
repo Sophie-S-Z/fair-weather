@@ -29,6 +29,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       berries: c.berries,
       skyWarmth: c.skyWarmth,
       dials: { ...c.dials },
+      dancing: c.dancing === true,
     })),
     ties: [...w.ties]
       .sort(([x], [y]) => byCodeUnit(x, y))
@@ -38,6 +39,14 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: w.fields.fog.slice() },
     structures: w.structures.map((s) => ({ ...s })),
     water: (w.water ?? []).map((r) => ({ ...r })),
+    mushroom: w.mushroom
+      ? {
+          x: w.mushroom.x,
+          y: w.mushroom.y,
+          drops: w.mushroom.drops - w.mushroom.taken,
+          witherDays: w.mushroom.witherDays,
+        }
+      : null,
     metrics: {
       averageWarmth: averageWarmth(w),
       friendPairs: friendPairs(w, tuning),

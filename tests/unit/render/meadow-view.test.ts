@@ -60,6 +60,7 @@ const snapshot = (
     shell,
     berries: 0,
     skyWarmth: 0,
+    dancing: false,
     dials,
   })),
   light: { x: 800, y: 450 },
@@ -67,6 +68,7 @@ const snapshot = (
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
   water: [],
+  mushroom: null,
   ties: [],
   rumor: null,
 });
@@ -170,9 +172,29 @@ test('only the focus creature wears the accent; the rest show shell color as a m
   const world: WorldLite = {
     ...snapshot([]),
     creatures: [
-      { id: 'pim', x: 300, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials },
-      { id: 'krit', x: 600, y: 400, state: 'wander', shell: warm, berries: 0, skyWarmth: 0, dials },
-      { id: 'villager-1', x: 900, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials },
+      { id: 'pim', x: 300, y: 400, state: 'wander', shell, berries: 0, skyWarmth: 0, dials, dancing: false },
+      {
+        id: 'krit',
+        x: 600,
+        y: 400,
+        state: 'wander',
+        shell: warm,
+        berries: 0,
+        skyWarmth: 0,
+        dials,
+        dancing: false,
+      },
+      {
+        id: 'villager-1',
+        x: 900,
+        y: 400,
+        state: 'wander',
+        shell,
+        berries: 0,
+        skyWarmth: 0,
+        dials,
+        dancing: false,
+      },
     ],
   };
   view.setFocus('pim');

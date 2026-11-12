@@ -37,6 +37,7 @@ test('defaults equal the handoff and ADR values', () => {
     rumble: -0.15,
     lightPerSecond: 0.01,
     lightDailyCap: 0.1,
+    ambientBidChance: 0.5,
   });
   expect(t.overPoke).toEqual({ count: 8, windowSeconds: 30, skyWarmth: -0.05 });
   expect(t.shell).toEqual({
@@ -75,7 +76,15 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.imitation).toEqual({ everyDays: 3, radius: 200, rate: 0.3, friendWeight: 2 });
   expect(t.art).toEqual({ minWarmth: 0.4, minBerries: 1.5, days: 2 });
   expect(t.cap).toEqual({ story: 30, sandbox: 60 });
-  expect(t.mushroom).toEqual({ drops: 10, doubleAtMost: 6, witherAtLeast: 9, witherDays: 3 });
+  expect(t.mushroom).toEqual({
+    drops: 10,
+    doubleAtMost: 6,
+    witherAtLeast: 9,
+    witherDays: 3,
+    takeBelowBerries: 1,
+    trustFriends: 2,
+  });
+  expect(t.festival).toEqual({ threshold: 2, everyTicks: 10 });
   expect(t.postcard).toEqual({ nudge: 0.1 });
   expect(t.wisp).toEqual({ minWarmth: 0.6, minKithWarmth: 0.2 });
   expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6 });

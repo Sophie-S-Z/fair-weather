@@ -261,9 +261,26 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
   return found;
 }
 
-/** Clicks a button that may go away as the chapter moves on; a missing button is skipped. */
-async function tryClick(button: Locator): Promise<void> {
-  await button.click({ timeout: 1_000 }).catch(() => undefined);
+/**
+ * Clicks the middle of a button that may go away as the chapter moves on: the button under the
+ * element `scope` (a CSS selector) whose text has `text`, or its last button. A missing button is
+ * skipped. It finds the button in one page.evaluate and clicks at once, as a player would. Locator
+ * actions wait on animation frames (to resolve the locator, and for click, to see the button hold
+ * still), so with a short timeout they time out when software rendering draws two or three
+ * frames a second, as on CI with no GPU; and at ?fast=10 a sky bid's 6 s reply window is only
+ * 0.6 s of real time.
+ */
+async function tryClick(page: Page, scope: string, text?: string): Promise<void> {
+  const at = await page.evaluate(
+    ({ scope, text }) => {
+      const buttons = [...(document.querySelector(scope)?.querySelectorAll('button') ?? [])];
+      const b = text === undefined ? buttons.at(-1) : buttons.find((e) => e.textContent.includes(text));
+      const r = b?.getBoundingClientRect();
+      return r && r.width > 0 ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+    },
+    { scope, text },
+  );
+  if (at) await page.mouse.click(at.x, at.y);
 }
 
 /**
@@ -279,7 +296,7 @@ async function autoPlay(page: Page): Promise<void> {
   let framesAtStart = 0;
   while (!(await endTitle(page).isVisible())) {
     if (await bet.isVisible()) {
-      await tryClick(bet.getByRole('button').last());
+      await tryClick(page, '[role="dialog"]');
       continue;
     }
     const [title = ''] = await page.locator('h1').allTextContents();
@@ -293,12 +310,14 @@ async function autoPlay(page: Page): Promise<void> {
       continue;
     }
     const [tool = ''] = await tray.getByRole('button', { pressed: true }).allTextContents();
-    const key = `${title}/${tool}`;
+    // Keyed by verb, not the button text, which changes once the bench is used: a second click on
+    // the scene could land on the end screen and take its focus.
+    const key = `${title}/${['Wake', 'Bench'].find((v) => tool.includes(v)) ?? tool}`;
     if (tool.includes('Wake') && !acted.has(key)) {
       acted.add(key);
       await pickByPointer(page, false, 16, title);
     } else if (tool.includes('Respond')) {
-      await tryClick(page.getByRole('button', { name: 'H Hold still' }));
+      await tryClick(page, '[aria-label="Reply to the sky"]', 'Hold still');
     } else if (tool.includes('Bench') && !acted.has(key)) {
       const box = await scene(page).boundingBox();
       if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

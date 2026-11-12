@@ -8,13 +8,16 @@
 // returns false. The exit resolves on a snapshot taken after the step that applied the last
 // command the chapter sent (its `accepted` tick), so written flags read a world that has applied
 // every command the chapter sent before it.
+import diaryJson from '../../content/diary.json';
 import flagsJson from '../../content/flags.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, SimEvent } from '../sim/types.ts';
-import type { ActionLog } from './action-log.ts';
+import { YEAR_EVENTS } from './action-log.ts';
+import type { ActionLog, YearEvent } from './action-log.ts';
 import { parseBeatTag } from './beat-tags.ts';
 import type { BeatAction } from './beat-tags.ts';
 import { measureBet } from './bets.ts';
+import { DiarySchema, diaryLines } from './diary.ts';
 import { FLAG_KEYS, parseFlags } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
@@ -39,6 +42,8 @@ export interface ChapterRunner {
   onCamera(cb: (shot: string) => void): () => void;
   /** The creature a beat is about (the accent, spec 11.1), or null for none. */
   onFocus(cb: (id: string | null) => void): () => void;
+  /** A view a beat asks to show; render owns it. */
+  onShow(cb: (what: 'heatmap') => void): () => void;
   /**
    * False when the verb is locked, no snapshot has arrived yet, the chapter is over (or the verb's
    * beat ended it with an error), `respond` has no sky bid to answer, or `place` reached the
@@ -49,6 +54,14 @@ export interface ChapterRunner {
   answerBet(option: string): void;
   /** The player poked too often (input detects it): sends `overPoke`. Ignored before the first snapshot. */
   overPoke(): void;
+  /**
+   * The player finished the interlude's activity with `result`: logs it and runs the
+   * `{ activity: true }` beats. False without an activity, after the first call, or once the
+   * chapter is over.
+   */
+  finishActivity(result: string): boolean;
+  /** The chapter's authored lines for `id`, then its last 20 diary events this chapter, oldest first. */
+  diary(id: string): readonly string[];
   skip(): Flags;
   done: Promise<Flags>;
   readonly log: ActionLog;
@@ -70,6 +83,12 @@ export function assertStoryCommand(cmd: Command): void {
 }
 
 const DEFAULT_FLAGS = parseFlags(flagsJson);
+const DIARY = DiarySchema.parse(diaryJson);
+/** A diary keeps a creature's last 20 events (spec 9.1). */
+const DIARY_LENGTH = 20;
+
+const YEAR_EVENT_SET: ReadonlySet<SimEvent['t']> = new Set(YEAR_EVENTS);
+const isYearEvent = (e: SimEvent): e is YearEvent => YEAR_EVENT_SET.has(e.t);
 
 type PlaceKind = NonNullable<Chapter['place']>['kind'];
 
@@ -116,28 +135,60 @@ function actor(e: SimEvent): string | undefined {
   }
 }
 
+type LiteCreature = WorldLite['creatures'][number];
+const creature = (lite: WorldLite | null, id: string): LiteCreature | undefined =>
+  lite?.creatures.find((c) => c.id === id);
+const yearEvents = (log: ActionLog): YearEvent[] => log.flatMap((e) => (e.kind === 'event' ? [e.e] : []));
+
 /**
- * Where each written flag comes from at the exit; undefined falls back to content/flags.json.
+ * Where each written flag comes from at the exit, from the last snapshot, whether the twist fired,
+ * and this chapter's log; undefined falls back to content/flags.json.
  * Both Pim flags come from Pim's sky warmth (how Pim feels about the sky, -1 to 1).
  * pimSkyBond maps it onto 0 to 1 as (warmth + 1) / 2, so an untouched Pim gives 0.5, the skip
  * default, and only a real change (an over-poke) moves it. pimSkyOpinion is its sign: above 0
  * gives 1, below 0 gives -1, exactly 0 gives 0.
+ * litConflict is the share of this chapter's lit meetings with an `against` or a `keep`.
+ * festivalShare is the share of the creatures not away that dance.
  */
 const FLAG_SOURCES: {
-  [K in FlagKey]: (lite: WorldLite | null, twistFired: boolean | undefined) => Flags[K] | undefined;
+  [K in FlagKey]: (
+    lite: WorldLite | null,
+    twistFired: boolean | undefined,
+    log: ActionLog,
+  ) => Flags[K] | undefined;
 } = {
   pimSkyBond: (lite) => {
-    const warmth = lite?.creatures.find((c) => c.id === 'pim')?.skyWarmth;
+    const warmth = creature(lite, 'pim')?.skyWarmth;
     return warmth === undefined ? undefined : (warmth + 1) / 2;
   },
   pimSkyOpinion: (lite) => {
-    const warmth = lite?.creatures.find((c) => c.id === 'pim')?.skyWarmth;
+    const warmth = creature(lite, 'pim')?.skyWarmth;
     if (warmth === undefined) return undefined;
     return warmth > 0 ? 1 : warmth < 0 ? -1 : 0;
   },
   pimScar: (_lite, twistFired) => twistFired,
   benchPlaced: (lite) => (lite ? lite.structures.some((s) => s.kind === 'bench') : undefined),
   friendThreads: (lite) => lite?.metrics.friendPairs,
+  litConflict: (_lite, _twist, log) => {
+    const lit = yearEvents(log).filter((e) => e.t === 'lit');
+    if (lit.length === 0) return undefined;
+    const conflicts = lit.filter((e) => e.behaviors.some((b) => b === 'against' || b === 'keep'));
+    return conflicts.length / lit.length;
+  },
+  rumorStuck: (_lite, twistFired) => twistFired,
+  echoForgiveness: (lite) => creature(lite, 'echo')?.dials.forgiveness,
+  wispPushed: (_lite, twistFired) => twistFired,
+  mossShared: (_lite, twistFired) => twistFired,
+  winterLeft: (_lite, _twist, log) => yearEvents(log).filter((e) => e.t === 'leave').length,
+  bellDanced: (lite) => creature(lite, 'bell')?.dancing,
+  festivalShare: (lite) => {
+    const here = lite?.creatures.filter((c) => c.state !== 'away') ?? [];
+    return here.length === 0 ? undefined : here.filter((c) => c.dancing).length / here.length;
+  },
+  greetingSong: (_lite, _twist, log) => {
+    const done = log.find((e) => e.kind === 'activity');
+    return done ? Number(done.result) : undefined;
+  },
 };
 
 function setFlag<K extends FlagKey>(flags: Flags, key: K, value: Flags[K]): void {
@@ -156,6 +207,10 @@ export function createChapterRunner(
   const promptListeners = new Set<(p: Prompt) => void>();
   const cameraListeners = new Set<(shot: string) => void>();
   const focusListeners = new Set<(id: string | null) => void>();
+  const showListeners = new Set<(what: 'heatmap') => void>();
+  /** Each creature's diary lines this chapter, oldest first, at most DIARY_LENGTH. */
+  const diaries = new Map<string, string[]>();
+  let activityDone = false;
 
   let origin: number | null = null; // chapter time 0, set by the first snapshot
   let tick = 0;
@@ -210,7 +265,7 @@ export function createChapterRunner(
   /** Writes flags and sim values into Ink, plays the knot, and acts on its beat tags. */
   function play(knot: string): string[] {
     for (const key of FLAG_KEYS) ink.setVar(key, flags[key]);
-    const pim = latest?.creatures.find((c) => c.id === 'pim');
+    const pim = creature(latest, 'pim');
     if (pim) ink.setVar('pim_sky_warmth', Math.round(pim.skyWarmth * 100) / 100);
     const { lines, tags } = ink.play(knot);
     const actions: BeatAction[] = [];
@@ -237,6 +292,7 @@ export function createChapterRunner(
     else if ('promptSkyBid' in a) tell({ t: 'promptSkyBid', who: a.promptSkyBid });
     else if ('rumor' in a) tell({ t: 'whisper', ...a.rumor });
     else if ('dance' in a) tell({ t: 'dance', who: a.dance });
+    else if ('show' in a) for (const cb of [...showListeners]) cb(a.show);
     else openBet();
   }
 
@@ -253,6 +309,10 @@ export function createChapterRunner(
     firedBeats.add(beat.id);
     for (const a of beat.actions) act(a);
     if ('onBeat' in config.exit && config.exit.onBeat === beat.id) exitReady = true;
+  }
+  /** Runs every beat not yet fired whose trigger passes `on`, in chapter order. */
+  function runBeatsOn(on: (trigger: ChapterBeat['trigger']) => boolean): void {
+    for (const beat of config.beats) if (!firedBeats.has(beat.id) && on(beat.trigger)) runBeat(beat);
   }
 
   function withWrites(read: (key: FlagKey) => Flags[FlagKey] | undefined): Flags {
@@ -276,7 +336,7 @@ export function createChapterRunner(
     if (finished || !exitReady || bet.phase === 'open' || bet.phase === 'running') return;
     // Wait for the snapshot after the step that ran the last command sent, so flags see it.
     if (unaccepted > 0 || tick <= lastAcceptedTick) return;
-    finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired)));
+    finish(withWrites((key) => FLAG_SOURCES[key](latest, twistFired, log)));
   }
 
   /** Opens the twist window once, at `tick`; retries count from here. */
@@ -304,7 +364,7 @@ export function createChapterRunner(
     log.push({ kind: 'twist', tick: t, id, fired: twistFired, retries: twist.retries });
     twist = null;
     if (twistFired) {
-      for (const beat of config.beats) if (!firedBeats.has(beat.id) && 'twist' in beat.trigger) runBeat(beat);
+      runBeatsOn((trigger) => 'twist' in trigger);
     } else {
       say(`${config.id}_close_call`);
     }
@@ -331,7 +391,8 @@ export function createChapterRunner(
     }
     if (bet.phase === 'running' && config.bet && t >= bet.until) {
       const answer = bet.answer;
-      const measured = String(measureBet(config.bet.metric, lite, config.bet.options));
+      const { metric, options, buckets } = config.bet;
+      const measured = String(measureBet(metric, lite, options, buckets));
       bet = { phase: 'revealed' };
       speed(1);
       log.push({ kind: 'bet', tick: t, id: config.bet.id, answer, result: measured });
@@ -357,6 +418,13 @@ export function createChapterRunner(
     }
     stepEvents = list;
     for (const e of list) {
+      if (isYearEvent(e)) log.push({ kind: 'event', tick: t, e });
+      for (const { id, text } of diaryLines(e, DIARY)) {
+        const lines = diaries.get(id) ?? [];
+        lines.push(text);
+        if (lines.length > DIARY_LENGTH) lines.shift();
+        diaries.set(id, lines);
+      }
       if (e.t === 'skyBid')
         skyBids.push(e.ambient ? { who: e.who, tick: t, ambient: true } : { who: e.who, tick: t });
       for (const beat of config.beats) {
@@ -397,6 +465,10 @@ export function createChapterRunner(
       focusListeners.add(cb);
       return () => focusListeners.delete(cb);
     },
+    onShow(cb) {
+      showListeners.add(cb);
+      return () => showListeners.delete(cb);
+    },
     verb(v) {
       if (finished || origin === null || !config.verbs.includes(v.verb)) return false;
       if (v.verb === 'place' && placed >= place.limit) return false;
@@ -407,10 +479,7 @@ export function createChapterRunner(
         if (cmd.t === 'place') placed += 1;
         send(cmd);
         log.push({ kind: 'verb', tick, input: v });
-        for (const beat of config.beats) {
-          if (!firedBeats.has(beat.id) && 'verb' in beat.trigger && beat.trigger.verb === v.verb)
-            runBeat(beat);
-        }
+        runBeatsOn((trigger) => 'verb' in trigger && trigger.verb === v.verb);
         if (config.twist?.opensOn?.verb === v.verb) openTwist();
       } catch (e) {
         fail(e);
@@ -425,6 +494,20 @@ export function createChapterRunner(
     },
     overPoke() {
       if (origin !== null) tell({ t: 'overPoke' });
+    },
+    finishActivity(result) {
+      if (finished || !config.activity || activityDone) return false;
+      activityDone = true;
+      try {
+        log.push({ kind: 'activity', tick, activity: config.activity, result });
+        runBeatsOn((trigger) => 'activity' in trigger);
+      } catch (e) {
+        fail(e);
+      }
+      return !finished;
+    },
+    diary(id) {
+      return [...(config.diary?.[id] ?? []), ...(diaries.get(id) ?? [])];
     },
     skip() {
       const skipped = withWrites((key) => DEFAULT_FLAGS[key]);

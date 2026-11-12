@@ -1,5 +1,6 @@
 {
   "id": "ch2",
+  "kind": "chapter",
   "title": "Five Neighbors",
   "season": "spring",
   "scene": "kith-meadow",
@@ -101,7 +102,31 @@
   },
   "feeling": "[PLACEHOLDER] Surprise, unease",
   "notes": [
-    "[PLACEHOLDER] Reading the opener strategy: sharing with everyone has a cost against a keeper.",
-    "[PLACEHOLDER] Counter-view: exploitation in one meeting says little about a long game."
+    {
+      "title": "[PLACEHOLDER] Reading the opener strategy",
+      "science": "[PLACEHOLDER] Sharing with everyone has a cost against a keeper.",
+      "limits": "[PLACEHOLDER] The game here has only two moves.",
+      "counter": "[PLACEHOLDER] Exploitation in one meeting says little about a long game.",
+      "question": "[PLACEHOLDER] Can an opener stay open after a keeper?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Noise",
+      "science": "[PLACEHOLDER] A gift can be seen wrongly, and a mistake can start a feud.",
+      "limits": "[PLACEHOLDER] The chance of a mistake is set by hand.",
+      "counter": "[PLACEHOLDER] Real misreadings are rarely random.",
+      "question": "[PLACEHOLDER] How much forgiveness does noise call for?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
   ]
 }

@@ -12,6 +12,7 @@ import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
+import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
@@ -37,7 +38,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Every creature id a chapter names: beats, bet options, the twist retry pair, and overrides. */
+/** Every creature id a chapter names: beats, bet options, the twist retry pair, diaries, and overrides. */
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
@@ -60,13 +61,13 @@ function creatureRefs(c: Chapter): string[] {
       else if ('dance' in a) ids.push(a.dance);
     }
   }
-  ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []));
+  ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
   fromOverrides(c.overrides);
   for (const v of c.variants) fromOverrides(v.overrides);
   return ids;
 }
 
-/** Checks tuning, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Checks tuning, flags, diary, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -83,6 +84,14 @@ export function validateContent(root: string): ValidationResult {
       FlagsSchema.parse(JSON.parse(readFileSync(flagsPath, 'utf8')));
     } catch (e) {
       errors.push(`flags.json: ${(e as Error).message}`);
+    }
+  }
+  const diaryPath = join(content, 'diary.json');
+  if (existsSync(diaryPath)) {
+    try {
+      DiarySchema.parse(JSON.parse(readFileSync(diaryPath, 'utf8')));
+    } catch (e) {
+      errors.push(`diary.json: ${(e as Error).message}`);
     }
   }
   for (const f of filesIn(join(content, 'chapters'), '.json')) {

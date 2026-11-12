@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import type { Note } from '../../story/schema.ts';
 
-  let { notes }: { notes: readonly string[] } = $props();
+  let { notes }: { notes: readonly Note[] } = $props();
 
   let open = $state(false);
   let toggle: HTMLButtonElement;
@@ -47,9 +48,20 @@
       onkeydown={onKey}
     >
       <h2 id="notes-title">Margin notes</h2>
-      <ul>
-        {#each notes as note (note)}<li>{note}</li>{/each}
-      </ul>
+      {#each notes as note (note.title)}
+        <article>
+          <h3>{note.title}</h3>
+          <p>{note.science}</p>
+          <p><strong>Limits:</strong> {note.limits}</p>
+          <p><strong>Counter-view:</strong> {note.counter}</p>
+          <p><strong>Open question:</strong> {note.question}</p>
+          <ul aria-label="Sources">
+            {#each note.sources as source (source.url)}
+              <li><a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>
+            {/each}
+          </ul>
+        </article>
+      {/each}
       <button type="button" onclick={hide}>Close</button>
     </section>
   {/if}
@@ -74,6 +86,13 @@
   h2 {
     margin-top: 0;
     font-size: 1.1rem;
+  }
+  h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+  }
+  a {
+    color: inherit;
   }
   ul {
     padding-left: 1.25rem;

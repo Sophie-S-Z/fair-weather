@@ -54,3 +54,58 @@ test('averageWarmth and friendPairs read the snapshot metrics', () => {
   expect(measureBet({ kind: 'averageWarmth' }, l, CAST)).toBe(0.35);
   expect(measureBet({ kind: 'friendPairs' }, l, CAST)).toBe(4);
 });
+
+const liteWith = (rumorShare: number): WorldLite => {
+  // Ten creatures: eight count (Krit is `about`, villager-9 is away), and `rumorShare × 8` hold the rumor.
+  const ids = ['krit', 'pim', ...Array.from({ length: 8 }, (_, i) => `villager-${String(i + 1)}`)];
+  const l = lite(Object.fromEntries(ids.map((id) => [id, 0])));
+  const last = l.creatures.at(-1);
+  if (last) last.state = 'away';
+  const holders = ids.slice(1, 1 + rumorShare * 8);
+  return { ...l, rumor: { about: 'krit', sign: -1, holders } };
+};
+const liteWarmth = (echoToKrit: number): WorldLite => ({
+  ...lite({ echo: 0, krit: 0 }),
+  ties: [{ a: 'echo', b: 'krit', ab: echoToKrit, ba: 0.5 }],
+});
+
+test('a bucket bet answers the option whose bucket holds the value', () => {
+  expect(measureBet({ kind: 'rumorShare' }, liteWith(0.5), ['few', 'half', 'most'], [0.25, 0.5])).toBe(
+    'most',
+  );
+  expect(measureBet({ kind: 'warmth', from: 'echo', to: 'krit' }, liteWarmth(-0.1), ['no', 'yes'], [0])).toBe(
+    'no',
+  );
+});
+
+test('a bucket bet: below the first bucket is the first option, between buckets the middle', () => {
+  const options = ['few', 'half', 'most'];
+  expect(measureBet({ kind: 'rumorShare' }, liteWith(0.125), options, [0.25, 0.5])).toBe('few');
+  expect(measureBet({ kind: 'rumorShare' }, liteWith(0.375), options, [0.25, 0.5])).toBe('half');
+  expect(measureBet({ kind: 'warmth', from: 'echo', to: 'krit' }, liteWarmth(0), ['no', 'yes'], [0])).toBe(
+    'yes',
+  );
+});
+
+test('rumorShare is 0 with no rumor; warmth reads either side of the tie and is 0 with none', () => {
+  expect(measureBet({ kind: 'rumorShare' }, lite({ pim: 0 }), CAST)).toBe(0);
+  expect(measureBet({ kind: 'warmth', from: 'krit', to: 'echo' }, liteWarmth(-0.1), CAST)).toBe(0.5);
+  expect(measureBet({ kind: 'warmth', from: 'echo', to: 'pim' }, liteWarmth(-0.1), CAST)).toBe(0);
+});
+
+test('awayCount counts the creatures away, gone ones included', () => {
+  const l = lite({ pim: 0, krit: 0, wisp: 0 });
+  const [, krit, wisp] = l.creatures;
+  if (krit) krit.state = 'away';
+  if (wisp) Object.assign(wisp, { state: 'away', gone: true });
+  expect(measureBet({ kind: 'awayCount' }, l, ['none', 'few', 'many'], [1.5, 4.5])).toBe('few');
+  expect(measureBet({ kind: 'awayCount' }, l, CAST)).toBe(2);
+});
+
+test('maxShell returns the option with the highest shell value; a tie goes to the lower id', () => {
+  const l = lite({ pim: 0, krit: 0, echo: 0, 'villager-1': 0 });
+  const tightness: Record<string, number> = { pim: 0.3, krit: 0.6, echo: 0.6, 'villager-1': 0.9 };
+  for (const c of l.creatures) c.shell = { ...shell, tightness: tightness[c.id] ?? 0 };
+  expect(measureBet({ kind: 'maxShell', shell: 'tightness' }, l, CAST)).toBe('echo');
+  expect(measureBet({ kind: 'maxShell', shell: 'bristle' }, lite({}), CAST)).toBe('');
+});

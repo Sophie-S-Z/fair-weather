@@ -1,5 +1,6 @@
 {
   "id": "ch1",
+  "kind": "chapter",
   "title": "The Wave",
   "season": "spring",
   "scene": "kith-meadow",
@@ -49,7 +50,31 @@
   },
   "feeling": "[PLACEHOLDER] Tenderness",
   "notes": [
-    "[PLACEHOLDER] The sky answers, stays still, or rumbles: three replies in a trust game.",
-    "[PLACEHOLDER] Limit: one wave is a tiny sample of trust."
+    {
+      "title": "[PLACEHOLDER] Three replies",
+      "science": "[PLACEHOLDER] The sky answers, stays still, or rumbles: three replies in a trust game.",
+      "limits": "[PLACEHOLDER] One wave is a tiny sample of trust.",
+      "counter": "[PLACEHOLDER] Silence can read as kindness in some places.",
+      "question": "[PLACEHOLDER] When does no answer hurt more than a bad one?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] Gottman Institute on bids",
+          "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] One wave",
+      "science": "[PLACEHOLDER] A single reply moves a feeling a little, not all the way.",
+      "limits": "[PLACEHOLDER] The size of the move is a tuning choice.",
+      "counter": "[PLACEHOLDER] Some first replies are remembered far more than later ones.",
+      "question": "[PLACEHOLDER] How many waves does it take to change a mind?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] Simply Psychology on the limits of the bid research",
+          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
+        }
+      ]
+    }
   ]
 }

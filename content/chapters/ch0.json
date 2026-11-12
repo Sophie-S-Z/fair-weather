@@ -1,5 +1,6 @@
 {
   "id": "ch0",
+  "kind": "chapter",
   "title": "First Light",
   "season": "spring",
   "scene": "kith-meadow",
@@ -104,7 +105,35 @@
   },
   "feeling": "[PLACEHOLDER] Wonder",
   "notes": [
-    "[PLACEHOLDER] Why a first look matters: attention starts the trust game.",
-    "[PLACEHOLDER] Limit: Pim looking up is a model rule, not proof of awareness."
+    {
+      "title": "[PLACEHOLDER] Why a first look matters",
+      "science": "[PLACEHOLDER] Attention starts the trust game: a creature that looks up can be answered.",
+      "limits": "[PLACEHOLDER] Pim looking up is a model rule, not proof of awareness.",
+      "counter": "[PLACEHOLDER] Some say trust starts from habit, not from a first look.",
+      "question": "[PLACEHOLDER] How much does the first answer shape the rest?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] Gottman Institute on bids",
+          "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] A bid is small",
+      "science": "[PLACEHOLDER] A glance or a wave is a bid for connection.",
+      "limits": "[PLACEHOLDER] The bid research rests on a few studies of couples.",
+      "counter": "[PLACEHOLDER] Bids may matter less between strangers than between partners.",
+      "question": "[PLACEHOLDER] Is a wave at the sky a bid at all?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] Gottman Institute on bids",
+          "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        },
+        {
+          "label": "[PLACEHOLDER] Simply Psychology on the limits of the bid research",
+          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
+        }
+      ]
+    }
   ]
 }

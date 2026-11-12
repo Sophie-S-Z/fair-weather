@@ -81,6 +81,13 @@
   const hints = untrack(() => game.input.createHints());
   const overPoke = untrack(() => game.input.createOverPoke());
 
+  const chapter = $derived(game.chapters[index]);
+  /** "Chapter n: Title" with n from the id `ch<n>`, or "Interlude: Title". */
+  const heading = $derived(
+    chapter
+      ? `${chapter.kind === 'interlude' ? 'Interlude' : `Chapter ${chapter.id.replace(/^ch/, '')}`}: ${chapter.title}`
+      : '',
+  );
   const spotName = $derived.by(() => {
     let best: BenchSpot | undefined;
     let bestD = Infinity;
@@ -336,9 +343,9 @@
       </main>
     {:else}
       <main class="hud">
-        <h1 class="title">Chapter {index}: {game.chapters[index]?.title ?? ''}</h1>
+        <h1 class="title">{heading}</h1>
         <div class="drawer">
-          <Drawer notes={game.chapters[index]?.notes ?? []} />
+          <Drawer notes={chapter?.notes ?? []} />
         </div>
         <div class="bottom">
           <BeatLine {lines} />

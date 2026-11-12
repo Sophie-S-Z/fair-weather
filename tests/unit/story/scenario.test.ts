@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vitest';
 import ch0Json from '../../../content/chapters/ch0.json';
 import ch2Json from '../../../content/chapters/ch2.json';
 import ch3Json from '../../../content/chapters/ch3.json';
+import flagsJson from '../../../content/flags.json';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import type { Scenario } from '../../../src/sim/types.ts';
+import { parseFlags } from '../../../src/story/flags.ts';
 import type { Flags } from '../../../src/story/flags.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import { buildScenario, chapterTicksPerDay, matches } from '../../../src/story/scenario.ts';
@@ -14,13 +16,7 @@ const ch0 = ChapterSchema.parse(ch0Json);
 const ch2 = ChapterSchema.parse(ch2Json);
 const ch3 = ChapterSchema.parse(ch3Json);
 const base = scenarioJson as Scenario;
-const flags: Flags = {
-  pimSkyBond: 0.5,
-  pimSkyOpinion: 1,
-  pimScar: false,
-  benchPlaced: true,
-  friendThreads: 3,
-};
+const flags: Flags = parseFlags(flagsJson); // the gentle defaults
 const pimOf = (s: Scenario) => s.creatures.find((c) => c.id === 'pim');
 
 describe('chapterTicksPerDay', () => {

@@ -1,1 +1,16 @@
-{ "pimSkyBond": 0.5, "pimSkyOpinion": 1, "pimScar": false, "benchPlaced": true, "friendThreads": 3 }
+{
+  "pimSkyBond": 0.5,
+  "pimSkyOpinion": 1,
+  "pimScar": false,
+  "benchPlaced": true,
+  "friendThreads": 3,
+  "litConflict": 0.3,
+  "rumorStuck": false,
+  "echoForgiveness": 0.5,
+  "wispPushed": true,
+  "mossShared": true,
+  "winterLeft": 0,
+  "bellDanced": true,
+  "festivalShare": 0.6,
+  "greetingSong": 0
+}

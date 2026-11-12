@@ -6,6 +6,7 @@ import ch0Json from '../../../content/chapters/ch0.json';
 import ch1Json from '../../../content/chapters/ch1.json';
 import ch2Json from '../../../content/chapters/ch2.json';
 import ch3Json from '../../../content/chapters/ch3.json';
+import flagsJson from '../../../content/flags.json';
 import tuningJson from '../../../content/tuning.json';
 import { hashWorld } from '../../../src/sim/hash.ts';
 import { step } from '../../../src/sim/step.ts';
@@ -20,6 +21,7 @@ import {
   STORY_COMMANDS,
 } from '../../../src/story/chapter-runner.ts';
 import type { ChapterRunner, Prompt } from '../../../src/story/chapter-runner.ts';
+import { FLAG_KEYS, parseFlags } from '../../../src/story/flags.ts';
 import type { Flags } from '../../../src/story/flags.ts';
 import { createInk } from '../../../src/story/ink.ts';
 import type { InkRunner } from '../../../src/story/ink.ts';
@@ -52,7 +54,9 @@ const ch0ByVerb: Chapter = {
 };
 
 // Ticks: sim.stepsPerSecond is 10. ch0 and ch1 days are 600 ticks; ch2 and ch3 days are 450.
+const defaults = parseFlags(flagsJson);
 const flags: Flags = {
+  ...defaults,
   pimSkyBond: 0.9,
   pimSkyOpinion: -1,
   pimScar: true,
@@ -61,13 +65,7 @@ const flags: Flags = {
 };
 
 // Ink variables mirror the flags (spec 10.3), so every story declares them.
-const FLAG_VARS = [
-  'VAR pimSkyBond = 0',
-  'VAR pimSkyOpinion = 0',
-  'VAR pimScar = false',
-  'VAR benchPlaced = false',
-  'VAR friendThreads = 0',
-].join('\n');
+const FLAG_VARS = FLAG_KEYS.map((k) => `VAR ${k} = ${String(defaults[k])}`).join('\n');
 const VARS = `${FLAG_VARS}\nVAR pim_sky_warmth = 0`;
 
 function compile(source: string): string {
@@ -108,6 +106,8 @@ function lite(
     metrics?: WorldLite['metrics'];
     bench?: boolean;
     structures?: WorldLite['structures'];
+    /** Fields that differ from the default creature, by id. */
+    patch?: Record<string, Partial<WorldLite['creatures'][number]>>;
   } = {},
 ): WorldLite {
   const berries = o.berries ?? { pim: 1, krit: 1 };
@@ -123,6 +123,7 @@ function lite(
       dancing: false,
       gone: false,
       dials,
+      ...o.patch?.[id],
     })),
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
@@ -631,6 +632,33 @@ describe('bets', () => {
     expect(f.speeds).toEqual([1, 0, 8, 1]);
   });
 
+  test('a bucket bet reveals the option whose bucket holds the measured value', () => {
+    const f = fakePort();
+    const awayBet: Chapter = {
+      ...ch2,
+      bet: {
+        id: 'ch2_away',
+        knot: 'ch2_bet',
+        options: ['none', 'few', 'many'],
+        metric: { kind: 'awayCount' },
+        buckets: [1.5, 4.5],
+        afterDays: 1,
+      },
+    };
+    const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), awayBet, flags);
+    const prompts = record(runner);
+    f.steps(100);
+    runner.answerBet('none');
+    const twoAway = lite({
+      berries: { pim: 0, krit: 0, wisp: 0 },
+      patch: { krit: { state: 'away' }, wisp: { state: 'away' } },
+    });
+    f.steps(450, twoAway);
+    expect(prompts.filter((p) => p.kind === 'reveal')).toEqual([
+      { kind: 'reveal', answer: 'none', result: 'few' },
+    ]);
+  });
+
   test('an answer given inside the bet prompt keeps speed 8 until the reveal', () => {
     const f = fakePort();
     const runner = createChapterRunner(f.port, inkOf(CH2_KNOTS), ch2, flags);
@@ -751,13 +779,7 @@ describe('skip', () => {
     const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);
     f.steps(5);
     const skipped = runner.skip();
-    expect(skipped).toEqual({
-      pimSkyBond: 0.9,
-      pimSkyOpinion: -1,
-      pimScar: true,
-      benchPlaced: true,
-      friendThreads: 3,
-    });
+    expect(skipped).toEqual({ ...flags, benchPlaced: true, friendThreads: 3 });
     await expect(runner.done).resolves.toEqual(skipped);
     expect(runner.verb({ verb: 'place', x: 1, y: 1 })).toBe(false);
     f.steps(20000);
@@ -845,6 +867,149 @@ describe('honesty', () => {
     expect(ink.played.at(-1)).toBe('ch2_close_call');
     const accepted = runner.log.flatMap((e) => (e.kind === 'accepted' ? e.list : []));
     expect(accepted).toEqual(cmds(f));
+  });
+});
+
+describe('the year log', () => {
+  /** ch0 with no beats and a long day count, so only the events under test happen. */
+  const quiet: Chapter = { ...ch0, beats: [], verbs: [], writes: [], exit: { afterDays: 10 } };
+  const lit = (a: string, b: string, behaviors: ('toward' | 'against' | 'give' | 'keep')[]): SimEvent => ({
+    t: 'lit',
+    a,
+    b,
+    behaviors,
+  });
+
+  test('lit, leave, and dance events go in the log; bid events do not', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), quiet, flags);
+    f.step();
+    const bid: SimEvent = { t: 'bid', from: 'pim', to: 'krit', reply: 'toward', seenAs: 'toward' };
+    f.step([bid, lit('pim', 'krit', ['toward']), { t: 'leave', who: 'wisp' }]);
+    f.step([{ t: 'dance', who: 'pim' }]);
+    expect(runner.log.filter((e) => e.kind === 'event')).toEqual([
+      { kind: 'event', tick: 1, e: lit('pim', 'krit', ['toward']) },
+      { kind: 'event', tick: 1, e: { t: 'leave', who: 'wisp' } },
+      { kind: 'event', tick: 2, e: { t: 'dance', who: 'pim' } },
+    ]);
+  });
+
+  test('litConflict is 2/3 after three lit meetings, two with a keep', async () => {
+    const f = fakePort();
+    const chapter: Chapter = { ...quiet, writes: ['litConflict'], exit: { afterDays: 1 } };
+    const runner = createChapterRunner(f.port, inkOf([]), chapter, flags);
+    f.step();
+    f.step([lit('pim', 'krit', ['toward', 'keep'])]);
+    f.step([lit('echo', 'krit', ['give'])]);
+    f.step([lit('pim', 'echo', ['against', 'give', 'keep'])]);
+    f.steps(600);
+    await expect(runner.done).resolves.toEqual({ ...flags, litConflict: 2 / 3 });
+  });
+
+  test('the Part 1 flags read the last snapshot, the log, and the twist', async () => {
+    const f = fakePort();
+    const chapter: Chapter = {
+      ...quiet,
+      writes: ['echoForgiveness', 'winterLeft', 'bellDanced', 'festivalShare', 'mossShared'],
+      twist: { id: 'mossShares', withinDays: 5, retryArrange: ['moss', 'krit'] },
+      beats: [{ id: 'shared', trigger: { twist: true }, actions: [] }],
+      exit: { afterDays: 1 },
+    };
+    const runner = createChapterRunner(f.port, inkOf([]), chapter, flags);
+    f.step();
+    f.step([{ t: 'leave', who: 'wisp' }, gift('moss', 'krit', 'give')]);
+    f.step([{ t: 'leave', who: 'krit' }]);
+    const end = lite({
+      berries: { echo: 0, bell: 0, pim: 0, moss: 0, wisp: 0 },
+      patch: {
+        echo: { dials: { ...dials, forgiveness: 0.8 } },
+        bell: { dancing: true },
+        pim: { dancing: true },
+        wisp: { state: 'away', gone: true },
+      },
+    });
+    f.steps(600, end);
+    await expect(runner.done).resolves.toEqual({
+      ...flags,
+      echoForgiveness: 0.8,
+      winterLeft: 2,
+      bellDanced: true,
+      festivalShare: 0.5, // two of the four not away
+      mossShared: true,
+    });
+  });
+});
+
+describe('activities', () => {
+  const interlude: Chapter = {
+    ...ch0,
+    kind: 'interlude',
+    activity: 'rhythm',
+    notes: [],
+    verbs: [],
+    beats: [{ id: 'sung', trigger: { activity: true }, actions: [{ ink: 'i_sung' }, { show: 'heatmap' }] }],
+    writes: ['greetingSong'],
+    exit: { onBeat: 'sung' },
+  };
+
+  test('finishActivity logs once, runs the activity beat, and returns false the second time', async () => {
+    const f = fakePort();
+    const ink = inkOf(['i_sung']);
+    const runner = createChapterRunner(f.port, ink, interlude, flags);
+    const shown: string[] = [];
+    runner.onShow((what) => shown.push(what));
+    f.step();
+    expect(runner.finishActivity('3')).toBe(true);
+    expect(runner.finishActivity('5')).toBe(false);
+    expect(ink.played).toEqual(['i_sung']);
+    expect(shown).toEqual(['heatmap']);
+    expect(runner.log.filter((e) => e.kind === 'activity')).toEqual([
+      { kind: 'activity', tick: 1, activity: 'rhythm', result: '3' },
+    ]);
+    f.step();
+    await expect(runner.done).resolves.toEqual({ ...flags, greetingSong: 3 });
+  });
+
+  test('finishActivity is false in a chapter with no activity', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(CH0_KNOTS), ch0, flags);
+    f.step();
+    expect(runner.finishActivity('3')).toBe(false);
+    expect(runner.log.filter((e) => e.kind === 'activity')).toEqual([]);
+  });
+});
+
+describe('diaries', () => {
+  const quiet: Chapter = {
+    ...ch0,
+    beats: [],
+    diary: { krit: ['[PLACEHOLDER] Last winter I was hungry.'] },
+    exit: { afterDays: 10 },
+  };
+
+  test("Krit's diary starts with the chapter's authored line, then a line that names Echo for Echo's gift", () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), quiet, flags);
+    f.step();
+    f.step([gift('echo', 'krit', 'give')]);
+    const diary = runner.diary('krit');
+    expect(diary).toHaveLength(2);
+    expect(diary[0]).toBe('[PLACEHOLDER] Last winter I was hungry.');
+    expect(diary[1]).toContain('Echo');
+    expect(runner.diary('echo')).toHaveLength(1); // the giver's side
+    expect(runner.diary('pim')).toEqual([]);
+  });
+
+  test('a diary keeps the last 20 events', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), quiet, flags);
+    f.step();
+    f.step([{ t: 'dance', who: 'pim' }]);
+    for (let i = 0; i < 20; i++) f.step([{ t: 'leave', who: 'pim' }]);
+    const diary = runner.diary('pim');
+    expect(diary).toHaveLength(20);
+    expect(new Set(diary).size).toBe(1); // the dance fell off the front
+    expect(runner.diary('krit')).toEqual(['[PLACEHOLDER] Last winter I was hungry.']);
   });
 });
 

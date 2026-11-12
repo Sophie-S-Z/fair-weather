@@ -1,8 +1,9 @@
 // Chapter config schema (spec 10.1). One JSON file per chapter in content/chapters/.
 import { z } from 'zod';
 import type { MetricSpec } from '../sim/metrics.ts';
-import type { CreatureState, Season, SimEvent } from '../sim/types.ts';
+import type { CreatureState, Season, Shell, SimEvent } from '../sim/types.ts';
 import { FLAG_KEYS } from './flags.ts';
+import { TWIST_IDS } from './twists.ts';
 import { VERBS, WORLD_VERBS } from './verbs.ts';
 
 const knot = z.string().regex(/^[a-z0-9_-]+$/);
@@ -47,11 +48,20 @@ const STATE_SET: Record<CreatureState, true> = {
   away: true,
 };
 const creatureState = z.enum(Object.keys(STATE_SET) as [CreatureState, ...CreatureState[]]);
+const SHELL_SET: Record<keyof Shell, true> = { tightness: true, bristle: true, color: true, softness: true };
+const shellKey = z.enum(Object.keys(SHELL_SET) as [keyof Shell, ...(keyof Shell)[]]);
+
+export const ACTIVITIES = ['rhythm', 'telephone', 'bubbles', 'postcard', 'stillness', 'fire'] as const;
+export type Activity = (typeof ACTIVITIES)[number];
 
 export const MetricSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('maxBerries') }),
   z.strictObject({ kind: z.literal('averageWarmth') }),
   z.strictObject({ kind: z.literal('friendPairs') }),
+  z.strictObject({ kind: z.literal('maxShell'), shell: shellKey }),
+  z.strictObject({ kind: z.literal('rumorShare') }),
+  z.strictObject({ kind: z.literal('warmth'), from: id, to: id }),
+  z.strictObject({ kind: z.literal('awayCount') }),
 ]) satisfies z.ZodType<MetricSpec>;
 
 export const BeatSchema = z.strictObject({
@@ -62,6 +72,8 @@ export const BeatSchema = z.strictObject({
     z.strictObject({ verb }),
     // Fires once when the chapter's twist check succeeds, so a beat never tells of a twist the sim did not show.
     z.strictObject({ twist: z.literal(true) }),
+    // Fires once when the player finishes the interlude's activity.
+    z.strictObject({ activity: z.literal(true) }),
   ]),
   actions: z.array(
     z.union([
@@ -77,6 +89,7 @@ export const BeatSchema = z.strictObject({
         rumor: z.strictObject({ target: id, about: id, sign: z.union([z.literal(1), z.literal(-1)]) }),
       }),
       z.strictObject({ dance: id }),
+      z.strictObject({ show: z.literal('heatmap') }),
     ]),
   ),
 });
@@ -145,8 +158,23 @@ export const ExitSpecSchema = z.union([
   z.strictObject({ afterDays: z.number().positive() }),
 ]);
 
+/** A margin note (spec 10.5, ADR 0012 item 13). */
+const text = z.string().min(1);
+export const NoteSchema = z.strictObject({
+  title: text,
+  science: text,
+  limits: text,
+  counter: text,
+  question: text,
+  sources: z.array(z.strictObject({ label: text, url: z.url() })).min(1),
+});
+export type Note = z.infer<typeof NoteSchema>;
+
 const ChapterObject = z.strictObject({
   id,
+  /** An interlude runs an activity between chapters (ADR 0012 item 9). */
+  kind: z.enum(['chapter', 'interlude']),
+  activity: z.enum(ACTIVITIES).optional(),
   /** The chapter's name (spec 6.2), shown in the heading. */
   title: z.string().min(1),
   season,
@@ -167,12 +195,14 @@ const ChapterObject = z.strictObject({
       knot,
       options: z.array(id).min(2),
       metric: MetricSpecSchema,
+      /** For a numeric metric: low to high, one fewer than the options (ADR 0012 item 14). */
+      buckets: z.array(z.number()).optional(),
       afterDays: z.number().positive(),
     })
     .optional(),
   twist: z
     .strictObject({
-      id: z.enum(['kritExploitsPim', 'benchWarmsVillage']),
+      id: z.enum(TWIST_IDS),
       withinDays: z.number().positive(),
       retryArrange: z.tuple([id, id]),
       /** The window opens on the first use of this verb; without it, at chapter start. */
@@ -192,10 +222,27 @@ const ChapterObject = z.strictObject({
     .max(2),
   exit: ExitSpecSchema,
   feeling: z.string(),
-  notes: z.array(z.string()).min(2).max(4),
+  /** Authored diary lines by creature id, shown before the events (such as Krit's hunger in chapter 5). */
+  diary: z.record(id, z.array(text)).optional(),
+  /** 2 to 4 for a chapter, 0 to 4 for an interlude (spec 10.5). */
+  notes: z.array(NoteSchema).max(4),
 });
 
 const WORLD_VERB_SET: ReadonlySet<string> = new Set(WORLD_VERBS);
+/** Metrics that answer an option id, so a bet on them takes no buckets. */
+const WHO_METRICS: ReadonlySet<MetricSpec['kind']> = new Set(['maxBerries', 'maxShell']);
+/** Metrics with no natural option, so a bet on them needs buckets. */
+const BUCKET_METRICS: ReadonlySet<MetricSpec['kind']> = new Set(['rumorShare', 'warmth', 'awayCount']);
+
+function bucketsFit(bet: NonNullable<z.infer<typeof ChapterObject>['bet']>): boolean {
+  const { buckets, metric, options } = bet;
+  if (!buckets) return !BUCKET_METRICS.has(metric.kind);
+  return (
+    !WHO_METRICS.has(metric.kind) &&
+    buckets.length === options.length - 1 &&
+    buckets.every((b, i) => i === 0 || b > (buckets[i - 1] ?? -Infinity))
+  );
+}
 
 export const ChapterSchema = ChapterObject.refine(
   (c) => c.verbs.filter((v) => WORLD_VERB_SET.has(v)).length <= 3,
@@ -215,6 +262,19 @@ export const ChapterSchema = ChapterObject.refine(
     // Honesty (spec 10.2): the twist is told when the sim shows it, never on a timer or a verb.
     message: 'a chapter with a twist needs a beat with the { twist: true } trigger',
     path: ['beats'],
+  })
+  .refine((c) => c.kind === 'interlude' || c.notes.length >= 2, {
+    message: 'a chapter has 2 to 4 margin notes (spec 10.5)',
+    path: ['notes'],
+  })
+  .refine((c) => c.kind === 'chapter' || c.activity !== undefined, {
+    message: 'an interlude needs an activity (ADR 0012 item 9)',
+    path: ['activity'],
+  })
+  .refine((c) => !c.bet || bucketsFit(c.bet), {
+    message:
+      'a bet on rumorShare, warmth, or awayCount needs buckets, low to high, one fewer than its options; maxBerries and maxShell take none (ADR 0012 item 14)',
+    path: ['bet', 'buckets'],
   });
 export type Chapter = z.infer<typeof ChapterObject>;
 export type Overrides = z.infer<typeof OverridesSchema>;

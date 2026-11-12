@@ -7,6 +7,15 @@ export const FlagsSchema = z.strictObject({
   pimScar: z.boolean(),
   benchPlaced: z.boolean(),
   friendThreads: z.number(),
+  litConflict: z.number(),
+  rumorStuck: z.boolean(),
+  echoForgiveness: z.number(),
+  wispPushed: z.boolean(),
+  mossShared: z.boolean(),
+  winterLeft: z.number(),
+  bellDanced: z.boolean(),
+  festivalShare: z.number(),
+  greetingSong: z.number(),
 });
 export type Flags = z.infer<typeof FlagsSchema>;
 export type FlagKey = keyof Flags;
@@ -16,6 +25,15 @@ export const FLAG_KEYS = [
   'pimScar',
   'benchPlaced',
   'friendThreads',
+  'litConflict',
+  'rumorStuck',
+  'echoForgiveness',
+  'wispPushed',
+  'mossShared',
+  'winterLeft',
+  'bellDanced',
+  'festivalShare',
+  'greetingSong',
 ] as const satisfies readonly FlagKey[];
 
 /** Validates raw flags JSON (content/flags.json). */

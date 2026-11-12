@@ -49,6 +49,7 @@ export interface WorldLite {
  * `checkpoint` asks for a `checkpoint` message with the world now, between steps; the answer
  * carries the request's `id`, and a daily checkpoint (at dusk) carries none.
  * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
+ * `rewind` asks for the world at an earlier tick without changing the run (ADR 0012 item 10).
  */
 export type ToWorker =
   | { t: 'init'; seed: number; tuning: unknown; scenario: Scenario; checkpoint?: World }
@@ -56,12 +57,14 @@ export type ToWorker =
   | { t: 'speed'; multiplier: number }
   | { t: 'hash' }
   | { t: 'checkpoint'; id?: number }
-  | { t: 'advance'; ticks: number };
+  | { t: 'advance'; ticks: number }
+  | { t: 'rewind'; tick: number; id: number };
 
 /**
  * Worker to main thread. `accepted.tick` and `events.tick` are the tick the step ran;
  * `snapshot`, `checkpoint`, and `hash` carry `world.tick` after it, the next tick to run.
- * `lastGoodTick` is `world.tick` before the step that failed.
+ * `lastGoodTick` is `world.tick` before the step that failed. `rewound` answers the `rewind` with
+ * the same `id`; its `tick` is the requested tick clamped to [the first world's tick, now].
  */
 export type FromWorker =
   | { t: 'accepted'; tick: number; list: Command[] }
@@ -69,7 +72,8 @@ export type FromWorker =
   | { t: 'events'; tick: number; list: SimEvent[] }
   | { t: 'checkpoint'; tick: number; world: World; id?: number }
   | { t: 'hash'; tick: number; value: string }
-  | { t: 'error'; message: string; lastGoodTick: number };
+  | { t: 'error'; message: string; lastGoodTick: number }
+  | { t: 'rewound'; id: number; tick: number; lite: WorldLite };
 
 export interface SimPort {
   send(list: Command[]): void;

@@ -509,3 +509,47 @@ test('without reduced motion, the paused scene boils (the control for the test a
   const [a, b] = await pausedFrames(page);
   expect(a.equals(b)).toBe(false);
 });
+
+test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now restores the speed', async ({
+  page,
+}) => {
+  const sent = async () =>
+    page.evaluate(() => (window as unknown as { fairWeather: { sent: number } }).fairWeather.sent);
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  // ch6 opens its bet at tick 1; the range waits for its reveal.
+  test.setTimeout(120_000);
+  await page.getByRole('dialog', { name: 'A bet' }).getByRole('button').first().click();
+  await expect(live(page)).toContainText('Your guess', { timeout: 90_000 });
+  await expect(scene(page)).toBeFocused();
+  await page.keyboard.press('z');
+  const range = page.getByLabel('Rewind');
+  await expect(range).toBeEnabled();
+  // A few seconds of chapter, so the range has room to move.
+  await expect
+    .poll(async () => Number(await range.getAttribute('max')) - Number(await range.getAttribute('min')), {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(20);
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+  const before = await sent();
+  await range.focus();
+  await page.keyboard.press('Home');
+  await expect(range).toHaveValue((await range.getAttribute('min')) ?? '');
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Rewound' })).toBeVisible();
+  // Space and the tool send nothing while rewound.
+  const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
+  await cosmos.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press(' ');
+  await page.waitForTimeout(300);
+  expect(await sent()).toBe(before);
+  expect((await dev(page)).speeds.at(-1)).toBe(0);
+  await page.getByRole('button', { name: 'Back to now' }).click();
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+  // The control: back at now, the same Enter sends the fog command.
+  await cosmos.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(sent).toBeGreaterThan(before);
+});

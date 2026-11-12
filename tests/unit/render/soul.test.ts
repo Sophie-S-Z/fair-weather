@@ -81,7 +81,7 @@ test('soulLayout spreads the stars round the soul in id order, starting at the t
 
 test('Soul on a creature with no ties draws only the center', () => {
   const soul = createSoulView(fakeApp(), palette, rigs, 0.3);
-  soul.update(lite([['pim'], ['krit']], []), settings, 'pim');
+  soul.update(lite([['pim'], ['krit']], []), settings, 'pim', 0);
   const stars = soul.container.getChildByLabel('constellation');
   if (!(stars instanceof Graphics)) throw new Error('no constellation');
   expect(stars.context.instructions).toEqual([]);
@@ -98,7 +98,7 @@ test('Soul draws its stars in the full colors, and picks a star or the center', 
       ['echo', 'pim', -0.4, -0.4],
     ],
   );
-  soul.update(w, settings, 'pim');
+  soul.update(w, settings, 'pim', 0);
   const stars = soul.container.getChildByLabel('constellation');
   if (!(stars instanceof Graphics)) throw new Error('no constellation');
   const colors = new Set(
@@ -108,7 +108,7 @@ test('Soul draws its stars in the full colors, and picks a star or the center', 
   );
   for (const c of colors) expect(palette.full).toContain(c);
   expect(colors.size).toBeGreaterThan(0);
-  const frame = soulFrame(1280, 720);
+  const frame = soulFrame(1280, 720, 0);
   const krit = soulLayout(w, 'pim', 0.3).find((s) => s.id === 'krit');
   const at = (s: { x: number; y: number }): [number, number] => [
     frame.x + s.x * frame.radius,
@@ -116,4 +116,15 @@ test('Soul draws its stars in the full colors, and picks a star or the center', 
   ];
   expect(soul.pick(...at({ x: krit?.x ?? 0, y: krit?.y ?? 0 }))).toBe('krit');
   expect(soul.pick(frame.x, frame.y)).toBe('pim');
+});
+
+test('soulFrame centers the constellation left of the drawer, clear of it at text size 1.5', () => {
+  // The drawer is min(22rem, 100vw - 2rem) wide at 0.75rem from the right; at text size 1.5 a rem is 24 px.
+  const inset = 22 * 24 + 0.75 * 24;
+  const frame = soulFrame(1280, 720, inset);
+  expect(frame.x).toBe((1280 - inset) / 2);
+  expect(frame.y).toBe(360);
+  // The farthest star (radius 12) stays left of the drawer.
+  expect(frame.x + frame.radius + 12).toBeLessThan(1280 - inset);
+  expect(soulFrame(300, 720, 400).radius).toBe(0);
 });

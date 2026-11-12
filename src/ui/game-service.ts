@@ -30,6 +30,8 @@ export interface Stage extends Pick<MeadowView, 'setFocus' | 'setShot' | 'showHe
   snapshot(tick: number, lite: WorldLite): void;
   /** This run's timeline points and the ticks at which a two-sided friendship ended. */
   timeline(): { points: readonly TimelinePoint[]; breaks: readonly number[] };
+  /** The screen pixels the HTML takes on the right; the Soul view centers in the rest. */
+  setRightInset(pixels: number): void;
   draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
   /** The creature under a screen point in the current view, or null. Cosmos snaps within 44 pixels. */
   pick(x: number, y: number): string | null;
@@ -47,6 +49,12 @@ export interface GameService {
   castIds: readonly string[];
   /** Both warmths of the tie above the friend threshold: a friendship the Cosmos draws (spec 9.1). */
   isFriend(lite: WorldLite, a: string, b: string): boolean;
+  /**
+   * Each creature's friends (both warmths above the friend threshold) and scars (either warmth
+   * below 0), in tie order, over every tie, creatures away included. A creature with neither is
+   * left out.
+   */
+  ties(lite: WorldLite): ReadonlyMap<string, { friends: readonly string[]; scars: readonly string[] }>;
   /** The chapter Begin starts at: 0, or ?chapter=N in a dev build. */
   firstChapter: number;
   createStage(el: HTMLElement): Promise<Stage>;
@@ -59,6 +67,11 @@ export interface GameService {
    * chapter starts from the year carry of the last snapshot (ADR 0012 item 1).
    */
   startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
+  /**
+   * The world at an earlier tick of this chapter, clamped to what the worker kept; the live run
+   * does not change (ADR 0012 item 10).
+   */
+  rewind(tick: number): Promise<WorldLite>;
   /** Every live snapshot with its tick (the next tick to run). */
   onSnapshot(cb: (lite: WorldLite, tick: number) => void): () => void;
   /**

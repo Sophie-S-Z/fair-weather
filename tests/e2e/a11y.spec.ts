@@ -123,3 +123,46 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('button', { name: /enable accessibility/ })).toHaveCount(0);
   });
 });
+
+test('the Cosmos view with its panel has no serious axe issues', async ({ page }) => {
+  // ch6 (index 9) has zoom, peek, and rewind.
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  await page.keyboard.press('z');
+  const panel = page.getByRole('region', { name: 'Who is friends with whom' });
+  await expect(panel.getByRole('listitem').first()).toContainText(/: \d+ friends?, \d+ scars?/);
+  await expect(panel).toContainText(/This chapter: population \d+/);
+  await expect(panel.getByLabel('Rewind')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test('the Soul view opens the drawer at the diary; P opens it at Under the hood; no serious axe issues', async ({
+  page,
+}) => {
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  // ch6 opens its bet at tick 1; answer it, and the scene has focus again.
+  await page.getByRole('dialog', { name: 'A bet' }).getByRole('button').first().click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  // Respond, so the status line names the pick (the fog tool names the spot).
+  await page.keyboard.press('1');
+  const picked = page.getByRole('status').filter({ hasText: /^Picked: / });
+  for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+  await page.keyboard.press('x');
+  const diary = page.getByRole('region', { name: /^Diary: / });
+  await expect(diary).toBeVisible();
+  await expect(diary).toContainText('Friends:');
+  await expect(diary).toContainText('Scars:');
+  // The drawer opened without taking focus from the scene.
+  await expect(page.getByRole('application', { name: 'The Soul view' })).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('p');
+  const hood = page.getByRole('region', { name: 'Under the hood' });
+  await expect(hood).toBeFocused();
+  await expect(hood).toContainText(/forgives \d+ slights?/);
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(hood).toBeHidden();
+  await expect(page.getByRole('application', { name: 'The Soul view' })).toBeFocused();
+});

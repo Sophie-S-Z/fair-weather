@@ -30,7 +30,7 @@ const CARD_MARGIN = 6;
 
 /**
  * Every friend and scar tie between creatures not away, in tie order. `warmth` is the colder
- * side's warmth. The Cosmos draws the friendships; the scars are for counts (M2.13's panel).
+ * side's warmth. The Cosmos draws the friendships.
  */
 export function cosmosEdges(
   lite: WorldLite,

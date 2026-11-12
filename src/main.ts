@@ -137,8 +137,11 @@ const ink = createInk(inkStory);
 const host = createSimHost(
   () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
 );
-/** Dev only: every speed sent to the sim, and frames drawn, so e2e can see the tab-hidden pause. */
-const dev = { speeds: [] as number[], frames: 0 };
+/**
+ * Dev only: every speed sent to the sim, frames drawn, and command lists the runner sent, so e2e can
+ * see the tab-hidden pause and that a rewind sends nothing.
+ */
+const dev = { speeds: [] as number[], frames: 0, sent: 0 };
 if (import.meta.env.DEV) (window as unknown as { fairWeather: unknown }).fairWeather = dev;
 const params = new URLSearchParams(location.search);
 /** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
@@ -155,6 +158,10 @@ document.addEventListener('visibilitychange', () => {
 });
 const port: SimPort = {
   ...host,
+  send: (list) => {
+    if (import.meta.env.DEV) dev.sent += 1;
+    host.send(list);
+  },
   speed: (m) => {
     speedControl.runner(m);
   },
@@ -238,6 +245,22 @@ const game: GameService = {
     const t = lite.ties.find((t) => (t.a === a && t.b === b) || (t.a === b && t.b === a));
     return t !== undefined && tieKind(t.ab, t.ba, tuning.friend.threshold) === 'friend';
   },
+  ties(lite) {
+    const out = new Map<string, { friends: string[]; scars: string[] }>();
+    const of = (id: string) => {
+      const entry = out.get(id) ?? { friends: [], scars: [] };
+      out.set(id, entry);
+      return entry;
+    };
+    for (const t of lite.ties) {
+      const kind = tieKind(t.ab, t.ba, tuning.friend.threshold);
+      if (kind === null) continue;
+      const list = kind === 'friend' ? 'friends' : 'scars';
+      of(t.a)[list].push(t.b);
+      of(t.b)[list].push(t.a);
+    }
+    return out;
+  },
   firstChapter,
   async createStage(el) {
     const app = new Application();
@@ -266,6 +289,8 @@ const game: GameService = {
     let soulId: string | null = null;
     /** The beat's camera shot; the Cosmos and Soul views show the whole valley under them. */
     let shot: string | null = null;
+    /** The screen pixels the HTML drawer takes on the right, which the Soul view keeps clear. */
+    let inset = 0;
     const showView = (): void => {
       cosmos.container.visible = current === 'cosmos';
       soul.container.visible = current === 'soul';
@@ -292,7 +317,7 @@ const game: GameService = {
         if (import.meta.env.DEV) dev.frames += 1;
         view.update(prev, next, alpha, s);
         if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, soulId);
-        if (current === 'soul') soul.update(next, s, soulId);
+        if (current === 'soul') soul.update(next, s, soulId, inset);
         app.ticker.update(); // advances the view's clock and renders
       },
       pick: (x, y) => views[current].pick(...local(x, y)),
@@ -323,6 +348,9 @@ const game: GameService = {
         lastSeen = lite;
       },
       timeline: () => ({ points, breaks }),
+      setRightInset(pixels) {
+        inset = pixels;
+      },
       setSeason(s) {
         const p = paletteOf(s);
         view.setPalette(p);
@@ -408,6 +436,9 @@ const game: GameService = {
     };
     runner.done.then(keep, keep);
     return runner;
+  },
+  async rewind(tick) {
+    return (await host.rewind(tick)).lite;
   },
   onSnapshot(cb) {
     return host.onMessage((m) => {

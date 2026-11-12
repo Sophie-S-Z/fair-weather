@@ -27,8 +27,10 @@
     const onMove = (e: PointerEvent): void => {
       hold.move(e.clientX, e.clientY);
     };
-    const onKey = (): void => {
-      still = 0;
+    // Space pauses the game (src/input/keyboard.ts), and the pause already holds the meter, so it
+    // does not count as a move.
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== ' ') still = 0;
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('keydown', onKey);

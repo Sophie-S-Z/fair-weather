@@ -1,7 +1,6 @@
 // Migrations bring an old save up to the current format, version 2.
 import { checkInvariants } from '../sim/invariants.ts';
-import { DEFAULT_FLAGS } from '../story/chapter-runner.ts';
-import { FlagsSchema } from '../story/flags.ts';
+import { DEFAULT_FLAGS, FlagsSchema } from '../story/flags.ts';
 import { tuning } from '../story/tuning.ts';
 import { SaveV1Schema, SaveV2Schema } from './format.ts';
 import type { SaveV2 } from './format.ts';

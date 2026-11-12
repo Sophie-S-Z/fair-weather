@@ -1,15 +1,19 @@
 import { expect, test } from 'vitest';
 import flagsJson from '../../../content/flags.json';
 import versesJson from '../../../content/myth/verses.json';
-import { extractFeatures } from '../../../src/myth/features.ts';
+import { brushShare, extractFeatures } from '../../../src/myth/features.ts';
 import type { MythFeatures } from '../../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
 import { displayName } from '../../../src/story/names.ts';
+import tuningJson from '../../../content/tuning.json';
+import { parseTuning } from '../../../src/sim/tuning.ts';
+
+const share = brushShare(parseTuning(tuningJson));
 
 const defaultFlags = parseFlags(flagsJson);
 const verses = VersesSchema.parse(versesJson);
-const skipped = extractFeatures([], defaultFlags, {});
+const skipped = extractFeatures([], defaultFlags, {}, share);
 
 /** verses.json with one verse's templates swapped out. */
 const withTemplates = (index: number, templates: unknown[]): unknown => ({

@@ -46,23 +46,35 @@ const parse = (raw: unknown): Data => {
 /**
  * Opens the profile. Each read goes to the database, and each write reads, changes, and puts the
  * profile in one transaction, so two tabs never erase each other's pages or feathers. Blocked
- * storage, or a write that fails, gives a profile kept in memory for this visit, from what was
- * last read. A damaged profile reads as empty.
+ * storage, or a read or write that fails, gives a profile kept in memory for this visit, from what
+ * was last read, and calls `onUnavailable` once (the save slots' notice). A damaged profile reads
+ * as empty.
  */
-export async function createProfile(factory: IDBFactory): Promise<Profile> {
+export async function createProfile(
+  factory: IDBFactory,
+  onUnavailable: () => void = () => undefined,
+): Promise<Profile> {
   let db: Db | null = null;
   let data = empty();
+  let told = false;
+  const unavailable = (): void => {
+    db = null;
+    if (!told) {
+      told = true;
+      onUnavailable();
+    }
+  };
   try {
     db = await openDb(factory);
   } catch {
-    db = null;
+    unavailable();
   }
   const read = async (): Promise<Data> => {
     if (db) {
       try {
         data = parse(await db.get(KEY));
       } catch {
-        db = null;
+        unavailable();
       }
     }
     return structuredClone(data);
@@ -78,7 +90,7 @@ export async function createProfile(factory: IDBFactory): Promise<Profile> {
         });
         return structuredClone(data);
       } catch {
-        db = null;
+        unavailable();
       }
     }
     change(data);

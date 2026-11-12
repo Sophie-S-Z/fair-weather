@@ -50,11 +50,14 @@ function reach(id: string): { side: number; up: number; down: number } {
   };
 }
 
-const ids = [...new Set([VILLAGER_RIG, ...cast.keys()])];
+// The Quiet Visitor walks by the same bank (meadow-view.ts overWater), so its rig is checked too.
+const ids = [...new Set([VILLAGER_RIG, 'visitor', ...cast.keys()])];
 
 test.each(ids)('%s, drawn at its widest, stays inside the bank', (id) => {
   const r = reach(id);
   expect(r.side).toBeLessThanOrEqual(tuning.bank.side);
+  // Below the feet the body meets water that lies under them, whose bank above the water is
+  // `bank.side` wide (`bank.below` is the bank under the water, which the body's top meets).
   expect(r.down).toBeLessThanOrEqual(tuning.bank.side);
   expect(r.up).toBeLessThanOrEqual(tuning.bank.below);
 });

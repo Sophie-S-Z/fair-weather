@@ -26,8 +26,15 @@ export interface SaveV1 {
  * A save at a chapter start. `year` is the year log of the chapters before it, which the myth
  * reads (spec 10.6); `carry` is the year carry the chapter started from (ADR 0012 item 1), or null
  * for a fresh start. With the flags they rebuild the chapter's scenario and the next chapter's carry.
+ * `yearKept` marks an autosave whose year has ended and is in the Book of Skies: it is not
+ * continued, so the fire is not played again for a second page (spec 10.6 item 7).
  */
-export type SaveV2 = Omit<SaveV1, 'version' | 'log'> & { version: 2; year: YearLog; carry: Carry | null };
+export type SaveV2 = Omit<SaveV1, 'version' | 'log'> & {
+  version: 2;
+  year: YearLog;
+  carry: Carry | null;
+  yearKept?: true;
+};
 
 const common = {
   seed: z.number(),
@@ -75,6 +82,7 @@ export const SaveV2Schema = z.object({
   flags: FlagsSchema,
   year: YearLogSchema,
   carry: CarrySchema.nullable(),
+  yearKept: z.literal(true).exactOptional(),
 }) satisfies z.ZodType<SaveV2>;
 
 /** FNV-1a 32-bit over the string's UTF-16 code units, as 8 hex characters. */

@@ -2,7 +2,6 @@
 import { Application } from 'pixi.js';
 import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
-import flagsJson from '../content/flags.json';
 import scenarioJson from '../content/scenarios/m0.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import ch0 from '../content/chapters/ch0.json';
@@ -33,7 +32,7 @@ import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
 import { createWait } from './input/wait.ts';
 import { nextView, type ViewName } from './input/zoom.ts';
-import { extractFeatures } from './myth/features.ts';
+import { brushShare, extractFeatures } from './myth/features.ts';
 import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
@@ -56,7 +55,7 @@ import type { YearLog } from './story/action-log.ts';
 import { carriedDiaries, receivedDials } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
-import { parseFlags } from './story/flags.ts';
+import { DEFAULT_FLAGS } from './story/flags.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
@@ -231,14 +230,15 @@ noticeEl.style.cssText =
   'position:fixed;left:0.75rem;bottom:0.75rem;z-index:10;margin:0;padding:0.25rem 0.5rem;max-width:30rem;background:var(--bg);color:var(--fg);border:2px solid var(--accent);border-radius:0.4rem';
 noticeEl.hidden = true;
 document.body.appendChild(noticeEl);
-// Not awaited at the top, so the title screen mounts without waiting for the database.
-const slotsReady = createSlots(indexedDB, () => {
+const storageNotice = (): void => {
   noticeEl.hidden = false;
   noticeEl.textContent =
     'Saving is not available in this browser, so progress will not be kept. You can keep playing.';
-});
-/** The Book of Skies and the feathers; blocked storage keeps them for this visit only. */
-const profileReady = createProfile(indexedDB);
+};
+// Not awaited at the top, so the title screen mounts without waiting for the database.
+const slotsReady = createSlots(indexedDB, storageNotice);
+/** The Book of Skies and the feathers; blocked storage keeps them for this visit only, with the same notice. */
+const profileReady = createProfile(indexedDB, storageNotice);
 const tuningHash = hashTuning(JSON.stringify(tuningJson));
 /** The loaded autosave, held until its chapter starts. */
 let resuming: SaveV2 | null = null;
@@ -258,7 +258,7 @@ const yearLog: YearLog = [];
 
 const game: GameService = {
   chapters,
-  defaultFlags: parseFlags(flagsJson),
+  defaultFlags: DEFAULT_FLAGS,
   castIds: [...cast.keys()].sort(),
   isFriend(lite, a, b) {
     const t = lite.ties.find((t) => (t.a === a && t.b === b) || (t.a === b && t.b === a));
@@ -298,7 +298,6 @@ const game: GameService = {
       lensRadius: tuning.light.lensRadius,
       cast,
       gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
-      bank: tuning.bank,
     });
     const threshold = tuning.friend.threshold;
     const cosmos = createCosmosView(app, palette, cast, threshold);
@@ -494,13 +493,15 @@ const game: GameService = {
   myth(flags) {
     const here = (lastLite?.creatures ?? []).filter((c) => !c.gone && c.state !== 'away');
     const skyWarmth = Object.fromEntries(here.map((c) => [c.id, c.skyWarmth]));
-    return tellMyth(extractFeatures(yearLog, flags, skyWarmth), verses, displayName);
+    return tellMyth(extractFeatures(yearLog, flags, skyWarmth, brushShare(tuning)), verses, displayName);
   },
   async book() {
     return (await profileReady).pages();
   },
   async keepMyth(page) {
     await (await profileReady).keepMyth(page, SEED);
+    // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
+    await (await slotsReady).keepYear();
   },
   async feathers() {
     return (await profileReady).feathers();

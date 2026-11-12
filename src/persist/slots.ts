@@ -12,11 +12,16 @@ export interface SlotInfo {
 
 export interface Slots {
   list(): Promise<SlotInfo[]>;
-  /** True when the autosave has been written; cheaper than loading it. */
+  /** True when the autosave loads: written, not damaged, and its year not kept. */
   hasAuto(): Promise<boolean>;
   save(slot: Slot, s: SaveV2): Promise<void>;
-  /** A damaged autosave falls back to the one before it; a damaged manual slot gives null. */
+  /**
+   * A damaged autosave falls back to the one before it; a damaged manual slot gives null. An
+   * autosave whose year is kept gives null.
+   */
   load(slot: Slot): Promise<SaveV2 | null>;
+  /** Marks the autosave's year as kept in the Book of Skies (SaveV2 `yearKept`), so Continue ends. */
+  keepYear(): Promise<void>;
 }
 
 const SLOTS: Slot[] = [0, 1, 2, 'auto'];
@@ -55,18 +60,13 @@ export async function createSlots(
     }
   }
 
-  const load = async (slot: Slot): Promise<SaveV2 | null> =>
-    (await read(key(slot))) ?? (slot === 'auto' ? await read(key(slot, true)) : null);
+  const load = async (slot: Slot): Promise<SaveV2 | null> => {
+    const s = (await read(key(slot))) ?? (slot === 'auto' ? await read(key(slot, true)) : null);
+    return s?.yearKept ? null : s;
+  };
 
   return {
-    async hasAuto() {
-      if (!db) return false;
-      try {
-        return (await db.has(key('auto'))) || (await db.has(key('auto', true)));
-      } catch {
-        return false;
-      }
-    },
+    hasAuto: async () => (await load('auto')) !== null,
     async list() {
       const out: SlotInfo[] = [];
       for (const slot of SLOTS) {
@@ -90,5 +90,15 @@ export async function createSlots(
       }
     },
     load,
+    async keepYear() {
+      if (!db) return;
+      try {
+        // The one before stands in for a damaged latest, as in load.
+        const latest = (await read(key('auto'))) ?? (await read(key('auto', true)));
+        if (latest) await db.putAll([[key('auto'), { ...latest, yearKept: true }]]);
+      } catch {
+        unavailable();
+      }
+    },
   };
 }

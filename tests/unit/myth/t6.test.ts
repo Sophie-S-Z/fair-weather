@@ -6,7 +6,7 @@ import ch3Json from '../../../content/chapters/ch3.json';
 import flagsJson from '../../../content/flags.json';
 import versesJson from '../../../content/myth/verses.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
-import { extractFeatures } from '../../../src/myth/features.ts';
+import { brushShare, extractFeatures } from '../../../src/myth/features.ts';
 import { chooseTemplate, tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { createRng } from '../../../src/sim/rng.ts';
 import type { YearLog } from '../../../src/story/action-log.ts';
@@ -15,6 +15,10 @@ import { displayName } from '../../../src/story/names.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import { runChapterHeadless } from '../../golden/run-chapter.ts';
 import { randomYear } from './random-year.ts';
+import tuningJson from '../../../content/tuning.json';
+import { parseTuning } from '../../../src/sim/tuning.ts';
+
+const share = brushShare(parseTuning(tuningJson));
 
 const verses = VersesSchema.parse(versesJson);
 
@@ -24,7 +28,7 @@ test('T6: at least 900 of 1,000 random years give different myths', () => {
   const choices = new Set<string>();
   for (let i = 0; i < 1000; i++) {
     const r = randomYear(rng);
-    const f = extractFeatures(r.year, r.flags, r.skyWarmth);
+    const f = extractFeatures(r.year, r.flags, r.skyWarmth, share);
     texts.add(JSON.stringify(tellMyth(f, verses, displayName).verses));
     choices.add(verses.verses.map((v) => v.templates.indexOf(chooseTemplate(v, f))).join(','));
   }
@@ -71,7 +75,7 @@ test('a real headless year log (chapters 1 and 3) reads through the myth', { tim
   ];
   const events = yearLog.flatMap((c) => c.log.flatMap((e) => (e.kind === 'event' ? [e.e] : [])));
 
-  const f = extractFeatures(yearLog, flags, { pim: 0.1, krit: 0.3 });
+  const f = extractFeatures(yearLog, flags, { pim: 0.1, krit: 0.3 }, share);
   expect(rumbles).toBeGreaterThan(0);
   expect(f).toMatchObject({
     rumbles,

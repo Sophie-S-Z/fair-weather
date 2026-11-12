@@ -23,6 +23,7 @@ const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [],
   water: [],
+  banks: [],
   decks: [],
   islets: [],
   mushroom: null,

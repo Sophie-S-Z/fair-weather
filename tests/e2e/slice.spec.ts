@@ -1,16 +1,10 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
+import { canvasPoints, tabTo, tap } from './helpers.ts';
 
 // The vertical slice (M1.8, M1.12). Dev builds only: ?chapter=N starts at chapter N, and ?fast=N
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
 
 const live = (page: Page) => page.locator('[aria-live="polite"]');
-/** Presses Tab until the status line names `name`: ch0's Pim beats wait for the sim to wake Pim. */
-const tabTo = async (page: Page, name: string) => {
-  // The status line is a live region (role=status), so a screen reader hears each pick.
-  const picked = page.getByRole('status').filter({ hasText: new RegExp(`^Picked: ${name}(,|$)`) });
-  for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
-  await expect(picked).toBeVisible();
-};
 const scene = (page: Page) => page.getByRole('application', { name: 'The meadow' });
 const dev = (page: Page) =>
   page.evaluate(
@@ -299,42 +293,11 @@ test('Continue keeps the year so far: gusts blown in chapter 7 reach the myth af
 // Whole-slice runs (M1.12, spec T7). They drive the real UI only: keys, clicks, and taps.
 
 const FAST = '10';
-const SCENE_ASPECT = 1600 / 900; // content/scenes/kith-meadow.json; the view fits it in the canvas
 /** Pim's feet in content/scenarios/m0.json; Pim sleeps there at ch0's dawn, so the search starts there. */
 const PIM_START = { x: 160, y: 130 };
 /** The slice runs end where chapter 3 hands over to the first interlude. */
 const interlude = (page: Page) => page.getByRole('heading', { name: 'Interlude: The Door for Two' });
 const chapter = (page: Page, n: number) => page.getByRole('heading', { name: `Chapter ${String(n)}` });
-
-/**
- * Canvas points on a grid over the fitted scene where no HUD element is on top, nearest first to
- * the scene point `near` (the wide shot shows the whole scene, so scene units map onto the fit).
- */
-async function scenePoints(
-  page: Page,
-  step: number,
-  near: { x: number; y: number },
-): Promise<{ x: number; y: number }[]> {
-  return page.evaluate(
-    ({ step, aspect, near }) => {
-      const canvas = document.querySelector('canvas');
-      if (!canvas) return [];
-      const r = canvas.getBoundingClientRect();
-      const w = Math.min(r.width, r.height * aspect);
-      const h = w / aspect;
-      const left = r.left + (r.width - w) / 2;
-      const top = r.top + (r.height - h) / 2;
-      const out: { x: number; y: number }[] = [];
-      for (let y = top + step / 2; y < top + h; y += step)
-        for (let x = left + step / 2; x < left + w; x += step)
-          if (document.elementFromPoint(x, y) === canvas) out.push({ x, y });
-      const nx = left + (near.x / 1600) * w;
-      const ny = top + (near.y / 900) * h;
-      return out.sort((a, b) => Math.hypot(a.x - nx, a.y - ny) - Math.hypot(b.x - nx, b.y - ny));
-    },
-    { step, aspect: SCENE_ASPECT, near },
-  );
-}
 
 /**
  * Clicks or taps across the scene, nearest Pim's spot first, until the status line names Pim as
@@ -351,7 +314,7 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
   const pausing = (await pause.isEnabled()) && (await pause.getAttribute('aria-pressed')) === 'false';
   if (pausing) await toggle(pause);
   let found = false;
-  for (const { x, y } of await scenePoints(page, step, PIM_START)) {
+  for (const { x, y } of await canvasPoints(page, step, PIM_START, true)) {
     await press(x, y);
     const now = await page.evaluate(
       ({ t, w }) => ({
@@ -372,28 +335,6 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
 }
 
 /**
- * Clicks the middle of a button that may go away as the chapter moves on: the button under the
- * element `scope` (a CSS selector) whose text has `text`, or its last button. A missing button is
- * skipped. It finds the button in one page.evaluate and clicks at once, as a player would. Locator
- * actions wait on animation frames (to resolve the locator, and for click, to see the button hold
- * still), so with a short timeout they time out when software rendering draws two or three
- * frames a second, as on CI with no GPU; and at ?fast=10 a sky bid's 6 s reply window is only
- * 0.6 s of real time.
- */
-async function tryClick(page: Page, scope: string, text?: string): Promise<void> {
-  const at = await page.evaluate(
-    ({ scope, text }) => {
-      const buttons = [...(document.querySelector(scope)?.querySelectorAll('button') ?? [])];
-      const b = text === undefined ? buttons.at(-1) : buttons.find((e) => e.textContent.includes(text));
-      const r = b?.getBoundingClientRect();
-      return r && r.width > 0 ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-    },
-    { scope, text },
-  );
-  if (at) await page.mouse.click(at.x, at.y);
-}
-
-/**
  * The auto-player: it reads the screen and acts with the active tool, as a player would. It clicks
  * until it wakes Pim in chapter 0, answers every bet with its last option, holds still for every wave, and
  * sets one bench at the spot nearest the middle of the scene.
@@ -406,7 +347,7 @@ async function autoPlay(page: Page): Promise<void> {
   let framesAtStart = 0;
   while (!(await interlude(page).isVisible())) {
     if (await bet.isVisible()) {
-      await tryClick(page, '[role="dialog"]');
+      await tap(page, '[role="dialog"]');
       continue;
     }
     const [title = ''] = await page.locator('h1').allTextContents();
@@ -427,7 +368,7 @@ async function autoPlay(page: Page): Promise<void> {
       acted.add(key);
       await pickByPointer(page, false, 16, title);
     } else if (tool.includes('Respond')) {
-      await tryClick(page, '[aria-label="Reply to the sky"]', 'Hold still');
+      await tap(page, '[aria-label="Reply to the sky"]', 'Hold still');
     } else if (tool.includes('Bench') && !acted.has(key)) {
       const box = await scene(page).boundingBox();
       if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

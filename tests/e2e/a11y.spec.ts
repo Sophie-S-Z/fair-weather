@@ -324,6 +324,21 @@ test.describe('the interludes, each played by keyboard alone', () => {
     await expect(activity).toBeVisible();
     await expect(count).toHaveText(before ?? '');
   });
+
+  test('Space pauses The Long Night and keeps its count; Space again lets it end', async ({ page }) => {
+    const activity = await open(page, 13, 'Hold still');
+    const count = activity.getByText(/of 5 seconds$/);
+    await expect(count).toHaveText(/^[1-4] of 5 seconds$/, { timeout: 10_000 });
+    await page.keyboard.press(' ');
+    await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
+    // The pause holds the meter where it was: Space is not a move.
+    const held = await count.textContent();
+    expect(held).not.toBe('0 of 5 seconds');
+    await page.waitForTimeout(2_000);
+    await expect(count).toHaveText(held ?? '');
+    await page.keyboard.press(' ');
+    await expect(heading(page, 'Chapter 9')).toBeVisible({ timeout: 15_000 });
+  });
 });
 
 test('the fire: Listen five times tells five verses and ends Part 1; no serious axe issues', async ({

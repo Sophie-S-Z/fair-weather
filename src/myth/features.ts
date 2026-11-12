@@ -1,6 +1,5 @@
 // The year log as myth features (spec 10.6 item 1).
-import tuningJson from '../../content/tuning.json';
-import type { Behavior } from '../sim/types.ts';
+import type { Behavior, Tuning } from '../sim/types.ts';
 import type { YearLog, YearEvent } from '../story/action-log.ts';
 import type { Flags } from '../story/flags.ts';
 import type { VerbInput } from '../story/verbs.ts';
@@ -28,9 +27,14 @@ export interface MythFeatures {
   narrator: string;
 }
 
-const { brushRadius, brushAmount } = tuningJson.fog;
-const BRUSH_SHARE =
-  (Math.PI * brushRadius * brushRadius * brushAmount) / (tuningJson.scene.width * tuningJson.scene.height);
+/**
+ * The share of the scene one fog brush stroke paints, from the parsed tuning: myth may not import
+ * the sim's TuningSchema (spec 14.2), so the caller passes it to extractFeatures.
+ */
+export function brushShare(t: Pick<Tuning, 'fog' | 'scene'>): number {
+  const r = t.fog.brushRadius;
+  return (Math.PI * r * r * t.fog.brushAmount) / (t.scene.width * t.scene.height);
+}
 
 /** The id with the highest score, a tie to the lower id; null with no ids. */
 function top(scores: Iterable<[string, number]>): string | null {
@@ -44,6 +48,8 @@ export function extractFeatures(
   year: YearLog,
   flags: Flags,
   skyWarmth: Readonly<Record<string, number>>,
+  /** brushShare of the tuning. */
+  fogShare: number,
 ): MythFeatures {
   const entries = year.flatMap((c) => c.log);
   const verbs: VerbInput[] = entries.flatMap((e) => (e.kind === 'verb' ? [e.input] : []));
@@ -57,7 +63,7 @@ export function extractFeatures(
     lightOnConflict: share(['against', 'keep']),
     lightOnKindness: share(['toward', 'give']),
     rumbles: verbs.filter((v) => v.verb === 'respond' && v.reply === 'against').length,
-    fogPainted: verbs.filter((v) => v.verb === 'fog' && !v.clear).length * BRUSH_SHARE,
+    fogPainted: verbs.filter((v) => v.verb === 'fog' && !v.clear).length * fogShare,
     gusts: verbs.filter((v) => v.verb === 'blow').length,
     welcomes: events.filter((e) => e.t === 'arrive').length,
     mostLit: top(litCount),

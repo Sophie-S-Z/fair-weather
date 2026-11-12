@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- test fixtures have known ids */
 import { expect, test } from 'vitest';
 import { applyCommand } from '../../../src/sim/commands.ts';
+import { landOf, withBank } from '../../../src/sim/land.ts';
 import { createWorld, ensureTie, side } from '../../../src/sim/world.ts';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import { get, scriptedRng, tuning as t } from '../sim/helpers.ts';
@@ -48,4 +49,17 @@ test('lite carries who dances and the mushroom with the drops left today', () =>
   expect(lite.creatures.find((c) => c.id === 'krit')!.dancing).toBe(false);
   expect(lite.mushroom).toEqual({ x: 400, y: 300, drops: 7, witherDays: 0 });
   expect(toLite(createWorld(1, t, scenario), t).mushroom).toBeNull();
+});
+
+test("lite carries the sim's own land: each water's bank, the decks, and the islets", () => {
+  const water = [{ x: 780, y: 0, w: 60, h: 900 }];
+  const bridge = { id: 'bridge-1', kind: 'bridge' as const, x: 810, y: 450 };
+  const w = createWorld(1, t, { ...scenario, water, structures: [bridge] });
+  const land = landOf(w, t);
+  const lite = toLite(w, t);
+  expect(lite.banks).toEqual([withBank(water[0]!, t)]);
+  expect(lite.banks).toEqual(land.banks);
+  expect(lite.decks).toEqual(land.decks);
+  expect(lite.islets).toEqual([]);
+  expect(toLite(createWorld(1, t, scenario), t).banks).toEqual([]);
 });

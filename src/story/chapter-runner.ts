@@ -9,7 +9,6 @@
 // command the chapter sent (its `accepted` tick), so written flags read a world that has applied
 // every command the chapter sent before it.
 import diaryJson from '../../content/diary.json';
-import flagsJson from '../../content/flags.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, DialKey, Dials, SimEvent } from '../sim/types.ts';
 import { YEAR_EVENTS } from './action-log.ts';
@@ -18,7 +17,7 @@ import { parseBeatTag } from './beat-tags.ts';
 import type { BeatAction } from './beat-tags.ts';
 import { creature, measureBet } from './bets.ts';
 import { DiarySchema, diaryLines } from './diary.ts';
-import { FLAG_KEYS, parseFlags } from './flags.ts';
+import { DEFAULT_FLAGS, FLAG_KEYS } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
 import { chapterTicksPerDay, chosenOverrides } from './scenario.ts';
@@ -84,8 +83,6 @@ export function assertStoryCommand(cmd: Command): void {
   if (!STORY_COMMANDS.has(cmd.t)) throw new Error(`The story may not send '${cmd.t}'`);
 }
 
-/** content/flags.json: the gentle values for skips, and for the flags an old save lacks. */
-export const DEFAULT_FLAGS = parseFlags(flagsJson);
 const DIARY = DiarySchema.parse(diaryJson);
 /** A diary keeps a creature's last 20 events (spec 9.1). */
 const DIARY_LENGTH = 20;

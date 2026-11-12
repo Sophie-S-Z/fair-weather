@@ -1,5 +1,5 @@
-import { IDBFactory } from 'fake-indexeddb';
-import { expect, test } from 'vitest';
+import { IDBDatabase, IDBFactory } from 'fake-indexeddb';
+import { expect, test, vi } from 'vitest';
 import type { MythPage } from '../../../src/myth/grammar.ts';
 import { openDb } from '../../../src/persist/db.ts';
 import { createProfile } from '../../../src/persist/profile.ts';
@@ -40,17 +40,42 @@ test('feathers count up and are kept; the save slots do not see the profile', as
   expect(await slots.hasAuto()).toBe(false);
 });
 
-test('blocked storage gives an in-memory profile', async () => {
+test('blocked storage gives an in-memory profile and the storage notice once', async () => {
+  const notice = vi.fn();
   const throwing = {
     open() {
       throw new Error('SecurityError');
     },
   } as unknown as IDBFactory;
-  const profile = await createProfile(throwing);
+  const profile = await createProfile(throwing, notice);
   expect((await profile.keepMyth(page('pim'), 1)).year).toBe(1);
   expect(await profile.addFeather()).toBe(1);
   expect(await profile.pages()).toHaveLength(1);
   expect(await profile.feathers()).toBe(1);
+  expect(notice).toHaveBeenCalledTimes(1);
+});
+
+test('a failed write or read keeps the profile in memory from the last read, with the notice once', async () => {
+  const notice = vi.fn();
+  const profile = await createProfile(new IDBFactory(), notice);
+  expect(await profile.addFeather()).toBe(1);
+  expect(notice).not.toHaveBeenCalled();
+  const reading = vi.fn();
+  const other = await createProfile(new IDBFactory(), reading);
+  const broken = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+    throw new Error('InvalidStateError');
+  });
+  try {
+    expect(await profile.addFeather()).toBe(2); // the write fails: kept in memory
+    expect((await profile.keepMyth(page('pim'), 1)).year).toBe(1);
+    expect(await profile.feathers()).toBe(2);
+    expect(notice).toHaveBeenCalledTimes(1);
+
+    expect(await other.pages()).toEqual([]); // the read fails
+    expect(reading).toHaveBeenCalledTimes(1);
+  } finally {
+    broken.mockRestore();
+  }
 });
 
 test('a damaged profile reads as empty, and the next write replaces it', async () => {

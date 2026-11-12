@@ -2,12 +2,16 @@
 // chapter's T3 run starts from its file here; after a content change, rewrite them with `-u`.
 import { expect, test } from 'vitest';
 import versesJson from '../../content/myth/verses.json';
-import { extractFeatures } from '../../src/myth/features.ts';
+import { brushShare, extractFeatures } from '../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../src/myth/grammar.ts';
 import { YearLogSchema } from '../../src/story/action-log.ts';
 import type { YearLog } from '../../src/story/action-log.ts';
 import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
+import tuningJson from '../../content/tuning.json';
+import { parseTuning } from '../../src/sim/tuning.ts';
+
+const share = brushShare(parseTuning(tuningJson));
 
 // Played once, at import, for both tests.
 const year = runYear(1, 'ch10');
@@ -42,7 +46,7 @@ test('the seed-1 year log through ch9 tells five verses with no open slot', asyn
   if (!ch9) throw new Error('the year has no ch9');
   const skyWarmth = Object.fromEntries(ch9.last.creatures.map((c) => [c.id, c.skyWarmth]));
   const page = tellMyth(
-    extractFeatures(log, ch9.flags, skyWarmth),
+    extractFeatures(log, ch9.flags, skyWarmth, share),
     VersesSchema.parse(versesJson),
     displayName,
   );

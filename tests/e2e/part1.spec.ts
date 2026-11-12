@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { canvasPoints, pickedIn, tabTo, tap, type Point } from './helpers.ts';
 
 // Part 1 from Begin to its end (M2.16, spec T7), played twice through the real UI: once by pointer,
 // once by keys alone. Dev builds only: ?fast=10 multiplies every sim speed, so a 40 s day is 4 s.
@@ -9,7 +10,6 @@ test.skip(({ browserName }) => browserName !== 'chromium', 'The whole-year runs 
 const FAST = 10;
 /** One sim day at ?fast=10: content/tuning.json story.dayLengthSeconds is 40. */
 const DAY_MS = (40 * 1_000) / FAST;
-const SCENE = { width: 1600, height: 900 }; // content/scenes/kith-meadow.json
 /** Pim's feet in content/scenarios/m0.json, where Pim sleeps at chapter 0's dawn. */
 const PIM_START = { x: 160, y: 130 };
 /** The last option of each bet in play order (content/chapters ch2, ch4, ch5, ch6, ch8). */
@@ -20,7 +20,6 @@ const BET_CHAPTERS = /^Chapter [24568]:/;
 const ONCE = ['Bench', 'Bridge', 'Lantern', 'Whisper', 'Thread', 'Fog', 'Wind'];
 const TOOLS = ['Wake', 'Respond', ...ONCE, 'Sunlight'];
 
-type Point = { x: number; y: number };
 type Mode = 'pointer' | 'keyboard';
 /** What a run did: the bet options it chose, and `heading/tool` for each tool it used once. */
 type Played = { bets: string[]; used: string[] };
@@ -62,73 +61,12 @@ type Look = Awaited<ReturnType<typeof look>>;
 /** The tool's name in the tray (Bench, Sunlight, ...), from a button's text such as "2 Sunlight". */
 const toolName = (text: string): string => TOOLS.find((t) => text.includes(t)) ?? text;
 
-/**
- * The middle of a button that may go away as the year moves on: the button under `scope` (a CSS
- * selector) whose text or name has `text`, or its last button; null when there is none. Found in
- * one page.evaluate, since locator actions wait on frames, which software rendering draws slowly.
- */
-function buttonAt(page: Page, scope: string, text?: string): Promise<Point | null> {
-  return page.evaluate(
-    ({ scope, text }) => {
-      const buttons = [...(document.querySelector(scope)?.querySelectorAll('button') ?? [])];
-      const named = (b: Element) =>
-        b.textContent.includes(text ?? '') || (b.getAttribute('aria-label') ?? '').includes(text ?? '');
-      const b = text === undefined ? buttons.at(-1) : buttons.find(named);
-      const r = b?.getBoundingClientRect();
-      return r && r.width > 0 ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-    },
-    { scope, text },
-  );
-}
-async function tap(page: Page, scope: string, text?: string): Promise<string | null> {
-  const at = await buttonAt(page, scope, text);
-  if (!at) return null;
-  const label = await page.evaluate(
-    ({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent.trim() ?? '',
-    at,
-  );
-  await page.mouse.click(at.x, at.y);
-  return label;
-}
-
 /** The middle of the fitted scene: the wide shot shows the whole scene in the canvas. */
 async function sceneMiddle(page: Page): Promise<Point> {
   const box = await page.getByRole('application').boundingBox();
   if (!box) throw new Error('The scene is not laid out');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 }
-
-/**
- * Canvas points on a grid where no HUD element is on top, nearest first to `near` (a client point).
- * `fit` keeps them inside the scene as the Meadow fits it; the Cosmos uses the whole canvas.
- */
-function canvasPoints(page: Page, step: number, near: Point | 'middle', fit: boolean): Promise<Point[]> {
-  return page.evaluate(
-    ({ step, near, fit, scene }) => {
-      const canvas = document.querySelector('canvas');
-      if (!canvas) return [];
-      const r = canvas.getBoundingClientRect();
-      const aspect = scene.width / scene.height;
-      const w = fit ? Math.min(r.width, r.height * aspect) : r.width;
-      const h = fit ? w / aspect : r.height;
-      const left = r.left + (r.width - w) / 2;
-      const top = r.top + (r.height - h) / 2;
-      const out: { x: number; y: number }[] = [];
-      for (let y = top + step / 2; y < top + h; y += step)
-        for (let x = left + step / 2; x < left + w; x += step)
-          if (document.elementFromPoint(x, y) === canvas) out.push({ x, y });
-      const n =
-        near === 'middle'
-          ? { x: left + w / 2, y: top + h / 2 }
-          : { x: left + (near.x / scene.width) * w, y: top + (near.y / scene.height) * h };
-      return out.sort((a, b) => Math.hypot(a.x - n.x, a.y - n.y) - Math.hypot(b.x - n.x, b.y - n.y));
-    },
-    { step, near, fit, scene: SCENE },
-  );
-}
-
-/** The creature the status line names as picked, or null. */
-const pickedIn = (status: string): string | null => /^Picked: ([^,.]+)/.exec(status)?.[1] ?? null;
 
 /**
  * Clicks across the canvas with a tool that only picks (Respond), and returns the first `n`
@@ -398,7 +336,7 @@ async function playPart1(page: Page, mode: Mode): Promise<Played> {
       todo.shift();
       if (mode === 'pointer') await findPim(page, seen.heading);
       else {
-        await tabToName(page, 'Pim');
+        await tabTo(page, 'Pim');
         await page.keyboard.press('Enter');
       }
       played.used.push(`${seen.heading}/${tool}`);
@@ -452,13 +390,6 @@ async function findPim(page: Page, heading: string): Promise<void> {
   if ((await look(page)).paused) await tap(page, '[aria-label="Time"]', 'Pause');
 }
 
-/** Presses Tab until the status line names `name`. */
-async function tabToName(page: Page, name: string): Promise<void> {
-  for (let i = 0; i < 40 && pickedIn((await look(page)).status) !== name; i++)
-    await page.keyboard.press('Tab');
-  expect(pickedIn((await look(page)).status)).toBe(name);
-}
-
 /** The tools each run uses once, by chapter (the chapter configs' verbs and place kinds). */
 const USED_ONCE = [
   'Chapter 0: First Light/Wake',
@@ -504,6 +435,8 @@ for (const mode of ['pointer', 'keyboard'] as const) {
     }
     await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Book of Skies' })).toBeEnabled();
+    // The year is kept, so Continue does not offer its fire again (one page per year).
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
     expect(errors).toEqual([]);
   });
 }

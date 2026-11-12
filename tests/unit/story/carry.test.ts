@@ -29,6 +29,7 @@ test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', ()
     metrics: { averageWarmth: 0, friendPairs: 0 },
     structures: [{ id: 'bench-1', kind: 'bench', x: 1, y: 1 }],
     water: [],
+    banks: [],
     decks: [],
     islets: [],
     mushroom: null,

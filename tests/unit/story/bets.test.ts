@@ -23,6 +23,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
     metrics: { averageWarmth, friendPairs },
     structures: [],
     water: [],
+    banks: [],
     decks: [],
     islets: [],
     mushroom: null,

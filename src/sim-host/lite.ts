@@ -60,6 +60,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
     structures: w.structures.map((s) => ({ ...s })),
     bushes: w.bushes.map((b) => ({ ...b })),
     water: (w.water ?? []).map((r) => ({ ...r })),
+    banks: land.banks.map((r) => ({ ...r })),
     decks: land.decks.map((d) => ({ ...d })),
     islets: land.islets.map((r) => ({ ...r })),
     mushroom: w.mushroom

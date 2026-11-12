@@ -19,7 +19,8 @@ function drawRipple(g: Graphics, x: number, y: number): void {
     .quadraticCurveTo(x + h / 2, y + 5, x + h, y);
 }
 
-const inRect = (r: Rect, x: number, y: number): boolean =>
+/** True when (x, y) is in `r`, edges included: sim/land.ts inRect, which render may not import (spec 14.2). */
+export const inRect = (r: Rect, x: number, y: number): boolean =>
   x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
 /** A bridge's deck in paper with an ink outline, and planks across the way it is crossed. */

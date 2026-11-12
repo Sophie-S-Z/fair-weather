@@ -8,12 +8,13 @@ import ch4Json from '../../../content/chapters/ch4.json';
 import ch5Json from '../../../content/chapters/ch5.json';
 import i5Json from '../../../content/chapters/i5.json';
 import ch4Carry from '../../golden/carry/ch4.json';
-import { extractFeatures } from '../../../src/myth/features.ts';
+import { brushShare, extractFeatures } from '../../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { openDb } from '../../../src/persist/db.ts';
 import { hashTuning } from '../../../src/persist/format.ts';
 import type { SaveV2 } from '../../../src/persist/format.ts';
 import { migrate } from '../../../src/persist/migrations.ts';
+import { createProfile } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
 import { hashWorld } from '../../../src/sim/hash.ts';
 import { step } from '../../../src/sim/step.ts';
@@ -30,6 +31,7 @@ import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 
 const tuning = parseTuning(tuningJson);
+const share = brushShare(tuning);
 const flags = parseFlags(flagsJson);
 const base = scenarioJson as Scenario;
 
@@ -116,7 +118,7 @@ test('Continue in chapter 7 gives a myth built from chapters 0 to 6', async () =
   const loaded = await slots.load('auto');
   if (!loaded) throw new Error('no save');
   expect(loaded.chapterId).toBe('ch7');
-  const features = extractFeatures(loaded.year, loaded.flags, { krit: 0.9, pim: 0.1 });
+  const features = extractFeatures(loaded.year, loaded.flags, { krit: 0.9, pim: 0.1 }, share);
   expect(features.rumbles).toBe(3);
   const page = tellMyth(features, VersesSchema.parse(versesJson), displayName);
   expect(page.verses[0]?.text).toContain('rumbled at us 3 times');
@@ -279,7 +281,42 @@ test('a damaged checkpoint fails migrate and the autosave falls back', async () 
   expect((await slots.load('auto'))?.chapterId).toBe('ch0');
 });
 
-test('hasAuto sees an autosave without loading it', async () => {
+// Spec 10.6 item 7: one page per finished year. When the fire ends, main.ts keeps the page and then
+// marks the year kept (keepYear), so Continue cannot play the ch10 fire again for a second page.
+test('after the year is kept, Continue is not offered and the Book keeps one page', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  const profile = await createProfile(factory);
+  await slots.save('auto', makeSave('ch9'));
+  await slots.save('auto', makeSave('ch10'));
+  expect((await slots.load('auto'))?.chapterId).toBe('ch10');
+  const page = { narrator: 'pim', verses: [{ title: 'The Waking', text: 'Pim woke.', note: null }] };
+  await profile.keepMyth(page, 7);
+  await slots.keepYear();
+  // Continue reads the autosave: there is none to continue, also after a reload.
+  for (const s of [slots, await createSlots(factory)]) {
+    expect(await s.hasAuto()).toBe(false);
+    expect(await s.load('auto')).toBeNull();
+    expect(await s.list()).toEqual([]);
+  }
+  expect(await profile.pages()).toHaveLength(1);
+  // A new year's autosave is offered again.
+  await slots.save('auto', makeSave('ch0'));
+  expect((await slots.load('auto'))?.chapterId).toBe('ch0');
+});
+
+test('keepYear marks the year kept also when the latest autosave is damaged', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  await slots.save('auto', makeSave('ch9'));
+  await slots.save('auto', makeSave('ch10'));
+  await (await openDb(factory)).putAll([['auto', { version: 2 }]]);
+  expect((await slots.load('auto'))?.chapterId).toBe('ch9'); // the one before
+  await slots.keepYear();
+  expect(await slots.load('auto')).toBeNull();
+});
+
+test('hasAuto sees an autosave that loads', async () => {
   const factory = new IDBFactory();
   const slots = await createSlots(factory);
   expect(await slots.hasAuto()).toBe(false);

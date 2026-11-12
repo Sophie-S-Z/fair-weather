@@ -44,6 +44,8 @@ export interface WorldLite {
   bushes: { id: string; x: number; y: number; berries: number }[];
   /** The water rectangles; [] with none. */
   water: Rect[];
+  /** water[i] grown by its bank (sim/land.ts withBank), where feet off a deck may not stand; [] with none. */
+  banks: Rect[];
   /** Each bridge's deck (sim/land.ts bridgeDeck), in structure order; [] with none. */
   decks: Deck[];
   /** Ground the water closes in (sim/land.ts islets); [] with none. */

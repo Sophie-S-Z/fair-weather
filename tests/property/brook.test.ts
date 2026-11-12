@@ -5,6 +5,7 @@
 // every water rectangle. tests/unit/render/bank.test.ts checks that the box holds each drawn body.
 // The one exception is an islet (ground the water closes in, sim/land.ts islets): too small for a
 // body clear of the water, so a creature whose feet are on one is only checked to stay out of it.
+// Each step also checks that no creature vanishes: one that turns away has a `leave` event then.
 import { expect, test } from 'vitest';
 import ch6Json from '../../content/chapters/ch6.json';
 import ch9Json from '../../content/chapters/ch9.json';
@@ -53,6 +54,18 @@ function covered(world: World): string[] {
     if (wet) out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) on tick ${String(world.tick)}`);
   }
   return out;
+}
+
+/**
+ * One step, then no vanishing: each creature that turns away in it has a `leave` event for it in
+ * that step's events (only the hunger leave and the ridge set `away`, and both emit one).
+ */
+function stepNoVanish(world: World, cmds: Command[]): void {
+  const here = world.creatures.filter((c) => c.state !== 'away').map((c) => c.id);
+  const events = step(world, cmds, tuning);
+  const turned = here.filter((id) => world.creatures.find((c) => c.id === id)?.state === 'away');
+  const left = events.flatMap((e) => (e.t === 'leave' ? [e.who] : []));
+  expect(turned.filter((id) => !left.includes(id))).toEqual([]);
 }
 
 const setups: {
@@ -111,10 +124,10 @@ for (const setup of setups) {
       if (setup.mushroom) scenario.mushroom = { x: 1120, y: 560 };
       const world = createWorld(seed, tuning, scenario);
       expect(covered(world)).toEqual([]);
-      step(world, setup.first, tuning);
+      stepNoVanish(world, setup.first);
       const west = new Map(world.creatures.map((c) => [c.id, c.x < 810]));
       while (world.tick < ticks) {
-        step(world, [], tuning);
+        stepNoVanish(world, []);
         expect(covered(world)).toEqual([]);
         for (const c of world.creatures) {
           if (inWater(world, c.x, c.y) || west.get(c.id) === c.x < 810) continue;

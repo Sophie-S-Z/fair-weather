@@ -20,7 +20,7 @@ import { SceneSchema } from '../../../src/render/scene.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
-import { bridgeDeck, islets } from '../../../src/sim/land.ts';
+import { bridgeDeck, islets, withBank } from '../../../src/sim/land.ts';
 import ch9Json from '../../../content/chapters/ch9.json';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
@@ -38,7 +38,6 @@ const options = {
   lensRadius: tuning.light.lensRadius,
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
-  bank: tuning.bank,
 };
 const rig = (id: string): Rig => {
   const r = rigs.get(id);
@@ -77,6 +76,7 @@ const snapshot = (
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [{ id: 'b1', kind: 'bench', x: 600, y: 425 }],
   water: [],
+  banks: [],
   decks: [],
   islets: [],
   mushroom: null,
@@ -748,7 +748,8 @@ test('the visitor crosses the ch9 brook only on a bridge deck, and keeps to the 
   const base = snapshot([['pim', 400, 400]]);
 
   // The only seats are over the brook: it walks over the deck there and back.
-  const bridged = { ...base, water, decks: [deck], structures: [bridge, eastBench] };
+  const banks = water.map((r) => withBank(r, tuning));
+  const bridged = { ...base, water, banks, decks: [deck], structures: [bridge, eastBench] };
   const app = fakeApp(800, 450);
   const feet = await visitFrames(createMeadowView(app, east, rigs, palette, options), app, bridged);
   expect(feet.filter((f) => overWater(f, bridged))).toEqual([]);
@@ -792,4 +793,20 @@ test('endVisit sends the visitor and its feather away at once and resolves the v
   view.endVisit();
   await Promise.resolve();
   expect(gone).toBe(true);
+});
+
+// Review Focus 5: an empty valley, and one creature with no ties, draw without a throw.
+test('the Meadow with no creatures, then one, draws and picks only that one', () => {
+  const view = createMeadowView(fakeApp(800, 450), scene, rigs, palette, options);
+  const empty = snapshot([]);
+  expect(() => {
+    view.update(empty, empty, 1, settings);
+  }).not.toThrow();
+  expect(view.pick(200, 200)).toBeNull();
+  const alone = snapshot([['pim', 400, 400]]);
+  expect(() => {
+    view.update(alone, alone, 1, settings);
+  }).not.toThrow();
+  expect(view.pick(400 * 0.5, (400 - heightOf('pim') / 2) * 0.5)).toBe('pim');
+  expect(view.pick(10, 10)).toBeNull();
 });

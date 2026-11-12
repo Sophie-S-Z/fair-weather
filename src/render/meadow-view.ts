@@ -7,7 +7,7 @@ import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
 import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
-import { drawLand } from './land.ts';
+import { drawLand, inRect } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
 import type { Rig } from './line/rig.ts';
@@ -128,43 +128,22 @@ const ROUTE_STEP = 4;
 type Seat = Point & { bench: boolean };
 
 /**
- * True when a body with its feet at `p` covers water off every deck: feet in a water rectangle
- * grown by its bank (`side` left, right, and above, `below` under it) and on no deck. The sim's
- * rule for creatures (ADR 0012 item 3).
+ * True when a body with its feet at `p` covers water off every deck: feet in a bank (water grown by
+ * the sim's bank, from the snapshot) and on no deck. The sim's rule for creatures (ADR 0012 item 3).
  */
-function overWater(
-  p: Point,
-  land: Pick<WorldLite, 'water' | 'decks'>,
-  bank: { side: number; below: number },
-): boolean {
-  const inside = (
-    r: { x: number; y: number; w: number; h: number },
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number,
-  ) => p.x >= r.x - x0 && p.x <= r.x + r.w + x1 && p.y >= r.y - y0 && p.y <= r.y + r.h + y1;
-  return (
-    land.water.some((r) => inside(r, bank.side, bank.side, bank.side, bank.below)) &&
-    !land.decks.some((d) => inside(d, 0, 0, 0, 0))
-  );
-}
+const overWater = (p: Point, land: Pick<WorldLite, 'banks' | 'decks'>): boolean =>
+  land.banks.some((b) => inRect(b, p.x, p.y)) && !land.decks.some((d) => inRect(d, p.x, p.y));
 
 /**
  * The visitor's walk from `from` to `seat` as points, never over water off a deck: straight, or
  * else along one bridge deck from end to end (the shortest such), or null when neither is clear.
  */
-function route(
-  from: Point,
-  seat: Point,
-  land: Pick<WorldLite, 'water' | 'decks'>,
-  bank: { side: number; below: number },
-): Point[] | null {
+function route(from: Point, seat: Point, land: Pick<WorldLite, 'banks' | 'decks'>): Point[] | null {
   const clear = (a: Point, b: Point): boolean => {
     const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / ROUTE_STEP);
     for (let i = 0; i <= n; i++) {
       const u = n === 0 ? 0 : i / n;
-      if (overWater({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }, land, bank)) return false;
+      if (overWater({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }, land)) return false;
     }
     return true;
   };
@@ -495,8 +474,6 @@ export function createMeadowView(
     lensRadius: number;
     cast: Map<string, Cast>;
     gate: { x: number; y: number };
-    /** The sim's bank (tuning `bank`), which keeps the visitor off the water as it keeps creatures. */
-    bank: { side: number; below: number };
   },
 ): MeadowView {
   let palette = firstPalette;
@@ -705,7 +682,7 @@ export function createMeadowView(
         let best: { seat: Seat; path: Point[] } = { seat: { ...gate, bench: false }, path: [gate] };
         let bestRank: number[] | null = null;
         for (const seat of seats) {
-          const path = route(gate, seat, next, options.bank);
+          const path = route(gate, seat, next);
           if (!path) continue;
           const rank = [path.length === 2 ? 0 : 1, seat.bench ? 0 : 1, pathLength(path)];
           if (!bestRank || before(rank, bestRank)) {

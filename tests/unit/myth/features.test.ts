@@ -2,9 +2,12 @@ import { expect, test } from 'vitest';
 import flagsJson from '../../../content/flags.json';
 import tuningJson from '../../../content/tuning.json';
 import type { Behavior } from '../../../src/sim/types.ts';
-import { extractFeatures } from '../../../src/myth/features.ts';
+import { brushShare, extractFeatures } from '../../../src/myth/features.ts';
 import type { ActionLog, YearLog } from '../../../src/story/action-log.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
+import { parseTuning } from '../../../src/sim/tuning.ts';
+
+const share = brushShare(parseTuning(tuningJson));
 
 const flags = parseFlags(flagsJson);
 const lit = (a: string, b: string, behaviors: Behavior[]): ActionLog[number] => ({
@@ -40,7 +43,7 @@ const year: YearLog = [
 ];
 
 test('features from a hand-built year', () => {
-  expect(extractFeatures(year, flags, { pim: 0.4, krit: 0.6 })).toMatchObject({
+  expect(extractFeatures(year, flags, { pim: 0.4, krit: 0.6 }, share)).toMatchObject({
     lightOnConflict: 0.5,
     lightOnKindness: 0.75,
     rumbles: 2,
@@ -54,14 +57,19 @@ test('features from a hand-built year', () => {
 test('fogPainted is the painted brush area over the scene area; clearing paints nothing', () => {
   const { brushRadius, brushAmount } = tuningJson.fog;
   const { width, height } = tuningJson.scene;
-  const f = extractFeatures(year, flags, {});
+  const f = extractFeatures(year, flags, {}, share);
   expect(f.fogPainted).toBeCloseTo(
     (2 * Math.PI * brushRadius * brushRadius * brushAmount) / (width * height),
   );
 });
 
 test('the flag features come from the flags', () => {
-  const f = extractFeatures([], { ...flags, winterLeft: 4, mossShared: false, festivalShare: 0.2 }, {});
+  const f = extractFeatures(
+    [],
+    { ...flags, winterLeft: 4, mossShared: false, festivalShare: 0.2 },
+    {},
+    share,
+  );
   expect(f).toMatchObject({
     winterLeft: 4,
     mossShared: false,
@@ -72,7 +80,7 @@ test('the flag features come from the flags', () => {
 });
 
 test('an empty year: no shares, no most-lit creature, and Pim narrates', () => {
-  expect(extractFeatures([], flags, {})).toMatchObject({
+  expect(extractFeatures([], flags, {}, share)).toMatchObject({
     lightOnConflict: 0,
     lightOnKindness: 0,
     rumbles: 0,
@@ -86,7 +94,7 @@ test('an empty year: no shares, no most-lit creature, and Pim narrates', () => {
 
 test('ties go to the lower id', () => {
   const tied: YearLog = [{ chapterId: 'ch1', log: [lit('pim', 'moss', ['give', 'give'])] }];
-  const f = extractFeatures(tied, flags, { pim: 0.5, echo: 0.5, krit: -0.2 });
+  const f = extractFeatures(tied, flags, { pim: 0.5, echo: 0.5, krit: -0.2 }, share);
   expect(f.mostLit).toBe('moss');
   expect(f.narrator).toBe('echo');
 });

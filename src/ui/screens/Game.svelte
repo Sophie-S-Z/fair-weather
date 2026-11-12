@@ -102,6 +102,8 @@
   let lineId = 0;
   /** How long a bet's answer stays into the next chapter. */
   const REVEAL_MS = 8000;
+  /** Takes the last chapter's answer off the lines; cleared by the next chapter and on unmount. */
+  let revealTimer: ReturnType<typeof setTimeout> | undefined;
   let bet: { question: string; options: string[] } | null = $state(null);
   let betRunning = $state(false);
   let picked: string | null = $state(null);
@@ -390,11 +392,13 @@
     visited = false;
     due = false;
     wait.activity();
-    // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so it
-    // stays a short time to be read, and then goes.
-    lines = lines.filter((l) => l.reveal);
-    const keep = lines.map((l) => l.id);
-    if (keep.length > 0) setTimeout(() => (lines = lines.filter((l) => !keep.includes(l.id))), REVEAL_MS);
+    // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so when
+    // it is the newest line it stays a short time to be read, and then goes.
+    clearTimeout(revealTimer);
+    const answer = lines.at(-1);
+    lines = answer?.reveal ? [answer] : [];
+    if (answer?.reveal)
+      revealTimer = setTimeout(() => (lines = lines.filter((l) => l.id !== answer.id)), REVEAL_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
     // The host drops every message from the last chapter's worker once startChapter posts init
     // (host.ts connect), and nothing runs between here and that post, so no old world comes back.
@@ -657,6 +661,7 @@
       runner = null;
       if (raf !== null) cancelAnimationFrame(raf);
       clearTimeout(ghostTimer);
+      clearTimeout(revealTimer);
       for (const off of offs) off();
       window.removeEventListener('keydown', activity);
       window.removeEventListener('pointerdown', activity);

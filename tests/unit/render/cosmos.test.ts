@@ -200,3 +200,22 @@ test('the timeline strip is drawn in the band, and no node can reach the band', 
     expect(y - (9 + 5 / 2) * 1.5).toBeGreaterThanOrEqual(band.bottom);
   }
 });
+
+// Review Focus 5: an empty valley, and one creature with no ties, draw without a throw.
+test('the Cosmos with no creatures, then one with no ties, draws no edges and picks only that one', () => {
+  const band: Band = { strip: { x: 320, y: 40, w: 640, h: 24 }, bottom: 68 };
+  const cosmos = createCosmosView(fakeApp(), palette, cast, 0.3);
+  const one = { points: [{ tick: 0, population: 0, trust: 0 }], breaks: [] };
+  expect(() => {
+    cosmos.update(lite([], []), settings, same, one, band, null);
+  }).not.toThrow();
+  expect(edgeStrokes(cosmos)).toEqual([]);
+  expect(cosmos.pick(300, 200)).toBeNull();
+  const alone = lite([['pim', 'wander', 300, 200]], []);
+  expect(() => {
+    cosmos.update(alone, settings, same, one, band, 'pim');
+  }).not.toThrow();
+  expect(edgeStrokes(cosmos)).toEqual([]);
+  expect(cosmos.pick(300, 200)).toBe('pim');
+  expect(cosmos.pick(600, 600)).toBeNull();
+});

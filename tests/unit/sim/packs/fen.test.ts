@@ -6,13 +6,14 @@ import { runGolden } from '../../../golden/run-golden.ts';
 import { applyCommand } from '../../../../src/sim/commands.ts';
 import { createGrid } from '../../../../src/sim/grid.ts';
 import { hashWorld } from '../../../../src/sim/hash.ts';
-import { findMeetings } from '../../../../src/sim/meeting.ts';
+import { findMeetings, resolveMeeting } from '../../../../src/sim/meeting.ts';
 import { perceivedShares, TOVE } from '../../../../src/sim/packs/fen.ts';
 import { canMeet, giftCost, giftWarmth, PACKS } from '../../../../src/sim/packs/index.ts';
 import { createRng } from '../../../../src/sim/rng.ts';
 import { step } from '../../../../src/sim/step.ts';
 import type { FenState, Scenario, World } from '../../../../src/sim/types.ts';
-import { createWorld } from '../../../../src/sim/world.ts';
+import { HERO } from '../../../../src/sim/types.ts';
+import { createWorld, getTie } from '../../../../src/sim/world.ts';
 import { toLite } from '../../../../src/sim-host/lite.ts';
 import { get, hasBadNumber, makeWorld, scriptedRng, tuning as t } from '../helpers.ts';
 
@@ -170,19 +171,84 @@ test('a joined hero counts as flying for its neighbors', () => {
 test('perceived share weights each flying neighbor by its degree (ADR 0007)', () => {
   // hand-built: a hub listed by 6 birds flies; the perceived share near it is above the real share
   const t3 = { ...t, fen: { ...t.fen, neighbors: 3 } };
-  const spokes: Bird[] = [0, 1, 2, 3, 4, 5].map((i) => ({
-    id: `s${String(i)}`,
-    x: 800 + 10 * Math.cos((i * Math.PI) / 3),
-    y: 450 + 10 * Math.sin((i * Math.PI) / 3),
-  }));
-  // Each spoke's 3 nearest are the hub (10) and its two adjacent spokes (10); the rest are 17 or more.
-  const w = fenWorld([{ id: 'hub', x: 800, y: 450 }, ...spokes], { restless: ['hub'] });
+  // No two squared distances tie. Each bird's 3 nearest (squared distance):
+  //   hub: s1 106, s0 121, s2 149      s0: s1 117, hub 121, s5 178     s1: hub 106, s0 117, s2 145
+  //   s2: s3 130, s1 145, hub 149      s3: s2 130, hub 197, s4 205     s4: s3 205, hub 208, s5 257
+  //   s5: s0 178, hub 233, s4 257
+  // So the hub's degree is 6, s0, s1, and s2 have 3, and s3, s4, and s5 have 2.
+  const w = fenWorld(
+    [
+      { id: 'hub', x: 800, y: 450 },
+      { id: 's0', x: 811, y: 450 },
+      { id: 's1', x: 805, y: 459 },
+      { id: 's2', x: 793, y: 460 },
+      { id: 's3', x: 786, y: 451 },
+      { id: 's4', x: 792, y: 438 },
+      { id: 's5', x: 808, y: 437 },
+    ],
+    { restless: ['hub'] },
+  );
   const perceived = perceivedShares(w, t3);
-  // s0 sees 1 of 3 in flight; the hub, listed by all 6 spokes, counts for at least half.
-  expect(perceived.s0).toBeGreaterThanOrEqual(0.5);
+  // s0 sees 1 of 3 in flight; weighted, the hub counts 6 of 3 + 6 + 2.
+  expect(perceived.s0).toBe(6 / 11);
   expect(perceived.s0).toBeGreaterThan(1 / 3);
+  expect(perceived.s4).toBe(6 / 10);
   expect(perceived.hub).toBe(0);
   expect(PACKS.fen.metrics(w, t3)).toEqual({ flyingShare: 1 / 7, tovePerceived: 0 });
+});
+
+test('neighbors at equal distance go by id, and an away creature is no neighbor', () => {
+  const t1 = { ...t, fen: { ...t.fen, neighbors: 1 } };
+  // a and b stand 10 from Tove; with one neighbor, Tove counts only a.
+  const tie = (flier: string) => {
+    const w = fenWorld(
+      [
+        { id: TOVE, x: 800, y: 450 },
+        { id: 'b', x: 810, y: 450 },
+        { id: 'a', x: 790, y: 450 },
+      ],
+      { restless: [flier], fixed: { [TOVE]: 0.5, a: 1, b: 1 } },
+    );
+    w.tick = 0;
+    PACKS.fen.step(w, [], t1, scriptedRng([]));
+    return fen(w).flying.includes(TOVE);
+  };
+  expect(tie('a')).toBe(true);
+  expect(tie('b')).toBe(false);
+
+  // Away, the flying n1 is no neighbor: Tove sees n2 and n3 of n2..n7 and far1, 2 of 7.
+  const w = toveWorld();
+  fen(w).thresholds[TOVE] = 3 / 7;
+  get(w, 'n1').state = 'away';
+  fenStep(w, 0);
+  expect(fen(w).flying).not.toContain(TOVE);
+  expect(perceivedShares(w, t)).not.toHaveProperty('n1');
+});
+
+test("a flying starling does not answer a Bellchime's wave", () => {
+  const hero = {
+    kind: 'bellchime' as const,
+    name: 'Wren',
+    x: 800,
+    y: 450,
+    berries: 3,
+    keepsakes: [],
+    rumor: null,
+  };
+  const w = fenWorld(
+    [
+      { id: 'mate', x: 810, y: 450 },
+      { id: 'up', x: 830, y: 450 },
+      { id: 'down', x: 800, y: 480 },
+    ],
+    { restless: ['up'] },
+    { hero },
+  );
+  w.hero!.waveTo = 'mate';
+  const events = resolveMeeting(w, get(w, HERO), get(w, 'mate'), t, createRng(5));
+  const bids = events.filter((e) => e.t === 'bid').map((e) => e.to);
+  expect(bids).toEqual(['mate', 'down']);
+  expect(getTie(w, HERO, 'up')).toBeUndefined();
 });
 
 test('a flying creature meets no one', () => {

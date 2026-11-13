@@ -10,11 +10,17 @@ import type { RulePack } from './index.ts';
 /** Tove, the Fen's guide (ADR 0013 item 5); `tovePerceived` reads its perceived share. */
 export const TOVE = 'tove';
 
-/** True when `c` is in flight in the Fen: a flying starling, or the hero while it has joined. */
+/**
+ * True when `c` is in flight in the Fen: a flying starling, or the hero while it has joined. The
+ * hero test is hero.ts isHero, written out, since hero.ts imports packs/index.ts and importing it
+ * here would make an import cycle that breaks when this file loads first.
+ */
 export function flies(world: World, c: Creature): boolean {
   const fen = world.pack;
   if (!fen) return false;
-  return c.id === HERO ? fen.heroFlying : fen.flying.includes(c.id);
+  if (world.hero !== undefined && c.id === HERO) return fen.heroFlying;
+  // A creature with no threshold (a late arrival) never flies, though it still counts as a neighbor.
+  return fen.thresholds[c.id] !== undefined && fen.flying.includes(c.id);
 }
 
 /** The starlings, not away, in creature order: the creatures with a threshold. */

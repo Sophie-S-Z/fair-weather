@@ -6,7 +6,7 @@ import type { BidReply, Bush, Creature, GiftMove, HeroKind, World } from './type
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { giftCost } from './packs/index.ts';
+import { canMeet, giftCost } from './packs/index.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 /** True when `c` is the hero of a world that has one. */
@@ -146,13 +146,18 @@ export function takeFromGift(world: World, bush: Bush, taker: Creature, t: Tunin
 
 /**
  * The other creatures a Bellchime's wave reaches when it bids to `partner` (ADR 0013 item 3):
- * every `wander` creature but the two within knack.bellRadius of the hero, in creature order.
- * Empty when `bidder` is not a Bellchime hero.
+ * every `wander` creature but the two within knack.bellRadius of the hero that the rule pack lets
+ * meet it (canMeet, ADR 0013 item 4), in creature order. Empty when `bidder` is not a Bellchime hero.
  */
 export function bellReach(world: World, bidder: Creature, partner: Creature, t: Tuning): Creature[] {
   if (!isHero(world, bidder) || world.hero?.kind !== 'bellchime') return [];
   const r2 = t.knack.bellRadius * t.knack.bellRadius;
   return world.creatures.filter(
-    (c) => c !== bidder && c !== partner && c.state === 'wander' && dist2(c.x, c.y, bidder.x, bidder.y) <= r2,
+    (c) =>
+      c !== bidder &&
+      c !== partner &&
+      c.state === 'wander' &&
+      dist2(c.x, c.y, bidder.x, bidder.y) <= r2 &&
+      canMeet(world, bidder, c),
   );
 }

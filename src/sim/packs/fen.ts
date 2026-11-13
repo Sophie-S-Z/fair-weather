@@ -73,7 +73,7 @@ export const fen: RulePack = {
 
   /**
    * Each starling without a fixed threshold draws one, fen.thresholdMin + fen.thresholdSpan × the
-   * draw (0.3 to 0.8, ADR 0013 item 16), one draw each in creature
+   * draw (0.2 to 0.8), one draw each in creature
    * order; the restless starlings fly. Thresholds and restless ids name starlings only.
    */
   setup(world: World, t: Tuning, rng: Rng): void {

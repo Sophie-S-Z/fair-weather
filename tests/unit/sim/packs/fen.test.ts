@@ -85,7 +85,7 @@ function toveWorld(over: Partial<Scenario> = {}): World {
   return fenWorld(birds, { restless: ['n1', 'n2', 'n3'], fixed }, over);
 }
 
-test('thresholds are drawn from 0.3 to 0.8 in creature order; Tove holds 0.5', () => {
+test('thresholds are drawn from 0.2 to 0.8 in creature order; Tove holds 0.5', () => {
   const w = fenWorld(
     [
       { id: 's1', x: 100, y: 100 },
@@ -101,12 +101,12 @@ test('thresholds are drawn from 0.3 to 0.8 in creature order; Tove holds 0.5', (
   const rng = createRng(7);
   const [d1, d2, d3] = [rng.next(), rng.next(), rng.next()];
   expect(fen(w).thresholds).toEqual({
-    s1: 0.3 + 0.5 * d1,
+    s1: 0.2 + 0.6 * d1,
     [TOVE]: 0.5,
-    s2: 0.3 + 0.5 * d2,
-    s3: 0.3 + 0.5 * d3,
+    s2: 0.2 + 0.6 * d2,
+    s3: 0.2 + 0.6 * d3,
   });
-  for (const v of Object.values(fen(w).thresholds)) expect(v >= 0.3 && v < 0.8).toBe(true);
+  for (const v of Object.values(fen(w).thresholds)) expect(v >= 0.2 && v < 0.8).toBe(true);
   expect(w.rngState).toBe(rng.state());
   // Only restless starlings fly from the start.
   expect(fen(w)).toMatchObject({ id: 'fen', flying: ['s3'], restless: ['s3'], heroFlying: false });

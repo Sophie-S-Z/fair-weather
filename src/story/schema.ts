@@ -331,6 +331,11 @@ export const ChapterSchema = ChapterObject.refine(
     message: 'a chapter with a twist needs a beat with the { twist: true } trigger',
     path: ['beats'],
   })
+  // Without a twist there is no close call, so such a beat would never run.
+  .refine((c) => !!c.twist || !c.beats.some((b) => 'closeCall' in b.trigger), {
+    message: 'a beat with the { closeCall: true } trigger needs a twist',
+    path: ['beats'],
+  })
   .refine((c) => c.kind === 'interlude' || c.notes.length >= 2, {
     message: 'a chapter or a valley has 2 to 4 margin notes (spec 10.5)',
     path: ['notes'],

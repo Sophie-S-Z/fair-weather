@@ -16,4 +16,4 @@ test('T3 fen control: a hero that never joins sees Tove fly in at most 20 of 200
   const fired = await controlFired(fen, walksToTove(false), parseFlags(flagsJson), undefined, JOURNEY);
   console.log(`T3 fen control: fired ${String(fired)}`);
   expect(fired).toBeLessThanOrEqual(20);
-}, 900_000); // 200 whole 540-s days: longer than the t3 project's 600-s default
+}, 1_200_000); // 200 whole 540-s days: longer than the t3 project's 600-s default

@@ -64,6 +64,14 @@ describe('ChapterSchema', () => {
     expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
   });
 
+  test('a closeCall beat needs a twist', () => {
+    const after = { id: 'after', trigger: { closeCall: true }, actions: [] };
+    const ch3 = load('chapters/ch3') as { beats: object[] };
+    expect(ChapterSchema.safeParse({ ...ch3, beats: [...ch3.beats, after] }).success).toBe(true);
+    const ch0 = load('chapters/ch0') as { beats: object[] }; // no twist
+    expect(ChapterSchema.safeParse({ ...ch0, beats: [...ch0.beats, after] }).success).toBe(false);
+  });
+
   test('titles are the spec 6.2 names', () => {
     expect(ids.map((id) => ChapterSchema.parse(load(`chapters/${id}`)).title)).toEqual([
       'First Light',

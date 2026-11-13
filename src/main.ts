@@ -74,6 +74,7 @@ import {
   leaveValley,
   newJourney,
   parseHero,
+  setCaption,
 } from './story/journey.ts';
 import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
@@ -210,6 +211,12 @@ function baseOf(chapter: Chapter): Scenario {
   if (!s) throw new Error(`${chapter.id} names scenario ${chapter.scenario}, which has no file`);
   return s;
 }
+/** The journal's drawings by path (ADR 0010: placeholders, which the production build refuses). */
+const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHOLDER-journal-*.svg', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+});
 const ink = createInk(inkStory);
 const verses = VersesSchema.parse(versesJson);
 const sixth = SixthSchema.parse(sixthJson);
@@ -224,7 +231,14 @@ const host = createSimHost(spawnWorker);
  * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
  * when a new chapter's runner takes verbs (after its first snapshot).
  */
-const dev = { speeds: [] as number[], frames: 0, sent: 0, snapshots: 0 };
+const dev = {
+  speeds: [] as number[],
+  frames: 0,
+  sent: 0,
+  snapshots: 0,
+  /** The journey now (undefined outside Part 2), so e2e can write pages without playing whole valleys. */
+  journey: (): Journey | null => journeyNow,
+};
 if (import.meta.env.DEV) {
   (window as unknown as { fairWeather: unknown }).fairWeather = dev;
   host.onMessage((m) => {
@@ -702,6 +716,11 @@ const game: GameService = {
   },
   stop: dropStart,
   journey: () => journeyNow,
+  setCaption: (valley, text) => {
+    if (journeyNow) setCaption(journeyNow, valley, text);
+  },
+  journalDrawing: (valley) =>
+    journalDrawings[`../content/placeholder/PLACEHOLDER-journal-${valley}.svg`] ?? null,
   sixthVerse(flags) {
     if (!journeyNow) throw new Error('The sixth verse needs a journey');
     const { name } = journeyNow.hero;

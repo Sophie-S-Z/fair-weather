@@ -17,6 +17,7 @@ import {
   parseHero,
   rumorValue,
   saying,
+  setCaption,
 } from '../../../src/story/journey.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter } from '../../../src/story/schema.ts';
@@ -295,5 +296,22 @@ describe('the journey between valleys', () => {
     expect(characters('🌧️'.repeat(80))).toHaveLength(80);
     expect(() => JourneySchema.parse(captioned('🌧️'.repeat(CAPTION_LENGTH)))).not.toThrow();
     expect(() => JourneySchema.parse(captioned('🌧️'.repeat(CAPTION_LENGTH + 1)))).toThrow();
+  });
+
+  test("setCaption keeps the player's line on the valley's page, cut to 80 characters", () => {
+    const j = leaveValley(start, fen, liteOf(), []);
+    setCaption(j, 'fen', 'Rain on the reeds');
+    expect(j.pages[0]?.caption).toBe('Rain on the reeds');
+    // Graphemes, as the name counts them: an emoji is one character.
+    setCaption(j, 'fen', '🌧️'.repeat(CAPTION_LENGTH + 5));
+    expect(characters(j.pages[0]?.caption ?? '')).toHaveLength(CAPTION_LENGTH);
+    expect(() => JourneySchema.parse(j)).not.toThrow();
+    setCaption(j, 'fen', '');
+    expect(j.pages[0]?.caption).toBe('');
+    // A valley without a page changes nothing.
+    expect(() => {
+      setCaption(j, 'hollow', 'x');
+    }).not.toThrow();
+    expect(j.pages).toHaveLength(1);
   });
 });

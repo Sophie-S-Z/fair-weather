@@ -118,6 +118,13 @@ export interface GameService {
   keepMyth(page: MythPage): Promise<void>;
   /** The journey from the bridge's end (ADR 0013 item 9), or null before it. */
   journey(): Journey | null;
+  /**
+   * Keeps the player's line on the journal page of `valley`, cut to 80 characters. It is stored on
+   * the journey (saved with the next autosave) and stays on the device. Does nothing without a page.
+   */
+  setCaption: (valley: string, text: string) => void;
+  /** The journal's drawing of a valley (a placeholder, ADR 0010), as a URL, or null without one. */
+  journalDrawing: (valley: string) => string | null;
   /** The sixth verse (ADR 0013 item 13) of the journey and the homecoming's `flags`. Throws with no journey. */
   sixthVerse(flags: Flags): { title: string; text: string; note: string | null };
   /** Ends the journey: the verse joins the year's page in the Book of Skies, and the save is kept. */

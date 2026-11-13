@@ -32,10 +32,13 @@
   import Bubbles from '../interludes/Bubbles.svelte';
   import HeroChoice from '../interludes/HeroChoice.svelte';
   import Postcard from '../interludes/Postcard.svelte';
+  import { journalEntries } from '../journal-pages.ts';
+  import type { JournalEntry } from '../journal-pages.ts';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
   import BookOfSkies from './BookOfSkies.svelte';
+  import Journal from './Journal.svelte';
 
   let {
     game,
@@ -185,6 +188,15 @@
   /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
   let hasBook = $state(false);
   let speedBeforeBook = 0;
+  /**
+   * The open travel journal (Part 2), a modal dialog like the Book of Skies: the page to open at,
+   * and what to do on close (a valley's end goes on to the next valley).
+   */
+  let journal: { entries: JournalEntry[]; at: string | null; after: (() => void) | null } | null =
+    $state.raw(null);
+  /** Whether there is a journey, so the drawer offers the journal. */
+  let hasJourney = $state(false);
+  let speedBeforeJournal = 0;
   /** The finished year's myth, or the journey's verse, on its way into the book. */
   let keptMyth: Promise<void> = Promise.resolve();
   /** Back to the title once the year's page is kept, so the title reads the saves after it. */
@@ -325,7 +337,7 @@
    * answer plays, since the pause would take the runner's speed.
    */
   async function openBook(): Promise<void> {
-    if (book || bookOpening || betRunning) return;
+    if (book || bookOpening || journal || betRunning) return;
     bookOpening = true;
     if (!ended) {
       speedBeforeBook = game.currentSpeed();
@@ -335,6 +347,25 @@
     const [pages, feathers] = await Promise.all([game.book(), game.feathers()]);
     bookOpening = false;
     book = { pages, feathers };
+  }
+  /**
+   * Opens the travel journal at `at` (a valley's page; the title without one). Opened by the player
+   * (`after` null) it pauses the sim; at a valley's end the sim has stopped, and closing runs `after`.
+   */
+  function openJournal(at: string | null, after: (() => void) | null = null): void {
+    const j = game.journey();
+    if (!j || journal || book || bookOpening || betRunning) return;
+    if (after === null) {
+      speedBeforeJournal = game.currentSpeed();
+      setSpeed(0);
+    }
+    journal = { entries: journalEntries(j, game.chapters, game.journalDrawing), at, after };
+  }
+  function closeJournal(): void {
+    const after = journal?.after ?? null;
+    journal = null;
+    if (after) after();
+    else if (!ended) setSpeed(speedBeforeJournal);
   }
   async function loadHasBook(): Promise<void> {
     hasBook = (await game.book()).length > 0;
@@ -419,7 +450,7 @@
   }
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
-    if (!due || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
+    if (!due || !stage || hidden || ended || book || bookOpening || journal || view !== 'meadow') return;
     if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
   });
@@ -444,6 +475,7 @@
     }
     if (token !== starting) return;
     index = i;
+    hasJourney = game.journey() !== null;
     bet = null;
     betRunning = false;
     postcard = null;
@@ -516,6 +548,14 @@
           void keptMyth.then(() => {
             if (runner === r) void begin(i + 1, out);
           });
+        } else if (chapter.valley) {
+          // The valley's new page opens in the journal; closing it starts the next valley.
+          const go = (): void => {
+            if (runner === r) void begin(i + 1, out);
+          };
+          const page = game.journey()?.pages.find((p) => p.valley === chapter.id);
+          if (page) openJournal(page.valley, go);
+          else go();
         } else void begin(i + 1, out);
       },
       () => {
@@ -611,6 +651,7 @@
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
     if (plain && e.key.toLowerCase() === 'p' && diary?.peek) drawerAt = { section: 'peek', focus: true };
     if (plain && e.key.toLowerCase() === 'b') void openBook();
+    if (plain && e.key.toLowerCase() === 'j' && hasJourney) openJournal(null);
   }
 
   /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
@@ -770,7 +811,10 @@
 
 <div class="game">
   <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
-  <div class="layer" inert={bet !== null || postcard !== null || whisperCard !== null || book !== null}>
+  <div
+    class="layer"
+    inert={bet !== null || postcard !== null || whisperCard !== null || book !== null || journal !== null}
+  >
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -795,7 +839,7 @@
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
         ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
-        : ''} B opens the Book of Skies.
+        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''}
     </p>
 
     {#if ended}
@@ -836,6 +880,11 @@
             openAt={drawerAt}
             bind:open={drawerOpen}
             onBook={hasBook ? () => void openBook() : undefined}
+            onJournal={hasJourney
+              ? () => {
+                  openJournal(null);
+                }
+              : undefined}
           />
         </div>
         {#if view === 'cosmos'}
@@ -960,6 +1009,8 @@
   </div>
   {#if book}
     <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
+  {:else if journal}
+    <Journal entries={journal.entries} at={journal.at} onCaption={game.setCaption} onBack={closeJournal} />
   {:else if bet}
     <BetCard
       question={bet.question}

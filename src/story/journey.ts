@@ -62,6 +62,15 @@ export function characters(text: string): string[] {
   return Array.from(new Intl.Segmenter().segment(text), (g) => g.segment);
 }
 
+/**
+ * Keeps the player's own line on the journal page of `valley`, cut to CAPTION_LENGTH characters.
+ * It stays on the device: nothing here logs or sends it. A valley with no page changes nothing.
+ */
+export function setCaption(j: Journey, valley: string, text: string): void {
+  const page = j.pages.find((p) => p.valley === valley);
+  if (page) page.caption = characters(text).slice(0, CAPTION_LENGTH).join('');
+}
+
 // A Record over every hero kind, in HERO_KINDS order (story may not import sim values).
 const HERO_SET: Record<HeroKind, true> = {
   lantern: true,
@@ -294,6 +303,11 @@ export function kithLeg(
 /** The homecoming's carry: Kith after its last leg, with the diaries of Kith's start, since a silent run writes none. */
 export function kithCarry(lite: WorldLite, kithStart: Carry | null): Carry {
   return carryFrom(lite, new Map(kithStart?.creatures.map((c) => [c.id, c.diary])));
+}
+
+/** The word a journal page stamps for the locals' welcome. */
+export function stampWord(stamp: JournalPage['stamp']): string {
+  return journalJson.stamp[stamp];
 }
 
 /** "What they say about you" (ADR 0013 item 14): how many hold the rumor, then what it says. */

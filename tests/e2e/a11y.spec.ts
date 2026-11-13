@@ -708,6 +708,12 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   expect(await seriousViolations(page)).toEqual([]);
   await page.keyboard.press('Enter');
   await expect(card).toBeHidden();
+  // The valley ends: the journal opens at its new page, and closing it starts the next valley.
+  const journal = page.getByRole('dialog', { name: 'Travel journal' });
+  await expect(journal).toBeVisible({ timeout: 30_000 });
+  await expect(journal.getByRole('heading', { name: 'Murmuration Fen' })).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await journal.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Hearsay Hollow' })).toBeVisible({
     timeout: 30_000,
   });
@@ -775,3 +781,119 @@ for (const size of [
     expect(await offOrHidden(page)).toEqual([]);
   });
 }
+
+// M3.14: the travel journal. The journey is written through the dev hook, so no test plays whole valleys.
+test.describe('the travel journal', () => {
+  type Pages = { valley: string; keepsake: string | null }[];
+  /** Starts the Fen and gives the journey `pages` (a stamp of welcomed each) and its keepsakes. */
+  async function start(page: Page, pages: Pages, given: boolean) {
+    await page.goto('/?chapter=16');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await page.getByRole('button', { name: /^Wake as / }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+    const scene = page.getByRole('application', { name: 'The meadow' });
+    await expect(scene).toBeFocused();
+    await page.evaluate(
+      ({ pages, given }) => {
+        const fw = (
+          window as unknown as {
+            fairWeather: {
+              journey: () => { pages: unknown[]; keepsakes: unknown[] } | null;
+            };
+          }
+        ).fairWeather;
+        const j = fw.journey();
+        if (!j) throw new Error('no journey');
+        j.pages = pages.map((p) => ({
+          ...p,
+          stamp: 'welcomed',
+          said: { value: 0.8, strength: 0.9 },
+          postcard: null,
+          caption: '',
+        }));
+        j.keepsakes = pages.flatMap((p) => (p.keepsake ? [{ id: p.keepsake, given }] : []));
+      },
+      { pages, given },
+    );
+    return scene;
+  }
+  const speeds = (page: Page) =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+
+  test('J opens a one-page journal with the sim paused; Escape closes it; no serious axe issues', async ({
+    page,
+  }) => {
+    const scene = await start(page, [{ valley: 'fen', keepsake: 'starling-feather' }], false);
+    await page.keyboard.press('j');
+    const journal = page.getByRole('dialog', { name: 'Travel journal' });
+    await expect(journal).toBeVisible();
+    const fen = journal.getByRole('article', { name: 'Murmuration Fen' });
+    await expect(journal.getByRole('heading', { name: 'Travel journal' })).toBeFocused();
+    await expect(fen.getByRole('img')).toHaveAccessibleName(/starlings/);
+    await expect(fen).toContainText('Keepsake: A starling feather');
+    await expect(fen).toContainText('Welcomed');
+    await expect(fen.getByRole('heading', { name: 'What they say about you' })).toBeVisible();
+    await expect(fen.getByRole('article')).toHaveCount(2);
+    await expect.poll(() => speeds(page)).toBe(0);
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(journal).toBeHidden();
+    await expect(scene).toBeFocused();
+    await expect.poll(() => speeds(page)).toBe(1);
+  });
+
+  test('three pages have no serious axe issues; after the keepsake is given the Fen page shows an empty pressed shape; Tab stays inside', async ({
+    page,
+  }) => {
+    await start(
+      page,
+      [
+        { valley: 'fen', keepsake: 'starling-feather' },
+        { valley: 'hollow', keepsake: 'clipping' },
+        { valley: 'halcyon', keepsake: null },
+      ],
+      true,
+    );
+    await page.getByRole('button', { name: 'Diary and notes' }).click();
+    await page.getByRole('button', { name: 'Travel journal' }).click();
+    const journal = page.getByRole('dialog', { name: 'Travel journal' });
+    await expect(journal.getByRole('article')).toHaveCount(3 + 3 * 2);
+    await expect(journal.getByRole('article', { name: 'Murmuration Fen' })).toContainText(
+      'An empty pressed shape where the starling feather was',
+    );
+    expect(await seriousViolations(page)).toEqual([]);
+    // Tab wraps from the last control to the first, and Shift+Tab back.
+    await page.keyboard.press('Shift+Tab');
+    await expect(journal.getByRole('button', { name: 'Close' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(journal.getByRole('textbox').first()).toBeFocused();
+    await journal.getByRole('button', { name: 'Close' }).click();
+    await expect(journal).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Travel journal' })).toBeFocused();
+  });
+
+  test('Your line saves on change, keeps at most 80 characters, and stays in the journey', async ({
+    page,
+  }) => {
+    await start(page, [{ valley: 'fen', keepsake: null }], false);
+    await page.keyboard.press('j');
+    const line = page.getByRole('textbox', { name: 'Your line' });
+    await line.fill('🌧️'.repeat(85));
+    await expect(line).toHaveValue('🌧️'.repeat(80));
+    await page.keyboard.press('Tab');
+    const saved = () =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as { fairWeather: { journey: () => { pages: { caption: string }[] } } }
+          ).fairWeather.journey().pages[0]?.caption,
+      );
+    expect(await saved()).toBe('🌧️'.repeat(80));
+    // Escape keeps a line that was typed but not yet changed out of the field.
+    await line.fill('Rain on the reeds');
+    await page.keyboard.press('Escape');
+    expect(await saved()).toBe('Rain on the reeds');
+  });
+});

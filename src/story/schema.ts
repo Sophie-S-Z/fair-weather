@@ -223,6 +223,8 @@ const ValleySchema = z
     keepsake: z.strictObject({ id, label: text }).nullable(),
     /** The locals' lines for the journal (ADR 0013 item 14). */
     locals: z.array(text),
+    /** What the journal's drawing of the valley shows, for readers who cannot see it; absent without a drawing. */
+    drawingAlt: text.optional(),
   })
   .refine((v) => v.postcards.length > 0 || v.pack === null, {
     message: 'only the homecoming (pack null) offers no postcards (ADR 0013 item 9)',

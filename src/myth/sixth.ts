@@ -43,6 +43,16 @@ const FEATURE_TYPES = {
   heroFamous: 'boolean',
 } as const satisfies FeatureTypes<SixthFeatures>;
 
+// Every hero kind, so a `hero` condition names one (myth may not import sim values).
+const HERO_SET: Record<HeroKind, true> = {
+  lantern: true,
+  kite: true,
+  mosscoat: true,
+  glassling: true,
+  seedcarrier: true,
+  bellchime: true,
+};
+
 const SLOTS = ['hero', 'narrator'] as const;
 type Slot = (typeof SLOTS)[number];
 const SLOT = slotPattern(SLOTS);
@@ -53,7 +63,12 @@ export const SixthSchema = z.strictObject({
   title: z.literal('The Sky Came Down'),
   firstLine: z.literal('The sky came down once, and walked with us.'),
   templates: z
-    .array(templateSchema(FEATURE_TYPES, SLOTS))
+    .array(
+      templateSchema(FEATURE_TYPES, SLOTS).refine(
+        (t) => t.when.every((c) => c.feature !== 'hero' || Object.hasOwn(HERO_SET, String(c.value))),
+        { message: 'a hero condition names a hero kind' },
+      ),
+    )
     .min(6)
     .max(8)
     .refine((ts) => ts[ts.length - 1]?.when.length === 0, { message: 'the last template has no condition' }),

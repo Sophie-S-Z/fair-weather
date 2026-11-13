@@ -8,6 +8,7 @@ import { ErrorType } from 'inkjs/engine/Error';
 import { AudioSchema } from '../../src/audio/schema.ts';
 import { VoiceSchema } from '../../src/audio/voices.ts';
 import { VersesSchema } from '../../src/myth/grammar.ts';
+import { SixthSchema } from '../../src/myth/sixth.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
@@ -76,7 +77,7 @@ function creatureRefs(c: Chapter): string[] {
 }
 
 /**
- * Checks tuning, flags, diary, heroes, journal, myth verses, rigs, palettes, scenes, cast, chapter and valley camera
+ * Checks tuning, flags, diary, heroes, journal, myth verses and the sixth verse, rigs, palettes, scenes, cast, chapter and valley camera
  * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
  */
 export function validateContent(root: string): ValidationResult {
@@ -130,6 +131,14 @@ export function validateContent(root: string): ValidationResult {
       VersesSchema.parse(JSON.parse(readFileSync(versesPath, 'utf8')));
     } catch (e) {
       errors.push(`myth/verses.json: ${(e as Error).message}`);
+    }
+  }
+  const sixthPath = join(content, 'myth', 'sixth.json');
+  if (existsSync(sixthPath)) {
+    try {
+      SixthSchema.parse(JSON.parse(readFileSync(sixthPath, 'utf8')));
+    } catch (e) {
+      errors.push(`myth/sixth.json: ${(e as Error).message}`);
     }
   }
   // Part 1 chapters and the bridge sit in content/chapters/, the valleys in content/valleys/.

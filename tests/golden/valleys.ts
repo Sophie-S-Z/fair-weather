@@ -8,6 +8,9 @@ import { SEEDS } from './run-chapter.ts';
 /** Seeds 1 to 200. */
 export const VALLEY_SEEDS: readonly number[] = SEEDS;
 
+/** Seeds 1 to 10, for hero balance (ADR 0013 item 15). */
+export const BALANCE_SEEDS: readonly number[] = SEEDS.slice(0, 10);
+
 /** A Lantern-bearer named "Test", with no rumor, no keepsakes, no shell, no companion, and Kith's warmth at 0.3. */
 export const JOURNEY: JourneyStart = {
   kind: 'lantern',

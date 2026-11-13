@@ -1,0 +1,98 @@
+{
+  "id": "sky",
+  "title": "The Sky Came Down",
+  "firstLine": "The sky came down once, and walked with us.",
+  "templates": [
+    {
+      "when": [
+        {
+          "feature": "hero",
+          "op": "eq",
+          "value": "glassling"
+        },
+        {
+          "feature": "heroFamous",
+          "op": "eq",
+          "value": true
+        },
+        {
+          "feature": "wispHome",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "text": "[PLACEHOLDER] We could see right through it. The frogs printed its name, {hero}, and still Wisp walked beside it."
+    },
+    {
+      "when": [
+        {
+          "feature": "againstShare",
+          "op": "gte",
+          "value": 0.5
+        }
+      ],
+      "text": "[PLACEHOLDER] It turned against us more often than not. {narrator} still will not say its name.",
+      "note": "[PLACEHOLDER] You turned against half the bids or more. The creatures took it as a sky that did not like them."
+    },
+    {
+      "when": [
+        {
+          "feature": "wispHome",
+          "op": "eq",
+          "value": true
+        },
+        {
+          "feature": "kithHeld",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "text": "[PLACEHOLDER] It brought Wisp back over the hill, and we all waited at the gate. {narrator} saw them first."
+    },
+    {
+      "when": [
+        {
+          "feature": "giftShare",
+          "op": "lte",
+          "value": 0.2
+        }
+      ],
+      "text": "[PLACEHOLDER] It kept what it was given. {narrator} says the sky had little to spare that year.",
+      "note": "[PLACEHOLDER] You kept most of what you could have given. The creatures read it as a poor sky."
+    },
+    {
+      "when": [
+        {
+          "feature": "heroFamous",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "text": "[PLACEHOLDER] In the Hollow they printed its face every dusk. {narrator} says nobody dared sit near it."
+    },
+    {
+      "when": [
+        {
+          "feature": "kithHeld",
+          "op": "eq",
+          "value": false
+        }
+      ],
+      "text": "[PLACEHOLDER] While it walked, the meadow grew cold. {narrator} sat by the gate alone."
+    },
+    {
+      "when": [
+        {
+          "feature": "toveFlew",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "text": "[PLACEHOLDER] It flew with the starlings, says {narrator}, and Tove flew with it."
+    },
+    {
+      "when": [],
+      "text": "[PLACEHOLDER] {hero} walked far, says {narrator}, and came home, and sat on the bench a while."
+    }
+  ]
+}

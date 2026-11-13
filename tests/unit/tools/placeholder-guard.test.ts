@@ -83,6 +83,13 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
   });
+  test('reports a bad sixth verse file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'myth'), { recursive: true });
+    writeFileSync(join(root, 'content', 'myth', 'sixth.json'), JSON.stringify({ templates: [] }));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.startsWith('myth/sixth.json:'))).toBe(true);
+  });
   test('reports heroes out of HERO_KINDS order and a bad journal file', () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content'), { recursive: true });

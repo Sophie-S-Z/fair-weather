@@ -147,7 +147,7 @@ function snapshot(lite: WorldLite | null): WorldLite {
  * The control form of ch3-control.test.ts: `config` from `carry` (and for a valley from
  * `journey`), with its twist window opened at tick 1 instead of on a verb, played by `player`
  * (made anew per seed) through that first window only, since retries are a separate honest
- * mechanism. Returns how many of the 200 seeds fired.
+ * mechanism. Returns how many of `seeds` (1 to 200 by default) fired.
  */
 export async function controlFired(
   config: Chapter,
@@ -155,6 +155,7 @@ export async function controlFired(
   flags: Flags,
   carry: Carry | undefined,
   journey?: JourneyStart,
+  seeds: readonly number[] = SEEDS,
 ): Promise<number> {
   const twist = config.twist;
   if (!twist) throw new Error(`${config.id} has no twist`);
@@ -165,7 +166,7 @@ export async function controlFired(
   // The window opens on the snapshot of tick 1 and its last check is at tick 1 + withinDays days.
   const firstWindow = 1 + twist.withinDays * chapterTicksPerDay(config);
   let fired = 0;
-  for (const seed of SEEDS)
+  for (const seed of seeds)
     if ((await runChapterHeadless(control, seed, player(), flags, firstWindow, carry, journey)).twistFired)
       fired += 1;
   return fired;

@@ -179,6 +179,13 @@ describe('valleys', () => {
     expect(ChapterSchema.safeParse(retry(['tove', 'hero'])).success).toBe(false);
   });
 
+  test('a beat arrange may name the hero, and a twist retry may not', () => {
+    const meet = { id: 'meet', trigger: { at: 5 }, actions: [{ arrange: ['pim', 'hero'] }] };
+    const twist = { ...ch.twist, retryArrange: ['pim', 'hero'] };
+    expect(ChapterSchema.safeParse({ ...valley, beats: [...valley.beats, meet] }).success).toBe(true);
+    expect(ChapterSchema.safeParse({ ...valley, beats: [...valley.beats, meet], twist }).success).toBe(false);
+  });
+
   test('the postcard trigger and action, and the hero activity, parse', () => {
     const beats = [...valley.beats, { id: 'sent', trigger: { postcard: true }, actions: [] }];
     expect(ChapterSchema.safeParse({ ...valley, beats, exit: { onBeat: 'sent' } }).success).toBe(true);

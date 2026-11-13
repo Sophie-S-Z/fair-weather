@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6 (strict), Vite 8, PixiJS 8, inkjs 2, Zod 4, Vitest 5, fast-check 4, Playwright 1.64, ESLint 10 with typescript-eslint, Prettier 3. Svelte 5 and axe-core arrive in M1. Exact pins are in ADR 0008.
 
-**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0012`. A task that cites "ADR n" uses the exact rule in that file.
+**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0013`. A task that cites "ADR n" uses the exact rule in that file.
 
 ## Global Constraints
 
@@ -1258,14 +1258,410 @@ Per-task self-consistency:
 
 ---
 
+## Milestone M3: Part 2, Stage 1 (the bridge, three valleys, the homecoming)
+
+Exit check: T3 passes for Murmuration Fen, Hearsay Hollow, Halcyon, and the homecoming (`npm run test:t3`); the hero balance test passes (ADR 0013 item 15); T2 passes with hero and pack scenarios in its arbitraries; the auto-player and a keyboard-only player play from the bridge to "The End" in Chromium; axe-core finds no serious or critical issue on any new screen. The golden hash in `tests/golden/m0-hash.json` stays `c29d2fa4dbda4dcf`: every new sim rule is on only with an optional scenario field. Every M2 check still passes. Then run superpowers:verification-before-completion and superpowers:requesting-code-review, and report to the user. The human playtest (T11, every hero in every valley) is the user's step after the exit check.
+
+Scope: the hero as a sim creature with a manner and six knacks; the `RulePack` interface and the packs for Murmuration Fen, Hearsay Hollow, and Halcyon; reputation; postcards and the Kith fast-forward; Wisp's choice; the bridge, the valleys, and the homecoming as configs and Ink with placeholder text (ADR 0010); the sixth myth verse; valley scenes, palettes, and placeholder rigs; Part 2 tools, the hero choice, and the postcard card; the travel journal; save version 3. Sandbox, seed links, and exports stay in M4; Foglight Heights, Toadstool Council, and Lily Shallows stay in M5. ADR 0013 holds every M3 ruling on a spec gap. A task that cites "ADR 0013 item n" uses that exact rule.
+
+### M3 file structure
+
+| Path | Responsibility |
+| --- | --- |
+| `src/sim/types.ts`, `world.ts`, `commands.ts`, `move.ts`, `meeting.ts`, `step.ts`, `invariants.ts`, `tuning.ts`, `daily/gossip.ts`, `daily/imitation.ts`, `daily/population.ts`, `daily/drift.ts`, `daily/index.ts` (modify) | The hero, its commands, and the meeting questions packs answer |
+| `src/sim/hero.ts` | The hero's manner and the six knacks (ADR 0013 items 1 to 3) |
+| `src/sim/packs/index.ts`, `fen.ts`, `hollow.ts`, `halcyon.ts` | `RulePack` and the three packs (ADR 0013 items 4 to 7) |
+| `src/sim-host/protocol.ts`, `lite.ts`, `worker-core.ts`, `host.ts` (modify) | Hero and pack snapshot detail; the silent fast-forward |
+| `src/story/journey.ts` | The journey: record, rumor, stamp, keepsakes, pages, Kith days (ADR 0013 items 8 to 10, 14) |
+| `src/story/verbs.ts`, `schema.ts`, `scenario.ts`, `flags.ts`, `twists.ts`, `action-log.ts`, `chapter-runner.ts` (modify) | Valley configs, Part 2 verbs, postcards, the hero start |
+| `src/myth/sixth.ts`, `content/myth/sixth.json` | The sixth verse (ADR 0013 item 13) |
+| `src/render/meadow-view.ts`, `scene.ts`, `palette.ts`, `line/line-view.ts` (modify) | Scene changes, starlings, the flock, the reflection, the hero |
+| `src/input/keyboard.ts`, `pointer.ts`, `verbs.ts` (modify) | Walk, wave, manner, join, pose, keepsake |
+| `src/ui/components/ToolTray.svelte`, `Drawer.svelte` (modify), `Note.svelte`, `ValleyLine.svelte` | Part 2 tools; the note view the drawer and journal share; the valley's status line |
+| `src/ui/interludes/HeroChoice.svelte`, `src/ui/screens/Journal.svelte`; `Game.svelte`, `App.svelte`, `game-service.ts` (modify) | The bridge, the journal, the Part 2 flow |
+| `src/persist/format.ts`, `migrations.ts`, `slots.ts`, `profile.ts` (modify) | Save version 3; the sixth verse in the book |
+| `src/main.ts` (modify) | The Kith host, the journey, async chapter starts |
+| `content/heroes.json`, `content/journal.json`, `content/scenarios/fen.json`, `hollow.json`, `halcyon.json`, `content/scenes/fen.json`, `hollow.json`, `halcyon.json`, `content/palettes/fen.json`, `hollow.json`, `halcyon.json`, `content/chapters/bridge.json`, `content/valleys/fen.json`, `hollow.json`, `halcyon.json`, `home.json`, their Ink files, `content/placeholder/PLACEHOLDER-*.svg` and rigs for the six heroes, Tove, Quill, the starling, and the three journal drawings | Data |
+| `tests/golden/valleys.ts`, `valley-fen.test.ts`, `valley-hollow.test.ts`, `valley-halcyon.test.ts`, `valley-home.test.ts`, `valley-heroes.test.ts` | T3 and hero balance |
+| `tests/e2e/part2.spec.ts` | T7 runs for Part 2 |
+
+### Task M3.1: The hero in the sim (sim, sim-host)
+
+**Files:** Create `src/sim/hero.ts`. Modify `src/sim/types.ts`, `world.ts`, `commands.ts`, `move.ts`, `meeting.ts`, `invariants.ts`, `daily/gossip.ts`, `daily/imitation.ts`, `daily/population.ts`, `src/sim-host/protocol.ts`, `lite.ts`, `src/story/action-log.ts` (`CommandSchema` gains the new commands), `tests/property/arbitraries.ts`. Test `tests/unit/sim/hero.test.ts` (new), extend `commands.test.ts`, `meeting.test.ts`, `tests/unit/sim-host/lite.test.ts`.
+
+**Interfaces:**
+- Produces in `types.ts`: `HERO_KINDS = ['lantern', 'kite', 'mosscoat', 'glassling', 'seedcarrier', 'bellchime'] as const`; `type HeroKind`; `HERO = 'hero'`; `Scenario.hero?: { kind: HeroKind; name: string; x: number; y: number; berries: number; keepsakes: string[]; rumor: { value: number; strength: number } | null }`; `World.hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] }`; commands `{ t: 'walk'; x: number; y: number }`, `{ t: 'walk'; to: string }`, `{ t: 'manner'; reply: BidReply; gift: GiftMove }`.
+- `createWorld` appends the hero creature last (id `HERO`, `speciesId` = kind, dials all 0.5, no shell), sets `World.hero` with manner `toward` and `give`, and, unless `rumor` is null, sets `opinions.hero = rumor.value` on every other creature whose Ear is at or below `rumor.strength` (ADR 0013 item 8).
+- `walk` with a point sets the hero's goal (clamped to the scene) and clears `waveTo`; with `to` it sets `waveTo` to a present creature other than the hero. A world without a hero ignores both. `manner` checks both values at runtime.
+- `moveCreatures`: the hero never calls `pickGoal`; while `waveTo` names a present creature its goal is that creature's spot each tick; a refusal by water stops it with the goal at its spot. `arrangeMeeting` naming the hero moves only the other creature. `leave` skips the hero; gossip never picks the hero as a speaker; imitation never picks the hero as copier or model.
+- `resolveMeeting` with the hero (ADR 0013 item 2): the hero bids only when `waveTo` names its partner (then `waveTo` clears); otherwise the partner bids. The hero's reply is `hero.reply` and its gift `hero.gift` (keep below `gift.cost`). The seven draws stay, in order.
+- Produces in `protocol.ts`: `WorldLite.creatures[].speciesId: string`; `WorldLite.hero: { kind: HeroKind; name: string; reply: BidReply; gift: GiftMove; keepsakes: string[]; opinions: Record<string, number> } | null` (`opinions`: each other creature's opinion of the hero, only where it has one).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('the hero is the last creature, with its kind as species and a toward-and-give manner', () => {});
+test('a rumor becomes the first opinion of locals whose Ear is at or below its strength', () => {
+  // rumor { value: -0.6, strength: 0.4 }: ear 0.3 holds -0.6, ear 0.5 holds none; first meeting warmth is -0.3
+});
+test('walk to a point moves only the hero; it stops there and picks no goal', () => {});
+test('walk to a creature makes the hero follow it and bid at their meeting', () => {});
+test('at a meeting the hero did not wave at, the local bids and the hero answers with its manner', () => {
+  // manner against and keep: bid event reply against, the hero's gift keep, whatever the draws
+});
+test('a meeting with the hero takes exactly seven draws', () => {});
+test('the hero never leaves by hunger, never gossips, and is never imitated', () => {});
+test('walk and manner are ignored without a hero or with bad values', () => {});
+test('the m0 golden hash is unchanged', () => expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf'));
+```
+
+Add a hero (with a random kind, rumor, and manner commands) to some `scenarioArb` worlds.
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/sim tests/unit/sim-host`. Expected: FAIL.
+- [ ] **Step 3: Implement.** Hero helpers live in `hero.ts`; `meeting.ts` asks them, so it gains no hero branches beyond the calls.
+- [ ] **Step 4: Run** `npm test && npm run test:prop && npm run typecheck`. Expected: PASS, golden hash unchanged.
+- [ ] **Step 5: Commit.** `feat(sim): add the hero, its walk, and its manner`
+
+### Task M3.2: The six knacks (sim)
+
+**Files:** Modify `src/sim/hero.ts`, `types.ts`, `commands.ts`, `move.ts`, `meeting.ts`, `daily/drift.ts`, `daily/population.ts` (`regrowBushes` skips gift bushes), `tuning.ts`, `content/tuning.json`, `invariants.ts`, `tests/property/arbitraries.ts`, `src/story/action-log.ts`. Test `tests/unit/sim/hero.test.ts`, extend `tests/unit/sim/tuning.test.ts`.
+
+**Interfaces:**
+- Tuning `knack: { lanternFog: 0.5, kiteSpeed: 1.5, mossMemory: 2, glassWarmth: 1.5, seedCost: 1, seedBerries: 3, seedDays: 2, seedWarmth: 0.1, bellRadius: 72 }`.
+- Produces: command `{ t: 'plant' }` (Seedcarrier only, at the hero's spot, needs `knack.seedCost` berries); `Bush.gift?: { from: string; readyDay: number; found: string[] }`.
+- Rules (ADR 0013 item 3), each with the hero's kind: Lantern-bearer halves the fog that misreads the hero's reply and gifts; Glassling uses 0 for it and scales every warmth change on a local's side toward the hero by `knack.glassWarmth`; Kite-rider's top speed is `move.speed × knack.kiteSpeed`; Mosscoat: `decaySlights` uses `min(1, knack.mossMemory × Memory)` and `driftWarmth` half the drift on a local's side toward the hero; Seedcarrier's gift bush holds `knack.seedBerries` from the dusk of `readyDay`, never regrows, and gives each first-time taker `knack.seedWarmth` toward the hero; Bellchime's wave also reaches every other `wander` creature within `knack.bellRadius` of the hero, in creature order, each with one reply draw, a `bid` event, and the bid warmth changes on both sides.
+- A world without a hero, or with another kind, takes the same draws and values as before.
+
+- [ ] **Step 1: Write the failing tests.** One test per knack with the hero of that kind against the same world with a Lantern-bearer as control, for example:
+
+```ts
+test('fog 1 flips a Lantern-bearer toward reply at half the chance it flips a local one', () => {});
+test('a Glassling is never misread, and a gift to a local raises its warmth by 0.225', () => {});
+test('a Kite-rider walks 1.5 times as far in 10 ticks', () => {});
+test("a Mosscoat's slight fades at Memory 1 when the holder's Memory is 0.5", () => {});
+test('a planted gift costs 1 berry, holds 3 berries two dusks later, and warms each first taker by 0.1', () => {});
+test('a Bellchime wave answers separately from every wandering creature within 72 units', () => {});
+test('plant is ignored for other kinds and below 1 berry', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS, golden hash unchanged.
+- [ ] **Step 5: Commit.** `feat(sim): add the six hero knacks`
+
+### Task M3.3: Rule packs and Murmuration Fen (sim, sim-host)
+
+**Files:** Create `src/sim/packs/index.ts`, `src/sim/packs/fen.ts`. Modify `types.ts`, `world.ts`, `step.ts`, `commands.ts`, `meeting.ts` (`findMeetings` asks `canMeet`), `invariants.ts`, `tuning.ts`, `content/tuning.json`, `src/sim-host/protocol.ts`, `lite.ts`, `src/story/action-log.ts`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/packs/fen.test.ts`.
+
+**Interfaces:**
+- Produces in `packs/index.ts`: `type LocalVerb = { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string }`; `interface RulePack<S> { id: PackId; setup(world: World, t: Tuning, rng: Rng): void; step(world: World, events: readonly SimEvent[], t: Tuning, rng: Rng): SimEvent[]; onVerb(world: World, verb: LocalVerb, t: Tuning, rng: Rng): SimEvent[]; metrics(world: World, t: Tuning): Record<string, number> }`; `PACKS: Record<PackId, RulePack>`; `canMeet(world, a, b, t): boolean`; `giftCost(world, t): number`; `giftWarmth(world, t): number` (ADR 0013 item 4).
+- `types.ts`: `PackId = 'fen' | 'hollow' | 'halcyon'`; `Scenario.pack?: { id: 'fen'; restless: string[]; fixed: Record<string, number> } | …` (each pack adds its member in its task); `World.pack?: FenState | …`; `FenState = { id: 'fen'; thresholds: Record<string, number>; flying: string[]; heroFlying: boolean }`; command `{ t: 'local'; verb: LocalVerb }`.
+- `createWorld` calls the pack's `setup` with a PRNG resumed from `rngState` and stores the state after; `step` calls the pack's `step` after the dance spread; `local` calls `onVerb`.
+- Tuning `fen: { everyTicks: 10, duskAt: 0.75, duskLift: 0.15, neighbors: 7 }`.
+- Fen rules: ADR 0013 item 5. Neighbors are the 7 nearest other creatures not away, by distance and then id. `join` with `on` sets `heroFlying`. `metrics` gives `flyingShare` and `tovePerceived`.
+- `WorldLite.pack: { id: 'fen'; flying: string[]; perceived: Record<string, number> } | … | null`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('thresholds are drawn from 0.2 to 0.8 in creature order; Tove holds 0.5', () => {});
+test('a starling flies when the share of its 7 nearest in flight reaches its threshold, and not one tick sooner', () => {});
+test('from duskAt the thresholds are 0.15 lower; at dawn all but the restless land', () => {});
+test('a joined hero counts as flying for its neighbors', () => {});
+test('perceived share weights each flying neighbor by its degree (ADR 0007)', () => {
+  // hand-built: a hub listed by 6 birds flies; the perceived share near it is above the real share
+});
+test('a flying creature meets no one', () => {});
+test('a world without a pack takes no pack draw (golden hash unchanged)', () => {});
+test('empty and one-bird Fen worlds give no NaN', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(sim): add rule packs and Murmuration Fen`
+
+### Task M3.4: Hearsay Hollow (sim)
+
+**Files:** Create `src/sim/packs/hollow.ts`. Modify `packs/index.ts`, `types.ts`, `tuning.ts`, `content/tuning.json`, `invariants.ts`, `lite.ts`, `protocol.ts`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/packs/hollow.test.ts`.
+
+**Interfaces:**
+- `HollowState = { id: 'hollow'; sky: { x: number; y: number }; drama: { subject: string; x: number; y: number; score: number; day: number }[]; fame: Record<string, number> }`; event `{ t: 'print'; subject: string; fame: number }`.
+- Tuning `hollow: { skySpeed: 120, fameStep: 0.2, fameFade: 0.1, fearAt: 0.5 }`.
+- Rules: ADR 0013 item 6, with the Lantern-bearer, Glassling, and Bellchime costs of item 3. `step` keeps `fields.light` at the sky, so the existing lens rules give the boost. `metrics` gives `heroFame`.
+- `WorldLite.pack` adds `{ id: 'hollow'; fame: Record<string, number>; front: string | null }` (`front`: the last print's subject).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test.each([['against', 3], ['away', 1], ['toward', 0]])('a %s reply scores %i drama for the replier', () => {});
+test('a keep after the other side gift scores 2 for the keeper', () => {});
+test('pose scores 3 at the hero with the hero as subject', () => {});
+test('the sky moves 12 units a tick toward the top score; 24 toward a Lantern-bearer meeting', () => {});
+test('at dusk the gazette prints the top drama in the lens: fame +0.2, then every fame falls by a tenth', () => {});
+test('a creature with fame above 0.5 meets no one', () => {});
+test('a Glassling away scores 3; a Bellchime print raises fame by 0.4', () => {});
+test('scores halve at each dusk', () => {});
+```
+
+- [ ] **Step 2–4.** As M3.3. **Step 5: Commit.** `feat(sim): add Hearsay Hollow`
+
+### Task M3.5: Halcyon, the postcard nudge, and the silent fast-forward (sim, sim-host)
+
+**Files:** Create `src/sim/packs/halcyon.ts`. Modify `packs/index.ts`, `types.ts`, `commands.ts`, `tuning.ts`, `content/tuning.json`, `lite.ts`, `protocol.ts`, `worker-core.ts`, `host.ts`, `src/story/action-log.ts`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/packs/halcyon.test.ts`, extend `tests/unit/sim-host/worker-core.test.ts`, `host.test.ts`.
+
+**Interfaces:**
+- `Scenario.pack` adds `{ id: 'halcyon'; kithWarmth: number; seeker: string }` (`seeker`: Wisp); `HalcyonState = { id: 'halcyon'; kithWarmth: number; seeker: string; given: boolean; chose: 'home' | 'stay' | null }`; events `{ t: 'keepsake'; to: string; item: string }`, `{ t: 'goHome' | 'stay'; who: string }`; command `{ t: 'nudge'; dial: DialKey; amount: number }` (every creature not gone, clamped to [0, 1]).
+- Tuning `halcyon.chooseByDay: 3` (added to the existing `halcyon` block); `kith: { days: 20 }`.
+- Rules: ADR 0013 item 7. `giftCost` is 0 and `giftWarmth` is `halcyon.giftWarmthMultiplier` in Halcyon.
+- `ToWorker` adds `{ t: 'fastForward'; ticks: number; id: number }`; `FromWorker` adds `{ t: 'forwarded'; id: number; tick: number; lite: WorldLite }`. The core steps `ticks` times and posts no events or snapshots between (it keeps the dusk copies for rewind); `SimHost.fastForward(ticks): Promise<{ tick: number; lite: WorldLite }>` rejects on a restart, as `rewind` does.
+- `WorldLite.pack` adds `{ id: 'halcyon'; chose: 'home' | 'stay' | null }`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('a gift in Halcyon costs nothing and warms by 0.03', () => {});
+test('a keepsake within 48 units warms the receiver by 0.6 toward the hero and leaves the hero', () => {});
+test('a keepsake the hero lacks, or to a creature 49 units away, does nothing', () => {});
+test('Wisp chooses home at the dusk after a keepsake when its warmth is 0.6 and Kith is 0.2', () => {});
+test('Wisp stays when Kith is 0.19, and chooses by the dusk of day 3 with no keepsake', () => {});
+test('Wisp chooses once', () => {});
+test('nudge raises one dial of every creature not gone by 0.1, clamped', () => {});
+test('fastForward 400 ticks posts one forwarded message whose lite equals 400 advance steps', () => {});
+```
+
+- [ ] **Step 2–4.** As M3.3. **Step 5: Commit.** `feat(sim): add Halcyon, the postcard nudge, and the silent fast-forward`
+
+### Task M3.6: Valley configs, Part 2 verbs, and postcards (story)
+
+**Files:** Modify `src/story/verbs.ts`, `schema.ts`, `scenario.ts`, `flags.ts`, `content/flags.json`, `content/ink/main.ink` (VARs), `twists.ts`, `action-log.ts`, `chapter-runner.ts`, `src/input/verbs.ts` (`keyboardTools`), `tools/content-validate/validate.ts` (valleys). Test `tests/unit/story/schema.test.ts`, `scenario.test.ts`, `chapter-runner.test.ts`, `twists.test.ts`.
+
+**Interfaces:**
+- `WORLD_VERBS` adds `'walk', 'manner', 'join', 'pose', 'keepsake'`. `VerbInput` adds `{ verb: 'walk'; x; y }`, `{ verb: 'walk'; to: string }` (a wave), `{ verb: 'manner'; reply: BidReply; gift: GiftMove }`, `{ verb: 'plant' }` (unlocked with `manner`), `{ verb: 'join'; on: boolean }`, `{ verb: 'pose' }`, `{ verb: 'keepsake'; to: string; item: string }`. Each maps to its command; the local verbs to `{ t: 'local', verb }`.
+- `POSTCARDS = ['generosity', 'patience', 'remembering', 'listening', 'wandering'] as const` with `POSTCARD_DIAL` (spec 7.2's table).
+- Schema: `kind` adds `'valley'`; `scenario: id` (default `'m0'`, the base scenario's file name); `palette: id` (optional, default the season); `valley: { pack: PackId | null; guide: id; postcards: Postcard[] (2 to 3, or none for the homecoming); keepsake: { id: string; label: string } | null; locals: string[] }` (required for and only on a valley); `activity` adds `'hero'`; beat trigger `{ postcard: true }`; beat action `{ postcard: true }`; a valley has 2 to 4 notes; `retryArrange` may not name `hero`.
+- `buildScenario(chapter, flags, base, carry?, journey?: JourneyStart)` with `JourneyStart = { kind: HeroKind; name: string; keepsakes: string[]; rumor: { value: number; strength: number } | null; companion: 'wisp' | 'seed' | null; kithWarmth: number }`: sets `Scenario.hero` at the gate with 3 berries, the pack from `chapter.valley.pack` and the base scenario's pack fields (Halcyon's `kithWarmth` from the journey), and the companion (ADR 0013 item 12): Wisp not gone or away, beside the gate; or a bush `wisp-seed` with 3 berries 40 units right of the first bench.
+- Runner: `Prompt` adds `{ kind: 'postcard'; question: string; options: Postcard[] }` (from the knot `<id>_postcard`); `sendPostcard(type): boolean` (once, only listed types; logs `{ kind: 'postcard'; tick; type }`, runs `{ postcard: true }` beats); `{ kind: 'hero'; tick; e }` log entries for every `bid` and `gift` event that names the hero; `YEAR_EVENTS` adds `'goHome'`, `'stay'`, `'keepsake'`, `'print'`. Before each knot the runner also writes `hero_softness` and `hero_tightness` (the hero's shell, 0 with no hero).
+- Flags add, with skip defaults: `toveFlew: true`, `heroFamous: false`, `wispHome: false`, `kithHeld: true`. Sources: `toveFlew` and `heroFamous` are `twistFired`; `wispHome` is a `goHome` event in the log; `kithHeld` has no source (the game sets it, M3.11).
+- Twists add `'toveFlies'` (Tove flies), `'heroFamous'` (the hero's fame is above `hollow.fearAt`), `'homeWelcome'` (at least 3 of `pim, krit, echo, moss, wisp, bell` hold warmth toward the hero above `friend.threshold`).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('a valley without its valley block, or a chapter with one, fails the schema', () => {});
+test('buildScenario puts the hero at the gate with the rumor, keepsakes, and Halcyon kith warmth', () => {});
+test('companion wisp brings Wisp back beside the gate; seed adds the wisp-seed bush', () => {});
+test.each([
+  [{ verb: 'walk', to: 'tove' }, { t: 'walk', to: 'tove' }],
+  [{ verb: 'join', on: true }, { t: 'local', verb: { verb: 'join', on: true } }],
+  [{ verb: 'plant' }, { t: 'plant' }],
+])('verb %o sends %o', () => {});
+test('the postcard prompt lists the valley types; sendPostcard logs once and runs the postcard beat', () => {});
+test('hero bid and gift events go in the log as hero entries; other bids do not', () => {});
+test('wispHome reads a goHome event; a skip gives the defaults', () => {});
+test('homeWelcome needs three of the cast warm toward the hero', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run typecheck && npm run validate-content`. Expected: PASS; every Part 1 T3 count is unchanged (Part 1 configs gain no field but the defaults).
+- [ ] **Step 5: Commit.** `feat(story): add valley configs, Part 2 verbs, and postcards`
+
+### Task M3.7: The journey (story)
+
+**Files:** Create `src/story/journey.ts`, `content/heroes.json`, `content/journal.json`. Modify `tools/content-validate/validate.ts`. Test `tests/unit/story/journey.test.ts`.
+
+**Interfaces:**
+- `interface Journey { hero: { kind: HeroKind; name: string }; record: { moves: GiftMove[]; answered: number; against: number }; rumor: { value: number; strength: number } | null; keepsakes: { id: string; given: boolean }[]; pages: JournalPage[]; wisp: 'home' | 'stay' | null; kithStart: Carry | null; bookYear: number | null }`; `interface JournalPage { valley: string; stamp: 'welcomed' | 'forgiven' | 'avoided'; said: { value: number; strength: number }; keepsake: string | null; postcard: Postcard | null; caption: string }`.
+- `newJourney(kind, name, kithStart, bookYear): Journey`; `heroResult(kind, name): string` and `parseHero(result: string): { kind: HeroKind; name: string }` (the bridge's activity result: `kind:name`, the name trimmed to 24 characters, empty gives the hero's own name from `content/heroes.json`); `journeyStart(j: Journey, kithWarmth: number): JourneyStart` (companion from `wisp`); `leaveValley(j, chapter, lite, log): Journey` (record from the log's hero entries, last 20 moves; rumor and stamp from ADR 0013 items 8 and 14; the keepsake added when the valley has one; `keepsake` events mark given; a `goHome` or `stay` event sets `wisp`; the postcard from the log); `rumorValue(record): number`; `kithDays(index: number): number` (7, 7, 6 over `KITH_VALLEYS = ['fen', 'hollow', 'halcyon']`, ADR 0013 item 10); `saying(said): string` (the "What they say about you" line from `content/journal.json`: value at least 0.3 kind, at most −0.3 unkind, else mixed; strength at least 0.5 most, at least 0.2 some, else few); `JourneySchema` (Zod, for saves).
+- `content/heroes.json`: the six heroes in `HERO_KINDS` order, each `{ id, name, look, knack }` with the spec 5.5 text (the user's own, no tag); `content/journal.json`: the six sayings and the stamp words, `[PLACEHOLDER]`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test.each([[[], 0, 0, 0], [['give', 'give'], 2, 0, 1], [['keep'], 1, 0, -1], [['give', 'keep'], 2, 1, -0.5]])(
+  'moves %o with %i answered and %i against give rumor value %d', () => {});
+test('the record keeps the last 20 moves', () => {});
+test('rumor strength is the share of locals holding an opinion of the hero of at least 0.3', () => {});
+test.each([[0.3, 'welcomed'], [0, 'forgiven'], [-0.01, 'avoided']])('mean warmth %d stamps %s', () => {});
+test('a valley with no tie to the hero stamps avoided', () => {});
+test('kithDays gives 7, 7, 6, summing to 20', () => {});
+test('parseHero keeps a name with a colon and gives the hero name for an empty one', () => {});
+test('JourneySchema round-trips a journey', () => {});
+```
+
+- [ ] **Step 2–4.** As M3.6. **Step 5: Commit.** `feat(story): add the journey, reputation, and the journal pages`
+
+### Task M3.8: The bridge and Murmuration Fen (content, T3)
+
+**Files:** Create `content/chapters/bridge.json`, `content/valleys/fen.json`, `content/scenarios/fen.json`, `content/ink/bridge.ink`, `content/ink/fen.ink`, `tests/golden/valleys.ts`, `tests/golden/valley-fen.test.ts`. Modify `content/ink/main.ink`, `tests/golden/run-chapter.ts`, `tests/golden/players.ts`, `vitest.config.ts` (t3 includes `tests/golden/valley-*.test.ts`), `docs/adr/0013-part-2-rules.md` (calibration in item 16).
+
+**Interfaces:**
+- `runChapterHeadless(config, seed, player, flags, stopAfterTicks?, carry?, journey?: JourneyStart)`: the base scenario is `content/scenarios/<config.scenario>.json`.
+- `valleys.ts`: `VALLEY_SEEDS` (1 to 200), `JOURNEY: JourneyStart` (a Lantern-bearer named "Test", no rumor, no keepsakes, `kithWarmth` 0.3), `journeyFor(kind)`.
+
+Content:
+
+| Id | Kind, day | Verbs (tray first) | Base scenario | Twist, window, retry | Writes | T3 player | Control |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| bridge | interlude, Kith, spring, 600 s, carry | activity `hero` | m0 | none | none | finishes with `heroResult('lantern', 'Test')` | none |
+| fen | valley, spring, 60 s, palette fen | walk, join, manner, zoom, peek | fen: 39 starlings in five reed clusters, Tove at a cluster's edge, five restless starlings, two bushes | `toveFlies`, 3 days, retry [tove, starling-1] | `toveFlew` | walks to Tove; joins from `duskAt` of each day | walks to Tove; never joins |
+
+The bridge plays "You have no sky now." (spec 7.1, the user's line) and a `#placeholder` line where Pim gives the postcard map. Fen's twist beat tells that Tove flew; its close call tells that the flock rose without Tove. A beat after either opens the postcard (generosity, wandering); the exit is the `{ postcard: true }` beat. Fen's keepsake is `starling-feather`; 2 placeholder notes (complex contagion, the majority illusion) and 3 locals' lines.
+
+- [ ] **Step 1: Write the tests:** `valley-fen.test.ts`: T3 over 200 seeds, close calls fewer than 10; the control fires `toveFlies` in at most 20 of 200 in its first window.
+- [ ] **Step 2: Write the configs, scenario, Ink, and players; run** `npm run test:t3 -- tests/golden/valley-fen.test.ts`. If it fails, change only the scenario layout or the `fen` tuning, never the twist check, and record the change in ADR 0013 item 16.
+- [ ] **Step 3: Run** `npm test && npm run validate-content`. **Step 4: Commit.** `feat(content): add the bridge and Murmuration Fen with T3 runs`
+
+### Task M3.9: Hearsay Hollow (content, T3)
+
+**Files:** Create `content/valleys/hollow.json`, `content/scenarios/hollow.json`, `content/ink/hollow.ink`, `tests/golden/valley-hollow.test.ts`. Modify `main.ink`, `players.ts`, ADR 0013 item 17.
+
+| Id | Day | Verbs | Base scenario | Twist, window, retry | Writes | T3 player | Control |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| hollow | spring, 60 s, palette hollow | walk, pose, manner, zoom, peek | hollow: Quill and 19 townsfolk in crooked lanes, the press by the square, three bushes | `heroFamous`, 4 days, retry [quill, townsfolk-1] | `heroFamous` | walks to the square; poses once a day while the sky is within its lens radius | walks to the square; never poses; manner toward and give |
+
+The twist beat says the town now keeps its distance, and a second line says who the gazette hurt (spec 19.2). The close call says the town forgot the hero. A margin note says the player was this sky in Part 1. Postcards: patience, remembering, listening. Keepsake `clipping`.
+
+- [ ] **Steps 1 to 4** as M3.8, with the control limit "fires in at most 20 of 200". **Commit.** `feat(content): add Hearsay Hollow with T3 runs`
+
+### Task M3.10: Halcyon, the homecoming, the sixth verse, and hero balance (content, myth, T3)
+
+**Files:** Create `content/valleys/halcyon.json`, `content/valleys/home.json`, `content/scenarios/halcyon.json`, `content/ink/halcyon.ink`, `content/ink/home.ink`, `src/myth/sixth.ts`, `content/myth/sixth.json`, `tests/golden/valley-halcyon.test.ts`, `valley-home.test.ts`, `valley-heroes.test.ts`, `tests/unit/myth/sixth.test.ts`. Modify `main.ink`, `players.ts`, `tools/content-validate/validate.ts`, ADR 0013 item 18.
+
+**Interfaces:**
+- `sixth.ts`: `interface SixthFeatures { hero: HeroKind; giftShare: number; againstShare: number; wispHome: boolean; kithHeld: boolean; toveFlew: boolean; heroFamous: boolean }`; `sixthFeatures(j: Journey, flags: Flags): SixthFeatures`; `SixthSchema` (one verse, title "The Sky Came Down", 6 to 8 templates in the M2.7 template form over these features, the last with no condition; slots `{hero}` and `{narrator}`); `tellSixth(f, verse, heroName, narrator, name): { title: string; text: string; note: string | null }`. Every text starts with "The sky came down once, and walked with us." and then a `[PLACEHOLDER] ` sentence.
+
+| Id | Day | Verbs | Base scenario | Twist or end | Writes | T3 player |
+| --- | --- | --- | --- | --- | --- | --- |
+| halcyon | summer, 60 s, palette halcyon | walk, keepsake, manner, zoom, peek | halcyon: Wisp (`seeker`) and 8 calm locals by a mirror sea, plenty of bushes | beats on `goHome` and `stay` for Wisp; a beat after either opens the postcard (generosity, patience, remembering) | `wispHome` | gives Wisp three gifts, then the feather |
+| home | valley, Kith, spring, 40 s, `pack` null | walk, manner, zoom, peek | m0 with the chapter 3 bench | `homeWelcome`, 4 days, retry [pim, krit]; variant `kithHeld eq true` puts the cast by the gate; the twist and close call both end on the bench beat, where Pim speaks of the hero's line | none | walks to Pim, then the bench |
+
+- [ ] **Step 1: Write the tests.**
+  - `valley-halcyon.test.ts`: with `kithWarmth` 0.3, the T3 player's Wisp goes home in at least 190 of 200 seeds; a player who gives three gifts and no keepsake brings Wisp home in at most 10; with `kithWarmth` 0.1, Wisp stays in 200 of 200.
+  - `valley-home.test.ts`: from a stored Kith carry (`tests/golden/carry/home.json`, made by a seed-1 year to ch10 and a 20-day fast-forward with no postcards), T3 close calls fewer than 10 of 200 with `kithHeld` true.
+  - `valley-heroes.test.ts` (ADR 0013 item 15): for each of fen and hollow and each hero kind, over seeds 1 to 10, the T3 player fires the twist in at least 8 and the control in at most 2; for Halcyon, the T3 player brings Wisp home in at least 8 for each kind and the three-gifts player in at most 2.
+  - `sixth.test.ts`: an all-skipped journey tells a whole verse with no open slot; a Glassling who was famous and brought Wisp home gets a template that names `{hero}`; the schema refuses an unknown slot.
+- [ ] **Step 2: Write the content and run** `npm run test:t3`, calibrating as M3.8. **Step 3: Run** `npm test && npm run validate-content`. **Step 4: Commit.** `feat(content): add Halcyon, the homecoming, the sixth verse, and hero balance`
+
+### Task M3.11: The Part 2 flow (main, ui)
+
+**Files:** Modify `src/main.ts`, `src/ui/game-service.ts`, `src/ui/screens/Game.svelte`, `src/ui/chapter-label.ts`, `tests/e2e/part1.spec.ts` (Part 1 now ends at the bridge's heading with a Book page kept). Test `tests/unit/ui/chapter-label.test.ts`.
+
+**Interfaces:**
+- `chapters` in play order adds `bridge, fen, hollow, halcyon, home` (21 entries). Base scenarios load by glob from `content/scenarios/`.
+- `GameService.startChapter(chapter, flags): Promise<ChapterRunner>`; `Game.svelte`'s `begin` awaits it and drops a start that a newer `begin` replaced. For a valley it waits for the Kith host's segment from the valley before, merges `kithHeld` from Kith's average warmth into the flags of `home`, and passes `journeyStart`.
+- The Kith host: a second `createSimHost` made at the bridge's start from the carry of the last snapshot (ADR 0013 item 10). When a valley's runner is done, `main.ts` sends the postcard's `nudge` (when one was sent), runs `fastForward(kithDays(i) × ticks per day)`, and keeps the lite; `leaveValley` updates the journey.
+- At the fire's end (`activity: 'fire'` done) the year's page is kept, as at the M2 end, and play goes on into the bridge; the bridge's result makes the journey (`newJourney` with the kept page's year).
+- After `home`, the end screen reads "The End" with the sixth verse, "Open the Book of Skies", and "Back to title". `GameService` adds `journey(): Journey | null`, `sixthVerse(flags): { title; text; note }`, and `finishJourney(verse): Promise<void>` (adds the verse to the page, M3.15, and marks the save kept).
+- `chapterHeading` gives "The Bridge" for the bridge and the valley's title for a valley.
+
+- [ ] **Step 1: Write the failing tests:** `chapterHeading` for a valley and the bridge; e2e on `?chapter=16`: the bridge heading shows; after the activity (hero chosen by button), the heading reads "Murmuration Fen"; Part 1's e2e ends on "The Bridge" with the Book of Skies holding one page.
+- [ ] **Step 2–4.** Run `npm test && npm run typecheck && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): play from the fire into Part 2 and to its end`
+
+### Task M3.12: Valley scenes, palettes, starlings, and the hero (render)
+
+**Files:** Create `content/scenes/fen.json`, `hollow.json`, `halcyon.json`, `content/palettes/fen.json`, `hollow.json`, `halcyon.json`, placeholder SVGs and rigs (`PLACEHOLDER-lantern.svg` to `PLACEHOLDER-bellchime.svg`, `PLACEHOLDER-tove.svg`, `PLACEHOLDER-quill.svg`, `PLACEHOLDER-starling.svg`, `PLACEHOLDER-journal-fen.svg`, `-hollow.svg`, `-halcyon.svg`) and `content/cast/tove.json`, `quill.json`. Modify `src/render/meadow-view.ts`, `palette.ts`, `src/main.ts`, `src/ui/game-service.ts`. Test `tests/unit/render/meadow-view.test.ts`, `tests/visual/meadow.spec.ts`.
+
+**Interfaces:**
+- `MeadowView.setScene(scene: SceneData): void` redraws the ground and trees and uses the scene's bench spots and cameras. `Stage.setScene(id: string)` and `Stage.setPalette(id: string)` (season or valley id; `setSeason` becomes this call). `Stage.benchSpots` reads the current scene.
+- A creature's rig is its id's, then its species', then the villager's. Starlings without a rig of their own (all but Tove) are small ink ticks in one `Graphics` (one draw call for all), flying ones in the sky band above the reeds with a slow drift (still with reduced motion); the reflection draws a faint tick under each grounded starling whose perceived share is at least 0.5. The drama sky is the lens, in the palette's accent ring.
+- Accents from spec 7.3: Fen rose, Hollow hot yellow, Halcyon soft white-gold, each safe for color blindness and never used for text.
+
+- [ ] **Step 1: Write the failing tests:** `setScene` redraws from the new scene and moves the bench spots; 40 starlings add at most 2 draw calls; a hero of kind `kite` draws the `kite` rig. Visual: `fen-dusk.png` at a fixed tick with the flock up and Tove beside the hero. The user approves the new baseline before it is committed; the M1 and M2 baselines must not change.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(render): add valley scenes, palettes, starlings, and hero rigs`
+
+### Task M3.13: Part 2 tools, the hero choice, and the postcard card (input, ui)
+
+**Files:** Create `src/ui/interludes/HeroChoice.svelte`, `src/ui/components/ValleyLine.svelte`. Modify `src/input/keyboard.ts`, `pointer.ts`, `verbs.ts`, `src/ui/components/ToolTray.svelte`, `src/ui/screens/Game.svelte`. Test `tests/unit/input/input.test.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- Keyboard: with Walk, Enter walks to the cursor and W waves at the picked creature; with Manner, G, H, R set the reply (labels "Wave back", "Stay still", "Snap") and O, K set Give or Keep, and L plants for a Seedcarrier; with Join, Enter flies or lands; with Pose, Enter poses; with Keepsake, Enter gives the first keepsake not given to the picked creature. Pointer: a click on ground walks, a click on a creature waves.
+- Tray labels: Walk, Manner, Join, Pose, Keepsake. Each new tray verb gets one `[PLACEHOLDER]` hint line (spec 12.6). The Manner tool shows its two choices as pressed buttons; the Keepsake tool lists each keepsake with "Give the {label} to {name}".
+- `HeroChoice` (the bridge's activity): a quiet rain line animation (none with reduced motion), then a fieldset of six radio buttons with each hero's name, look, and knack from `content/heroes.json`, a "Name your hero" text field (at most 24 characters), and a "Wake as {name}" button that finishes with `heroResult`.
+- The postcard prompt shows the `BetCard` with the question and the postcard labels; the answer calls `runner.sendPostcard`. A bet stays a bet; the card's code does not change.
+- `ValleyLine` (role=status, under the status line): Fen "Tove sees {p}% of its neighbors flying in the water; {r}% really fly."; Hollow "The gazette: {front} is on the front page."; nothing elsewhere. Text with meaning is HTML (spec 17).
+
+- [ ] **Step 1: Write the failing tests:** each key and click above maps to its `VerbInput`; a wave with no pick sends nothing; L sends nothing for another kind; axe finds no serious issue on the hero choice, the Fen with its line, and the postcard card; the hero choice works with the keyboard only.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(ui): add Part 2 tools, the hero choice, and the postcard card`
+
+### Task M3.14: The travel journal (ui)
+
+**Files:** Create `src/ui/screens/Journal.svelte`, `src/ui/components/Note.svelte`. Modify `src/ui/components/Drawer.svelte` (uses `Note.svelte`, gains a Journal button in Part 2), `src/ui/screens/Game.svelte`, `src/input/keyboard.ts` (J), `src/ui/game-service.ts`, `src/main.ts`. Test `tests/e2e/a11y.spec.ts`, `tests/unit/story/journey.test.ts` (captions).
+
+**Interfaces:**
+- `Journal` (a modal dialog with the sim paused, as the *Book of Skies*): one `article` per page with the valley's name as its heading, the drawing (`img` with alt text from the valley config), the keepsake or "An empty pressed shape where the {label} was", the locals' lines, the stamp, a "Your line" text field (at most 80 characters) that saves on change, "What they say about you" with `saying`, and the valley's notes through `Note.svelte`; a Close button.
+- `GameService.setCaption(valley: string, text: string): void` (in the journey, saved with the next autosave). When a valley ends, `Game.svelte` opens the journal at the new page; closing it starts the next valley. J opens the journal in Part 2.
+
+- [ ] **Step 1: Write the failing tests:** `setCaption` trims to 80 characters; axe finds no serious issue on the journal with one and with three pages; after Halcyon's keepsake, the Fen page shows the empty pressed shape; J opens and Escape closes the journal.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(ui): add the travel journal`
+
+### Task M3.15: Save version 3 and Continue in Part 2 (persist)
+
+**Files:** Modify `src/persist/format.ts`, `migrations.ts`, `slots.ts`, `profile.ts`, `src/main.ts`. Test `tests/unit/persist/slots.test.ts`, `profile.test.ts`.
+
+**Interfaces:**
+- `SaveV3 = Omit<SaveV2, 'version'> & { version: 3; journey: Journey | null }`; `migrate` turns a version 2 save into version 3 with `journey: null` and fills the new flags from `content/flags.json`.
+- Continue in a valley loads the journey and rebuilds the Kith host by running, for each finished valley in order, its postcard's nudge and `fastForward(kithDays(i) × ticks per day)` from `journey.kithStart` (ADR 0013 item 10).
+- `Profile.addVerse(year: number, verse: { title; text; note }): Promise<void>` adds the sixth verse to that year's page once; a page with six verses is left alone; no page for that year does nothing.
+
+- [ ] **Step 1: Write the failing tests:**
+
+```ts
+test('a v3 save keeps the journey through save and load', async () => {});
+test('a v2 save migrates with a null journey and the new flags at their defaults', () => {});
+test('Continue in Halcyon rebuilds Kith to the same average warmth as the run that saved', async () => {});
+test('addVerse adds the sixth verse once', async () => {});
+```
+
+The third test is Review Focus 1.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(persist): keep the journey in saves; add the sixth verse to the book`
+
+### Task M3.16: Play Part 2 to its end and the M3 exit check (e2e)
+
+**Files:** Create `tests/e2e/part2.spec.ts`. Modify `tests/e2e/a11y.spec.ts`, `playwright.config.ts` (part2 runs in the `e2e-year` project).
+
+- [ ] **Step 1: Write the tests.** From `?chapter=16&fast=10`, the auto-player picks the first hero with the name "Rain", walks to the guide, uses the local verb as the T3 player does (join at dusk, pose near the sky, the feather to Wisp), sends the first postcard, closes each journal spread, walks to Pim at home, and ends on "The End" with focus on it, a sixth verse on screen, no page error. A keyboard-only run does the same with keys only. axe runs on the hero choice, each valley's first screen, a postcard card, the journal, and the end.
+- [ ] **Step 2: Run** `npm run lint && npm run typecheck && npm test && npm run test:prop && npm run test:t3 && npm run validate-content && npx vite build --mode development && npx playwright test --project=e2e --project=e2e-year`. Expected: all pass; record the valley T3 counts and the hero balance table.
+- [ ] **Step 3:** Run superpowers:verification-before-completion, then superpowers:requesting-code-review on the M3 commits. Fix findings.
+- [ ] **Step 4:** Report to the user: the test summary, the numbers, the golden hash, the content still marked placeholder, and the playtest (T11) as their next step.
+- [ ] **Step 5: Commit.** `test(e2e): play Part 2 to its end`
+
+### M3 Review Focus
+
+1. **Continue mid-journey.** A player who closes the tab in Hollow and presses Continue expects the same hero, journal, and Kith as before, so Wisp's choice reads the same Kith. Owner: M3.15, "Continue in Halcyon rebuilds Kith to the same average warmth".
+2. **A skipped valley.** A player who skips the Fen and Hollow still meets Wisp, with no keepsake to give, and both endings still play whole. Owner: M3.10's skipped-journey sixth verse test, and M3.6's skip defaults.
+3. **A hero with no berries.** A hungry hero must keep, never go below 0 berries, and never stall a meeting. Owner: M3.1, "the hero's gift keep below gift.cost", and the invariants in the property run.
+4. **A famous hero.** A hero with fame above 0.5 meets no one; the valley must still end, with the postcard, and the journal stamp must read avoided, not crash on no ties. Owner: M3.4, "a creature with fame above 0.5 meets no one", and M3.7, "no tie stamps avoided".
+5. **A long or empty hero name.** A name of 0 or 300 characters, or with a colon, must give a sane name everywhere it shows. Owner: M3.7, `parseHero`.
+
+### M3 pre-flight scan
+
+| Tasks | Shared file or interface | How they stay consistent |
+| --- | --- | --- |
+| M3.1 to M3.5 | `sim/types.ts`, `world.ts`, `lite.ts`, `protocol.ts`, `arbitraries.ts`, `action-log.ts` `CommandSchema` | Each adds optional fields and union members only and runs the golden hash test. |
+| M3.1, M3.2 | `hero.ts`, `meeting.ts`, `move.ts` | M3.1 adds the manner and wave; M3.2 adds knack terms inside the same helpers. |
+| M3.3, M3.4, M3.5 | `packs/index.ts` `canMeet`, `giftCost`, `giftWarmth`, `Scenario.pack`, `World.pack`, `WorldLite.pack` | Each pack adds its union member; only `index.ts` dispatches on `id`. |
+| M3.3 to M3.5, M3.6 | `LocalVerb`, `local` command | M3.6 maps join, pose, keepsake to exactly these shapes. |
+| M3.5, M3.11, M3.15 | `fastForward`, `nudge`, `kithDays` | M3.11 and M3.15 run the same sequence through one `main.ts` function. |
+| M3.6, M3.7 | `JourneyStart`, `Postcard`, log entries `hero`, `postcard` | `leaveValley` reads only the entries M3.6 defines. |
+| M3.6, M3.8 to M3.10 | twist ids, flags, `valley` block, beat `{ postcard: true }` | Content uses only what M3.6 defines. |
+| M3.7, M3.10, M3.14, M3.15 | `Journey`, `JournalPage`, `JourneySchema` | M3.10's `sixthFeatures` and M3.14's journal read; M3.15 saves through `JourneySchema`. |
+| M3.11, M3.12, M3.13, M3.14 | `Game.svelte`, `game-service.ts`, `main.ts`, `keyboard.ts` | Keys W, O, K, L, J are new; G, H, R act only with Respond or Manner. |
+| M3.12, M3.13 | `WorldLite.pack.perceived`, `front` | `ValleyLine` and the reflection read the same fields. |
+
+Per-task self-consistency:
+
+- M3.1 to M3.5 change no rule without a hero or pack; each ends with `c29d2fa4dbda4dcf`.
+- M3.6's three-tool limit holds for every valley row (walk, the local verb, manner).
+- M3.7's skip path (no page, no keepsake) is M3.10's all-skipped sixth verse input.
+- M3.8 to M3.10 use only twist ids, flags, and pack fields that M3.3 to M3.6 define.
+- M3.13 sends only `VerbInput` shapes that M3.6 maps.
+
+---
+
 ## Milestones M2 to M5 (outline)
 
-Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. M2's detailed plan is above.
+Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. The M2 and M3 detailed plans are above.
 
 | Milestone | Contents | Exit check |
 | --- | --- | --- |
 | **M2: Part 1 complete** | Detailed in "Milestone M2: Part 1 complete (chapters 4 to 10)" above, with its rulings in ADR 0012. Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. Persist the runner action log in saves (spec 10.4; myth needs it). | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs; the auto-player and a keyboard player reach the end of Part 1 |
-| **M3: Part 2, Stage 1** | `RulePack` interface (spec 9.5) and `heroGift`/`localVerb` commands. Bridge scene and hero choice with naming (six designed heroes, knacks as exact rules from spec 5.5). Rule packs for Murmuration Fen, Hearsay Hollow, Halcyon (ADR 0007). Reputation (spec 9.6), postcards with Kith fast-forward, travel journal with keepsakes and "What they say about you". Homecoming and the sixth myth verse. Wisp's choice (spec 7.4). | T3 for each valley; every hero playtested in every valley; playtest |
+| **M3: Part 2, Stage 1** | Detailed in "Milestone M3" above, with its rulings in ADR 0013. `RulePack` interface (spec 9.5) and `heroGift`/`localVerb` commands. Bridge scene and hero choice with naming (six designed heroes, knacks as exact rules from spec 5.5). Rule packs for Murmuration Fen, Hearsay Hollow, Halcyon (ADR 0007). Reputation (spec 9.6), postcards with Kith fast-forward, travel journal with keepsakes and "What they say about you". Homecoming and the sixth myth verse. Wisp's choice (spec 7.4). | T3 for each valley; every hero playtested in every valley; playtest |
 | **M4: Launch quality** | Sandbox (4 panels, timeline, 3 challenges, modes from finished valleys). Seed links with fflate (`#v1.<data>`, file fallback above 2 KB) and the broken-link page. Postcard GIF ring buffer and PNG page exports. Opt-in count-only analytics. Accessibility pass and a manual screen-reader pass. Phone performance at 30 fps on the reference phone. No-WebGL still-image fallback. Asset retry. Offline after first load (service worker). "Where this model is wrong" page. | T7 to T11 pass |
 | **M5: Stage 2** | Foglight Heights, Toadstool Council, Lily Shallows rule packs. Rule cards. Travelers by code. Remix tree for seed links. | T3 and T5 pass |
 

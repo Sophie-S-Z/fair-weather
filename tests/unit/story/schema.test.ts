@@ -109,7 +109,8 @@ describe('ChapterSchema', () => {
 });
 
 describe('valleys', () => {
-  const ch = load('chapters/ch3') as { twist: object };
+  const ch = load('chapters/ch3') as { twist: object; beats: object[]; writes: string[] };
+  const card = { id: 'card', trigger: { at: 5 }, actions: [{ postcard: true }] };
   const block = {
     pack: 'fen',
     guide: 'pim',
@@ -117,12 +118,28 @@ describe('valleys', () => {
     keepsake: { id: 'starling-feather', label: 'a starling feather' },
     locals: ['[PLACEHOLDER] A local line.'],
   };
-  const valley = { ...ch, kind: 'valley', scenario: 'fen', palette: 'fen', valley: block };
+  const valley = {
+    ...ch,
+    kind: 'valley',
+    scenario: 'fen',
+    palette: 'fen',
+    valley: block,
+    beats: [...ch.beats, card],
+  };
 
   test('a valley without its valley block, or a chapter with one, fails the schema', () => {
     expect(ChapterSchema.safeParse(valley).success).toBe(true);
     expect(ChapterSchema.safeParse({ ...valley, valley: undefined }).success).toBe(false);
     expect(ChapterSchema.safeParse({ ...ch, valley: block }).success).toBe(false);
+  });
+
+  test('a valley with postcards needs a beat that opens the card', () => {
+    expect(ChapterSchema.safeParse({ ...valley, beats: ch.beats }).success).toBe(false);
+  });
+
+  test('no config may write kithHeld, which only the game sets', () => {
+    expect(ChapterSchema.safeParse({ ...valley, writes: [...ch.writes, 'toveFlew'] }).success).toBe(true);
+    expect(ChapterSchema.safeParse({ ...valley, writes: [...ch.writes, 'kithHeld'] }).success).toBe(false);
   });
 
   test('a Part 1 chapter takes scenario m0 and no palette by default', () => {
@@ -132,9 +149,11 @@ describe('valleys', () => {
     expect(parsed.valley).toBeUndefined();
   });
 
-  test('a valley offers two or three postcards, or none for the homecoming', () => {
+  test('a valley offers two or three postcards, or none for the homecoming (pack null)', () => {
     const cards = (postcards: string[]) => ({ ...valley, valley: { ...block, postcards } });
-    expect(ChapterSchema.safeParse(cards([])).success).toBe(true);
+    expect(ChapterSchema.safeParse(cards([])).success).toBe(false);
+    const home = { ...valley, beats: ch.beats, valley: { ...block, pack: null, postcards: [] } };
+    expect(ChapterSchema.safeParse(home).success).toBe(true);
     expect(ChapterSchema.safeParse(cards(['patience', 'remembering', 'listening'])).success).toBe(true);
     expect(ChapterSchema.safeParse(cards(['patience'])).success).toBe(false);
     expect(ChapterSchema.safeParse(cards(['patience', 'patience'])).success).toBe(false);
@@ -153,11 +172,7 @@ describe('valleys', () => {
   });
 
   test('the postcard trigger and action, and the hero activity, parse', () => {
-    const beats = [
-      ...(valley as unknown as { beats: object[] }).beats,
-      { id: 'card', trigger: { at: 5 }, actions: [{ postcard: true }] },
-      { id: 'sent', trigger: { postcard: true }, actions: [] },
-    ];
+    const beats = [...valley.beats, { id: 'sent', trigger: { postcard: true }, actions: [] }];
     expect(ChapterSchema.safeParse({ ...valley, beats, exit: { onBeat: 'sent' } }).success).toBe(true);
     const bridge = { ...ch, kind: 'interlude', activity: 'hero', notes: [], twist: undefined };
     expect(ChapterSchema.safeParse(bridge).success).toBe(true);

@@ -1133,6 +1133,15 @@ describe('Part 2', () => {
     await expect(runner.done).resolves.toEqual({ ...flags, toveFlew: true, wispHome: false });
   });
 
+  test('sendPostcard is false once the chapter is over, even with the card open', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf(FEN_KNOTS), valley, flags);
+    f.steps(11); // the card opens at 1 s
+    runner.skip();
+    expect(runner.sendPostcard('wandering')).toBe(false);
+    expect(runner.log.filter((e) => e.kind === 'postcard')).toEqual([]);
+  });
+
   test('a postcard action in a valley with no postcards rejects done', async () => {
     const f = fakePort();
     const home: Chapter = { ...valley, valley: { ...block, postcards: [] } };
@@ -1169,25 +1178,21 @@ describe('Part 2', () => {
       ...valley,
       id: 'halcyon',
       beats: [],
-      writes: ['wispHome', 'kithHeld'],
+      writes: ['wispHome'],
       exit: { afterDays: 1 },
     };
     const f = fakePort();
-    const runner = createChapterRunner(f.port, inkOf([]), halcyon, { ...flags, kithHeld: false });
+    const runner = createChapterRunner(f.port, inkOf([]), halcyon, flags);
     f.step();
     f.step([{ t: 'goHome', who: 'wisp' }]);
     f.steps(600);
     expect(runner.log.filter((e) => e.kind === 'event')).toEqual([
       { kind: 'event', tick: 1, e: { t: 'goHome', who: 'wisp' } },
     ]);
-    await expect(runner.done).resolves.toEqual({ ...flags, wispHome: true, kithHeld: true });
+    await expect(runner.done).resolves.toEqual({ ...flags, wispHome: true });
 
-    const skipped = createChapterRunner(fakePort().port, inkOf([]), halcyon, {
-      ...flags,
-      wispHome: true,
-      kithHeld: false,
-    });
-    expect(skipped.skip()).toEqual({ ...flags, wispHome: false, kithHeld: true });
+    const skipped = createChapterRunner(fakePort().port, inkOf([]), halcyon, { ...flags, wispHome: true });
+    expect(skipped.skip()).toEqual({ ...flags, wispHome: false });
   });
 
   test("before each knot Ink gets the hero's softness and tightness, 0 with no hero", () => {

@@ -39,7 +39,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, and overrides. */
+/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, overrides, and a valley's guide. */
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
@@ -67,6 +67,7 @@ function creatureRefs(c: Chapter): string[] {
   if (who) ids.push(...(c.bet?.options ?? []));
   if (c.bet?.metric.kind === 'warmth') ids.push(c.bet.metric.from, c.bet.metric.to);
   ids.push(...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
+  if (c.valley) ids.push(c.valley.guide);
   fromOverrides(c.overrides);
   for (const v of c.variants) fromOverrides(v.overrides);
   return ids;
@@ -156,6 +157,9 @@ export function validateContent(root: string): ValidationResult {
     if (!parsed.success) continue;
     const c = parsed.data;
     const creatures = creaturesOf(c.scenario);
+    // A fixture root may hold no scenarios at all; a scenario a config names must exist.
+    if (!creatures && c.scenario !== 'm0')
+      errors.push(`${f}: scenario ${c.scenario} has no file content/scenarios/${c.scenario}.json`);
     if (creatures) {
       for (const id of new Set(creatureRefs(c)))
         if (!creatures.has(id) && !(c.valley && id === 'hero'))

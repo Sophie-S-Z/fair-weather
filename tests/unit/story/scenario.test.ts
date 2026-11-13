@@ -290,6 +290,9 @@ describe('a valley start', () => {
     const fenBase: Scenario = { ...base, pack: { id: 'fen', restless: ['krit'], fixed: { pim: 0.5 } } };
     expect(buildScenario(valleyOf('fen'), flags, fenBase, undefined, journey).pack).toEqual(fenBase.pack);
     expect(buildScenario(valleyOf('hollow'), flags, base, undefined, journey).pack).toEqual({ id: 'hollow' });
+    expect(() => buildScenario(valleyOf('hollow'), flags, fenBase, undefined, journey)).toThrow(
+      'hollow pack',
+    );
     expect(buildScenario(valleyOf(null), flags, halcyonBase, undefined, journey).pack).toBeUndefined();
     expect(() => buildScenario(valleyOf('fen'), flags, base, undefined, journey)).toThrow('fen pack');
     expect(() => buildScenario(valleyOf('fen'), flags, fenBase)).toThrow('journey');

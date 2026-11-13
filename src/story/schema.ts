@@ -207,20 +207,25 @@ export const NoteSchema = z.strictObject({
 export type Note = z.infer<typeof NoteSchema>;
 
 /** What makes a chapter a valley (ADR 0013 item 9). */
-const ValleySchema = z.strictObject({
-  /** The rule pack; null for the homecoming in Kith. */
-  pack: packId.nullable(),
-  guide: id,
-  /** Two or three distinct types, or none for the homecoming. */
-  postcards: z
-    .array(z.enum(POSTCARDS))
-    .refine((p) => p.length === 0 || (p.length >= 2 && p.length <= 3 && new Set(p).size === p.length), {
-      message: 'a valley offers two or three distinct postcards, or none (spec 7.2)',
-    }),
-  keepsake: z.strictObject({ id, label: text }).nullable(),
-  /** The locals' lines for the journal (ADR 0013 item 14). */
-  locals: z.array(text),
-});
+const ValleySchema = z
+  .strictObject({
+    /** The rule pack; null for the homecoming in Kith. */
+    pack: packId.nullable(),
+    guide: id,
+    /** Two or three distinct types, or none for the homecoming. */
+    postcards: z
+      .array(z.enum(POSTCARDS))
+      .refine((p) => p.length === 0 || (p.length >= 2 && p.length <= 3 && new Set(p).size === p.length), {
+        message: 'a valley offers two or three distinct postcards, or none (spec 7.2)',
+      }),
+    keepsake: z.strictObject({ id, label: text }).nullable(),
+    /** The locals' lines for the journal (ADR 0013 item 14). */
+    locals: z.array(text),
+  })
+  .refine((v) => v.postcards.length > 0 || v.pack === null, {
+    message: 'only the homecoming (pack null) offers no postcards (ADR 0013 item 9)',
+    path: ['postcards'],
+  });
 
 const ChapterObject = z.strictObject({
   id,
@@ -341,6 +346,15 @@ export const ChapterSchema = ChapterObject.refine(
   .refine((c) => !c.twist?.retryArrange.includes('hero'), {
     message: 'a twist retry may not name the hero',
     path: ['twist', 'retryArrange'],
+  })
+  .refine((c) => !c.valley?.postcards.length || c.beats.some((b) => b.actions.some((a) => 'postcard' in a)), {
+    message: 'a valley with postcards needs a beat with the { postcard: true } action (ADR 0013 item 9)',
+    path: ['beats'],
+  })
+  // The game sets kithHeld from Kith (ADR 0013 item 12); a chapter write would reset it.
+  .refine((c) => !c.writes.includes('kithHeld'), {
+    message: 'only the game writes kithHeld',
+    path: ['writes'],
   })
   .refine((c) => !c.bet || bucketsFit(c.bet), {
     message:

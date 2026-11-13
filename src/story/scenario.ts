@@ -161,8 +161,9 @@ function startValley(s: Scenario, valley: NonNullable<Chapter['valley']>, journe
   s.hero = { kind, name, x: gateX, y: gateY, berries: 3, keepsakes: [...keepsakes], rumor };
   const pack = valley.pack;
   if (pack === null) delete s.pack;
-  else if (pack === 'hollow') s.pack = { id: 'hollow' };
-  else if (s.pack?.id !== pack) throw new Error(`The base scenario has no ${pack} pack fields`);
+  else if (pack === 'hollow' && !s.pack) s.pack = { id: 'hollow' };
+  else if (s.pack?.id !== pack)
+    throw new Error(`The valley's ${pack} pack does not match the base scenario's`);
   else if (s.pack.id === 'halcyon') s.pack.kithWarmth = journey.kithWarmth;
   if (journey.companion === 'wisp') {
     const wisp = s.creatures.find((c) => c.id === 'wisp');

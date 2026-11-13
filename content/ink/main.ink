@@ -39,3 +39,4 @@ INCLUDE ch9.ink
 INCLUDE ch10.ink
 INCLUDE bridge.ink
 INCLUDE fen.ink
+INCLUDE hollow.ink

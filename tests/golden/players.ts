@@ -2,6 +2,8 @@
 // player may keep state.
 import sceneJson from '../../content/scenes/kith-meadow.json';
 import fenJson from '../../content/valleys/fen.json';
+import hollowScenario from '../../content/scenarios/hollow.json';
+import hollowJson from '../../content/valleys/hollow.json';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { creature } from '../../src/story/bets.ts';
 import { heroResult } from '../../src/story/journey.ts';
@@ -38,6 +40,36 @@ export const walksToTove = (joins: boolean) => (): ScriptedPlayer => {
       if (tick >= next && runner.verb({ verb: 'walk', to: 'tove' })) next = tick + 20;
       const dusk = tick % fenDay >= tuning.fen.duskAt * fenDay;
       if (joins && dusk !== joined && runner.verb({ verb: 'join', on: dusk })) joined = dusk;
+    },
+  };
+};
+
+const hollowDay = chapterTicksPerDay(hollowJson);
+// The press is a bench on the square (ADR 0013 item 17); the hero stands at it.
+const square = hollowScenario.structures.find((s) => s.id === 'press');
+if (!square) throw new Error('the hollow scenario has no press');
+
+/**
+ * The Hollow's player: walks to the press on the square and sends the first postcard. With
+ * `poses`, it poses once a day while the drama sky is within light.lensRadius of the hero; without,
+ * it sets the manner toward and give, and never poses.
+ */
+export const walksToSquare = (poses: boolean) => (): ScriptedPlayer => {
+  let walked = false;
+  let mannerSet = poses; // only the control sets the manner
+  let posedOn = -1;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      if (!walked) walked = runner.verb({ verb: 'walk', x: square.x, y: square.y });
+      if (!mannerSet) mannerSet = runner.verb({ verb: 'manner', reply: 'toward', gift: 'give' });
+      const day = Math.floor(tick / hollowDay);
+      const hero = creature(lite, 'hero');
+      const sky = lite.light;
+      if (!poses || day === posedOn || !hero || !sky) return;
+      const r = tuning.light.lensRadius;
+      if ((hero.x - sky.x) ** 2 + (hero.y - sky.y) ** 2 <= r * r && runner.verb({ verb: 'pose' }))
+        posedOn = day;
     },
   };
 };
@@ -146,4 +178,5 @@ export const PLAYERS = {
   ch10: finishes('heard'),
   bridge: finishes(heroResult('lantern', 'Test')),
   fen: walksToTove(true),
+  hollow: walksToSquare(true),
 } satisfies Record<string, () => ScriptedPlayer>;

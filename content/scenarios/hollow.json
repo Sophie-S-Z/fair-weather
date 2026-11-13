@@ -1,0 +1,567 @@
+{
+  "valleyId": "hollow",
+  "season": "spring",
+  "creatures": [
+    {
+      "id": "quill",
+      "speciesId": "frog",
+      "name": "Quill",
+      "x": 780,
+      "y": 400,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      }
+    },
+    {
+      "id": "townsfolk-1",
+      "speciesId": "frog",
+      "name": "Townsfolk 1",
+      "x": 700,
+      "y": 380,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-2",
+      "speciesId": "frog",
+      "name": "Townsfolk 2",
+      "x": 640,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-3",
+      "speciesId": "frog",
+      "name": "Townsfolk 3",
+      "x": 600,
+      "y": 270,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-4",
+      "speciesId": "frog",
+      "name": "Townsfolk 4",
+      "x": 520,
+      "y": 240,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-5",
+      "speciesId": "frog",
+      "name": "Townsfolk 5",
+      "x": 470,
+      "y": 180,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-6",
+      "speciesId": "frog",
+      "name": "Townsfolk 6",
+      "x": 400,
+      "y": 150,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-7",
+      "speciesId": "frog",
+      "name": "Townsfolk 7",
+      "x": 330,
+      "y": 110,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-8",
+      "speciesId": "frog",
+      "name": "Townsfolk 8",
+      "x": 900,
+      "y": 380,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-9",
+      "speciesId": "frog",
+      "name": "Townsfolk 9",
+      "x": 960,
+      "y": 320,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-10",
+      "speciesId": "frog",
+      "name": "Townsfolk 10",
+      "x": 1030,
+      "y": 300,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-11",
+      "speciesId": "frog",
+      "name": "Townsfolk 11",
+      "x": 1080,
+      "y": 240,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-12",
+      "speciesId": "frog",
+      "name": "Townsfolk 12",
+      "x": 1160,
+      "y": 210,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-13",
+      "speciesId": "frog",
+      "name": "Townsfolk 13",
+      "x": 1220,
+      "y": 150,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-14",
+      "speciesId": "frog",
+      "name": "Townsfolk 14",
+      "x": 810,
+      "y": 540,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-15",
+      "speciesId": "frog",
+      "name": "Townsfolk 15",
+      "x": 770,
+      "y": 600,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-16",
+      "speciesId": "frog",
+      "name": "Townsfolk 16",
+      "x": 820,
+      "y": 660,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-17",
+      "speciesId": "frog",
+      "name": "Townsfolk 17",
+      "x": 780,
+      "y": 720,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-18",
+      "speciesId": "frog",
+      "name": "Townsfolk 18",
+      "x": 840,
+      "y": 780,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "townsfolk-19",
+      "speciesId": "frog",
+      "name": "Townsfolk 19",
+      "x": 800,
+      "y": 840,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    }
+  ],
+  "ties": [
+    {
+      "a": "townsfolk-1",
+      "b": "townsfolk-2",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-2",
+      "b": "townsfolk-3",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-3",
+      "b": "townsfolk-4",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-4",
+      "b": "townsfolk-5",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-5",
+      "b": "townsfolk-6",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-6",
+      "b": "townsfolk-7",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-7",
+      "b": "townsfolk-1",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-8",
+      "b": "townsfolk-9",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-9",
+      "b": "townsfolk-10",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-10",
+      "b": "townsfolk-11",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-11",
+      "b": "townsfolk-12",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-12",
+      "b": "townsfolk-13",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-13",
+      "b": "townsfolk-8",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-14",
+      "b": "townsfolk-15",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-15",
+      "b": "townsfolk-16",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-16",
+      "b": "townsfolk-17",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-17",
+      "b": "townsfolk-18",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-18",
+      "b": "townsfolk-19",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "townsfolk-19",
+      "b": "townsfolk-14",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 450,
+      "y": 260,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 1150,
+      "y": 300,
+      "berries": 5
+    },
+    {
+      "id": "bush-3",
+      "x": 700,
+      "y": 700,
+      "berries": 5
+    }
+  ],
+  "structures": [
+    {
+      "id": "press",
+      "kind": "bench",
+      "x": 800,
+      "y": 400
+    }
+  ],
+  "pack": {
+    "id": "hollow"
+  }
+}

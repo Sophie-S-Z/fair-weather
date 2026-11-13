@@ -192,31 +192,31 @@ test('Wisp chooses home at the dusk after a keepsake when its warmth is 0.6 and 
   expect(halcyon(cool).chose).toBe('stay');
 });
 
-test('Wisp stays when Kith is 0.19, and chooses by the dusk of day 3 with no keepsake', () => {
+test('Wisp stays when Kith is 0.19, and chooses by the third dusk with no keepsake', () => {
   const w = halcyonWorld([{ id: WISP, x: 400 + REACH, y: 300 }], 0.19);
   applyCommand(w, keepsake(WISP, 'feather'), t, scriptedRng([]));
   expect(dusk(w)).toEqual([{ t: 'stay', who: WISP }]);
 
-  // With no keepsake, Wisp waits through the dusks of days 0 to 2 and chooses at the dusk of day 3.
+  // With no keepsake, Wisp waits through the dusks of days 0 and 1 and chooses at the third dusk (day 2).
   expect(t.halcyon.chooseByDay).toBe(3);
   const late = halcyonWorld([{ id: WISP, x: 400 + REACH, y: 300 }]);
   setWarmth(late, WISP, HERO, 0.8);
-  for (let day = 0; day < 3; day++) {
+  for (let day = 0; day < 2; day++) {
     late.day = day;
     expect(dusk(late)).toEqual([]);
   }
-  late.day = 3;
-  expect(halcyonStep(late, 3 * late.ticksPerDay + 7)).toEqual([]);
+  late.day = 2;
+  expect(halcyonStep(late, 2 * late.ticksPerDay + 7)).toEqual([]);
   expect(dusk(late)).toEqual([{ t: 'goHome', who: WISP }]);
 
-  // Through real steps, from a fresh world, the choice comes at the fourth dusk (the one ending day 3).
+  // Through real steps, from a fresh world, the choice comes at the third dusk.
   const run = halcyonWorld([{ id: WISP, x: 1200, y: 800 }]);
   const chose: { tick: number; e: SimEvent }[] = [];
   for (let i = 0; i < 5 * run.ticksPerDay; i++) {
     const tick = run.tick;
     for (const e of step(run, [], t)) if (e.t === 'goHome' || e.t === 'stay') chose.push({ tick, e });
   }
-  expect(chose).toEqual([{ tick: 4 * run.ticksPerDay - 1, e: { t: 'stay', who: WISP } }]);
+  expect(chose).toEqual([{ tick: 3 * run.ticksPerDay - 1, e: { t: 'stay', who: WISP } }]);
 });
 
 test('Wisp chooses once', () => {

@@ -55,12 +55,13 @@ export const halcyon: RulePack = {
 
   /**
    * On the last tick of a day, the seeker chooses once: at the first dusk after it is given a
-   * keepsake, or else at the dusk that ends day halcyon.chooseByDay (ADR 0013 item 7). No draws.
+   * keepsake, or else at the third dusk, within halcyon.chooseByDay days (ADR 0013 item 7): the
+   * dusk where `day` (from 0) is chooseByDay − 1. No draws.
    */
   step(world: World, events, t: Tuning) {
     const h = halcyonOf(world);
     if (!h || h.chose !== null || world.tick % world.ticksPerDay !== world.ticksPerDay - 1) return [];
-    if (!h.given && world.day < t.halcyon.chooseByDay) return [];
+    if (!h.given && world.day < t.halcyon.chooseByDay - 1) return [];
     h.chose = choose(world, h, t);
     return [{ t: h.chose === 'home' ? 'goHome' : 'stay', who: h.seeker }];
   },

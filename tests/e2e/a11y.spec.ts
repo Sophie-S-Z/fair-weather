@@ -194,13 +194,14 @@ test('the Soul view opens the drawer at the diary; P opens it at Under the hood;
 
 test.describe('the interludes, each played by keyboard alone', () => {
   /** Starts the chapter at play-order `index`; focus moves into the activity when it opens. */
-  async function open(page: Page, index: number, region: string) {
+  /** `axe: false` for the Long Night's timing tests: on a slow runner the scan alone can outlast its five seconds. */
+  async function open(page: Page, index: number, region: string, axe = true) {
     await page.goto(`/?chapter=${String(index)}`);
     await page.getByRole('button', { name: 'Begin' }).click();
     // The activity shows once the interlude's first snapshot is in.
     const activity = page.getByRole('region', { name: region });
     await expect(activity).toBeVisible();
-    expect(await seriousViolations(page)).toEqual([]);
+    if (axe) expect(await seriousViolations(page)).toEqual([]);
     return activity;
   }
   const heading = (page: Page, name: string) => page.getByRole('heading', { name: new RegExp(`^${name}:`) });
@@ -315,7 +316,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 
   test('The Long Night waits while the game is paused', async ({ page }) => {
-    const activity = await open(page, 13, 'Hold still');
+    const activity = await open(page, 13, 'Hold still', false);
     // The pause button, by pointer, so no key press resets the count.
     await page.getByRole('button', { name: 'Pause' }).click();
     const count = activity.getByText(/of 5 seconds$/);
@@ -326,7 +327,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 
   test('Space pauses The Long Night and keeps its count; Space again lets it end', async ({ page }) => {
-    const activity = await open(page, 13, 'Hold still');
+    const activity = await open(page, 13, 'Hold still', false);
     const count = activity.getByText(/of 5 seconds$/);
     await expect(count).toHaveText(/^[1-4] of 5 seconds$/, { timeout: 10_000 });
     await page.keyboard.press(' ');

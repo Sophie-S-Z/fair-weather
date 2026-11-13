@@ -367,6 +367,10 @@
   function closeJournal(): void {
     const after = journal?.after ?? null;
     journal = null;
+    // A Close button that goes away with the journal leaves focus nowhere; the scene takes it.
+    void tick().then(() => {
+      if (document.activeElement === document.body) sceneEl.focus();
+    });
     if (after) after();
     else if (!ended) setSpeed(speedBeforeJournal);
   }

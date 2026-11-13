@@ -263,10 +263,8 @@ function mouseHands(page: Page): Hands {
       const journal = page.getByRole('dialog', { name: 'Travel journal' });
       await journal.getByRole('button', { name: 'Close' }).click();
       await expect(journal).toBeHidden();
-      // This player's keys go to the scene. After a click on Close, focus does not always come back
-      // to it (in 1 of 3 runs it was elsewhere; the keyboard run, which closes with Escape, checks
-      // that it does), so the player puts focus there itself.
-      await page.getByRole('application').focus();
+      // This player's keys go to the scene, so a click on Close must give focus back to it.
+      await expect(page.getByRole('application')).toBeFocused();
     },
   };
 }

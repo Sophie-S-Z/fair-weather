@@ -72,7 +72,8 @@ export const fen: RulePack = {
   id: 'fen',
 
   /**
-   * Each starling without a fixed threshold draws one from 0.2 to 0.8, one draw each in creature
+   * Each starling without a fixed threshold draws one, fen.thresholdMin + fen.thresholdSpan × the
+   * draw (0.2 to 0.8), one draw each in creature
    * order; the restless starlings fly. Thresholds and restless ids name starlings only.
    */
   setup(world: World, t: Tuning, rng: Rng): void {
@@ -81,7 +82,7 @@ export const fen: RulePack = {
     const thresholds: Record<string, number> = {};
     for (const c of world.creatures) {
       if (c.speciesId !== 'starling') continue;
-      thresholds[c.id] = state.thresholds[c.id] ?? 0.2 + 0.6 * rng.next();
+      thresholds[c.id] = state.thresholds[c.id] ?? t.fen.thresholdMin + t.fen.thresholdSpan * rng.next();
     }
     state.thresholds = thresholds;
     state.restless = world.creatures

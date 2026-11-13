@@ -109,9 +109,24 @@ test('defaults equal the handoff and ADR values', () => {
     seedDays: 2,
     seedWarmth: 0.1,
     bellRadius: 72,
+    lanternSky: 2,
+    bellPrints: 2,
   });
-  expect(t.fen).toEqual({ everyTicks: 10, duskAt: 0.75, duskLift: 0.15, neighbors: 7 });
-  expect(t.hollow).toEqual({ skySpeed: 120, fameStep: 0.2, fameFade: 0.1, fearAt: 0.5 });
+  expect(t.fen).toEqual({
+    everyTicks: 10,
+    duskAt: 0.75,
+    duskLift: 0.15,
+    neighbors: 7,
+    thresholdMin: 0.2,
+    thresholdSpan: 0.6,
+  });
+  expect(t.hollow).toEqual({
+    skySpeed: 120,
+    fameStep: 0.2,
+    fameFade: 0.1,
+    fearAt: 0.5,
+    drama: { against: 3, keep: 2, away: 1, pose: 3 },
+  });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

@@ -7,16 +7,6 @@ import type { Tuning } from '../tuning.ts';
 import { byCodeUnit, dist2 } from '../math.ts';
 import type { RulePack } from './index.ts';
 
-// Drama scores (ADR 0007, ADR 0013 item 6); a Glassling hero's away scores as an against (item 3).
-const AGAINST = 3;
-const KEEP_AFTER_GIFT = 2;
-const AWAY = 1;
-const POSE = 3;
-/** A Lantern-bearer's sky speed factor toward a drama with the hero (ADR 0013 item 3). */
-const LANTERN_SKY = 2;
-/** How many times a print about a Bellchime hero adds hollow.fameStep (ADR 0013 item 3). */
-const BELL_PRINTS = 2;
-
 function hollowOf(world: World): HollowState | undefined {
   return world.pack?.id === 'hollow' ? world.pack : undefined;
 }
@@ -73,24 +63,27 @@ function dramaOf(
   world: World,
   e: SimEvent,
   events: readonly SimEvent[],
+  t: Tuning,
 ): { subject: string; score: number; from: string; to: string } | undefined {
+  const { against, keep, away } = t.hollow.drama;
   if (e.t === 'bid') {
+    // A Glassling hero's away scores as an against (ADR 0013 item 3).
     const glassAway = heroId(world, e.to) && world.hero?.kind === 'glassling';
-    const score = e.reply === 'against' ? AGAINST : e.reply === 'away' ? (glassAway ? AGAINST : AWAY) : 0;
+    const score = e.reply === 'against' ? against : e.reply === 'away' ? (glassAway ? against : away) : 0;
     return { subject: e.to, score, from: e.from, to: e.to };
   }
   if (e.t !== 'gift' || e.move !== 'keep') return undefined;
   const gave = events.some((o) => o.t === 'gift' && o.from === e.to && o.to === e.from && o.move === 'give');
-  return { subject: e.from, score: gave ? KEEP_AFTER_GIFT : 0, from: e.from, to: e.to };
+  return { subject: e.from, score: gave ? keep : 0, from: e.from, to: e.to };
 }
 
 /**
  * Scores the meetings in `events` (dramaOf). The spot is the midpoint of the two; `hero` is set
  * when one of them is the hero.
  */
-function scoreMeetings(world: World, h: HollowState, events: readonly SimEvent[]): void {
+function scoreMeetings(world: World, h: HollowState, events: readonly SimEvent[], t: Tuning): void {
   for (const e of events) {
-    const drama = dramaOf(world, e, events);
+    const drama = dramaOf(world, e, events, t);
     if (!drama) continue;
     const { subject, score } = drama;
     const a = world.creatures.find((c) => c.id === drama.from);
@@ -117,13 +110,13 @@ function top(drama: HollowState['drama']): HollowState['drama'][number] | undefi
 }
 
 /**
- * The sky moves hollow.skySpeed a second toward the top drama, stopping on it, × LANTERN_SKY when
+ * The sky moves hollow.skySpeed a second toward the top drama, stopping on it, × knack.lanternSky when
  * the hero is a Lantern-bearer and that drama is the hero's (ADR 0013 items 3 and 6).
  */
 function moveSky(world: World, h: HollowState, t: Tuning): void {
   const to = top(h.drama);
   if (!to) return;
-  const fast = to.hero && world.hero?.kind === 'lantern' ? LANTERN_SKY : 1;
+  const fast = to.hero && world.hero?.kind === 'lantern' ? t.knack.lanternSky : 1;
   const reach = (t.hollow.skySpeed / t.sim.stepsPerSecond) * fast;
   const dx = to.x - h.sky.x;
   const dy = to.y - h.sky.y;
@@ -138,14 +131,14 @@ function moveSky(world: World, h: HollowState, t: Tuning): void {
 
 /**
  * The gazette (ADR 0013 item 6): the top drama of today within the lens is printed, and its
- * subject's fame rises by hollow.fameStep (BELL_PRINTS times for a Bellchime hero, item 3). Then
+ * subject's fame rises by hollow.fameStep (knack.bellPrints times for a Bellchime hero, item 3). Then
  * every fame falls by hollow.fameFade of itself and every score halves. Returns the print, if any.
  */
 function gazette(world: World, h: HollowState, t: Tuning): SimEvent[] {
   const r2 = t.light.lensRadius * t.light.lensRadius;
   const front = top(h.drama.filter((d) => d.day === world.day && dist2(d.x, d.y, h.sky.x, h.sky.y) <= r2));
   if (front) {
-    const times = heroId(world, front.subject) && world.hero?.kind === 'bellchime' ? BELL_PRINTS : 1;
+    const times = heroId(world, front.subject) && world.hero?.kind === 'bellchime' ? t.knack.bellPrints : 1;
     let fame = h.fame[front.subject] ?? 0;
     for (let i = 0; i < times; i++) fame += t.hollow.fameStep;
     h.fame[front.subject] = fame;
@@ -172,17 +165,18 @@ export const hollow: RulePack = {
   step(world: World, events, t: Tuning) {
     const h = hollowOf(world);
     if (!h) return [];
-    scoreMeetings(world, h, events);
+    scoreMeetings(world, h, events, t);
     moveSky(world, h, t);
     world.fields.light = { ...h.sky };
     return world.tick % world.ticksPerDay === world.ticksPerDay - 1 ? gazette(world, h, t) : [];
   },
 
-  /** `pose` scores POSE at the hero's spot with the hero as subject; other verbs do nothing. No draws. */
-  onVerb(world: World, verb) {
+  /** `pose` scores hollow.drama.pose at the hero's spot with the hero as subject; other verbs do nothing. No draws. */
+  onVerb(world: World, verb, t: Tuning) {
     const h = hollowOf(world);
     const hero = world.hero && world.creatures.find((c) => c.id === HERO);
-    if (verb.verb === 'pose' && h && hero) addDrama(world, h, HERO, hero.x, hero.y, POSE, true);
+    if (verb.verb === 'pose' && h && hero)
+      addDrama(world, h, HERO, hero.x, hero.y, t.hollow.drama.pose, true);
     return [];
   },
 

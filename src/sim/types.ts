@@ -30,7 +30,9 @@ export interface FenState {
 /**
  * Hearsay Hollow's town (ADR 0013 item 6): the drama sky, one drama entry per subject (its total
  * score, the spot and day of its newest drama, and whether that drama came from a meeting with the
- * hero or a `pose`), each creature's fame, and the subject of the last print, or null.
+ * hero or a `pose`), each creature's fame, and the subject of the last print, or null. Fame runs
+ * from 0 to at most hollow.fameStep × knack.bellPrints / hollow.fameFade (4 by default); it is not
+ * capped at 1.
  */
 export interface HollowState {
   id: 'hollow';

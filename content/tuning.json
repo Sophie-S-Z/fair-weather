@@ -89,8 +89,23 @@
     "seedBerries": 3,
     "seedDays": 2,
     "seedWarmth": 0.1,
-    "bellRadius": 72
+    "bellRadius": 72,
+    "lanternSky": 2,
+    "bellPrints": 2
   },
-  "fen": { "everyTicks": 10, "duskAt": 0.75, "duskLift": 0.15, "neighbors": 7 },
-  "hollow": { "skySpeed": 120, "fameStep": 0.2, "fameFade": 0.1, "fearAt": 0.5 }
+  "fen": {
+    "everyTicks": 10,
+    "duskAt": 0.75,
+    "duskLift": 0.15,
+    "neighbors": 7,
+    "thresholdMin": 0.2,
+    "thresholdSpan": 0.6
+  },
+  "hollow": {
+    "skySpeed": 120,
+    "fameStep": 0.2,
+    "fameFade": 0.1,
+    "fearAt": 0.5,
+    "drama": { "against": 3, "keep": 2, "away": 1, "pose": 3 }
+  }
 }

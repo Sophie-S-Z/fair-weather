@@ -3,7 +3,8 @@
 import { expect, test } from 'vitest';
 import { applyCommand } from '../../../../src/sim/commands.ts';
 import { createGrid } from '../../../../src/sim/grid.ts';
-import { findMeetings } from '../../../../src/sim/meeting.ts';
+import { bellReach } from '../../../../src/sim/hero.ts';
+import { findMeetings, resolveMeeting } from '../../../../src/sim/meeting.ts';
 import { canMeet, PACKS } from '../../../../src/sim/packs/index.ts';
 import { step } from '../../../../src/sim/step.ts';
 import type {
@@ -17,7 +18,7 @@ import type {
 import { HERO } from '../../../../src/sim/types.ts';
 import { createWorld } from '../../../../src/sim/world.ts';
 import { toLite } from '../../../../src/sim-host/lite.ts';
-import { get, hasBadNumber, scriptedRng, tuning as t } from '../helpers.ts';
+import { get, hasBadNumber, scriptedRng, setWarmth, tuning as t } from '../helpers.ts';
 
 type Local = { id: string; x: number; y: number };
 
@@ -238,6 +239,60 @@ test('a Glassling away scores 3; a Bellchime print raises fame by 0.4', () => {
   const once = t.hollow.fameStep - t.hollow.fameFade * t.hollow.fameStep;
   expect(printed('bellchime', 'a')).toBe(once);
   expect(printed('kite', HERO)).toBe(once);
+});
+
+test('the gazette tie goes to the lower subject id', () => {
+  const w = pair();
+  hollow(w).drama = [
+    { subject: 'b', x: CENTER.x, y: CENTER.y, score: 3, day: 0, hero: false },
+    { subject: 'a', x: CENTER.x, y: CENTER.y, score: 3, day: 0, hero: false },
+  ];
+  const [print] = hollowStep(w, w.ticksPerDay - 1);
+  expect(print).toMatchObject({ t: 'print', subject: 'a' });
+  expect(hollow(w).front).toBe('a');
+});
+
+/** A Bellchime hero at (800, 450) waving at `mate`, with `far` a listener within its reach. */
+function bellWorld(): World {
+  const w = hollowWorld(
+    [
+      { id: 'mate', x: 810, y: 450 },
+      { id: 'far', x: 840, y: 450 },
+    ],
+    heroAt('bellchime', 800, 450),
+  );
+  w.hero!.waveTo = 'mate';
+  return w;
+}
+
+test("a Bellchime wave reply is scored, with the hero's flag", () => {
+  const w = bellWorld();
+  setWarmth(w, 'far', HERO, -1); // cold, so a reply that is not toward is an against
+  // The seven meeting draws, then the listener's reply draw.
+  const events = resolveMeeting(
+    w,
+    get(w, HERO),
+    get(w, 'mate'),
+    t,
+    scriptedRng([0, 0, 0.9, 0, 0, 0.9, 0.9, 0.99]),
+  );
+  expect(events.at(-1)).toMatchObject({ t: 'bid', from: HERO, to: 'far', reply: 'against' });
+  hollowStep(w, 0, events);
+  expect(hollow(w).drama.find((d) => d.subject === 'far')).toEqual({
+    subject: 'far',
+    x: 820,
+    y: 450,
+    score: t.hollow.drama.against,
+    day: 0,
+    hero: true,
+  });
+});
+
+test("fear keeps a famous hero's wave from reaching locals", () => {
+  const w = bellWorld();
+  expect(bellReach(w, get(w, HERO), get(w, 'mate'), t).map((c) => c.id)).toEqual(['far']);
+  hollow(w).fame[HERO] = t.hollow.fearAt + 0.01;
+  expect(bellReach(w, get(w, HERO), get(w, 'mate'), t)).toEqual([]);
 });
 
 test('scores halve at each dusk', () => {

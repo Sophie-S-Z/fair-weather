@@ -54,7 +54,8 @@ export interface WorldLite {
    * The valley's rule pack (ADR 0013 items 4 to 6), or null without one. Murmuration Fen: the
    * creatures in flight, the hero among them while it has joined, in creature order, and each
    * starling's perceived share (the reflection, ADR 0007). Hearsay Hollow: each creature's fame,
-   * and `front`, the last print's subject, or null.
+   * from 0 to at most hollow.fameStep × knack.bellPrints / hollow.fameFade (not capped at 1), and
+   * `front`, the last print's subject, or null.
    */
   pack:
     | { id: 'fen'; flying: string[]; perceived: Record<string, number> }

@@ -757,6 +757,27 @@ test('the Quiet Visitor walks from the gate to the nearest bench, sits 20 s with
   expect([gone, visitor.visible, feather.visible]).toEqual([true, false, false]);
 });
 
+test("in a valley the visitor's seat lift and its feather are sized to the bench's depth", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
+  const world: WorldLite = {
+    ...snapshot([]),
+    structures: [{ id: 'b1', kind: 'bench', x: 600, y: 300 }],
+  };
+  void view.visitor();
+  // Reduced motion shows it seated at once.
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const d = depthAt(halcyonScene, 300);
+  expect(d).toBeLessThan(0.9);
+  const visitor = creatureIn(app, 'visitor');
+  expect(visitor.x).toBe(600);
+  expect(visitor.y).toBeCloseTo(300 - 10 * d);
+  const feather = graphicsIn(app, 'feather');
+  expect(feather.scale.x).toBeCloseTo(d);
+  expect(feather.position.x).toBeCloseTo(600 + 30 * d);
+  view.endVisit();
+});
+
 test('a stalled page does not skip the visit: one late frame moves it on a quarter second at most', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, scene, rigs, palette, options);
@@ -996,6 +1017,44 @@ test('40 starlings without rigs of their own are birds in one Graphics: at most 
   expect(creatureIn(app, 'tove').visible).toBe(true);
 });
 
+test('a grounded starling lower on screen than Tove and over her draws in front of her; one behind stays behind', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const base = fen(2);
+  // Each bird's spot before its fan, so starling-1 is drawn 10 units in front of Tove's feet
+  // (520, 520) and starling-2 10 units behind them, both over her.
+  const spot = (id: string, x: number, y: number): [number, number] => {
+    const [across, high] = placeOf(id);
+    return [x - 80 * (across - 0.5), y - 44 * (high - 0.5)];
+  };
+  const [x1, y1] = spot('starling-1', 520, 530);
+  const [x2, y2] = spot('starling-2', 520, 510);
+  const world: WorldLite = {
+    ...base,
+    creatures: base.creatures.map((c) =>
+      c.id === 'starling-1'
+        ? { ...c, x: x1, y: y1 }
+        : c.id === 'starling-2'
+          ? { ...c, x: x2, y: y2 }
+          : c.id === 'hero'
+            ? { ...c, x: 1200, y: 700 }
+            : c,
+    ),
+  };
+  view.update(world, world, 1, settings);
+  const tove = creatureIn(app, 'tove');
+  const near = graphicsIn(app, 'flock-near');
+  expect(near.parent).toBe(tove.parent);
+  expect(near.zIndex).toBeGreaterThan(tove.zIndex);
+  const [nearBody] = fillsOf(near).filter((f) => f.color === plumage());
+  expect(nearBody?.maxY).toBeLessThan(530);
+  expect(nearBody?.maxY).toBeGreaterThan(520);
+  // The farther bird stays in the flock, under the shared layer, so Tove hides it.
+  const far = flockFills(app, plumage());
+  expect(far).toHaveLength(1);
+  expect(far[0]?.maxY).toBeLessThan(510);
+});
+
 test('flying starlings are drawn in the sky band and drift slowly, even with reduced motion', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
@@ -1184,7 +1243,7 @@ test('a body, its shadow, and its pick are sized to its depth, and so are trees'
   expect([willow.pivot.x, willow.pivot.y]).toEqual([1320, 580]);
 });
 
-test("a valley's ground has a sky at its top, and its calm water has no ink ripples", () => {
+test("a valley's ground has a sky at its top, and its calm water has a faint bank and no ink ripples", () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
   const world: WorldLite = { ...snapshot([]), structures: [], water: [{ x: 0, y: 800, w: 1600, h: 100 }] };
@@ -1198,10 +1257,13 @@ test("a valley's ground has a sky at its top, and its calm water has no ink ripp
     );
   const land = graphicsIn(app, 'land');
   expect(fillsOf(land).map((f) => f.color)).toContain(halcyonPalette.water);
-  const ripples = land.context.instructions.filter(
-    (i) => i.action === 'stroke' && (i.data.style as { alpha: number }).alpha === FAR_ALPHA,
-  );
-  expect(ripples).toHaveLength(0);
+  // One ink stroke only, the bank, and it is faint and thin (half the scenery's 6-unit line): a
+  // shore, not a table edge. No ripples.
+  const strokes = land.context.instructions
+    .filter((i) => i.action === 'stroke')
+    .map((i) => i.data.style as { color: number; alpha: number; width: number })
+    .filter((st) => st.color === halcyonPalette.ink);
+  expect(strokes).toEqual([expect.objectContaining({ alpha: FAR_ALPHA, width: 3 })]);
 });
 
 test("the Fen's sky band lies above its far hills", () => {

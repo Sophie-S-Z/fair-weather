@@ -19,7 +19,7 @@ const LAND_BANDS = 28;
 const LAND_HAZE = 0.5;
 const HAZE_DEPTH = 320;
 /** The land darkens this much toward ink at the scene's foot, so the near ground is heavier. */
-const NEAR_SHADE = 0.05;
+const NEAR_SHADE = 0.2;
 /** Hills: the nearest is mixed this far from the hill tone toward the horizon, each farther one more. */
 const HILL_NEAR_FADE = 0.3;
 const HILL_FADE_STEP = 0.2;
@@ -224,10 +224,16 @@ const PAVED_WIDTH = 46;
 /** Cobble rows lie this far apart along a lane at the reference. */
 const COBBLE_STEP = 22;
 
+/**
+ * A lane narrows toward the horizon more steeply than a body shrinks (the square of the depth),
+ * as a road on the ground runs away from the eye.
+ */
+const laneDepth = (scene: SceneData, y: number): number => depthAt(scene, y) ** 2;
+
 const stoneOf = (palette: Palette): number =>
   mix(mix(palette.background, palette.warmth, STONE_WARM), palette.ink, STONE_SHADE);
 
-/** A paved lane: a stone strip, narrower toward the horizon, with ink edges and rows of cobbles. */
+/** A paved lane: a stone strip, much narrower toward the horizon, with ink edges and rows of cobbles. */
 function drawLane(g: Graphics, lane: readonly number[], scene: SceneData, palette: Palette, w: number): void {
   const n = lane.length / 2;
   const left: number[] = [];
@@ -239,7 +245,7 @@ function drawLane(g: Graphics, lane: readonly number[], scene: SceneData, palett
     const dy = (lane[b * 2 + 1] ?? 0) - (lane[a * 2 + 1] ?? 0);
     const len = Math.hypot(dx, dy) || 1;
     const [cx, cy] = [lane[i * 2] ?? 0, lane[i * 2 + 1] ?? 0];
-    const half = (PAVED_WIDTH * depthAt(scene, cy)) / 2;
+    const half = (PAVED_WIDTH * laneDepth(scene, cy)) / 2;
     left.push(cx - (dy / len) * half, cy + (dx / len) * half);
     right.unshift(cx + (dy / len) * half, cy - (dx / len) * half);
   }
@@ -261,7 +267,7 @@ function drawLane(g: Graphics, lane: readonly number[], scene: SceneData, palett
     let d = carry;
     while (d < len) {
       const [cx, cy] = [x0 + ux * d, y0 + uy * d];
-      const s = depthAt(scene, cy);
+      const s = laneDepth(scene, cy);
       const half = (PAVED_WIDTH * s) / 2;
       for (const t of [-0.6, 0, 0.6]) {
         const [bx, by] = [cx - uy * half * t, cy + ux * half * t];

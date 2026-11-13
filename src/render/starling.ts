@@ -1,8 +1,8 @@
 // Murmuration Fen's starlings (spec 7.3), drawn in code (ADR 0010): a small bird seen from the
 // side on the ground, a bird with swept wings in the sky, and the water's flipped copy of a
-// grounded bird. Each drawing adds path commands with plain numbers only, so drawing the flock
-// allocates nothing of its own each frame.
-import type { Graphics } from 'pixi.js';
+// grounded bird. Each drawing adds path commands with plain numbers and reuses this file's style
+// objects, so drawing the flock allocates nothing of its own each frame.
+import type { FillStyle, Graphics, StrokeStyle } from 'pixi.js';
 
 /** Path commands as flat numbers: MOVE x y, LINE x y, QUAD cx cy x y, CLOSE. */
 const MOVE = 0;
@@ -37,6 +37,17 @@ const SPECKLES: readonly number[] = [-6, -8, 0, -9, -2, -12.5, 4, -11, 7, -9, -1
 const EYE: readonly [number, number] = [10.5, -19.5];
 /** A perched starling's height in bird units, for picking: crown to feet. */
 export const PERCHED_HEIGHT = 23;
+
+/**
+ * The styles a bird is drawn with, set before each use: Pixi copies a style when it is used, so
+ * one object of each serves every bird.
+ */
+const RIM: StrokeStyle = { color: 0, width: 0, alpha: 0.85, join: 'round' };
+const OUTLINE: StrokeStyle = { color: 0, width: 0, join: 'round' };
+const SHEEN: StrokeStyle = { color: 0, width: 0, cap: 'round' };
+const LEG: StrokeStyle = { color: 0, width: 0, cap: 'round' };
+const EYE_FILL: FillStyle = { color: 0, alpha: 0.85 };
+const WATER_FILL: FillStyle = { color: 0, alpha: 0 };
 
 /**
  * Adds `path` to `g` at (x, y), `k` scene units per bird unit, mirrored when `dir` is -1, and
@@ -98,17 +109,31 @@ export function drawPerched(
   dir: number,
   look: StarlingLook,
 ): void {
+  RIM.color = look.rim;
+  RIM.width = 2.4 * k;
+  OUTLINE.color = look.ink;
+  OUTLINE.width = look.line * k;
+  SHEEN.color = look.sheen;
+  SHEEN.width = 1.4 * k;
+  EYE_FILL.color = look.paper;
+  LEG.color = look.ink;
+  LEG.width = 1.1 * k;
   trace(g, PERCHED, x, y, k, dir, 1);
-  g.stroke({ color: look.rim, width: 2.4 * k, alpha: 0.85, join: 'round' })
-    .fill(look.body)
-    .stroke({ color: look.ink, width: look.line * k, join: 'round' });
+  g.stroke(RIM).fill(look.body).stroke(OUTLINE);
   trace(g, WING, x, y, k, dir, 1);
-  g.stroke({ color: look.sheen, width: 1.4 * k, cap: 'round' });
+  g.stroke(SHEEN);
   for (let i = 0; i + 1 < SPECKLES.length; i += 2)
     g.circle(x + (SPECKLES[i] ?? 0) * k * dir, y + (SPECKLES[i + 1] ?? 0) * k, 0.75 * k);
-  g.circle(x + EYE[0] * k * dir, y + EYE[1] * k, 1.1 * k).fill({ color: look.paper, alpha: 0.85 });
+  g.circle(x + EYE[0] * k * dir, y + EYE[1] * k, 1.1 * k).fill(EYE_FILL);
   trace(g, LEGS, x, y, k, dir, 1);
-  g.stroke({ color: look.ink, width: 1.1 * k, cap: 'round' });
+  g.stroke(LEG);
+}
+
+/** The reflection's water tint, in the shared fill style. */
+function waterFill(look: StarlingLook): FillStyle {
+  WATER_FILL.color = look.water;
+  WATER_FILL.alpha = look.waterAlpha;
+  return WATER_FILL;
 }
 
 /** A grounded starling's reflection: its body flipped under its feet, faint and water-tinted. */
@@ -121,7 +146,7 @@ export function drawPerchedReflection(
   look: StarlingLook,
 ): void {
   trace(g, PERCHED, x, y + 2 * k, k, dir, -1);
-  g.fill({ color: look.water, alpha: look.waterAlpha });
+  g.fill(waterFill(look));
 }
 
 /**
@@ -147,8 +172,10 @@ export function drawFlier(
     .lineTo(x - 2.5 * k, y + 2 * k)
     .quadraticCurveTo(x - 8 * k, y + (tip + 1) * k, x - 17 * k, y + tip * k)
     .closePath()
-    .fill(look.body)
-    .stroke({ color: look.ink, width: look.line * k * 0.8, join: 'round' });
+    .fill(look.body);
+  OUTLINE.color = look.ink;
+  OUTLINE.width = look.line * k * 0.8;
+  g.stroke(OUTLINE);
 }
 
 /**
@@ -171,5 +198,5 @@ export function drawOutlineReflection(
   g.moveTo(x + (outline[0] ?? 0) * height, top + (outline[1] ?? 0) * height);
   for (let i = 2; i + 1 < outline.length; i += 2)
     g.lineTo(x + (outline[i] ?? 0) * height, top + (outline[i + 1] ?? 0) * height);
-  g.closePath().fill({ color: look.water, alpha: look.waterAlpha });
+  g.closePath().fill(waterFill(look));
 }

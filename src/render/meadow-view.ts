@@ -75,6 +75,12 @@ const SPREAD = 200;
 const GROUND_SPREAD = 40;
 const GROUND_SPREAD_Y = 22;
 /**
+ * A grounded bird reaches this far each side of its feet, in bird units; one that overlaps a body
+ * and stands nearer is drawn this far in the shared layer's order before that body.
+ */
+const BIRD_REACH = 21;
+const NEAR_STEP = 0.5;
+/**
  * The reflection (ADR 0007): under each grounded starling, Tove included, whose perceived share is
  * at least `REFLECT_AT`, its body flipped in the water under its feet (under its shadow, `REFLECT_GAP`
  * below it, for a body with a rig), faint and water-tinted.
@@ -99,6 +105,7 @@ function starlingLook(palette: Palette, widthScale: number): StarlingLook {
 const FLY_LIFT = 48;
 /** The Hollow's press: a structure of kind bench with this id (ADR 0013 item 17), drawn as a press. */
 const PRESS = 'press';
+const PRESS_SCALE = 1.3;
 /** A lane's two faint edges stand this far apart, in scene units (Part 1; a valley paves its lanes). */
 const LANE_WIDTH = 30;
 /** A square's outline has this many points. */
@@ -121,6 +128,8 @@ const VISITOR_RIG = 'visitor';
 export const VISITOR_SPEED = 50;
 export const VISITOR_SIT_SECONDS = 20;
 const SEAT_LIFT = 10;
+/** The feather lies this far to the right of the seat. */
+const FEATHER_OFFSET = 30;
 /** A visit moves on at most this many seconds a frame, so a stalled or hidden page does not skip it. */
 const VISIT_STEP_MAX = 0.25;
 
@@ -624,8 +633,13 @@ export function createMeadowView(
   const land = new Graphics({ label: 'land' });
   const shadows = new Graphics({ label: 'shadows' });
   const deckShadows = new Graphics({ label: 'deck-shadows' });
-  /** The Fen's ink ticks and their reflections, redrawn each frame. */
+  /** The Fen's starlings, their shadows, and the reflections, redrawn each frame. */
   const flock = new Graphics({ label: 'flock' });
+  /**
+   * The grounded starlings that stand nearer than a body they overlap, redrawn each frame in the
+   * shared layer just before the nearest such body, so they hide its feet and not it theirs.
+   */
+  const flockNear = new Graphics({ label: 'flock-near' });
   const lensRing = new Graphics({ label: 'lens-ring', visible: false });
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
@@ -680,6 +694,7 @@ export function createMeadowView(
       return { bed, g };
     });
   let beds = plantBeds();
+  actors.addChild(flockNear);
   /** Benches, lanterns, and bushes by id, each with the key it was drawn for. Bridges are drawn with the water. */
   const props = new Map<string, { g: Graphics; key: string }>();
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
@@ -736,6 +751,8 @@ export function createMeadowView(
   const reflected: number[] = [];
   const fliers: number[] = [];
   const order: number[] = [];
+  /** Each body with a rig drawn this frame, as flat feet y, left, right, top, bottom quints. */
+  const bodies: number[] = [];
   const places = new Map<string, [number, number]>();
   const placeFor = (id: string): [number, number] => {
     let p = places.get(id);
@@ -834,7 +851,10 @@ export function createMeadowView(
         else if (g && s.id === PRESS) {
           // Batched with the bodies beside it, as small props are, though it has more vertices.
           g.context.batchMode = 'batch';
-          drawPress(g, s, palette, w);
+          // Larger than its depth alone, so its head stands clear of a crowd at it; its lines
+          // stay the scenery's width.
+          drawPress(g, s, palette, w / PRESS_SCALE);
+          g.scale.set(g.scale.x * PRESS_SCALE);
         } else if (g) drawBench(g, s, palette, w);
       }
       for (const b of next.bushes) {
@@ -882,7 +902,9 @@ export function createMeadowView(
       perched.length = 0;
       reflected.length = 0;
       fliers.length = 0;
+      bodies.length = 0;
       flock.clear();
+      flockNear.clear();
       const skyTop = scene.sky[0];
       const skyBottom = scene.sky[1];
       const skyDepth = depthAt(scene, scene.depth?.horizon ?? 0);
@@ -922,6 +944,8 @@ export function createMeadowView(
         // A flier is drawn, picked, and framed where it flies; its shadow stays on the ground.
         const lift = up ? FLY_LIFT * (h / entry.height) : 0;
         drawn.push({ ...c, y: c.y - lift, height: h });
+        const half = (SHADOW_WIDTH * h) / 2;
+        bodies.push(c.y, c.x - half, c.x + half, c.y - lift - h, c.y - lift);
         if (sees) {
           // Under its shadow: its body flipped in the water.
           const below = c.y + (SHADOW_HEIGHT * h) / 2 + REFLECT_GAP;
@@ -954,7 +978,8 @@ export function createMeadowView(
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
       // The flock, in one Graphics: reflections, then each grounded bird's shadow, then the
-      // grounded birds farthest first, then the fliers.
+      // grounded birds farthest first, then the fliers. A grounded bird nearer than a body it
+      // overlaps goes in the near flock instead, which stands just before the nearest such body.
       for (let i = 0; i + 3 < reflected.length; i += 4)
         drawPerchedReflection(
           flock,
@@ -978,17 +1003,28 @@ export function createMeadowView(
         order[j] = i;
       }
       if (perched.length > 0) flock.fill(shade);
+      let nearAt = -Infinity;
       for (let j = 0; j < order.length; j++) {
         const i = order[j] ?? 0;
-        drawPerched(
-          flock,
-          perched[i] ?? 0,
-          perched[i + 1] ?? 0,
-          perched[i + 2] ?? 0,
-          perched[i + 3] ?? 1,
-          look,
-        );
+        const x = perched[i] ?? 0;
+        const y = perched[i + 1] ?? 0;
+        const k = perched[i + 2] ?? 0;
+        let before = -Infinity;
+        for (let b = 0; b + 4 < bodies.length; b += 5) {
+          const feet = bodies[b] ?? 0;
+          if (
+            y > feet &&
+            x + BIRD_REACH * k > (bodies[b + 1] ?? 0) &&
+            x - BIRD_REACH * k < (bodies[b + 2] ?? 0) &&
+            y > (bodies[b + 3] ?? 0) &&
+            y - PERCHED_HEIGHT * k < (bodies[b + 4] ?? 0)
+          )
+            before = Math.max(before, feet);
+        }
+        if (before > nearAt) nearAt = before;
+        drawPerched(before > -Infinity ? flockNear : flock, x, y, k, perched[i + 3] ?? 1, look);
       }
+      if (nearAt > -Infinity) flockNear.zIndex = nearAt + NEAR_STEP;
       for (let i = 0; i + 3 < fliers.length; i += 4)
         drawFlier(flock, fliers[i] ?? 0, fliers[i + 1] ?? 0, fliers[i + 2] ?? 0, fliers[i + 3] ?? 0, look);
 
@@ -1050,7 +1086,9 @@ export function createMeadowView(
           container.rotation = 0;
           container.scale.set(h, -h);
           const onBench = seated && seat.bench;
-          container.position.set(x, onBench ? y - SEAT_LIFT : y);
+          // The seat, its lift, and the feather beside it are sized to the seat's depth.
+          const seatDepth = depthAt(scene, seat.y);
+          container.position.set(x, onBench ? y - SEAT_LIFT * seatDepth : y);
           // In front of the bench it sits on.
           container.zIndex = y + 1;
           if (!onBench) {
@@ -1062,10 +1100,15 @@ export function createMeadowView(
           });
           // The feather stays on the seat from when it sits until it has gone.
           feather.visible = t >= walk;
-          const key = `${String(seat.x)},${String(seat.y)},${String(seat.bench)},${String(w)}`;
+          const key = `${scene.id},${String(seat.x)},${String(seat.y)},${String(seat.bench)},${String(w)}`;
           if (key !== featherKey) {
             featherKey = key;
-            drawFeather(feather, seat.x + 30, seat.bench ? seat.y - SEAT_LIFT : seat.y, palette, w);
+            const fy = seat.bench ? seat.y - SEAT_LIFT * seatDepth : seat.y;
+            const fx = seat.x + FEATHER_OFFSET * seatDepth;
+            drawFeather(feather, fx, fy, palette, w);
+            feather.pivot.set(fx, fy);
+            feather.position.set(fx, fy);
+            feather.scale.set(seatDepth);
             feather.zIndex = seat.y + 2;
           }
         }

@@ -87,7 +87,9 @@ export function drawLand(
   const rounds = (r: Rect) => (x: number, y: number) =>
     !onEdge(x, y) && !pond.some((o) => o !== r && inRect(o, x, y));
   const shapes = pond.map((r) => (piece: Graphics) => softRect(piece, r, rounds(r)));
-  for (const shape of shapes) shape(g).stroke(inkStroke(palette, 2 * w));
+  // Calm water (a surface) has a faint, thin bank, a shore and not a table edge.
+  const bank = surface ? inkStroke(palette, w * 0.5, FAR_ALPHA) : inkStroke(palette, 2 * w);
+  for (const shape of shapes) shape(g).stroke(bank);
   for (const shape of shapes) shape(g).fill(palette.water);
   if (surface) {
     // Inside the round corners: in from each side that has a round corner.

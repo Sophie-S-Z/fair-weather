@@ -7,10 +7,10 @@
   import type { MythPage } from '../../myth/grammar.ts';
   import type { BookPage } from '../../persist/profile.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
-  import type { BidReply } from '../../sim/types.ts';
+  import type { BidReply, GiftMove } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
-  import { FIRST_HERO, parseHero } from '../../story/journey.ts';
+  import type { Postcard as PostcardType } from '../../story/schema.ts';
   import { displayName } from '../../story/names.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
   import { unlockingVerb, VERBS, WORLD_VERBS } from '../../story/verbs.ts';
@@ -26,8 +26,10 @@
   import MythScroll from '../components/MythScroll.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import ToolTray from '../components/ToolTray.svelte';
+  import ValleyLine from '../components/ValleyLine.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
   import Bubbles from '../interludes/Bubbles.svelte';
+  import HeroChoice from '../interludes/HeroChoice.svelte';
   import Postcard from '../interludes/Postcard.svelte';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
@@ -57,8 +59,9 @@
       '[PLACEHOLDER] Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
     fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
     blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
-    walk: '[PLACEHOLDER] Press Enter to walk to the spot, or pick a creature to wave at it.',
-    manner: '[PLACEHOLDER] Choose how your hero answers and whether it gives or keeps.',
+    walk: '[PLACEHOLDER] Press Enter to walk to the spot, or pick a creature and press W to wave at it.',
+    manner:
+      '[PLACEHOLDER] Press G, H, or R to choose how your hero answers, and O or K to give or keep. A Seedcarrier plants a gift with L.',
     join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
     pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
     keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
@@ -74,7 +77,21 @@
     soul: 'The Soul view',
   };
   /** The tools that act at the cursor. */
-  const POINT_TOOLS: ReadonlySet<Verb> = new Set(['place', 'shine', 'fog', 'blow']);
+  const POINT_TOOLS: ReadonlySet<Verb> = new Set(['place', 'shine', 'fog', 'blow', 'walk']);
+  /** The postcards' names (spec 7.2). */
+  const POSTCARD_LABELS: Record<PostcardType, string> = {
+    generosity: 'Generosity',
+    patience: 'Patience',
+    remembering: 'Remembering',
+    listening: 'Careful listening',
+    wandering: 'Wandering',
+  };
+  /** Each valley keepsake's label, without its article, as the keepsake tool says it ("the starling feather"). */
+  const KEEPSAKE_LABELS = new Map(
+    untrack(() => game.chapters).flatMap((c) =>
+      c.valley?.keepsake ? [[c.valley.keepsake.id, c.valley.keepsake.label.replace(/^(A|An|The) /, '')]] : [],
+    ),
+  );
   /** How near the cursor a creature is named in the status line, in scene units: two cursor steps. */
   const NEAR = 40;
   const STATES: Record<string, string> = {
@@ -111,6 +128,10 @@
   /** Takes the last chapter's answer off the lines; cleared by the next chapter and on unmount. */
   let revealTimer: ReturnType<typeof setTimeout> | undefined;
   let bet: { question: string; options: string[] } | null = $state(null);
+  /** The open postcard card: a valley's choice of postcard home (ADR 0013 item 9). */
+  let postcard: { question: string; options: PostcardType[] } | null = $state(null);
+  /** The hero's standing manner (ADR 0013 item 2); each valley starts at toward and give. */
+  let manner: { reply: BidReply; gift: GiftMove } = $state({ reply: 'toward', gift: 'give' });
   let betRunning = $state(false);
   let picked: string | null = $state(null);
   let pickedState = $state('');
@@ -248,6 +269,8 @@
           : picked
             ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
             : '',
+      // Walk acts at the spot and waves at the pick, so it names both.
+      pointing && tool === 'walk' && picked ? `Picked: ${displayName(picked)}` : '',
       tool === 'thread' && threadFrom !== null ? `Thread from ${displayName(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
       rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
@@ -269,6 +292,7 @@
         placed += 1;
         if (placed === chapter?.place.limit) used = [...used, 'place'];
       }
+      if (v.verb === 'manner') manner = { reply: v.reply, gift: v.gift };
     } else if (v.verb === 'respond') {
       say(NO_BID);
     }
@@ -360,7 +384,15 @@
     } else if (p.kind === 'reveal') {
       betRunning = false;
       say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`, true);
+    } else {
+      postcard = { question: p.question, options: p.options };
     }
+  }
+
+  function sendPostcard(option: string): void {
+    const type = postcard?.options.find((o) => o === option);
+    postcard = null;
+    if (type) runner?.sendPostcard(type);
   }
 
   function finishActivity(result: string): void {
@@ -382,7 +414,7 @@
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
     if (!due || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
-    if (bet || betRunning || whisperCard || chapter?.activity) return;
+    if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
   });
 
@@ -408,6 +440,8 @@
     index = i;
     bet = null;
     betRunning = false;
+    postcard = null;
+    manner = { reply: 'toward', gift: 'give' };
     picked = null;
     threadFrom = null;
     whisperCard = null;
@@ -554,7 +588,7 @@
   });
 
   $effect(() => {
-    activityEl?.querySelector('button')?.focus();
+    activityEl?.querySelector<HTMLElement>('input, button')?.focus();
   });
 
   // The Meadow draws the cursor while a point tool is active.
@@ -567,7 +601,8 @@
    * the drawer opens at Under the hood for the picked creature.
    */
   function onSceneKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && !e.defaultPrevented) trayEl?.querySelector('button')?.focus();
+    if (e.key === 'Escape' && !e.defaultPrevented)
+      trayEl?.querySelector<HTMLElement>('input, button')?.focus();
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
     if (plain && e.key.toLowerCase() === 'p' && diary?.peek) drawerAt = { section: 'peek', focus: true };
     if (plain && e.key.toLowerCase() === 'b') void openBook();
@@ -684,6 +719,10 @@
         threadFrom: () => threadFrom,
         setThreadFrom: (id) => (threadFrom = id),
         openWhisper,
+        manner: () => manner,
+        heroKind: () => next?.hero?.kind ?? null,
+        heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+        keepsakes: () => next?.hero?.keepsakes ?? [],
       };
       offs.push(game.input.createKeyboard(sceneEl, ctx));
       offs.push(
@@ -724,8 +763,8 @@
 </script>
 
 <div class="game">
-  <!-- Everything but the bet card, the whisper card, or the Book of Skies goes inert while one is open. -->
-  <div class="layer" inert={bet !== null || whisperCard !== null || book !== null}>
+  <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
+  <div class="layer" inert={bet !== null || postcard !== null || whisperCard !== null || book !== null}>
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -741,10 +780,12 @@
       {chapter?.activity
         ? 'Tab picks a creature, Space pauses, and Escape moves to the activity.'
         : 'Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves to the tools.'}{chapter?.verbs.includes(
-        'zoom',
+        'walk',
       )
-        ? ' Z zooms out and X zooms in.'
-        : ''}{chapter?.verbs.includes('peek')
+        ? ' With Walk, W waves at the picked creature.'
+        : ''}{chapter?.verbs.includes('zoom') ? ' Z zooms out and X zooms in.' : ''}{chapter?.verbs.includes(
+        'peek',
+      )
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
         ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
@@ -824,9 +865,10 @@
             <BeatLine {lines} />
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
+            <ValleyLine lite={shown} label={displayName} />
             <div bind:this={trayEl}>
               {#if chapter?.activity}
-                <!-- The activity stands in for the tool tray; Escape from the scene reaches its first button. -->
+                <!-- The activity stands in for the tool tray; Escape from the scene reaches its first control. -->
                 {#if chapter.activity === 'fire'}
                   {#if myth}
                     <div class="activity" bind:this={activityEl}>
@@ -849,15 +891,7 @@
                     {:else if chapter.activity === 'postcard'}
                       <Postcard finish={finishActivity} />
                     {:else if chapter.activity === 'hero'}
-                      <!-- A stand-in for the hero choice (M3.13): the first hero, with its own name. -->
-                      <section aria-label="Choose your hero">
-                        <button
-                          type="button"
-                          onclick={() => {
-                            finishActivity(FIRST_HERO);
-                          }}>Wake as {parseHero(FIRST_HERO).name}</button
-                        >
-                      </section>
+                      <HeroChoice finish={finishActivity} />
                     {:else}
                       <Stillness
                         finish={finishActivity}
@@ -882,6 +916,22 @@
                   onReply={(r: BidReply) => {
                     reply = r;
                     act({ verb: 'respond', reply: r });
+                  }}
+                  {manner}
+                  onManner={(m: { reply: BidReply; gift: GiftMove }) => {
+                    act({ verb: 'manner', ...m });
+                  }}
+                  canPlant={live?.hero?.kind === 'seedcarrier'}
+                  onPlant={() => {
+                    act({ verb: 'plant' });
+                  }}
+                  keepsakes={(live?.hero?.keepsakes ?? []).map((id) => ({
+                    id,
+                    label: KEEPSAKE_LABELS.get(id) ?? id,
+                  }))}
+                  giveTo={picked === null ? null : displayName(picked)}
+                  onGive={(id: string) => {
+                    if (picked !== null) act({ verb: 'keepsake', to: picked, item: id });
                   }}
                 />
               {/if}
@@ -908,6 +958,17 @@
       options={bet.options}
       label={displayName}
       onAnswer={answer}
+      home={() => {
+        sceneEl.focus();
+      }}
+    />
+  {:else if postcard}
+    <!-- The postcard home is chosen on the bet card; the runner logs it as a postcard. -->
+    <BetCard
+      question={postcard.question}
+      options={postcard.options}
+      label={(o) => POSTCARD_LABELS[o as PostcardType]}
+      onAnswer={sendPostcard}
       home={() => {
         sceneEl.focus();
       }}

@@ -450,7 +450,9 @@ for (const mode of ['pointer', 'keyboard'] as const) {
       await open.click();
     } else {
       // Focus is on the bridge's activity; the drawer's button comes before it (Tab in the scene picks creatures).
-      await expect(page.getByRole('region', { name: 'Choose your hero' }).getByRole('button')).toBeFocused();
+      await expect(
+        page.getByRole('region', { name: 'Choose your hero' }).getByRole('radio').first(),
+      ).toBeFocused();
       await tabToButton(page, 'Diary and notes', 'Shift+Tab');
       await page.keyboard.press('Enter');
       await tabToButton(page, 'Book of Skies');

@@ -438,14 +438,14 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
 });
 
-test('after the bridge, where a hero is chosen by button, the Fen begins', async ({ page }) => {
+test('after the bridge, where a hero is chosen, the Fen begins', async ({ page }) => {
   // The bridge is index 16 in play order.
   await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
-  const hero = page.getByRole('region', { name: 'Choose your hero' }).getByRole('button');
-  await expect(hero).toBeFocused();
-  await hero.click();
+  const choice = page.getByRole('region', { name: 'Choose your hero' });
+  await expect(choice.getByRole('radio').first()).toBeFocused();
+  await choice.getByRole('button', { name: 'Wake as Lantern-bearer' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
 });
 

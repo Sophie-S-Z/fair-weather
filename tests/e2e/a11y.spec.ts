@@ -617,3 +617,94 @@ for (const [index, name] of PLAY_ORDER.entries()) {
     expect(await seriousViolations(page)).toEqual([]);
   });
 }
+
+// M3.13: Part 2 from the bridge (index 16 in play order).
+test('the hero choice works by keyboard alone and has no serious axe issues; the Fen and its line have none', async ({
+  page,
+}) => {
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
+  const choice = page.getByRole('group', { name: 'Choose your hero' });
+  const radios = choice.getByRole('radio');
+  await expect(radios).toHaveCount(6);
+  // Focus moves to the first hero, which is chosen until another is.
+  await expect(radios.first()).toBeFocused();
+  await expect(radios.first()).toBeChecked();
+  await expect(choice.getByText('A small creature in an acorn cap, with a satchel.')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('radio', { name: 'Seedcarrier' })).toBeChecked();
+  await page.keyboard.press('Tab');
+  const name = page.getByRole('textbox', { name: 'Name your hero' });
+  await expect(name).toBeFocused();
+  // The field keeps 24 characters, as heroResult counts them.
+  await page.keyboard.type('Fennel of the long bright meadow');
+  await expect(name).toHaveValue('Fennel of the long brigh');
+  for (let i = 0; i < 'of the long brigh'.length; i++) await page.keyboard.press('Backspace');
+  await page.keyboard.press('Tab');
+  const wake = page.getByRole('button', { name: 'Wake as Fennel' });
+  await expect(wake).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: /^Tove sees \d+% of its neighbors flying in the water; \d+% really fly\.$/ }),
+  ).toBeVisible();
+  // The Fen's tools: Walk, Manner, Join; Manner shows its choices as pressed buttons, and a Seedcarrier can plant.
+  const tools = page.getByRole('group', { name: 'Tools' });
+  await expect(tools.getByRole('button')).toHaveText([/Walk/, /Manner/, /Join/]);
+  await page.keyboard.press('2');
+  await expect(page.getByRole('button', { name: 'G Wave back' })).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('k');
+  await expect(page.getByRole('button', { name: 'K Keep' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'L Plant a gift' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  // The chapter ribbon shows each valley's title.
+  await expect(page.getByRole('navigation', { name: 'Chapters' })).toContainText('Hearsay Hollow');
+});
+
+test('with reduced motion, the bridge rain is still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('group', { name: 'Choose your hero' })).toBeVisible();
+  const animations = await page.evaluate(() =>
+    [...document.querySelectorAll('.rain span')].map((s) => getComputedStyle(s).animationName),
+  );
+  expect(animations.length).toBeGreaterThan(0);
+  expect(new Set(animations)).toEqual(new Set(['none']));
+});
+
+test('in the Fen, waving at Tove and joining the flock brings the postcard card; it has no serious axe issues and sends the postcard', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await page.goto('/?chapter=16&fast=20');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.getByRole('button', { name: /^Wake as / }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  await expect(page.locator('.beat-line')).toContainText('Starlings sit in the reeds');
+  // Walk: Tab to Tove, then W waves, so the hero walks to her bed; then Join (3) and Enter.
+  await page.keyboard.press('1');
+  const picked = page.getByRole('status').filter({ hasText: /Picked: Tove/ });
+  for (let i = 0; i < 60 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+  await expect(picked).toBeVisible();
+  await page.keyboard.press('w');
+  await page.keyboard.press('3');
+  await page.keyboard.press('Enter');
+  const card = page.getByRole('dialog', { name: 'A bet' });
+  await expect(card).toBeVisible({ timeout: 240_000 });
+  await expect(card).toContainText('Which postcard will you send home?');
+  await expect(card.getByRole('button')).toHaveText(['Generosity', 'Wandering']);
+  await expect(card.getByRole('button').first()).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Enter');
+  await expect(card).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: 'Hearsay Hollow' })).toBeVisible({
+    timeout: 30_000,
+  });
+});

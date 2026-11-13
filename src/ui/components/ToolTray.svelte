@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { BidReply, Structure } from '../../sim/types.ts';
+  import type { BidReply, GiftMove, Structure } from '../../sim/types.ts';
   import type { Verb, WorldVerb } from '../../story/verbs.ts';
 
   let {
@@ -11,6 +11,13 @@
     ghost,
     onPick,
     onReply,
+    manner,
+    onManner,
+    canPlant,
+    onPlant,
+    keepsakes,
+    giveTo,
+    onGive,
   }: {
     tools: readonly WorldVerb[];
     /** What the place tool sets, which names its button. */
@@ -24,6 +31,17 @@
     ghost: Verb | null;
     onPick: (v: Verb) => void;
     onReply: (r: BidReply) => void;
+    /** The hero's standing manner, which the manner tool shows and sets. */
+    manner: { reply: BidReply; gift: GiftMove };
+    onManner: (m: { reply: BidReply; gift: GiftMove }) => void;
+    /** A Seedcarrier hero can plant a gift. */
+    canPlant: boolean;
+    onPlant: () => void;
+    /** The keepsakes the hero holds, with their labels ("starling feather"). */
+    keepsakes: readonly { id: string; label: string }[];
+    /** The picked creature's name, whom a keepsake goes to, or null with no pick. */
+    giveTo: string | null;
+    onGive: (id: string) => void;
   } = $props();
 
   const LABELS: Record<Exclude<WorldVerb, 'place'>, string> = {
@@ -49,6 +67,15 @@
     { reply: 'toward', key: 'G', label: 'Glow back' },
     { reply: 'away', key: 'H', label: 'Hold still' },
     { reply: 'against', key: 'R', label: 'Rumble' },
+  ];
+  const MANNER_REPLIES: { reply: BidReply; key: string; label: string }[] = [
+    { reply: 'toward', key: 'G', label: 'Wave back' },
+    { reply: 'away', key: 'H', label: 'Stay still' },
+    { reply: 'against', key: 'R', label: 'Snap' },
+  ];
+  const GIFTS: { gift: GiftMove; key: string; label: string }[] = [
+    { gift: 'give', key: 'O', label: 'Give' },
+    { gift: 'keep', key: 'K', label: 'Keep' },
   ];
 </script>
 
@@ -84,6 +111,44 @@
         >
       {/each}
     </div>
+  {:else if active === 'manner'}
+    <div role="group" aria-label="How your hero answers">
+      {#each MANNER_REPLIES as r (r.reply)}
+        <button
+          type="button"
+          aria-pressed={r.reply === manner.reply}
+          onclick={() => {
+            onManner({ reply: r.reply, gift: manner.gift });
+          }}><kbd>{r.key}</kbd> {r.label}</button
+        >
+      {/each}
+    </div>
+    <div role="group" aria-label="Give or keep">
+      {#each GIFTS as g (g.gift)}
+        <button
+          type="button"
+          aria-pressed={g.gift === manner.gift}
+          onclick={() => {
+            onManner({ reply: manner.reply, gift: g.gift });
+          }}><kbd>{g.key}</kbd> {g.label}</button
+        >
+      {/each}
+      {#if canPlant}
+        <button type="button" onclick={onPlant}><kbd>L</kbd> Plant a gift</button>
+      {/if}
+    </div>
+  {:else if active === 'keepsake' && keepsakes.length > 0}
+    <div role="group" aria-label="Keepsakes">
+      {#each keepsakes as k (k.id)}
+        <button
+          type="button"
+          disabled={giveTo === null}
+          onclick={() => {
+            onGive(k.id);
+          }}>Give the {k.label} to {giveTo ?? 'the creature you pick'}</button
+        >
+      {/each}
+    </div>
   {/if}
 </div>
 
@@ -96,6 +161,8 @@
   }
   div[role='group'] {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 0.5rem;
   }
   button[aria-pressed='true'] {

@@ -49,7 +49,8 @@ export interface Journey {
 export const KITH_VALLEYS = ['fen', 'hollow', 'halcyon'] as const;
 
 const RECORD_LENGTH = 20;
-const NAME_LENGTH = 24;
+/** The longest hero name, in characters (graphemes); the bridge's name field and heroResult share it. */
+export const NAME_LENGTH = 24;
 /** The longest caption, in characters (graphemes), that the journal and a save take. */
 export const CAPTION_LENGTH = 80;
 
@@ -75,6 +76,9 @@ const text = z.string().min(1);
 
 /** content/heroes.json: the six heroes of spec 5.5. validate-content also checks their order. */
 export const HeroesSchema = z.array(z.strictObject({ id: heroKind, name: text, look: text, knack: text }));
+
+/** The six heroes the bridge offers, in content order. */
+export const HEROES = HeroesSchema.parse(heroesJson);
 
 /** content/journal.json: the "What they say about you" parts and the stamp words. */
 export const JournalSchema = z.strictObject({

@@ -76,7 +76,8 @@ test('T3 fen: fewer than 10 close calls, the postcard at 6 to 8 minutes, and the
     const sent = r.log.find((e) => e.kind === 'postcard');
     if (!sent) throw new Error(`fen seed ${String(seed)} sent no postcard`);
     seconds.push(sent.tick / tuning.sim.stepsPerSecond);
-    if (seen.misled > 0) misled += 1;
+    // The water misleads her for at least half the watched time, not one passing snapshot.
+    if (seen.watched > 0 && seen.misled / seen.watched >= 0.5) misled += 1;
     shares.push(seen.watched === 0 ? 0 : seen.misled / seen.watched);
   }
   const s = summarize(runs);

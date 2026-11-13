@@ -7,3 +7,4 @@ dist/
 .superpowers/
 content/rigs/*.rig.json
 tests/golden/carry/
+.claude/

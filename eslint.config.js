@@ -41,7 +41,7 @@ const moduleBoundaryBlocks = Object.entries(allowedValueImports).map(([mod, allo
 });
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', '.superpowers/', 'docs/'] },
+  { ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', '.superpowers/', 'docs/', '.claude/'] },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {

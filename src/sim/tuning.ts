@@ -99,6 +99,8 @@ export const TuningSchema = obj({
   }),
   /** Kith's silent run over the Part 2 valleys (ADR 0013 item 10). */
   kith: obj({ days: count }),
+  /** "What they say about you" (ADR 0013 item 14): most of the locals hold the rumor at a strength of mostAt or more, some at someAt or more. */
+  journal: obj({ mostAt: prob, someAt: prob }),
   bet: obj({ revealSpeed: pos }),
   bridge: obj({ radius: pos, landing: pos }),
   /**

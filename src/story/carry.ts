@@ -1,5 +1,6 @@
 // The year carry (ADR 0012 item 1): what a `carry: true` chapter keeps from the chapter before it.
 // All of it lives here, so buildScenario has one call to drop if the carry goes.
+import { z } from 'zod';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { DialKey, Dials, Scenario, Shell } from '../sim/types.ts';
 import type { Overrides } from './schema.ts';
@@ -17,6 +18,23 @@ export interface Carry {
   }[];
   ties: { a: string; b: string; ab: number; ba: number }[];
 }
+
+const unit = z.number().min(0).max(1);
+/** A carry as a save holds it (spec 15.1). */
+export const CarrySchema = z.object({
+  creatures: z.array(
+    z.object({
+      id: z.string(),
+      dials: z.object({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
+      shell: z.object({ tightness: unit, bristle: unit, color: unit, softness: unit }),
+      skyWarmth: z.number(),
+      away: z.boolean(),
+      gone: z.boolean(),
+      diary: z.array(z.string()),
+    }),
+  ),
+  ties: z.array(z.object({ a: z.string(), b: z.string(), ab: z.number(), ba: z.number() })),
+}) satisfies z.ZodType<Carry>;
 
 /**
  * The carry from a chapter's last snapshot and its runner's diaries (`ChapterRunner.diaries`).

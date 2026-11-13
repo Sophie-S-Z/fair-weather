@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Command, World } from '../sim/types.ts';
 import { YearLogSchema } from '../story/action-log.ts';
 import type { YearLog } from '../story/action-log.ts';
+import { CarrySchema } from '../story/carry.ts';
 import type { Carry } from '../story/carry.ts';
 import { FlagsSchema } from '../story/flags.ts';
 import type { Flags } from '../story/flags.ts';
@@ -59,22 +60,6 @@ export const SaveV1Schema = z.object({
   flags: FlagsSchema.partial(),
   log: z.array(z.object({ tick: z.number(), list: z.array(z.custom<Command>()) })),
 });
-
-const unit = z.number().min(0).max(1);
-const CarrySchema = z.object({
-  creatures: z.array(
-    z.object({
-      id: z.string(),
-      dials: z.object({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
-      shell: z.object({ tightness: unit, bristle: unit, color: unit, softness: unit }),
-      skyWarmth: z.number(),
-      away: z.boolean(),
-      gone: z.boolean(),
-      diary: z.array(z.string()),
-    }),
-  ),
-  ties: z.array(z.object({ a: z.string(), b: z.string(), ab: z.number(), ba: z.number() })),
-}) satisfies z.ZodType<Carry>;
 
 export const SaveV2Schema = z.object({
   ...common,

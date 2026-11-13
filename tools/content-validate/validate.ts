@@ -13,8 +13,10 @@ import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
+import { HERO_KINDS } from '../../src/sim/types.ts';
 import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
+import { HeroesSchema, JournalSchema } from '../../src/story/journey.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
@@ -74,7 +76,7 @@ function creatureRefs(c: Chapter): string[] {
 }
 
 /**
- * Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter and valley camera
+ * Checks tuning, flags, diary, heroes, journal, myth verses, rigs, palettes, scenes, cast, chapter and valley camera
  * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
  */
 export function validateContent(root: string): ValidationResult {
@@ -101,6 +103,25 @@ export function validateContent(root: string): ValidationResult {
       DiarySchema.parse(JSON.parse(readFileSync(diaryPath, 'utf8')));
     } catch (e) {
       errors.push(`diary.json: ${(e as Error).message}`);
+    }
+  }
+  // The six heroes, in HERO_KINDS order (spec 5.5), and the journal's words (ADR 0013 item 14).
+  const heroesPath = join(content, 'heroes.json');
+  if (existsSync(heroesPath)) {
+    try {
+      const ids = HeroesSchema.parse(JSON.parse(readFileSync(heroesPath, 'utf8'))).map((h) => h.id);
+      if (ids.join() !== HERO_KINDS.join())
+        errors.push(`heroes.json: lists ${ids.join(', ')}, not ${HERO_KINDS.join(', ')}`);
+    } catch (e) {
+      errors.push(`heroes.json: ${(e as Error).message}`);
+    }
+  }
+  const journalPath = join(content, 'journal.json');
+  if (existsSync(journalPath)) {
+    try {
+      JournalSchema.parse(JSON.parse(readFileSync(journalPath, 'utf8')));
+    } catch (e) {
+      errors.push(`journal.json: ${(e as Error).message}`);
     }
   }
   const versesPath = join(content, 'myth', 'verses.json');

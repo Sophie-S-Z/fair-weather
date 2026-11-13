@@ -83,6 +83,18 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
   });
+  test('reports heroes out of HERO_KINDS order and a bad journal file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content'), { recursive: true });
+    const heroes = JSON.parse(readFileSync(join(repoRoot, 'content', 'heroes.json'), 'utf8')) as unknown[];
+    writeFileSync(join(root, 'content', 'heroes.json'), JSON.stringify(heroes.reverse()));
+    writeFileSync(join(root, 'content', 'journal.json'), JSON.stringify({ saying: {}, stamp: {} }));
+    const { errors } = validateContent(root);
+    expect(errors.filter((e) => e.startsWith('heroes.json:'))).toEqual([
+      'heroes.json: lists bellchime, seedcarrier, glassling, mosscoat, kite, lantern, not lantern, kite, mosscoat, glassling, seedcarrier, bellchime',
+    ]);
+    expect(errors.some((e) => e.startsWith('journal.json:'))).toBe(true);
+  });
   test("compiles an INCLUDEd Ink file inside its includer, so it may use the includer's VARs", () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'ink'), { recursive: true });

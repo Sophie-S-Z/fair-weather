@@ -1,0 +1,15 @@
+{
+  "saying": {
+    "most": "[PLACEHOLDER] Most here say",
+    "some": "[PLACEHOLDER] Some here say",
+    "few": "[PLACEHOLDER] A few here say",
+    "kind": "[PLACEHOLDER] you share.",
+    "mixed": "[PLACEHOLDER] they cannot tell what you will do.",
+    "unkind": "[PLACEHOLDER] you keep what you have."
+  },
+  "stamp": {
+    "welcomed": "[PLACEHOLDER] Welcomed",
+    "forgiven": "[PLACEHOLDER] Forgiven",
+    "avoided": "[PLACEHOLDER] Avoided"
+  }
+}

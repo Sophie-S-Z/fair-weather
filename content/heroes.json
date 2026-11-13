@@ -1,0 +1,38 @@
+[
+  {
+    "id": "lantern",
+    "name": "Lantern-bearer",
+    "look": "A round body with a tiny lantern",
+    "knack": "Fog has half its usual effect on the hero's bids and gifts."
+  },
+  {
+    "id": "kite",
+    "name": "Kite-rider",
+    "look": "A long ribbon tied to a small kite",
+    "knack": "Moves 1.5 times faster and sees one ridge ahead."
+  },
+  {
+    "id": "mosscoat",
+    "name": "Mosscoat",
+    "look": "A pebble in a cloak of moss",
+    "knack": "Locals' Memory for the hero is doubled, for good and for bad."
+  },
+  {
+    "id": "glassling",
+    "name": "Glassling",
+    "look": "A clear glass body; feelings show as color inside",
+    "knack": "The hero's bids and gifts are never misread. Locals see the hero's mood, and each warmth change toward the hero is 1.5 times larger."
+  },
+  {
+    "id": "seedcarrier",
+    "name": "Seedcarrier",
+    "look": "A small creature in an acorn cap, with a satchel",
+    "knack": "Can plant a gift: it costs 1 berry and grows into 3 berries after 2 days. The finder gains 0.1 warmth toward the hero."
+  },
+  {
+    "id": "bellchime",
+    "name": "Bellchime",
+    "look": "A small bell with a curl on top",
+    "knack": "One greeting bid reaches every creature within 6 world units. Each one answers separately."
+  }
+]

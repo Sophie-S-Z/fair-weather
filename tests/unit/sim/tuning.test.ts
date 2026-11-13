@@ -100,6 +100,7 @@ test('defaults equal the handoff and ADR values', () => {
     chooseByDay: 3,
   });
   expect(t.kith).toEqual({ days: 20 });
+  expect(t.journal).toEqual({ mostAt: 0.5, someAt: 0.2 });
   expect(t.bet).toEqual({ revealSpeed: 8 });
   expect(t.bridge).toEqual({ radius: 32, landing: 14 });
   expect(t.bank).toEqual({ side: 53, below: 123 });

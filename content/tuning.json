@@ -76,6 +76,7 @@
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
   "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6, "keepsakeRadii": 2, "chooseByDay": 3 },
   "kith": { "days": 20 },
+  "journal": { "mostAt": 0.5, "someAt": 0.2 },
   "bet": { "revealSpeed": 8 },
   "bridge": { "radius": 32, "landing": 14 },
   "bank": { "side": 53, "below": 123 },

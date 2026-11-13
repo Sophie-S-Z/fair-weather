@@ -29,29 +29,37 @@ const str = z.string();
 const reply = z.enum(['toward', 'away', 'against']);
 const at = { x: num, y: num };
 
-/** Every command shape (sim/types.ts Command). */
-const CommandSchema = z.discriminatedUnion('t', [
-  z.strictObject({ t: z.literal('shine'), ...at }),
-  z.strictObject({ t: z.literal('paintFog'), ...at, r: num, amount: num }),
-  z.strictObject({ t: z.literal('blow'), ...at, dx: num, dy: num }),
-  z.strictObject({ t: z.literal('place'), kind: z.enum(['bench', 'bush', 'bridge', 'lantern']), ...at }),
-  z.strictObject({ t: z.literal('thread'), a: str, b: str, on: z.boolean() }),
-  z.strictObject({
-    t: z.literal('whisper'),
-    target: str,
-    about: str,
-    sign: z.union([z.literal(1), z.literal(-1)]),
-  }),
-  z.strictObject({ t: z.literal('respond'), to: str, reply }),
-  z.strictObject({ t: z.literal('arrangeMeeting'), a: str, b: str }),
-  z.strictObject({
-    t: z.literal('setSeason'),
-    season: z.enum(['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'] satisfies Season[]),
-  }),
-  z.strictObject({ t: z.literal('wake'), who: str }),
-  z.strictObject({ t: z.literal('promptSkyBid'), who: str }),
-  z.strictObject({ t: z.literal('overPoke') }),
-  z.strictObject({ t: z.literal('dance'), who: str }),
+/**
+ * Every command shape (sim/types.ts Command). `walk` has two shapes, which a discriminated union
+ * cannot hold, so they sit beside it.
+ */
+const CommandSchema = z.union([
+  z.strictObject({ t: z.literal('walk'), ...at }),
+  z.strictObject({ t: z.literal('walk'), to: str }),
+  z.discriminatedUnion('t', [
+    z.strictObject({ t: z.literal('shine'), ...at }),
+    z.strictObject({ t: z.literal('paintFog'), ...at, r: num, amount: num }),
+    z.strictObject({ t: z.literal('blow'), ...at, dx: num, dy: num }),
+    z.strictObject({ t: z.literal('place'), kind: z.enum(['bench', 'bush', 'bridge', 'lantern']), ...at }),
+    z.strictObject({ t: z.literal('thread'), a: str, b: str, on: z.boolean() }),
+    z.strictObject({
+      t: z.literal('whisper'),
+      target: str,
+      about: str,
+      sign: z.union([z.literal(1), z.literal(-1)]),
+    }),
+    z.strictObject({ t: z.literal('respond'), to: str, reply }),
+    z.strictObject({ t: z.literal('arrangeMeeting'), a: str, b: str }),
+    z.strictObject({
+      t: z.literal('setSeason'),
+      season: z.enum(['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'] satisfies Season[]),
+    }),
+    z.strictObject({ t: z.literal('wake'), who: str }),
+    z.strictObject({ t: z.literal('promptSkyBid'), who: str }),
+    z.strictObject({ t: z.literal('overPoke') }),
+    z.strictObject({ t: z.literal('dance'), who: str }),
+    z.strictObject({ t: z.literal('manner'), reply, gift: z.enum(['give', 'keep']) }),
+  ]),
 ]) satisfies z.ZodType<Command>;
 
 /** Every verb input shape (verbs.ts VerbInput). */

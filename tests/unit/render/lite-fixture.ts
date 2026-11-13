@@ -14,6 +14,7 @@ export function lite(
   return {
     creatures: creatures.map(([id, state = 'wander', x, y], i) => ({
       id,
+      speciesId: 'kith',
       x: x ?? 100 + 100 * i,
       y: y ?? 400,
       state,
@@ -26,6 +27,7 @@ export function lite(
     })),
     ties: ties.map(([a, b, ab, ba]) => ({ a, b, ab, ba })),
     rumor: null,
+    hero: null,
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: { averageWarmth, friendPairs: 0 },

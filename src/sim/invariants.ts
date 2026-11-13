@@ -1,7 +1,7 @@
 // World invariants checked every tick by the T2 property test. Returns one message per violation.
 import type { World } from './types.ts';
 import type { Tuning } from './tuning.ts';
-import { DIAL_KEYS } from './types.ts';
+import { DIAL_KEYS, HERO } from './types.ts';
 import { decksOf, inRect, inWater } from './land.ts';
 import { tieKey } from './world.ts';
 
@@ -30,7 +30,9 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
  * the scene; no creature, unless away, in water off a bridge deck; population <= cap.sandbox;
- * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops].
+ * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops]; with
+ * `world.hero`, a hero creature that waves at no one or at another creature. The hero is a creature,
+ * so every creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -70,6 +72,8 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (!inRange(tie.ab.warmth, -1, 1)) out.push(`tie ${key} ab.warmth ${String(tie.ab.warmth)}`);
     if (!inRange(tie.ba.warmth, -1, 1)) out.push(`tie ${key} ba.warmth ${String(tie.ba.warmth)}`);
   }
+  if (world.hero && !ids.has(HERO)) out.push('world.hero is set without a hero creature');
+  if (world.hero?.waveTo === HERO) out.push('the hero waves at itself');
   const m = world.mushroom;
   if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);
   world.fields.fog.forEach((f, i) => {

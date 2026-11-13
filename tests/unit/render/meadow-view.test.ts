@@ -61,6 +61,7 @@ const snapshot = (
 ): WorldLite => ({
   creatures: creatures.map(([id, x, y, state = 'wander']) => ({
     id,
+    speciesId: 'kith',
     x,
     y,
     state,
@@ -83,6 +84,7 @@ const snapshot = (
   bushes: [],
   ties: [],
   rumor: null,
+  hero: null,
 });
 
 /** A stand-in for a Pixi Application: the view reads only the stage, screen, and ticker. */
@@ -194,6 +196,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
     creatures: [
       {
         id: 'pim',
+        speciesId: 'kith',
         x: 300,
         y: 400,
         state: 'wander',
@@ -206,6 +209,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
       },
       {
         id: 'krit',
+        speciesId: 'kith',
         x: 600,
         y: 400,
         state: 'wander',
@@ -218,6 +222,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
       },
       {
         id: 'villager-1',
+        speciesId: 'kith',
         x: 900,
         y: 400,
         state: 'wander',

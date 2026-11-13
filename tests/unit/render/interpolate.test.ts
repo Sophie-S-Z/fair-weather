@@ -6,6 +6,7 @@ const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
 const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 const creature = (id: string, x: number, y: number) => ({
   id,
+  speciesId: 'kith',
   x,
   y,
   state: 'wander' as const,
@@ -30,6 +31,7 @@ const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   bushes: [],
   ties: [],
   rumor: null,
+  hero: null,
 });
 
 const prev = lite([creature('a', 0, 100), creature('b', 50, 50), creature('gone', 7, 8)]);

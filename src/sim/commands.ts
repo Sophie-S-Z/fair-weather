@@ -1,13 +1,16 @@
-// Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4).
-import type { BidReply, Command, Creature, Season, SimEvent, World } from './types.ts';
-import { DIAL_KEYS, SEASONS } from './types.ts';
+// Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4,
+// ADR 0013 items 1 and 2).
+import type { BidReply, Command, Creature, GiftMove, Season, SimEvent, World } from './types.ts';
+import { DIAL_KEYS, HERO, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { isHero } from './hero.ts';
 import { inWater } from './land.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
+const GIFT_MOVES: readonly GiftMove[] = ['give', 'keep'];
 const PLACE_KINDS: readonly string[] = ['bench', 'bush', 'bridge', 'lantern'];
 
 /** The creature with `id` when it exists and is not away. */
@@ -86,11 +89,29 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
 }
 
 /**
+ * Sends the hero to a point, clamped to the scene, or to follow a present creature (ADR 0013
+ * item 2). Changes nothing without a present hero, or for a non-finite point or a creature that is
+ * the hero, unknown, or away.
+ */
+function walk(world: World, cmd: Extract<Command, { t: 'walk' }>, t: Tuning): void {
+  const hero = present(world, HERO);
+  if (!world.hero || !hero) return;
+  if ('to' in cmd) {
+    const to = present(world, cmd.to);
+    if (to && to !== hero) world.hero.waveTo = to.id;
+  } else if (finite(cmd.x, cmd.y)) {
+    hero.goalX = clamp(cmd.x, 0, t.scene.width);
+    hero.goalY = clamp(cmd.y, 0, t.scene.height);
+    world.hero.waveTo = null;
+  }
+}
+
+/**
  * Applies one command. Returns [] and changes nothing for a command that is not an object, an
  * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point
  * outside the scene, a bridge outside water, an unknown tag or value, a pair naming one creature
- * twice, a fog radius of 0 or less, or a gust whose length squared is 0 or overflows. Only `blow`
- * draws from the PRNG.
+ * twice, a fog radius of 0 or less, a gust whose length squared is 0 or overflows, or a `walk` or
+ * `manner` in a world without a hero. Only `blow` draws from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   const raw: unknown = cmd; // commands cross the worker boundary, so check at runtime
@@ -155,9 +176,11 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       const a = present(world, cmd.a);
       const b = present(world, cmd.b);
       if (!a || !b || a === b) return [];
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
+      // Only the player moves the hero, so the other creature comes to it (ADR 0013 item 1).
+      const hero = [a, b].find((c) => isHero(world, c));
+      const [mx, my] = hero ? [hero.x, hero.y] : [(a.x + b.x) / 2, (a.y + b.y) / 2];
       for (const c of [a, b]) {
+        if (c === hero) continue;
         c.goalX = mx;
         c.goalY = my;
       }
@@ -185,6 +208,16 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       if (!c || c.dancing) return [];
       c.dancing = true;
       return [{ t: 'dance', who: c.id }];
+    }
+    case 'walk':
+      walk(world, cmd, t);
+      return [];
+    case 'manner': {
+      const { reply, gift } = cmd;
+      if (!world.hero || !REPLIES.includes(reply) || !GIFT_MOVES.includes(gift)) return [];
+      world.hero.reply = reply;
+      world.hero.gift = gift;
+      return [];
     }
     case 'overPoke':
       for (const c of world.creatures) {

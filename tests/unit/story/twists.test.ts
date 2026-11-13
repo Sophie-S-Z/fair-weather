@@ -17,11 +17,13 @@ const lite = (averageWarmth: number, friendPairs: number): WorldLite => ({
   bushes: [],
   ties: [],
   rumor: null,
+  hero: null,
 });
 type LiteCreature = WorldLite['creatures'][number];
 const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 const creature = (id: string, o: Partial<LiteCreature> = {}): LiteCreature => ({
   id,
+  speciesId: 'kith',
   x: 0,
   y: 0,
   state: 'wander',

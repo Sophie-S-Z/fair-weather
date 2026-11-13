@@ -10,6 +10,7 @@ const dials = { opener: 0.2, forgiveness: 0.5, memory: 0.6, ear: 0.7, wanderlust
 test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', () => {
   const creature = (id: string, state: 'wander' | 'away', gone = false): WorldLite['creatures'][number] => ({
     id,
+    speciesId: 'kith',
     x: 10,
     y: 20,
     state,
@@ -24,6 +25,7 @@ test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', ()
     creatures: [creature('pim', 'wander'), creature('krit', 'away'), creature('wisp', 'away', true)],
     ties: [{ a: 'krit', b: 'pim', ab: -0.3, ba: 0.6 }],
     rumor: null,
+    hero: null,
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: { averageWarmth: 0, friendPairs: 0 },

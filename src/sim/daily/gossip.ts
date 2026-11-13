@@ -2,6 +2,7 @@
 import type { Creature, SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
+import { isHero } from '../hero.ts';
 import { activeCreatures, friendsOf } from '../world.ts';
 
 /** True when `c` holds an opinion of `about` with this sign (ADR 0002 item 5). */
@@ -45,7 +46,8 @@ function compareShares(x: { about: string; sign: number }, y: { about: string; s
 }
 
 /**
- * Each active creature shares one opinion with each of its friends. All shares and adoptions
+ * Each active creature but the hero (ADR 0013 item 1) shares one opinion with each of its friends,
+ * and a listener weighs only its friends that are not the hero. All shares and adoptions
  * are decided from the opinions held before this dusk, then applied, so creature order does not
  * change who hears what. A listener that already holds the same sign keeps its own value.
  *
@@ -60,7 +62,7 @@ function compareShares(x: { about: string; sign: number }, y: { about: string; s
 export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
   const active = activeCreatures(world);
   const heard = new Map<Creature, { about: string; sign: 1 | -1 }[]>();
-  for (const sharer of active) {
+  for (const sharer of active.filter((c) => !isHero(world, c))) {
     for (const listener of friendsOf(world, sharer, t)) {
       const share = opinionToShare(world, sharer, listener, t);
       if (!share) continue;
@@ -75,7 +77,7 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
     const shares = heard.get(listener);
     if (!shares) continue;
     shares.sort(compareShares);
-    const friends = friendsOf(world, listener, t);
+    const friends = friendsOf(world, listener, t).filter((f) => !isHero(world, f));
     const done = new Set<string>();
     for (const { about, sign } of shares) {
       const holders = friends.filter((f) => holds(f, about, sign, t));

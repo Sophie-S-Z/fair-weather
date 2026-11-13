@@ -1,9 +1,11 @@
-// Meeting rules (spec 9.3, ADR 0002, ADR 0003; light boosts per ADR 0004 item 9).
+// Meeting rules (spec 9.3, ADR 0002, ADR 0003; light boosts per ADR 0004 item 9; the hero per
+// ADR 0013 item 2).
 import type { Behavior, BidReply, Creature, DiaryEntry, GiftMove, Side, SimEvent, World } from './types.ts';
 import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
+import { heroGift, heroMeetingBidder, heroReply } from './hero.ts';
 import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
 import { benchesOf, ensureTie, friendsOf, getTie, side, tieKey } from './world.ts';
 
@@ -193,6 +195,9 @@ function pushDiary(c: Creature, entries: DiaryEntry[]): void {
  *
  * Fog is perception only (ADR 0003 item 5): berries move for the real gift, while warmth,
  * slights, softness, and tightness follow what each side saw.
+ *
+ * With the hero, the hero's module decides who bids (heroMeetingBidder), the hero's reply, and its
+ * gift; the draws for those are still taken, so the order above holds.
  */
 export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning, rng: Rng): SimEvent[] {
   const draw = {
@@ -215,19 +220,22 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   // Bid.
   const oa = a.dials.opener;
   const ob = b.dials.opener;
-  const bidder = oa > ob ? a : ob > oa ? b : draw.bidder < 0.5 ? a : b;
+  const bidder = heroMeetingBidder(world, a, b) ?? (oa > ob ? a : ob > oa ? b : draw.bidder < 0.5 ? a : b);
   const replier = bidder === a ? b : a;
   const bidderSide = side(tie, bidder.id);
   const replierSide = side(tie, replier.id);
   const w = effectiveWarmth(replierSide.warmth, replier.opinions[bidder.id] ?? replierSide.warmth, t);
-  const reply = pickReply(w, replier, boost('toward', 'against'), draw.reply, t);
+  const reply = heroReply(world, replier) ?? pickReply(w, replier, boost('toward', 'against'), draw.reply, t);
   const replySeen: BidReply =
     reply === 'toward' && draw.replyFog < t.fog.bidFlipFactor * fog ? 'away' : reply;
 
   // Gifts.
   const giftBoost = boost('give', 'keep');
-  const bidderMove = pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
-  const replierMove = pickGift(world, replierSide, replier, first, giftBoost, draw.replierGift, t);
+  const bidderMove =
+    heroGift(world, bidder, t) ?? pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
+  const replierMove =
+    heroGift(world, replier, t) ??
+    pickGift(world, replierSide, replier, first, giftBoost, draw.replierGift, t);
   const misread = (m: GiftMove, d: number): GiftMove =>
     m === 'give' && d < t.fog.giftMisreadFactor * fog ? 'keep' : m;
   const bidderSeen = misread(bidderMove, draw.bidderGiftFog); // as the replier saw it

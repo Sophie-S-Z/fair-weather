@@ -1,8 +1,11 @@
 // The worker message protocol (ADR 0009). Types only, so every module may import it.
 import type {
+  BidReply,
   Command,
   CreatureState,
   Dials,
+  GiftMove,
+  HeroKind,
   Rect,
   Scenario,
   Shell,
@@ -16,6 +19,7 @@ import type { Deck } from '../sim/land.ts';
 export interface WorldLite {
   creatures: {
     id: string;
+    speciesId: string;
     x: number;
     y: number;
     state: CreatureState;
@@ -34,6 +38,18 @@ export interface WorldLite {
    * `about` has its sign and is at least opinion.holdAt in size, in id order.
    */
   rumor: { about: string; sign: 1 | -1; holders: string[] } | null;
+  /**
+   * The player's hero (ADR 0013 items 1 and 2), or null without one. `opinions` holds each other
+   * creature's opinion of the hero, only where it has one.
+   */
+  hero: {
+    kind: HeroKind;
+    name: string;
+    reply: BidReply;
+    gift: GiftMove;
+    keepsakes: string[];
+    opinions: Record<string, number>;
+  } | null;
   /** The light lens. */
   light: { x: number; y: number } | null;
   /** The fog the sim uses in each cell: the cell's fog, lessened at a cell center near a lantern. */

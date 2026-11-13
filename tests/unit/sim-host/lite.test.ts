@@ -63,3 +63,24 @@ test("lite carries the sim's own land: each water's bank, the decks, and the isl
   expect(lite.islets).toEqual([]);
   expect(toLite(createWorld(1, t, scenario), t).banks).toEqual([]);
 });
+
+test('lite carries each species, and the hero with what each other creature thinks of it', () => {
+  const plain = toLite(createWorld(1, t, scenario), t);
+  expect(plain.hero).toBeNull();
+  expect(plain.creatures.map((c) => c.speciesId)).toEqual(scenario.creatures.map((c) => c.speciesId));
+  const hero = { kind: 'mosscoat' as const, name: 'Wren', x: 400, y: 300, berries: 2, keepsakes: ['acorn'] };
+  const w = createWorld(1, t, { ...scenario, hero: { ...hero, rumor: null } });
+  get(w, 'pim').opinions.hero = 0.4;
+  get(w, 'krit').opinions.hero = -0.2;
+  const lite = toLite(w, t);
+  expect(lite.creatures.at(-1)).toMatchObject({ id: 'hero', speciesId: 'mosscoat' });
+  expect(lite.hero).toEqual({
+    kind: 'mosscoat',
+    name: 'Wren',
+    reply: 'toward',
+    gift: 'give',
+    keepsakes: ['acorn'],
+    opinions: { pim: 0.4, krit: -0.2 },
+  });
+  expect(lite.hero!.keepsakes).not.toBe(w.hero!.keepsakes);
+});

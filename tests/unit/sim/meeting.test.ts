@@ -13,6 +13,7 @@ import {
 import { createRng } from '../../../src/sim/rng.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Creature, Dials, Scenario, SimEvent, World } from '../../../src/sim/types.ts';
+import { HERO } from '../../../src/sim/types.ts';
 import { byId, createWorld, ensureTie, side } from '../../../src/sim/world.ts';
 import { scriptedRng } from './helpers.ts';
 
@@ -139,6 +140,67 @@ test('a meeting uses exactly seven draws', () => {
   const rng = draws({});
   resolveMeeting(p.w, p.a, p.b, t, rng);
   expect(rng.used()).toBe(7);
+});
+
+/** A local `a` (Opener 0.1, below the hero's 0.5) 10 from the hero, which has `berries`. */
+function heroPair(berries = 3) {
+  const w = makeWorld([{ id: 'a', x: 800, opener: 0.1 }], {
+    hero: { kind: 'lantern', name: 'Wren', x: 810, y: 450, berries, keepsakes: [], rumor: null },
+  });
+  return { w, a: byId(w, 'a')!, hero: byId(w, HERO)! };
+}
+
+test('at a meeting the hero did not wave at, the local bids and the hero answers with its manner', () => {
+  const p = heroPair();
+  p.w.hero!.reply = 'against';
+  p.w.hero!.gift = 'keep';
+  // Draws of 0 would make any local reply toward and give.
+  const ev = resolveMeeting(
+    p.w,
+    p.a,
+    p.hero,
+    t,
+    draws({ bidder: 0, reply: 0, bidderGift: 0, replierGift: 0 }),
+  );
+  expect(ev).toEqual([
+    { t: 'bid', from: 'a', to: HERO, reply: 'against', seenAs: 'against' },
+    { t: 'gift', from: 'a', to: HERO, move: 'give', seenAs: 'give' },
+    { t: 'gift', from: HERO, to: 'a', move: 'keep', seenAs: 'keep' },
+  ]);
+  // The hero's own side feels what it saw, by the normal rules.
+  expect(warmth(p.w, p.hero, p.a)).toBeCloseTo(t.warmth.giftReceived, 12);
+});
+
+test('the hero bids at a meeting with the creature it waved at, then the wave is spent', () => {
+  const p = heroPair();
+  p.a.dials.opener = 0.9; // above the hero's, so the local would bid without the wave
+  p.w.hero!.waveTo = 'a';
+  const ev = resolveMeeting(p.w, p.a, p.hero, t, draws({ reply: 0 }));
+  expect(bidOf(ev)).toEqual({ t: 'bid', from: HERO, to: 'a', reply: 'toward', seenAs: 'toward' });
+  expect(giftFrom(ev, HERO).move).toBe('give');
+  expect(p.w.hero!.waveTo).toBeNull();
+});
+
+test('a hero with fewer berries than gift.cost keeps, whatever its manner', () => {
+  const p = heroPair(0);
+  expect(giftFrom(resolveMeeting(p.w, p.a, p.hero, t, draws({ replierGift: 0 })), HERO).move).toBe('keep');
+});
+
+test("fog can misread the hero's gift as a keep", () => {
+  const p = heroPair();
+  setFog(p.w, 805, 450, 1);
+  const gift = giftFrom(resolveMeeting(p.w, p.a, p.hero, t, draws({ replierGiftFog: 0 })), HERO);
+  expect(gift).toMatchObject({ move: 'give', seenAs: 'keep' });
+});
+
+test('a meeting with the hero takes exactly seven draws', () => {
+  for (const waveTo of [null, 'a']) {
+    const p = heroPair();
+    p.w.hero!.waveTo = waveTo;
+    const rng = draws({});
+    resolveMeeting(p.w, p.a, p.hero, t, rng);
+    expect(rng.used()).toBe(7);
+  }
 });
 
 test('a non-toward reply is against only when effective warmth is below -0.4', () => {

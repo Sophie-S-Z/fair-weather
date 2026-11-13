@@ -1,5 +1,6 @@
-// World setup and tie helpers (ADRs 0002, 0004, 0005).
+// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1 and 8).
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
+import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { byCodeUnit, clamp } from './math.ts';
@@ -45,10 +46,35 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
   return c;
 }
 
+/**
+ * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, no shell. Each other
+ * creature with Ear at or below the rumor's strength starts with the rumor's value as its opinion
+ * of the hero (ADR 0013 item 8).
+ */
+function addHero(creatures: Creature[], hero: NonNullable<Scenario['hero']>): void {
+  const { rumor } = hero;
+  for (const c of creatures) {
+    if (rumor && c.dials.ear <= rumor.strength) c.opinions[HERO] = clamp(rumor.value, -1, 1);
+  }
+  const dial = 0.5;
+  creatures.push(
+    newCreature({
+      id: HERO,
+      speciesId: hero.kind,
+      name: hero.name,
+      x: hero.x,
+      y: hero.y,
+      berries: hero.berries,
+      dials: { opener: dial, forgiveness: dial, memory: dial, ear: dial, wanderlust: dial },
+    }),
+  );
+}
+
 export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): World {
   const fogW = Math.ceil(tuning.scene.width / tuning.fog.cellSize);
   const fogH = Math.ceil(tuning.scene.height / tuning.fog.cellSize);
   const creatures = scenario.creatures.map(newCreature);
+  if (scenario.hero) addHero(creatures, scenario.hero);
   const ids = new Set(creatures.map((c) => c.id));
   const ties = new Map<string, Tie>();
   const clampSide = (s: Side): Side => ({ warmth: clamp(s.warmth, -1, 1), slights: s.slights });
@@ -74,7 +100,11 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     rumors: [],
     boosts: [],
   };
-  // Only when set, so a world without land keeps the same keys (and hash).
+  // Only when set, so a world without land or a hero keeps the same keys (and hash).
+  if (scenario.hero) {
+    const { kind, keepsakes } = scenario.hero;
+    world.hero = { kind, reply: 'toward', gift: 'give', waveTo: null, keepsakes: [...keepsakes] };
+  }
   if (scenario.water) {
     world.water = scenario.water.map((r) => ({ ...r }));
     // No body starts over water: feet in a bank, off a deck and an islet, move just past it.

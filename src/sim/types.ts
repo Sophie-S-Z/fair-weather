@@ -6,6 +6,11 @@ export type CreatureState = 'wander' | 'meet' | 'sleep' | 'leave' | 'away';
 export type BidReply = 'toward' | 'away' | 'against';
 export type GiftMove = 'give' | 'keep';
 export type Behavior = 'toward' | 'against' | 'give' | 'keep';
+/** The six heroes the player may walk as (ADR 0013 item 1). */
+export const HERO_KINDS = ['lantern', 'kite', 'mosscoat', 'glassling', 'seedcarrier', 'bellchime'] as const;
+export type HeroKind = (typeof HERO_KINDS)[number];
+/** The hero's creature id (ADR 0013 item 1). */
+export const HERO = 'hero';
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -159,6 +164,11 @@ export interface World {
   rumorFirst?: true;
   /** Set only with the scenario's: a giver with mutual friends forgives as they do, when they forgive more (ADR 0012 item 16). */
   friendsForgive?: true;
+  /**
+   * The player's hero (ADR 0013 items 1 and 2), set only with the scenario's: its kind, its standing
+   * manner, the creature it waved at (`walk` with `to`) until they meet, and its keepsakes.
+   */
+  hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] };
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -173,7 +183,10 @@ export type Command =
   | { t: 'wake'; who: string }
   | { t: 'promptSkyBid'; who: string }
   | { t: 'overPoke' }
-  | { t: 'dance'; who: string };
+  | { t: 'dance'; who: string }
+  | { t: 'walk'; x: number; y: number }
+  | { t: 'walk'; to: string }
+  | { t: 'manner'; reply: BidReply; gift: GiftMove };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -214,4 +227,17 @@ export interface Scenario {
   ambientSkyBids?: true;
   rumorFirst?: true;
   friendsForgive?: true;
+  /**
+   * The player's hero, added as the last creature (ADR 0013 item 1). `rumor` is the reputation it
+   * brings from the last valley (ADR 0013 item 8), or null.
+   */
+  hero?: {
+    kind: HeroKind;
+    name: string;
+    x: number;
+    y: number;
+    berries: number;
+    keepsakes: string[];
+    rumor: { value: number; strength: number } | null;
+  };
 }

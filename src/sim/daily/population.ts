@@ -3,19 +3,23 @@ import type { SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import type { DailyRule } from './rule.ts';
+import { isHero } from '../hero.ts';
 import { clamp } from '../math.ts';
 import { activeCreatures, averageWarmth, friendCount, newCreature } from '../world.ts';
 
 /**
  * A creature with population.leaveHungryDusks hungry dusks in a row and fewer than
  * population.leaveMinFriends friends goes away and keeps its memory. Friend counts are read
- * before anyone leaves. A sleeper never leaves. No draws.
+ * before anyone leaves. A sleeper and the hero (ADR 0013 item 1) never leave. No draws.
  */
 export const leave: DailyRule = (world, t) => {
   const { leaveHungryDusks, leaveMinFriends } = t.population;
   const leaving = activeCreatures(world).filter(
     (c) =>
-      c.state !== 'sleep' && c.hungryDusks >= leaveHungryDusks && friendCount(world, c, t) < leaveMinFriends,
+      c.state !== 'sleep' &&
+      !isHero(world, c) &&
+      c.hungryDusks >= leaveHungryDusks &&
+      friendCount(world, c, t) < leaveMinFriends,
   );
   return leaving.map((c) => {
     c.state = 'away';

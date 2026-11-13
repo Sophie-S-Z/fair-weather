@@ -8,6 +8,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
   return {
     creatures: Object.entries(berries).map(([id, b]) => ({
       id,
+      speciesId: 'kith',
       x: 0,
       y: 0,
       state: 'wander' as const,
@@ -30,6 +31,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
     bushes: [],
     ties: [],
     rumor: null,
+    hero: null,
   };
 }
 

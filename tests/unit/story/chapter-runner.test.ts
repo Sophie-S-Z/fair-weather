@@ -117,6 +117,7 @@ function lite(
   return {
     creatures: Object.entries(berries).map(([id, b]) => ({
       id,
+      speciesId: 'kith',
       x: 0,
       y: 0,
       state: 'wander' as const,
@@ -140,6 +141,7 @@ function lite(
     bushes: [],
     ties: [],
     rumor: null,
+    hero: null,
   };
 }
 

@@ -1,5 +1,6 @@
 // Builds the world-lite snapshot (ADR 0009 item 4). Copies, so later steps do not change it.
 import type { World } from '../sim/types.ts';
+import { HERO } from '../sim/types.ts';
 import type { Tuning } from '../sim/tuning.ts';
 import type { WorldLite } from './protocol.ts';
 import { holds } from '../sim/daily/gossip.ts';
@@ -7,7 +8,7 @@ import { landOf } from '../sim/land.ts';
 import { fogAt } from '../sim/light.ts';
 import { friendPairs } from '../sim/metrics.ts';
 import { byCodeUnit } from '../sim/math.ts';
-import { averageWarmth } from '../sim/world.ts';
+import { averageWarmth, byId } from '../sim/world.ts';
 
 /** The latest rumor and the creatures that hold it (ADR 0012 item 2). */
 function lastRumor(w: World, tuning: Tuning): WorldLite['rumor'] {
@@ -36,11 +37,25 @@ function fogCells(w: World, tuning: Tuning): Float32Array {
   return cells;
 }
 
+/** The hero, with each other creature's opinion of it where it has one (ADR 0013 item 8). */
+function heroLite(w: World): WorldLite['hero'] {
+  const hero = byId(w, HERO);
+  if (!w.hero || !hero) return null;
+  const opinions: Record<string, number> = {};
+  for (const c of w.creatures) {
+    const v = c.opinions[HERO];
+    if (v !== undefined) opinions[c.id] = v;
+  }
+  const { kind, reply, gift, keepsakes } = w.hero;
+  return { kind, name: hero.name, reply, gift, keepsakes: [...keepsakes], opinions };
+}
+
 export function toLite(w: World, tuning: Tuning): WorldLite {
   const land = landOf(w, tuning);
   return {
     creatures: w.creatures.map((c) => ({
       id: c.id,
+      speciesId: c.speciesId,
       x: c.x,
       y: c.y,
       state: c.state,
@@ -55,6 +70,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       .sort(([x], [y]) => byCodeUnit(x, y))
       .map(([, tie]) => ({ a: tie.a, b: tie.b, ab: tie.ab.warmth, ba: tie.ba.warmth })),
     rumor: lastRumor(w, tuning),
+    hero: heroLite(w),
     light: w.fields.light ? { ...w.fields.light } : null,
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: fogCells(w, tuning) },
     structures: w.structures.map((s) => ({ ...s })),

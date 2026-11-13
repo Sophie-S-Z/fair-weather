@@ -5,7 +5,9 @@ import type { GiftMove, HeroKind } from '../../../src/sim/types.ts';
 import type { ActionLog } from '../../../src/story/action-log.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import {
+  CAPTION_LENGTH,
   JourneySchema,
+  characters,
   heroResult,
   journeyStart,
   kithDays,
@@ -164,6 +166,12 @@ describe('reputation (ADR 0013 item 8)', () => {
     expect(leaveValley(start, fen, lite, []).pages[0]?.stamp).toBe(stamp);
   });
 
+  test('a valley with no locals gives strength 0 and stamps avoided', () => {
+    const j = leaveValley(start, fen, liteOf({ locals: [], away: ['a'], opinions: { a: 0.9 } }), []);
+    expect(j.rumor).toEqual({ value: 0, strength: 0 });
+    expect(j.pages[0]?.stamp).toBe('avoided');
+  });
+
   test('a valley with no tie to the hero stamps avoided', () => {
     const lite = liteOf({ locals: ['a', 'b'], ties: [{ a: 'a', b: 'b', ab: 0.9, ba: 0.9 }] });
     expect(leaveValley(start, fen, lite, []).pages[0]?.stamp).toBe('avoided');
@@ -219,6 +227,10 @@ describe('the journey between valleys', () => {
     });
     expect(parseHero('kite:   ')).toEqual({ kind: 'kite', name: 'Kite-rider' });
     expect(parseHero(`mosscoat:  ${'x'.repeat(30)}  `)).toEqual({ kind: 'mosscoat', name: 'x'.repeat(24) });
+    // A space at the cut is trimmed, so heroResult and parseHero give the same name.
+    const spaced = `${'a'.repeat(23)} bcd`;
+    expect(heroResult('kite', spaced)).toBe(`kite:${'a'.repeat(23)}`);
+    expect(parseHero(heroResult('kite', spaced))).toEqual(parseHero(`kite:${spaced}`));
     expect(() => parseHero('dragon:Rook')).toThrow();
     expect(() => parseHero('Rook')).toThrow();
   });
@@ -250,5 +262,13 @@ describe('the journey between valleys', () => {
     expect(JourneySchema.parse(saved)).toEqual(j);
     expect(JourneySchema.parse(JSON.parse(JSON.stringify(start)))).toEqual(start);
     expect(() => JourneySchema.parse({ ...j, wisp: 'away' })).toThrow();
+    // The caption counts characters as the name does: 80 emoji pass, 81 do not.
+    const captioned = (caption: string): unknown => ({
+      ...j,
+      pages: j.pages.map((p) => ({ ...p, caption })),
+    });
+    expect(characters('🌧️'.repeat(80))).toHaveLength(80);
+    expect(() => JourneySchema.parse(captioned('🌧️'.repeat(CAPTION_LENGTH)))).not.toThrow();
+    expect(() => JourneySchema.parse(captioned('🌧️'.repeat(CAPTION_LENGTH + 1)))).toThrow();
   });
 });

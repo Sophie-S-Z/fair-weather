@@ -46,7 +46,16 @@ export const KITH_VALLEYS = ['fen', 'hollow', 'halcyon'] as const;
 
 const RECORD_LENGTH = 20;
 const NAME_LENGTH = 24;
-const CAPTION_LENGTH = 80;
+/** The longest caption, in characters (graphemes), that the journal and a save take. */
+export const CAPTION_LENGTH = 80;
+
+/**
+ * The characters of `text` as a reader counts them (graphemes, so no emoji or accent splits). The
+ * hero's name and the journal caption both count with it.
+ */
+export function characters(text: string): string[] {
+  return Array.from(new Intl.Segmenter().segment(text), (g) => g.segment);
+}
 
 // A Record over every hero kind, in HERO_KINDS order (story may not import sim values).
 const HERO_SET: Record<HeroKind, true> = {
@@ -87,7 +96,9 @@ export const JourneySchema = z.strictObject({
       said,
       keepsake: z.string().nullable(),
       postcard: z.enum(POSTCARDS).nullable(),
-      caption: z.string().max(CAPTION_LENGTH),
+      caption: z.string().refine((c) => characters(c).length <= CAPTION_LENGTH, {
+        message: `a caption has at most ${String(CAPTION_LENGTH)} characters`,
+      }),
     }),
   ),
   wisp: z.enum(['home', 'stay']).nullable(),
@@ -114,12 +125,11 @@ export function newJourney(
 }
 
 /**
- * The name trimmed of spaces and cut to 24 characters (graphemes, so no emoji or accent splits),
- * or the hero's own name when that leaves it empty.
+ * The name trimmed of spaces, cut to 24 characters, and trimmed again (so heroResult and
+ * parseHero agree), or the hero's own name when that leaves it empty.
  */
 function heroName(kind: HeroKind, name: string): string {
-  const chars = Array.from(new Intl.Segmenter().segment(name.trim()), (g) => g.segment);
-  const trimmed = chars.slice(0, NAME_LENGTH).join('');
+  const trimmed = characters(name.trim()).slice(0, NAME_LENGTH).join('').trim();
   return trimmed || (heroesJson.find((h) => h.id === kind)?.name ?? kind);
 }
 
@@ -234,7 +244,7 @@ export function kithDays(index: number): number {
   return Math.floor(days / n) + (index < days % n ? 1 : 0);
 }
 
-/** "What they say about you" (ADR 0013 item 8): how many hold the rumor, then what it says. */
+/** "What they say about you" (ADR 0013 item 14): how many hold the rumor, then what it says. */
 export function saying(s: { value: number; strength: number }): string {
   const { holdAt } = tuning.opinion;
   const { mostAt, someAt } = tuning.journal;

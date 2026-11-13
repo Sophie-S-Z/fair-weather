@@ -17,5 +17,6 @@
   "water": "#c6dce4",
   "full": ["#e8604c", "#f08a3c", "#f2c84b", "#7bb661", "#4f8fc0", "#8a63b8"],
   "land": "#ece6d2",
-  "sky": { "top": "#9fc0db", "horizon": "#f4ead2" }
+  "sky": { "top": "#9fc0db", "horizon": "#f4ead2" },
+  "ground": { "far": "#eee8dd", "near": "#e2c987" }
 }

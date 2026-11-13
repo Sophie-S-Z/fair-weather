@@ -16,6 +16,8 @@
   },
   "water": "#b9d6e2",
   "full": ["#e0573f", "#ef8f2f", "#b87400", "#6fae4f", "#3f86b8", "#8458b0"],
-  "land": "#e4ebd3",
-  "sky": { "top": "#b4d2e4", "horizon": "#fbf4df" }
+  "land": "#d6e2b8",
+  "sky": { "top": "#8fc0dd", "horizon": "#fbf4df" },
+  "ground": { "far": "#dbe6e6", "near": "#c2cd80" },
+  "sea": { "deep": "#4f98a3", "shallow": "#a9d9d2", "sand": "#efe2bd" }
 }

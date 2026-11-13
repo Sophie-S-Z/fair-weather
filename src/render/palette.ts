@@ -32,8 +32,15 @@ export const PaletteSchema = z.strictObject({
    * the scene to the horizon, which the accent tints. For a scene with depth.
    */
   sky: z.strictObject({ top: Hex, horizon: Hex }).optional(),
-  /** A valley's floor near the viewer, hazing toward the horizon; the page without it. */
+  /** A valley's floor, between its far and near `ground` (without them, near the viewer); the page without it. */
   land: Hex.optional(),
+  /**
+   * A valley's floor in depth: cooler, paler, and hazier at the horizon (`far`), `land` between,
+   * warmer and more saturated at the scene's foot (`near`).
+   */
+  ground: z.strictObject({ far: Hex, near: Hex }).optional(),
+  /** A sea valley's water, deep blue-green far out and a lighter tint in the shallows, and its sand. */
+  sea: z.strictObject({ deep: Hex, shallow: Hex, sand: Hex }).optional(),
   /** Reed beds: the back stems (darker and cooler), the front stems (lighter), and the cattail heads. */
   reeds: z.strictObject({ back: Hex, front: Hex, head: Hex }).optional(),
   /** A starling's dark, glossy body, and the sheen on its wing. */

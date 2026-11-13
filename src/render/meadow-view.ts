@@ -827,7 +827,7 @@ export function createMeadowView(
         // A valley's water is calm, with the sky in it.
         const surface = scene.depth
           ? (g: Graphics, r: (typeof next.water)[number]): void => {
-              drawWaterSurface(g, r, palette, w);
+              drawWaterSurface(g, r, scene, palette, w);
             }
           : undefined;
         drawLand(land, next.water, next.decks, next.islets, palette, w, scene, surface);

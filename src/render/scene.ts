@@ -77,6 +77,19 @@ export const SceneSchema = z.strictObject({
       near: z.number().positive(),
     })
     .optional(),
+  /**
+   * A sea valley's open sea (drawn only; the sim's water is the snapshot's): it meets the sky at
+   * `horizon` and laps the land at the depth horizon, the sun hangs over it at `sun` [x, y], and a
+   * strip of sand `shore` deep at the depth reference lies between land and water (narrower far
+   * off). With a sea, each hill is a headland or an island standing on its lower end.
+   */
+  sea: z
+    .strictObject({
+      horizon: z.number(),
+      shore: z.number().positive(),
+      sun: z.tuple([z.number(), z.number()]),
+    })
+    .optional(),
   benchSpots: z.array(Spot),
   cameras: z.record(
     z.string(),

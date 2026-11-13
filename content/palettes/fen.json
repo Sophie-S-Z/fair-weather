@@ -19,5 +19,6 @@
   "land": "#cdc8b6",
   "sky": { "top": "#7f86b2", "horizon": "#f0c3b0" },
   "reeds": { "back": "#5f6b4f", "front": "#b9a466", "head": "#6a4630" },
-  "plumage": { "body": "#2a2635", "sheen": "#6f8f7c" }
+  "plumage": { "body": "#2a2635", "sheen": "#6f8f7c" },
+  "ground": { "far": "#d9c4c3", "near": "#a49871" }
 }

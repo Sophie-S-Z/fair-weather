@@ -172,9 +172,24 @@ test("the Fen's starlings stand apart from its sky, its land, and its reeds in l
   const p = PaletteSchema.parse(fenPaletteJson);
   const body = p.plumage?.body ?? 0;
   const sky = skyOf(p);
-  for (const c of [sky.top, sky.horizon, p.land ?? p.background])
+  for (const c of [sky.top, sky.horizon, p.land ?? p.background, p.ground?.far ?? 0, p.ground?.near ?? 0])
     expect(contrast(body, c)).toBeGreaterThanOrEqual(3);
   expect(contrast(body, p.reeds?.back ?? 0)).toBeGreaterThanOrEqual(2);
+});
+
+test("each valley's ground is paler and cooler far off and warmer near, and ink reads on all of it", () => {
+  const channel = (c: number, shift: number): number => (c >> shift) & 0xff;
+  /** Red over blue: how warm a color is. */
+  const warmth = (c: number): number => channel(c, 16) - channel(c, 0);
+  for (const json of [fenPaletteJson, hollowPaletteJson, halcyonPaletteJson]) {
+    const p = PaletteSchema.parse(json);
+    const { far, near } = p.ground ?? { far: 0, near: 0 };
+    // Paler: the far ground stands further from ink than the near ground does.
+    expect(contrast(p.ink, far)).toBeGreaterThan(contrast(p.ink, near));
+    expect(warmth(near)).toBeGreaterThan(warmth(far));
+    // Creature outlines are ink, and must read on the nearest, darkest ground.
+    for (const c of [far, p.land ?? 0, near]) expect(contrast(p.ink, c)).toBeGreaterThanOrEqual(4.5);
+  }
 });
 
 test("each valley's scene stands its bench spots on clear ground, off the water and its bank", () => {
@@ -1258,12 +1273,106 @@ test("a valley's ground has a sky at its top, and its calm water has a faint ban
   const land = graphicsIn(app, 'land');
   expect(fillsOf(land).map((f) => f.color)).toContain(halcyonPalette.water);
   // One ink stroke only, the bank, and it is faint and thin (half the scenery's 6-unit line): a
-  // shore, not a table edge. No ripples.
+  // shore, not a table edge. No ink ripples: the water's ripples are light.
   const strokes = land.context.instructions
     .filter((i) => i.action === 'stroke')
     .map((i) => i.data.style as { color: number; alpha: number; width: number })
     .filter((st) => st.color === halcyonPalette.ink);
   expect(strokes).toEqual([expect.objectContaining({ alpha: FAR_ALPHA, width: 3 })]);
+});
+
+/** True when each channel of `a` is within `d` of `b`'s. */
+const closeTo = (a: number, b: number, d: number): boolean =>
+  [16, 8, 0].every((s) => Math.abs(((a >> s) & 0xff) - ((b >> s) & 0xff)) <= d);
+
+test("each valley's floor runs from its far color at the horizon to its near color at the foot", () => {
+  const valleys = [
+    [fenScene, fenPalette],
+    [hollowScene, hollowPalette],
+    [halcyonScene, halcyonPalette],
+  ] as const;
+  for (const [s, p] of valleys) {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, p, options);
+    const world: WorldLite = { ...snapshot([]), structures: [] };
+    view.update(world, world, 1, settings);
+    const horizon = s.depth?.horizon ?? 0;
+    // The floor's bands span the scene; the first lies at the horizon and the last at the foot.
+    const floor = fillsOf(graphicsIn(app, 'ground')).filter(
+      (f) => f.alpha === 1 && f.minX === 0 && f.maxX === s.width && f.minY >= horizon,
+    );
+    const first = floor.find((f) => f.minY === horizon);
+    const last = floor.filter((f) => f.maxY >= s.height).at(-1);
+    expect(closeTo(first?.color ?? 0, p.ground?.far ?? 1, 3)).toBe(true);
+    expect(closeTo(last?.color ?? 0, p.ground?.near ?? 1, 3)).toBe(true);
+    // Far bands are thinner than near ones: the far ground lies foreshortened.
+    expect((first?.maxY ?? 0) - (first?.minY ?? 0)).toBeLessThan((last?.maxY ?? 0) - (last?.minY ?? 0));
+  }
+});
+
+test('grass on a valley floor is drawn bolder, darker, and less faint toward the foot', () => {
+  // In the Hollow every stroke on the ground but the grass is ink (hills, tufts, lanes, squares).
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, hollowScene, rigs, hollowPalette, options);
+  const world: WorldLite = { ...snapshot([]), structures: [] };
+  view.update(world, world, 1, settings);
+  const grass = graphicsIn(app, 'ground')
+    .context.instructions.filter((i) => i.action === 'stroke')
+    .map((i) => ({
+      style: i.data.style,
+      top: i.data.path.bounds.minY,
+    }))
+    .filter((st) => st.style.color !== hollowPalette.ink);
+  expect(grass.length).toBeGreaterThanOrEqual(3);
+  const luma = (c: number): number => ((c >> 16) & 0xff) + ((c >> 8) & 0xff) + (c & 0xff);
+  // Group by group, from the horizon down.
+  for (let i = 1; i < grass.length; i++) {
+    const [far, near] = [grass[i - 1], grass[i]];
+    expect(near?.top ?? 0).toBeGreaterThan(far?.top ?? 0);
+    expect(near?.style.width ?? 0).toBeGreaterThan(far?.style.width ?? 0);
+    expect(near?.style.alpha ?? 0).toBeGreaterThan(far?.style.alpha ?? 0);
+    expect(luma(near?.style.color ?? 0)).toBeLessThan(luma(far?.style.color ?? 0));
+  }
+});
+
+test("Halcyon's sea runs deep at its horizon to the shallows at its shore, under the sun, with sand on both shores", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
+  const world: WorldLite = { ...snapshot([]), structures: [], water: [{ x: 0, y: 800, w: 1600, h: 100 }] };
+  view.update(world, world, 1, settings);
+  const sea = halcyonScene.sea;
+  const colors = halcyonPalette.sea;
+  const shore = halcyonScene.depth?.horizon ?? 0;
+  if (!sea || !colors) throw new Error('Halcyon has a sea');
+  const ground = fillsOf(graphicsIn(app, 'ground'));
+  // The open sea's bands, from its horizon down to the shore: deep far off, the shallows' tint near.
+  const water = ground.filter(
+    (f) => f.alpha === 1 && f.minX === 0 && f.maxX === 1600 && f.minY >= sea.horizon && f.maxY <= shore + 1,
+  );
+  expect(closeTo(water.find((f) => f.minY === sea.horizon)?.color ?? 0, colors.deep, 3)).toBe(true);
+  expect(closeTo(water.at(-1)?.color ?? 0, colors.shallow, 6)).toBe(true);
+  // A pale sun disc over the sea, in a glow.
+  const [sx, sy] = sea.sun;
+  const atSun = ground.filter(
+    (f) => Math.abs((f.minX + f.maxX) / 2 - sx) < 1 && Math.abs((f.minY + f.maxY) / 2 - sy) < 1,
+  );
+  expect(atSun.some((f) => f.alpha === 1)).toBe(true);
+  expect(atSun.filter((f) => f.alpha < 1).length).toBeGreaterThan(4);
+  // Ripples on the far sea: long light lines, closer together toward its horizon.
+  const ripples = graphicsIn(app, 'ground')
+    .context.instructions.filter((i) => i.action === 'stroke')
+    .map((i) => i.data.path.bounds)
+    .filter((b) => b.minY === b.maxY && b.minY > sea.horizon && b.minY < shore)
+    .map((b) => b.minY);
+  expect(ripples.length).toBeGreaterThanOrEqual(4);
+  for (let i = 2; i < ripples.length; i++)
+    expect((ripples[i] ?? 0) - (ripples[i - 1] ?? 0)).toBeGreaterThan(
+      (ripples[i - 1] ?? 0) - (ripples[i - 2] ?? 0),
+    );
+  // Sand between the land and the water: on the far shore below the sea, and above the near water.
+  expect(ground.some((f) => f.color === colors.sand && f.alpha === 1 && f.minY >= shore)).toBe(true);
+  const land = fillsOf(graphicsIn(app, 'land'));
+  expect(land.some((f) => f.color === colors.sand && f.alpha === 1 && f.maxY <= 800)).toBe(true);
 });
 
 test("the Fen's sky band lies above its far hills", () => {

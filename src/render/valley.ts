@@ -1,7 +1,8 @@
 // The Part 2 valleys' ground in color and depth (spec 7.3, 11.1): a sky at the valley's hour, far
-// hills fading into it, land that hazes toward the horizon, still pools, paved lanes and squares,
-// and reed beds whose stems stand behind and before the birds in them. Every mark is drawn in code
-// (ADR 0010). Part 1's meadow has no depth and keeps its own ground.
+// hills fading into it, a sea valley's sun and open sea, land from hazy far off to rich near with
+// grass thickening toward the foot, still pools, paved lanes and squares, and reed beds whose stems
+// stand behind and before the birds in them. Every mark is drawn in code (ADR 0010). Part 1's
+// meadow has no depth and keeps its own ground.
 import type { Graphics } from 'pixi.js';
 import type { Rect } from '../sim/types.ts';
 import { inkStroke, smoothClosed, smoothLine, TUFT_ALPHA } from './ink.ts';
@@ -14,11 +15,12 @@ const ACCENT_SKY = 0.22;
 const ACCENT_WATER = 0.12;
 /** Bands per gradient: fine enough that no step shows. */
 const SKY_BANDS = 32;
-const LAND_BANDS = 28;
-/** The land hazes toward the horizon color this much at the horizon, and is clear this far below it. */
+const LAND_BANDS = 40;
+/**
+ * Without a ground of its own, the floor hazes this far toward the horizon's color at the horizon,
+ * and darkens this far toward ink at the scene's foot, so the near ground is heavier.
+ */
 const LAND_HAZE = 0.5;
-const HAZE_DEPTH = 320;
-/** The land darkens this much toward ink at the scene's foot, so the near ground is heavier. */
 const NEAR_SHADE = 0.2;
 /** Hills: the nearest is mixed this far from the hill tone toward the horizon, each farther one more. */
 const HILL_NEAR_FADE = 0.3;
@@ -31,7 +33,7 @@ const HILL_TONE = 0.18;
 /** Hill outlines: ink at this alpha for the nearest, fainter for farther ones. */
 const HILL_LINE_ALPHA = 0.3;
 
-/** The valley floor's color near the viewer: the palette's land, or the page. */
+/** The valley floor's middle color: the palette's land, or the page. */
 const landOf = (palette: Palette): number => palette.land ?? palette.background;
 
 /** The sky's top and its horizon, the horizon tinted by the accent; the page without a sky. */
@@ -40,9 +42,10 @@ export function skyOf(palette: Palette): { top: number; horizon: number } {
   return { top: sky.top, horizon: mix(sky.horizon, palette.accent, ACCENT_SKY) };
 }
 
-/** Horizontal bands from y0 to y1, each the color `at(u)` for u from 0 at y0 to 1 at y1. */
+/** Horizontal bands from y0 to y1 across [x, x + width], each the color `at(u)` for u from 0 at y0 to 1 at y1. */
 function bands(
   g: Graphics,
+  x: number,
   width: number,
   y0: number,
   y1: number,
@@ -51,7 +54,7 @@ function bands(
 ): void {
   const step = (y1 - y0) / n;
   // Each band overlaps the next by a unit, so no seam shows between them.
-  for (let i = 0; i < n; i++) g.rect(0, y0 + i * step, width, step + 1).fill(at((i + 0.5) / n));
+  for (let i = 0; i < n; i++) g.rect(x, y0 + i * step, width, step + 1).fill(at((i + 0.5) / n));
 }
 
 /** A small seeded random stream in [0, 1), so a bed grows the same stems on every load. */
@@ -315,38 +318,279 @@ function drawTuft(g: Graphics, x: number, y: number, s: number): void {
     .lineTo(x + 9 * s, y - 8 * s);
 }
 
+/** The floor's colors: hazy at the horizon (`far`), the palette's land, and rich at the foot (`near`). */
+function groundOf(palette: Palette): { far: number; mid: number; near: number } {
+  const mid = landOf(palette);
+  const own = palette.ground ?? {
+    far: mix(mid, skyOf(palette).horizon, LAND_HAZE),
+    near: mix(mid, palette.ink, NEAR_SHADE),
+  };
+  return { far: own.far, mid, near: own.near };
+}
+
+/**
+ * The floor's color at depth u: 0 at the horizon, 1 at the foot, u the square root of the share of
+ * the way down, so the color turns quickly over the far ground, which lies foreshortened.
+ */
+function groundAt(c: ReturnType<typeof groundOf>, u: number): number {
+  return u < 0.5 ? mix(c.far, c.mid, 2 * u) : mix(c.mid, c.near, 2 * u - 1);
+}
+
+/** Grass marks over a valley's floor: this many in all, in this many groups by depth. */
+const GRASS_MARKS = 320;
+const GRASS_GROUPS = 5;
+/** The farthest this many groups are low sweeps; the rest are tufts of these blades [tip x, height]. */
+const FLAT_GROUPS = 2;
+const BLADES: readonly (readonly [number, number])[] = [
+  [-9, 8],
+  [-3, 13],
+  [2, 14],
+  [8, 9],
+];
+/** Grass is the floor's color this far toward the leaf, then toward ink by its depth. */
+const GRASS_LEAF = 0.4;
+
+/**
+ * Grass over the floor from `top` to the foot, the same on every load: more marks toward the foot,
+ * each larger there, and each group darker and less faint than the one above it, so the near
+ * ground is thick with grass and the far ground fades into the haze.
+ */
+function drawGrass(g: Graphics, scene: SceneData, top: number, palette: Palette, w: number): void {
+  const { width, height } = scene;
+  const horizon = scene.depth?.horizon ?? top;
+  const c = groundOf(palette);
+  const rnd = stream(width * 31 + height * 7 + top);
+  const groups: number[][] = Array.from({ length: GRASS_GROUPS }, () => []);
+  for (let i = 0; i < GRASS_MARKS; i++) {
+    // Skewed toward the foot: more marks nearer the viewer.
+    const v = rnd() ** 0.6;
+    groups[Math.min(GRASS_GROUPS - 1, Math.floor(v * GRASS_GROUPS))]?.push(
+      width * rnd(),
+      top + (height - top) * v,
+      rnd(),
+    );
+  }
+  groups.forEach((marks, k) => {
+    const v = (k + 0.5) / GRASS_GROUPS;
+    for (let i = 0; i + 2 < marks.length; i += 3) {
+      const [x, y, r] = [marks[i] ?? 0, marks[i + 1] ?? 0, marks[i + 2] ?? 0];
+      const s = 0.4 + 0.9 * ((y - top) / (height - top));
+      if (k < FLAT_GROUPS) {
+        // Far off, grass is a low sweep along the ground.
+        const len = (14 + 10 * r) * s;
+        g.moveTo(x - len / 2, y).quadraticCurveTo(x, y - 3 * s, x + len / 2, y);
+        continue;
+      }
+      // Near, a tuft: blades from one root, curving out, the middle ones tallest.
+      for (const [dx, h] of BLADES) {
+        const tip = h * s * (0.8 + 0.4 * r);
+        g.moveTo(x, y).quadraticCurveTo(x + dx * s * 0.3, y - tip * 0.6, x + dx * s, y - tip);
+      }
+    }
+    const y = top + (height - top) * v;
+    const tone = groundAt(c, Math.sqrt(Math.max(0, (y - horizon) / (height - horizon))));
+    g.stroke({
+      color: mix(mix(tone, palette.leaf, GRASS_LEAF), palette.ink, 0.3 + 0.25 * v),
+      width: w * (0.15 + 0.2 * v),
+      alpha: 0.2 + 0.45 * v,
+      cap: 'round',
+      join: 'round',
+    });
+  });
+}
+
+/** The sun's glow: this many rings out to this radius, each this faint, about a disc this wide. */
+const SUN_RINGS = 24;
+const SUN_GLOW = 340;
+const SUN_RING_ALPHA = 0.06;
+const SUN_DISC = 16;
+/** The sun's light: white, this far toward the accent (Halcyon's soft white-gold). */
+const SUN_GOLD = 0.3;
+const sunOf = (palette: Palette): number => mix(palette.paper, palette.accent, SUN_GOLD);
+
+/** The sun at (x, y): a pale disc in a soft glow that fades out over the sky. */
+function drawSun(g: Graphics, [x, y]: readonly [number, number], palette: Palette): void {
+  const sun = sunOf(palette);
+  for (let i = 0; i < SUN_RINGS; i++) {
+    const k = (SUN_RINGS - i) / SUN_RINGS;
+    g.circle(x, y, SUN_DISC + (SUN_GLOW - SUN_DISC) * k * k).fill({ color: sun, alpha: SUN_RING_ALPHA });
+  }
+  g.circle(x, y, SUN_DISC).fill(mix(palette.paper, palette.accent, SUN_GOLD / 3));
+}
+
+/** A sea's colors: the palette's own, or its water with the sky in it; and the glitter's light. */
+function seaOf(palette: Palette): { deep: number; shallow: number; sand: number; glint: number } {
+  const water = waterOf(palette);
+  const own = palette.sea ?? {
+    deep: water.near,
+    shallow: water.far,
+    sand: mix(landOf(palette), palette.warmth, 0.6),
+  };
+  return { ...own, glint: mix(palette.paper, palette.accent, SUN_GOLD / 2) };
+}
+
+/**
+ * The sun's glow mirrored in calm water under x, from y0 (far) to y1 (near): a soft column that
+ * widens from `w0` to `w1`, and glitter on it, rows of short bright dashes that lie closer
+ * together far off and grow longer near.
+ */
+function drawSunPath(
+  g: Graphics,
+  x: number,
+  [y0, y1]: readonly [number, number],
+  [w0, w1]: readonly [number, number],
+  palette: Palette,
+  w: number,
+): void {
+  const sun = sunOf(palette);
+  const n = 12;
+  const step = (y1 - y0) / n;
+  for (let i = 0; i < n; i++) {
+    const half = (w0 + ((w1 - w0) * (i + 0.5)) / n) / 2;
+    for (const k of [1, 0.8, 0.6, 0.4, 0.2])
+      g.rect(x - half * k, y0 + i * step, 2 * half * k, step + 0.5).fill({ color: sun, alpha: 0.08 });
+  }
+  const rnd = stream(x * 7 + y0 * 13 + y1);
+  const rows = Math.max(3, Math.round((y1 - y0) / 6));
+  for (let j = 0; j < rows; j++) {
+    const u = ((j + 0.5) / rows) ** 1.5;
+    const y = y0 + (y1 - y0) * u;
+    const half = (w0 + (w1 - w0) * u) / 2;
+    const dashes = 2 + Math.floor(3 * rnd());
+    for (let d = 0; d < dashes; d++) {
+      const cx = x + (2 * rnd() - 1) * half * 0.75;
+      const len = (5 + 22 * u) * (0.6 + 0.8 * rnd()) * (w0 / 60) ** 0.3;
+      g.moveTo(cx - len / 2, y).lineTo(cx + len / 2, y);
+    }
+  }
+  g.stroke({ color: seaOf(palette).glint, width: w * 0.35, alpha: 0.9, cap: 'round' });
+}
+
+/**
+ * A few long, faint ripple lines across calm water in `r`, closer together toward its far (top)
+ * edge and thinner there, broken into long runs with gaps.
+ */
+function drawRipples(g: Graphics, r: Rect, n: number, color: number, w: number): void {
+  const rnd = stream(r.x * 3 + r.y * 11 + r.h);
+  for (let k = 0; k < n; k++) {
+    const u = ((k + 0.6) / n) ** 1.7;
+    const y = r.y + r.h * u;
+    let x = r.x - 80 * rnd();
+    while (x < r.x + r.w) {
+      const len = r.w * (0.12 + 0.22 * rnd());
+      g.moveTo(Math.max(r.x, x), y).lineTo(Math.min(r.x + r.w, x + len), y);
+      x += len + 40 + 160 * rnd();
+    }
+    g.stroke({ color, width: w * (0.12 + 0.2 * u), alpha: 0.35 + 0.25 * u, cap: 'round' });
+  }
+}
+
+/**
+ * A strip of sand `depth` deep between land and water across [x, x + width], from the waterline at
+ * y toward the land (`toward` 1 down, -1 up): dry sand that fades into the land over its outer
+ * part, wet sand darker at the water, and a thin foam line on the waterline.
+ */
+function drawShore(
+  g: Graphics,
+  x: number,
+  width: number,
+  y: number,
+  depth: number,
+  toward: 1 | -1,
+  palette: Palette,
+): void {
+  const c = seaOf(palette);
+  /** The band from `a` to `b` units away from the waterline, toward the land, as [top y, height]. */
+  const band = (a: number, b: number): [number, number] => [toward > 0 ? y + a : y - b, b - a];
+  const solid = depth * 0.6;
+  const [sy, sh] = band(0, solid);
+  g.rect(x, sy, width, sh).fill(c.sand);
+  const fade = 5;
+  for (let i = 0; i < fade; i++) {
+    const [fy, fh] = band(solid + ((depth - solid) * i) / fade, solid + ((depth - solid) * (i + 1)) / fade);
+    g.rect(x, fy, width, fh + 0.5).fill({ color: c.sand, alpha: 1 - (i + 0.5) / fade });
+  }
+  const [wy, wh] = band(0, depth * 0.22);
+  g.rect(x, wy, width, wh).fill(mix(c.sand, c.deep, 0.22));
+  g.rect(x, y - 0.6, width, 1.2).fill({ color: palette.paper, alpha: 0.8 });
+}
+
+/** The far sea's ripples, and the near water's. */
+const FAR_RIPPLES = 6;
+const NEAR_RIPPLES = 5;
+/** The sun's path is this wide at the sea's horizon and at its shore, and across the near water. */
+const PATH_FAR: readonly [number, number] = [50, 190];
+const PATH_NEAR: readonly [number, number] = [300, 380];
+/** The sand narrows toward the horizon with the square of the depth, as a lane does. */
+const shoreAt = (scene: SceneData, sea: NonNullable<SceneData['sea']>, y: number): number =>
+  sea.shore * depthAt(scene, y) ** 2;
+
+/**
+ * The open sea from its horizon to the shore at `shoreline`: deep blue-green far out to the
+ * shallows' tint at the shore, the sun's glow mirrored down it, ripple lines closer together
+ * toward the horizon, and a crisp horizon line.
+ */
+function drawFarSea(
+  g: Graphics,
+  scene: SceneData,
+  sea: NonNullable<SceneData['sea']>,
+  shoreline: number,
+  palette: Palette,
+  w: number,
+): void {
+  const c = seaOf(palette);
+  const r = { x: 0, y: sea.horizon, w: scene.width, h: shoreline - sea.horizon };
+  bands(g, 0, r.w, r.y, shoreline, 16, (u) => mix(c.deep, c.shallow, u ** 1.4));
+  drawSunPath(g, sea.sun[0], [r.y, shoreline], PATH_FAR, palette, w);
+  drawRipples(g, r, FAR_RIPPLES, mix(c.shallow, palette.paper, 0.55), w);
+  g.rect(0, r.y - 0.75, r.w, 1.5).fill(mix(c.deep, palette.ink, 0.25));
+}
+
 /**
  * A valley's ground, the layer behind everything, for a scene with depth: the sky from its top to
- * the horizon, the far hills filled in a tone that fades toward the horizon's color the farther
- * they are (aerial perspective), the land hazed near the horizon and heavier near the foot, then
- * pools, lanes, squares, tufts, and each reed bed's floor and back stems.
+ * the horizon (and a sea valley's sun and open sea), the far hills filled in a tone that fades
+ * toward the horizon's color the farther they are (aerial perspective), the floor from hazy far
+ * off to rich near, grass that thickens toward the foot, then pools, lanes, squares, tufts, and
+ * each reed bed's floor and back stems.
  */
 export function drawValleyGround(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
   const depth = scene.depth;
   if (!depth) return;
   const { width, height } = scene;
   const horizon = depth.horizon;
+  const sea = scene.sea;
   const sky = skyOf(palette);
   g.clear().rect(0, 0, width, height).fill(palette.background);
-  bands(g, width, 0, horizon + 2, SKY_BANDS, (u) => mix(sky.top, sky.horizon, u * u));
-  const land = landOf(palette);
-  const haze = mix(land, sky.horizon, LAND_HAZE);
-  bands(g, width, horizon, horizon + HAZE_DEPTH, LAND_BANDS, (u) => mix(haze, land, u));
-  const shade = mix(land, palette.ink, NEAR_SHADE);
-  bands(g, width, horizon + HAZE_DEPTH, height, LAND_BANDS, (u) => mix(land, shade, u));
+  const skyline = sea ? sea.horizon : horizon;
+  bands(g, 0, width, 0, skyline + 2, SKY_BANDS, (u) => mix(sky.top, sky.horizon, u * u));
+  if (sea) drawSun(g, sea.sun, palette);
+  // The floor in bands that lie closer together far off, so each step of color is as small.
+  const c = groundOf(palette);
+  const range = height - horizon;
+  for (let i = 0; i < LAND_BANDS; i++) {
+    const y0 = horizon + range * (i / LAND_BANDS) ** 2;
+    const y1 = horizon + range * ((i + 1) / LAND_BANDS) ** 2;
+    g.rect(0, y0, width, y1 - y0 + 1).fill(groundAt(c, (i + 0.5) / LAND_BANDS));
+  }
+  if (sea) drawFarSea(g, scene, sea, horizon, palette, w);
   const tone = mix(mix(palette.leaf, sky.top, 0.5), palette.ink, HILL_TONE);
   const last = scene.hills.length - 1;
   scene.hills.forEach((hill, i) => {
-    // The first hill is the farthest.
+    // The first hill is the farthest. Over a sea, a hill stands on its lower end: a headland
+    // that runs down to the shore, or an island on the sea's horizon.
     const fade = Math.min(0.9, HILL_NEAR_FADE + HILL_FADE_STEP * (last - i));
     const n = hill.length;
+    const foot = sea ? Math.max(hill[1] ?? 0, hill[n - 1] ?? 0) : horizon + 2;
     smoothLine(g, hill)
-      .lineTo(hill[n - 2] ?? width, horizon + 2)
-      .lineTo(hill[0] ?? 0, horizon + 2)
+      .lineTo(hill[n - 2] ?? width, foot)
+      .lineTo(hill[0] ?? 0, foot)
       .closePath()
       .fill(mix(tone, sky.horizon, fade));
     smoothLine(g, hill).stroke(inkStroke(palette, w * 0.5, HILL_LINE_ALPHA * (1 - fade / 2)));
   });
+  const shore = sea ? shoreAt(scene, sea, horizon) : 0;
+  if (sea) drawShore(g, 0, width, horizon, shore, 1, palette);
+  drawGrass(g, scene, horizon + shore, palette, w);
   for (const pool of scene.pools) drawPool(g, pool, palette, w);
   for (const lane of scene.lanes) drawLane(g, lane, scene, palette, w);
   for (const square of scene.squares) drawSquare(g, square, palette, w);
@@ -358,31 +602,17 @@ export function drawValleyGround(g: Graphics, scene: SceneData, palette: Palette
   }
 }
 
-/** The shore's soft reflection reaches this far into calm water, in scene units. */
-const SHORE_REFLECTION = 22;
-
 /**
- * Calm water for a scene with depth, painted over a water rectangle after its fill: the sky's
- * horizon glow at its far (top) edge deepening to the sky's top color near, the shore's soft
- * reflection just under the far bank, and soft light streaks across it, a still sky in it.
+ * Calm water for a scene with depth, painted over a water rectangle after its fill: the shallows'
+ * light tint at its far (top) edge, by the shore, deepening toward the viewer, ripple lines closer
+ * together far off, and in a sea valley the sun's glitter path and a strip of sand above it,
+ * between the land and the water (the bank's faint line still shows at the waterline).
  */
-export function drawWaterSurface(g: Graphics, r: Rect, palette: Palette, w: number): void {
-  const water = waterOf(palette);
-  const n = 16;
-  const step = r.h / n;
-  for (let i = 0; i < n; i++)
-    g.rect(r.x, r.y + i * step, r.w, step + 1).fill(mix(water.far, water.near, (i + 0.5) / n));
-  const shore = mix(landOf(palette), palette.leaf, 0.5);
-  const m = 6;
-  const reach = Math.min(SHORE_REFLECTION, r.h / 2);
-  for (let i = 0; i < m; i++)
-    g.rect(r.x, r.y + (i * reach) / m, r.w, reach / m + 1).fill({ color: shore, alpha: 0.5 * (1 - i / m) });
-  const streaks = stream(r.x * 31 + r.y * 17 + r.w);
-  for (let i = 0; i < Math.round(r.w / 60); i++) {
-    const y = r.y + r.h * (0.12 + 0.8 * streaks() ** 1.5);
-    const x = r.x + r.w * streaks();
-    const len = (30 + 90 * streaks()) * (1 - (y - r.y) / r.h / 2);
-    g.moveTo(x - len / 2, y).lineTo(x + len / 2, y);
-  }
-  g.stroke({ color: water.glint, width: w * 0.4, alpha: 0.75, cap: 'round' });
+export function drawWaterSurface(g: Graphics, r: Rect, scene: SceneData, palette: Palette, w: number): void {
+  const c = seaOf(palette);
+  bands(g, r.x, r.w, r.y, r.y + r.h, 16, (u) => mix(c.shallow, c.deep, 0.55 * u));
+  const sea = scene.sea;
+  if (sea) drawSunPath(g, sea.sun[0], [r.y, r.y + r.h], PATH_NEAR, palette, w);
+  drawRipples(g, r, NEAR_RIPPLES, mix(c.shallow, palette.paper, 0.6), w);
+  if (sea) drawShore(g, r.x, r.w, r.y - w / 4, shoreAt(scene, sea, r.y), -1, palette);
 }

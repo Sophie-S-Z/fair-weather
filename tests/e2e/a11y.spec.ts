@@ -692,7 +692,12 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   const scene = page.getByRole('application', { name: 'The meadow' });
   await expect(scene).toBeFocused();
   await expect(page.locator('.beat-line')).toContainText('Starlings sit in the reeds');
-  // Walk: Tab to Tove, then W waves, so the hero walks to her bed; then Join (3) and Enter.
+  // Walk: Tab to Tove, then W waves, so the hero walks to her bed; then Join (3) and Enter. Space
+  // pauses while Tab looks for Tove among the starlings: under load the Tabs can take longer than
+  // the 20 s to dusk at ?fast=20, when Tove may fly without the hero and the card takes the keys.
+  const pause = page.getByRole('button', { name: 'Pause' });
+  await page.keyboard.press(' ');
+  await expect(pause).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('1');
   const picked = page.getByRole('status').filter({ hasText: /Picked: Tove/ });
   for (let i = 0; i < 60 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
@@ -700,6 +705,8 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   await page.keyboard.press('w');
   await page.keyboard.press('3');
   await page.keyboard.press('Enter');
+  await page.keyboard.press(' ');
+  await expect(pause).toHaveAttribute('aria-pressed', 'false');
   const card = page.getByRole('dialog', { name: 'A postcard home' });
   await expect(card).toBeVisible({ timeout: 240_000 });
   await expect(card).toContainText('Which postcard will you send home?');
@@ -717,6 +724,32 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   await expect(page.getByRole('heading', { level: 1, name: 'Hearsay Hollow' })).toBeVisible({
     timeout: 30_000,
   });
+});
+
+// M3.16: each valley's first screen after the Fen, reached by skipping, and the end of the journey.
+test('the Hollow, Halcyon, and the homecoming first screens and the end have no serious axe issues', async ({
+  page,
+}) => {
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.getByRole('button', { name: /^Wake as / }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  // Each valley's first screen is in once its intro line shows (content/ink).
+  for (const [name, intro] of [
+    ['Hearsay Hollow', 'The press runs by the square'],
+    ['Halcyon', 'A calm meadow lies over a mirror sea'],
+    ['The Homecoming', 'You walk back over the ridge'],
+  ] as const) {
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+    await expect(page.locator('.beat-line')).toContainText(intro);
+    expect(await seriousViolations(page)).toEqual([]);
+  }
+  // A skipped journey still ends with its sixth verse, and The End takes focus.
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'The End' })).toBeFocused();
+  await expect(page.getByRole('heading', { level: 2, name: 'The Sky Came Down' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 /** Story lines, the status lines, and every control: each fully on screen and on top at its middle. */

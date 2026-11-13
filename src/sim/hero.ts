@@ -3,6 +3,7 @@
 import type { BidReply, Creature, GiftMove, World } from './types.ts';
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
+import { dist2 } from './math.ts';
 import { byId } from './world.ts';
 
 /** True when `c` is the hero of a world that has one. */
@@ -44,17 +45,25 @@ export function stopHero(world: World, hero: Creature): void {
 }
 
 /**
- * While the hero follows a creature it waved at, its goal is that creature's spot; once that
- * creature is away, the hero stops. Otherwise its goal stays where the player walked it.
+ * Aims the hero for this tick and returns whether it should steer. While it follows a creature it
+ * waved at, its goal is that creature's spot; once that creature is away, the hero stops.
+ * Otherwise its goal stays where the player walked it. Within move.arriveRadius of its goal it
+ * waits, with no velocity, since it never picks a new goal.
  */
-export function aimHero(world: World, hero: Creature): void {
+export function aimHero(world: World, hero: Creature, t: Tuning): boolean {
   const to = world.hero?.waveTo;
-  if (to === undefined || to === null) return;
-  const target = byId(world, to);
-  if (target && target.state !== 'away') {
-    hero.goalX = target.x;
-    hero.goalY = target.y;
-  } else {
-    stopHero(world, hero);
+  if (to !== undefined && to !== null) {
+    const target = byId(world, to);
+    if (target && target.state !== 'away') {
+      hero.goalX = target.x;
+      hero.goalY = target.y;
+    } else {
+      stopHero(world, hero);
+    }
   }
+  const r = t.move.arriveRadius;
+  if (dist2(hero.x, hero.y, hero.goalX, hero.goalY) > r * r) return true;
+  hero.vx = 0;
+  hero.vy = 0;
+  return false;
 }

@@ -166,7 +166,8 @@ export interface World {
   friendsForgive?: true;
   /**
    * The player's hero (ADR 0013 items 1 and 2), set only with the scenario's: its kind, its standing
-   * manner, the creature it waved at (`walk` with `to`) until they meet, and its keepsakes.
+   * manner, the creature it waved at (`walk` with `to`), and its keepsakes. `waveTo` clears when the
+   * two meet, when water stops the hero, when that creature goes away, and on a `walk` to a point.
    */
   hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] };
 }

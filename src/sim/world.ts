@@ -49,9 +49,11 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
 /**
  * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, no shell. Each other
  * creature with Ear at or below the rumor's strength starts with the rumor's value as its opinion
- * of the hero (ADR 0013 item 8).
+ * of the hero (ADR 0013 item 8). Throws when a scenario creature already uses the hero's id.
  */
 function addHero(creatures: Creature[], hero: NonNullable<Scenario['hero']>): void {
+  if (creatures.some((c) => c.id === HERO))
+    throw new Error(`a scenario creature uses the hero's id "${HERO}"`);
   const { rumor } = hero;
   for (const c of creatures) {
     if (rumor && c.dials.ear <= rumor.strength) c.opinions[HERO] = clamp(rumor.value, -1, 1);

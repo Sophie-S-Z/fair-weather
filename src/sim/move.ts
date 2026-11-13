@@ -237,13 +237,7 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     forage(c, world, tuning);
     takeDrop(c, world, tuning);
     if (isHero(world, c)) {
-      aimHero(world, c);
-      if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) {
-        c.vx = 0;
-        c.vy = 0;
-      } else {
-        steer(c, land, world, tuning, rng);
-      }
+      if (aimHero(world, c, tuning)) steer(c, land, world, tuning, rng);
     } else {
       if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, land, tuning, rng);
       leaveLens(c, world, land, tuning);

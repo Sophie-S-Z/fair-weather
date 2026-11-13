@@ -137,6 +137,35 @@ test('water stops the hero with its goal at its own spot, and it picks no goal',
   expect([hero.x, hero.y]).toEqual(at);
 });
 
+test('water stops a hero that follows a creature, and the wave is spent', () => {
+  const w = heroWorld(
+    [{ id: 'a', x: 1200, y: 450 }],
+    { x: 400, y: 450 },
+    { water: [{ x: 700, y: 0, w: 60, h: 900 }] },
+  );
+  get(w, 'a').state = 'sleep'; // stays put on the far side and takes no draws
+  run(w, { t: 'walk', to: 'a' });
+  const hero = get(w, HERO);
+  for (let i = 0; i < 200 && w.hero!.waveTo !== null; i++) moveCreatures(w, t, none());
+  expect(w.hero!.waveTo).toBeNull();
+  expect([hero.goalX, hero.goalY]).toEqual([hero.x, hero.y]);
+  expect(hero.x).toBeLessThan(700 - t.bank.side);
+});
+
+test('after overPoke the hero keeps its goal inside the lens', () => {
+  const w = heroWorld([]);
+  const hero = get(w, HERO);
+  run(w, { t: 'shine', x: hero.x, y: hero.y });
+  run(w, { t: 'overPoke' });
+  for (let i = 0; i < 5; i++) moveCreatures(w, t, none());
+  expect([hero.goalX, hero.goalY]).toEqual([800, 450]);
+  expect([hero.x, hero.y]).toEqual([800, 450]);
+});
+
+test('a scenario creature may not use the hero id alongside a hero', () => {
+  expect(() => heroWorld([{ id: HERO }])).toThrow(/hero/);
+});
+
 test('arrangeMeeting with the hero moves only the other creature, to the hero', () => {
   const w = heroWorld([{ id: 'a', x: 100, y: 100 }], { x: 600, y: 300 });
   const hero = get(w, HERO);

@@ -396,8 +396,12 @@
     let r: ChapterRunner;
     try {
       r = await game.startChapter(chapter, flags);
-    } catch {
-      if (token === starting) finish('failed');
+    } catch (e) {
+      if (token === starting) {
+        // Why it stopped, for whoever reads the console: chapter and creature ids, never the hero's name.
+        console.error(e);
+        finish('failed');
+      }
       return;
     }
     if (token !== starting) return;
@@ -712,6 +716,7 @@
       hints.dispose();
       wait.dispose();
       game.speed(0);
+      game.stop();
       stage?.destroy();
     };
   });

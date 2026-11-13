@@ -177,6 +177,18 @@ describe('buildScenario', () => {
     expect(of('krit')).toMatchObject({ state: 'away', x: baseOf('krit')?.x, y: baseOf('krit')?.y });
   });
 
+  test('a named state that wakes an away creature lets its position place it', () => {
+    const chapter: Chapter = {
+      ...carried4,
+      overrides: { state: { krit: 'wander' }, positions: { krit: { x: 300, y: 300 } } },
+    };
+    expect(buildScenario(chapter, flags, base, carry).creatures.find((c) => c.id === 'krit')).toMatchObject({
+      state: 'wander',
+      x: 300,
+      y: 300,
+    });
+  });
+
   test('grudges set the holder side slights on the carried tie', () => {
     const chapter: Chapter = {
       ...carried4,

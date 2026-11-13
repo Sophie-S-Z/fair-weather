@@ -387,6 +387,11 @@ test('the fire: Listen five times tells five verses, keeps the page, and goes on
   expect(await seriousViolations(page)).toEqual([]);
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  // The bridge saved after the year was kept, so Continue resumes there, not at the fire.
+  const resume = page.getByRole('button', { name: 'Continue' });
+  await expect(resume).toBeEnabled();
+  await resume.click();
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
 });
 
 test('B opens the Book of Skies as a modal dialog with the sim paused; Escape closes it and gives focus back', async ({

@@ -33,13 +33,6 @@ function apply(s: Scenario, o: Overrides): void {
     if (!c) throw new Error(`Override names unknown creature "${id}"`);
     return c;
   };
-  for (const [id, p] of Object.entries(o.positions ?? {})) {
-    const c = creature(id);
-    // An away or gone creature is not in the valley to place (the homecoming's gate variant).
-    if (c.state === 'away' || c.gone) continue;
-    c.x = p.x;
-    c.y = p.y;
-  }
   for (const [id, dials] of Object.entries(o.dials ?? {})) {
     const c = creature(id);
     for (const [key, value] of Object.entries(dials))
@@ -53,6 +46,14 @@ function apply(s: Scenario, o: Overrides): void {
     const c = creature(id);
     c.gone = true;
     c.state = 'away';
+  }
+  for (const [id, p] of Object.entries(o.positions ?? {})) {
+    const c = creature(id);
+    // After the states, so a named state can wake a creature: one still away or gone is not in the
+    // valley to place (the homecoming's gate variant).
+    if (c.state === 'away' || c.gone) continue;
+    c.x = p.x;
+    c.y = p.y;
   }
   for (const [id, n] of Object.entries(o.danceThreshold ?? {})) creature(id).danceThreshold = n;
   for (const g of o.grudges ?? []) {

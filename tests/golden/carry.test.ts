@@ -11,6 +11,7 @@ import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
 import tuningJson from '../../content/tuning.json';
 import bridgeJson from '../../content/chapters/bridge.json';
+import ch10Json from '../../content/chapters/ch10.json';
 import m0Json from '../../content/scenarios/m0.json';
 import fenJson from '../../content/valleys/fen.json';
 import halcyonJson from '../../content/valleys/halcyon.json';
@@ -20,7 +21,7 @@ import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import { parseTuning } from '../../src/sim/tuning.ts';
 import type { Scenario } from '../../src/sim/types.ts';
-import { carryFrom } from '../../src/story/carry.ts';
+import { chapterStart, chosenOverrides } from '../../src/story/scenario.ts';
 import { kithCarry, kithLeg, kithScenario } from '../../src/story/journey.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import { tuning } from '../../src/story/tuning.ts';
@@ -75,13 +76,21 @@ test('the seed-1 year log through ch9 tells five verses with no open slot', asyn
 // Wisp gone), counting the homecoming's days, runs silently through the three valleys in order.
 // Each valley's leg starts with the nudge of the T3 player's postcard, its first.
 test('Kith after Part 2 gives the stored home carry, and it held', async () => {
-  const { results } = await year;
-  const ch10 = results.ch10;
-  if (!ch10) throw new Error('the year has no ch10');
-  // The same steps as main.ts's Kith host, through the same story functions.
-  const kithStart = carryFrom(ch10.last, ch10.diaries);
+  const { results, carries } = await year;
+  const { ch9, ch10 } = results;
+  if (!ch9 || !ch10) throw new Error('the year has no ch9 or ch10');
+  // The same steps as main.ts's Kith host, through the same story functions. Kith starts from the
+  // bridge's start carry as main.ts makes it: ch10's end, with ch10's dial overrides put back.
+  const bridge = ChapterSchema.parse(bridgeJson);
+  const base = m0Json as Scenario;
+  const ch10Start = {
+    carry: carries.ch10,
+    overrides: chosenOverrides(ChapterSchema.parse(ch10Json), ch9.flags),
+  };
+  const from = { lite: ch10.last, diaries: ch10.diaries, last: ch10Start };
+  const kithStart = chapterStart(bridge, ch10.flags, base, from).carry ?? null;
   const home = ChapterSchema.parse(homeJson);
-  const scenario = kithScenario(ChapterSchema.parse(bridgeJson), home, m0Json as Scenario, kithStart);
+  const scenario = kithScenario(bridge, home, base, kithStart);
   const out = { lite: null as WorldLite | null, error: null as string | null };
   const core = createWorkerCore(
     (m) => {

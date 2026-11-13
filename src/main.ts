@@ -326,8 +326,19 @@ let journeyNow: Journey | null = null;
 let kith: SimHost | null = null;
 /** Kith after the last leg sent so far, or at its start before the first; null before the bridge. */
 let kithNow: Promise<WorldLite> | null = null;
-/** Counts chapter starts, so a start that waits on Kith knows when a newer one replaced it. */
+/** Counts chapter starts and stops, so a start that waits on Kith knows when it was dropped. */
 let starts = 0;
+/** The runner of the newest start, until a newer start or a stop drops it. */
+let playing: ChapterRunner | null = null;
+/**
+ * Drops the chapter now playing: a start still waiting for Kith gives up, and the runner stops
+ * taking snapshots. Its `done` handlers see the new count and change nothing.
+ */
+function dropStart(): void {
+  starts += 1;
+  playing?.skip();
+  playing = null;
+}
 /** Keeps Kith's newest world. A valley's start reports a failure, so none goes unhandled here. */
 function kithAt(answer: Promise<{ lite: WorldLite }>): void {
   kithNow = answer.then((r) => r.lite);
@@ -496,7 +507,8 @@ const game: GameService = {
     return (await slotsReady).hasAuto();
   },
   async startChapter(chapter, given) {
-    const start = (starts += 1);
+    dropStart();
+    const start = starts;
     // A valley waits for Kith's leg from the valley before (ADR 0013 item 10).
     const kithLite = chapter.valley ? await kithNow : null;
     if (start !== starts) throw new Error(`A newer chapter start replaced ${chapter.id}`);
@@ -598,31 +610,50 @@ const game: GameService = {
       },
     };
     lastRunner = runner;
+    playing = made;
     const keep = (): void => {
-      yearLog.push({ chapterId: chapter.id, log: runner.log });
+      if (start === starts) yearLog.push({ chapterId: chapter.id, log: runner.log });
     };
     runner.done.then(keep, keep);
-    const ignore = (): void => undefined; // a failed chapter ends the game on its own
+    /**
+     * Runs `update` once this runner is done, unless a newer start or a stop dropped it. A failure
+     * makes the next valley's start fail ("This chapter stopped"), so nothing plays out of step.
+     */
+    const whenDone = (update: () => void): void => {
+      runner.done.then(
+        () => {
+          if (start !== starts) return;
+          try {
+            update();
+          } catch (e) {
+            kithAt(Promise.reject(e instanceof Error ? e : new Error(String(e))));
+          }
+        },
+        () => undefined, // a failed chapter ends the game on its own
+      );
+    };
     if (chapter.activity === 'hero') {
       // The bridge's result makes the journey; a skip gives the first hero (ADR 0013 item 11).
-      void runner.done.then(() => {
+      whenDone(() => {
         const chosen = runner.log.flatMap((e) => (e.kind === 'activity' ? [e.result] : []));
         const hero = parseHero(chosen[0] ?? FIRST_HERO);
         journeyNow = newJourney(hero.kind, hero.name, kithStart, keptPage?.year ?? null);
-      }, ignore);
+      });
     }
     const leg = (KITH_VALLEYS as readonly string[]).indexOf(chapter.id);
     if (chapter.valley) {
-      void runner.done.then(() => {
+      whenDone(() => {
+        // A sent postcard ends the valley, so a Skip after it still counts the valley as played.
         const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
-        if (!skipped && journeyNow && lastLite)
+        if (leg >= 0 && kith) {
+          // Kith's leg first: the postcard's nudge, when one was sent, then the leg's days at once.
+          const { commands, ticks } = kithLeg(leg, sent[0] ?? null, homecoming);
+          if (commands.length > 0) kith.send(commands);
+          kithAt(kith.fastForward(ticks));
+        }
+        if ((!skipped || sent.length > 0) && journeyNow && lastLite)
           journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
-        if (leg < 0 || !kith) return;
-        // Kith's leg: the postcard's nudge, when one was sent, then the leg's days at once.
-        const { commands, ticks } = kithLeg(leg, skipped ? null : (sent[0] ?? null), homecoming);
-        if (commands.length > 0) kith.send(commands);
-        kithAt(kith.fastForward(ticks));
-      }, ignore);
+      });
     }
     return runner;
   },
@@ -645,6 +676,7 @@ const game: GameService = {
     // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
     await (await slotsReady).keepYear();
   },
+  stop: dropStart,
   journey: () => journeyNow,
   sixthVerse(flags) {
     if (!journeyNow) throw new Error('The sixth verse needs a journey');

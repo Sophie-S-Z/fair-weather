@@ -86,6 +86,11 @@ export interface GameService {
    * chapter cannot start, or when a newer start replaced this one while it waited.
    */
   startChapter(chapter: Chapter, flags: Flags): Promise<ChapterRunner>;
+  /**
+   * Stops the chapter now playing (Back to title): its runner stops, a start still waiting for
+   * Kith is dropped, and neither changes the journey or Kith.
+   */
+  stop(): void;
   /** Peek under the hood (spec 8, 9.3) at `dials`, by the rules of the chapter now playing. */
   peek(dials: Dials): ReturnType<typeof peekRule>;
   /**

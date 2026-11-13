@@ -180,7 +180,8 @@ function nearBenchId(world: World, x: number, y: number, t: Tuning): string | nu
 
 /**
  * A Bellchime's wave reaching `others` (ADR 0013 item 3): each replies to the hero with one draw,
- * in order, never misread, and both sides of their tie change by that reply's warmth.
+ * in order, never misread, and both sides of their tie change by that reply's warmth. Each reply
+ * uses this meeting's light boost, since every listener stands within knack.bellRadius of it.
  */
 function bellReplies(
   world: World,

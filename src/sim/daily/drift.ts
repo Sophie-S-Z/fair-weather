@@ -2,20 +2,20 @@
 // item 3).
 import type { Tuning } from '../tuning.ts';
 import type { DailyRule } from './rule.ts';
-import { heroMemoryScale } from '../hero.ts';
+import { heroDriftScale, heroMemoryScale } from '../hero.ts';
 import { exp2neg } from '../math.ts';
 import { byId } from '../world.ts';
 
 /**
- * Both sides of a tie with no meeting today move warmth.dailyDrift of the way toward 0, divided by
- * that side's heroMemoryScale (half for a local's side toward a Mosscoat). No draws.
+ * Both sides of a tie with no meeting today move warmth.dailyDrift of the way toward 0, × that
+ * side's heroDriftScale (half for a local's side toward a Mosscoat). No draws.
  */
 export const driftWarmth: DailyRule = (world, t) => {
   const drift = t.warmth.dailyDrift;
   for (const tie of world.ties.values()) {
     if (tie.lastDay === world.day) continue;
-    tie.ab.warmth *= 1 - drift / heroMemoryScale(world, tie.a, tie.b, t);
-    tie.ba.warmth *= 1 - drift / heroMemoryScale(world, tie.b, tie.a, t);
+    tie.ab.warmth *= 1 - drift * heroDriftScale(world, tie.a, tie.b, t);
+    tie.ba.warmth *= 1 - drift * heroDriftScale(world, tie.b, tie.a, t);
   }
   return [];
 };

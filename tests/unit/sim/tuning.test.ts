@@ -102,6 +102,7 @@ test('defaults equal the handoff and ADR values', () => {
     lanternFog: 0.5,
     kiteSpeed: 1.5,
     mossMemory: 2,
+    mossDrift: 0.5,
     glassWarmth: 1.5,
     seedCost: 1,
     seedBerries: 3,

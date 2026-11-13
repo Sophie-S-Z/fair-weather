@@ -110,6 +110,7 @@ export const TuningSchema = obj({
     lanternFog: prob,
     kiteSpeed: pos,
     mossMemory: pos,
+    mossDrift: prob,
     glassWarmth: pos,
     seedCost: count,
     seedBerries: count,

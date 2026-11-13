@@ -101,10 +101,18 @@ export function heroWarmthScale(world: World, holder: Creature, about: Creature,
 /**
  * The factor on Memory for `holder`'s side toward `about` (ADR 0013 item 3): knack.mossMemory when
  * `about` is a Mosscoat and `holder` a local, else 1. Slights fade with Memory min(1, factor ×
- * Memory) and warmth drifts at warmth.dailyDrift / factor, so a doubled Memory halves the drift.
+ * Memory).
  */
 export function heroMemoryScale(world: World, holder: string, about: string, t: Tuning): number {
   return kindToward(world, holder, about) === 'mosscoat' ? t.knack.mossMemory : 1;
+}
+
+/**
+ * The factor on warmth.dailyDrift for `holder`'s side toward `about` (ADR 0013 item 3):
+ * knack.mossDrift when `about` is a Mosscoat and `holder` a local, else 1.
+ */
+export function heroDriftScale(world: World, holder: string, about: string, t: Tuning): number {
+  return kindToward(world, holder, about) === 'mosscoat' ? t.knack.mossDrift : 1;
 }
 
 /**

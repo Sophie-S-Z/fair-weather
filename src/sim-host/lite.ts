@@ -74,7 +74,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
     light: w.fields.light ? { ...w.fields.light } : null,
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: fogCells(w, tuning) },
     structures: w.structures.map((s) => ({ ...s })),
-    bushes: w.bushes.map((b) => ({ ...b })),
+    bushes: w.bushes.map((b) => ({ id: b.id, x: b.x, y: b.y, berries: b.berries })),
     water: (w.water ?? []).map((r) => ({ ...r })),
     banks: land.banks.map((r) => ({ ...r })),
     decks: land.decks.map((d) => ({ ...d })),

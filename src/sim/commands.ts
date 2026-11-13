@@ -1,5 +1,5 @@
 // Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4,
-// ADR 0013 items 1 to 4).
+// ADR 0013 items 1 to 4 and 10).
 import type { BidReply, Command, Creature, GiftMove, Season, SimEvent, World } from './types.ts';
 import { DIAL_KEYS, HERO, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
@@ -230,6 +230,13 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       const verb: unknown = cmd.verb; // checked at runtime, as above
       if (!world.pack || typeof verb !== 'object' || verb === null) return [];
       return PACKS[world.pack.id].onVerb(world, cmd.verb, t, rng);
+    }
+    case 'nudge': {
+      // A postcard nudges one dial of every creature not gone (ADR 0013 item 10).
+      const { dial, amount } = cmd;
+      if (!DIAL_KEYS.includes(dial) || !finite(amount)) return [];
+      for (const c of world.creatures) if (!c.gone) c.dials[dial] = clamp(c.dials[dial] + amount, 0, 1);
+      return [];
     }
     case 'overPoke':
       for (const c of world.creatures) {

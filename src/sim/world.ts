@@ -133,13 +133,15 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     world.pack =
       p.id === 'fen'
         ? { id: 'fen', thresholds: { ...p.fixed }, flying: [], restless: [...p.restless], heroFlying: false }
-        : {
-            id: 'hollow',
-            sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
-            drama: [],
-            fame: {},
-            front: null,
-          };
+        : p.id === 'hollow'
+          ? {
+              id: 'hollow',
+              sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
+              drama: [],
+              fame: {},
+              front: null,
+            }
+          : { id: 'halcyon', kithWarmth: p.kithWarmth, seeker: p.seeker, given: false, chose: null };
     const rng = createRng(world.rngState);
     PACKS[world.pack.id].setup(world, tuning, rng);
     world.rngState = rng.state();

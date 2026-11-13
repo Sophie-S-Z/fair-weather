@@ -129,6 +129,8 @@ function actor(e: SimEvent): string | undefined {
       return e.holder;
     case 'print':
       return e.subject;
+    case 'keepsake':
+      return e.to; // the hero always gives it
     case 'lit':
     case 'mushroom':
       return undefined;

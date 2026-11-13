@@ -50,8 +50,11 @@ export function createWorkerCore(
     post({ t: 'error', message, lastGoodTick });
   }
 
-  /** Runs one step and posts its events and snapshot, and a checkpoint after dusk. False on error. */
-  function stepOnce(w: World, t: Tuning): boolean {
+  /**
+   * Runs one step and posts its events and snapshot, and a checkpoint after dusk, unless `quiet`;
+   * keeps the dusk copy either way. False on error.
+   */
+  function stepOnce(w: World, t: Tuning, quiet = false): boolean {
     const tick = w.tick;
     const list = pending;
     pending = [];
@@ -64,12 +67,12 @@ export function createWorkerCore(
           return false;
         }
       }
+      const dusk = tick % w.ticksPerDay === w.ticksPerDay - 1;
+      if (dusk) kept.push(structuredClone(w));
+      if (quiet) return true;
       post({ t: 'events', tick, list: events });
       post({ t: 'snapshot', tick: w.tick, lite: toLite(w, t) });
-      if (tick % w.ticksPerDay === w.ticksPerDay - 1) {
-        kept.push(structuredClone(w));
-        post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
-      }
+      if (dusk) post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
       return true;
     } catch (e) {
       fail(e instanceof Error ? e.message : String(e), tick);
@@ -155,6 +158,10 @@ export function createWorkerCore(
         return;
       case 'rewind':
         post({ t: 'rewound', id: m.id, ...rewound(m.tick, world, tuning) });
+        return;
+      case 'fastForward':
+        for (let i = 0; i < m.ticks; i++) if (!stepOnce(world, tuning, true)) return;
+        post({ t: 'forwarded', id: m.id, tick: world.tick, lite: toLite(world, tuning) });
         return;
     }
   }

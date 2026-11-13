@@ -285,3 +285,26 @@ test('after a restart from a checkpoint, rewinding earlier gives the checkpoint 
     { t: 'rewound', id: 7, tick: day, lite: toLite(cp?.world as World, tuning) },
   ]);
 });
+
+test('fastForward 400 ticks posts one forwarded message whose lite equals 400 advance steps', () => {
+  const paced = directCore();
+  paced.send(initGolden);
+  paced.send({ t: 'advance', ticks: 400 });
+  const snapshots = ofType(paced.got, 'snapshot');
+
+  const { send, got } = directCore();
+  send(initGolden);
+  send({ t: 'fastForward', ticks: 400, id: 3 });
+  expect(got).toEqual([{ t: 'forwarded', id: 3, tick: 400, lite: snapshots.at(-1)?.lite }]);
+  // It keeps the dusk copy (tick 399 is a dusk), so a rewind into the forwarded days still works.
+  send({ t: 'rewind', tick: 250, id: 4 });
+  send({ t: 'hash' });
+  paced.send({ t: 'hash' });
+  expect(got.slice(1)).toEqual([
+    { t: 'rewound', id: 4, tick: 250, lite: snapshots.find((m) => m.tick === 250)?.lite },
+    ofType(paced.got, 'hash')[0],
+  ]);
+  // The run goes on as usual after it.
+  send({ t: 'advance', ticks: 1 });
+  expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([401]);
+});

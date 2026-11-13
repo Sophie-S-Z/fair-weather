@@ -1,7 +1,7 @@
 // The action log (spec 10.4, 14.3): accepted commands, player verbs, bet results, twist outcomes,
 // the year's sim events, and activity results. Plain data, so saves and the myth grammar can read it.
 import { z } from 'zod';
-import type { Command, Season, SimEvent } from '../sim/types.ts';
+import type { Command, DialKey, Season, SimEvent } from '../sim/types.ts';
 import { ACTIVITIES } from './schema.ts';
 import type { Activity } from './schema.ts';
 import type { VerbInput } from './verbs.ts';
@@ -67,6 +67,11 @@ const CommandSchema = z.union([
         z.strictObject({ verb: z.literal('pose') }),
         z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
       ]),
+    }),
+    z.strictObject({
+      t: z.literal('nudge'),
+      dial: z.enum(['opener', 'forgiveness', 'memory', 'ear', 'wanderlust'] satisfies DialKey[]),
+      amount: num,
     }),
   ]),
 ]) satisfies z.ZodType<Command>;

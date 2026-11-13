@@ -12,7 +12,7 @@ export type HeroKind = (typeof HERO_KINDS)[number];
 /** The hero's creature id (ADR 0013 item 1). */
 export const HERO = 'hero';
 /** The valleys' rule packs (ADR 0013 item 4); each pack task adds its id. */
-export type PackId = 'fen' | 'hollow';
+export type PackId = 'fen' | 'hollow' | 'halcyon';
 /** The player's local verb, passed to the world's rule pack (ADR 0013 item 4). */
 export type LocalVerb =
   { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string };
@@ -41,7 +41,18 @@ export interface HollowState {
   fame: Record<string, number>;
   front: string | null;
 }
-export type PackState = FenState | HollowState;
+/**
+ * Halcyon (ADR 0013 item 7): Kith's average warmth the scenario gives, the creature that chooses
+ * (Wisp), whether it has been given a keepsake, and its choice, made once at a dusk, or null.
+ */
+export interface HalcyonState {
+  id: 'halcyon';
+  kithWarmth: number;
+  seeker: string;
+  given: boolean;
+  chose: 'home' | 'stay' | null;
+}
+export type PackState = FenState | HollowState | HalcyonState;
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -227,7 +238,8 @@ export type Command =
   | { t: 'walk'; to: string }
   | { t: 'manner'; reply: BidReply; gift: GiftMove }
   | { t: 'plant' }
-  | { t: 'local'; verb: LocalVerb };
+  | { t: 'local'; verb: LocalVerb }
+  | { t: 'nudge'; dial: DialKey; amount: number };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -240,7 +252,9 @@ export type SimEvent =
   | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
   | { t: 'dance'; who: string }
   | { t: 'mushroom'; taken: number; drops: number }
-  | { t: 'print'; subject: string; fame: number }; // the Hollow's gazette, with the fame after the dusk fade
+  | { t: 'print'; subject: string; fame: number } // the Hollow's gazette, with the fame after the dusk fade
+  | { t: 'keepsake'; to: string; item: string }
+  | { t: 'goHome' | 'stay'; who: string }; // Wisp's choice in Halcyon (ADR 0013 item 7)
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -285,7 +299,11 @@ export interface Scenario {
   /**
    * The valley's rule pack (ADR 0013 items 4 to 6). Murmuration Fen: the `restless` starlings fly
    * from the start and never land, and `fixed` holds the thresholds that take no draw (Tove's 0.5).
-   * Hearsay Hollow takes nothing more.
+   * Hearsay Hollow takes nothing more. Halcyon (item 7): Kith's average warmth after the postcards
+   * so far (item 10), and the `seeker` who chooses, Wisp.
    */
-  pack?: { id: 'fen'; restless: string[]; fixed: Record<string, number> } | { id: 'hollow' };
+  pack?:
+    | { id: 'fen'; restless: string[]; fixed: Record<string, number> }
+    | { id: 'hollow' }
+    | { id: 'halcyon'; kithWarmth: number; seeker: string };
 }

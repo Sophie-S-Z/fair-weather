@@ -6,6 +6,7 @@ import type { Creature, LocalVerb, PackId, PackState, SimEvent, World } from '..
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { fen, flies } from './fen.ts';
+import { halcyon } from './halcyon.ts';
 import { hollow, keepsDistance } from './hollow.ts';
 
 export type { LocalVerb } from '../types.ts';
@@ -23,7 +24,7 @@ export interface RulePack<S extends PackState = PackState> {
   metrics(world: World, t: Tuning): Record<string, number>;
 }
 
-export const PACKS: Record<PackId, RulePack> = { fen, hollow };
+export const PACKS: Record<PackId, RulePack> = { fen, hollow, halcyon };
 
 /**
  * Whether `a` and `b` may meet: in Murmuration Fen a flying creature meets no one (ADR 0013 item 5),
@@ -33,12 +34,16 @@ export function canMeet(world: World, a: Creature, b: Creature, t: Tuning): bool
   return !flies(world, a) && !flies(world, b) && !keepsDistance(world, a, b, t);
 }
 
-/** What a gift costs the giver: gift.cost in the Fen, the Hollow, and without a pack. */
+/** What a gift costs the giver: 0 in Halcyon (ADR 0013 item 7), else gift.cost. */
 export function giftCost(world: World, t: Tuning): number {
-  return t.gift.cost;
+  return world.pack?.id === 'halcyon' ? 0 : t.gift.cost;
 }
 
-/** The warmth a received gift is worth: warmth.giftReceived in the Fen, the Hollow, and without a pack. */
+/**
+ * The warmth a received gift is worth: warmth.giftReceived, × halcyon.giftWarmthMultiplier in
+ * Halcyon (ADR 0013 item 7).
+ */
 export function giftWarmth(world: World, t: Tuning): number {
-  return t.warmth.giftReceived;
+  const k = world.pack?.id === 'halcyon' ? t.halcyon.giftWarmthMultiplier : 1;
+  return t.warmth.giftReceived * k;
 }

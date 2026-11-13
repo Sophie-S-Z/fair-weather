@@ -55,11 +55,12 @@ export interface WorldLite {
    * creatures in flight, the hero among them while it has joined, in creature order, and each
    * starling's perceived share (the reflection, ADR 0007). Hearsay Hollow: each creature's fame,
    * from 0 to at most hollow.fameStep × knack.bellPrints / hollow.fameFade (not capped at 1), and
-   * `front`, the last print's subject, or null.
+   * `front`, the last print's subject, or null. Halcyon: Wisp's choice, or null (item 7).
    */
   pack:
     | { id: 'fen'; flying: string[]; perceived: Record<string, number> }
     | { id: 'hollow'; fame: Record<string, number>; front: string | null }
+    | { id: 'halcyon'; chose: 'home' | 'stay' | null }
     | null;
   /** The light lens. */
   light: { x: number; y: number } | null;
@@ -88,6 +89,8 @@ export interface WorldLite {
  * carries the request's `id`, and a daily checkpoint (at dusk) carries none.
  * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
  * `rewind` asks for the world at an earlier tick without changing the run (ADR 0012 item 10).
+ * `fastForward` steps `ticks` ticks silently, keeping the dusk copies for rewind, and answers
+ * with one `forwarded` (Kith's run while the player is away, ADR 0013 item 10).
  */
 export type ToWorker =
   | { t: 'init'; seed: number; tuning: unknown; scenario: Scenario; checkpoint?: World }
@@ -96,13 +99,16 @@ export type ToWorker =
   | { t: 'hash' }
   | { t: 'checkpoint'; id?: number }
   | { t: 'advance'; ticks: number }
-  | { t: 'rewind'; tick: number; id: number };
+  | { t: 'rewind'; tick: number; id: number }
+  | { t: 'fastForward'; ticks: number; id: number };
 
 /**
  * Worker to main thread. `accepted.tick` and `events.tick` are the tick the step ran;
  * `snapshot`, `checkpoint`, and `hash` carry `world.tick` after it, the next tick to run.
  * `lastGoodTick` is `world.tick` before the step that failed. `rewound` answers the `rewind` with
  * the same `id`; its `tick` is the requested tick clamped to [the first world's tick, now].
+ * `forwarded` answers the `fastForward` with the same `id`, with the world after it; no events,
+ * snapshot, or checkpoint come for the ticks it ran.
  */
 export type FromWorker =
   | { t: 'accepted'; tick: number; list: Command[] }
@@ -111,7 +117,8 @@ export type FromWorker =
   | { t: 'checkpoint'; tick: number; world: World; id?: number }
   | { t: 'hash'; tick: number; value: string }
   | { t: 'error'; message: string; lastGoodTick: number }
-  | { t: 'rewound'; id: number; tick: number; lite: WorldLite };
+  | { t: 'rewound'; id: number; tick: number; lite: WorldLite }
+  | { t: 'forwarded'; id: number; tick: number; lite: WorldLite };
 
 export interface SimPort {
   send(list: Command[]): void;

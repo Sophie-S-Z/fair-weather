@@ -176,3 +176,28 @@ test('host.rewind rejects when the worker errors before answering', async () => 
   // The restarted worker answers a new request.
   await expect(host.rewind(10)).resolves.toMatchObject({ tick: 10 });
 });
+
+test('host.fastForward resolves with the forwarded world, and rejects on a restart', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  const seen: FromWorker[] = [];
+  host.onMessage((m) => seen.push(m));
+  host.post(initGolden);
+  const pending = host.fastForward(100);
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  await expect(pending).rejects.toThrow(/restarted/);
+  const done = await host.fastForward(100);
+  expect(done.tick).toBe(100);
+  expect(done.lite.creatures).toHaveLength(
+    initGolden.t === 'init' ? initGolden.scenario.creatures.length : 0,
+  );
+  // Listeners see nothing of the forwarded ticks, and a restart replays them silently.
+  const plain = createSimHost(spawner(() => null).spawn);
+  plain.post(initGolden);
+  plain.post({ t: 'advance', ticks: 100 });
+  const want = await plain.requestHash();
+  s.spawned[1]?.port.dispatchEvent(new Event('error'));
+  expect(await host.requestHash()).toEqual(want);
+  expect(s.spawned).toHaveLength(3);
+  expect(seen.filter((m) => m.t === 'snapshot' || m.t === 'events')).toEqual([]);
+});

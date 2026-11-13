@@ -5,7 +5,7 @@ import { parseTuning } from '../../src/sim/tuning.ts';
 import { inRect } from '../../src/sim/land.ts';
 import { step } from '../../src/sim/step.ts';
 import type { Command, Rect, Scenario, Season, World } from '../../src/sim/types.ts';
-import { HERO, HERO_KINDS } from '../../src/sim/types.ts';
+import { DIAL_KEYS, HERO, HERO_KINDS } from '../../src/sim/types.ts';
 import { createWorld } from '../../src/sim/world.ts';
 
 export const tuning = parseTuning(tuningJson);
@@ -41,7 +41,8 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
  * warmth runs past [-1, 1] and some scenario ties name an unknown id, to test the clamp and drop.
  * Half the scenarios have a hero. A quarter are in Murmuration Fen: some creatures are starlings,
  * some of the ids (and an unknown one) are restless, and some have a fixed threshold. A quarter are
- * in Hearsay Hollow.
+ * in Hearsay Hollow, and a quarter in Halcyon, where the seeker is any id (or an unknown one), Kith's
+ * warmth is any, and the hero holds two keepsakes.
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -86,15 +87,27 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
         ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
         hero: fc.option(heroArb, { freq: 2, nil: undefined }),
         pack: fc.oneof(
-          { weight: 2, arbitrary: fc.constant(undefined) },
+          { weight: 1, arbitrary: fc.constant(undefined) },
           { weight: 1, arbitrary: fen },
           { weight: 1, arbitrary: fc.constant('hollow' as const) },
+          {
+            weight: 1,
+            arbitrary: fc.record({ seeker: id, kithWarmth: fc.double({ min: -1, max: 1, noNaN: true }) }),
+          },
         ),
       })
       .map(({ ties, hero, pack }): Scenario => {
         const out: Scenario = hero ? { ...scenario, ties, hero } : { ...scenario, ties };
         if (!pack) return out;
         if (pack === 'hollow') return { ...out, pack: { id: 'hollow' } };
+        if ('seeker' in pack) {
+          const keepsakes = ['feather', 'acorn'];
+          return {
+            ...out,
+            ...(hero ? { hero: { ...hero, keepsakes } } : {}),
+            pack: { id: 'halcyon', ...pack },
+          };
+        }
         const creatures = out.creatures.map((c) =>
           pack.starlings.includes(c.id) ? { ...c, speciesId: 'starling' } : c,
         );
@@ -163,6 +176,7 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
         fc.record({ verb: fc.constant('keepsake' as const), to: id, item: fc.constant('feather') }),
       ),
     }),
+    fc.record({ t: fc.constant('nudge' as const), dial: fc.constantFrom(...DIAL_KEYS), amount: num(-1, 1) }),
   );
 }
 

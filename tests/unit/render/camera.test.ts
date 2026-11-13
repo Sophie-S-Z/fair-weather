@@ -1,9 +1,14 @@
 import { expect, test } from 'vitest';
-import { lerpTransform, toScene, viewTransform } from '../../../src/render/camera.ts';
+import { lerpTransform, toScene, toScreen, viewTransform } from '../../../src/render/camera.ts';
 
 test('fits the whole scene into the screen and centers it', () => {
   // 1600 x 900 into 800 x 600: width limits, scale 0.5, scene height 450 centered in 600.
   expect(viewTransform(1600, 900, 800, 600)).toEqual({ scale: 0.5, x: 0, y: 75 });
+});
+
+test('a top inset fits the whole scene below it', () => {
+  // 1600 x 900 into the 1280 x 450 left under 270 pixels: height limits, scale 0.5, centered across.
+  expect(viewTransform(1600, 900, 1280, 720, undefined, 270)).toEqual({ scale: 0.5, x: 240, y: 270 });
 });
 
 test('a shot zooms in and centers its point', () => {
@@ -20,6 +25,13 @@ test('a shot near the edge stops at the scene border', () => {
 test('toScene inverts the transform', () => {
   const t = viewTransform(1600, 900, 1280, 720, { x: 500, y: 400, zoom: 1.5 });
   const [x, y] = toScene(t, 500 * t.scale + t.x, 400 * t.scale + t.y);
+  expect(x).toBeCloseTo(500, 9);
+  expect(y).toBeCloseTo(400, 9);
+});
+
+test('toScreen is the inverse of toScene', () => {
+  const t = viewTransform(1600, 900, 1280, 720, { x: 500, y: 400, zoom: 1.5 });
+  const [x, y] = toScene(t, ...toScreen(t, 500, 400));
   expect(x).toBeCloseTo(500, 9);
   expect(y).toBeCloseTo(400, 9);
 });

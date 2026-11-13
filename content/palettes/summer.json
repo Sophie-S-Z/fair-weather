@@ -1,0 +1,19 @@
+{
+  "id": "summer",
+  "ink": "#2b2a28",
+  "paper": "#fffcf2",
+  "accent": "#b87400",
+  "warmth": "#ecd8c3",
+  "leaf": "#d3dfae",
+  "background": "#f7eed8",
+  "light": {
+    "color": "#ffd36b",
+    "alpha": 0.5
+  },
+  "fog": {
+    "color": "#e2e2dc",
+    "alpha": 0.8
+  },
+  "water": "#b9d5dc",
+  "full": ["#e0573f", "#ef8f2f", "#b87400", "#6fae4f", "#3f86b8", "#8458b0"]
+}

@@ -4,9 +4,11 @@ import { DIAL_KEYS, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { inWater } from './land.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
+const PLACE_KINDS: readonly string[] = ['bench', 'bush', 'bridge', 'lantern'];
 
 /** The creature with `id` when it exists and is not away. */
 function present(world: World, id: unknown): Creature | undefined {
@@ -59,6 +61,8 @@ function paintFog(world: World, x: number, y: number, r: number, amount: number,
  * PRNG draws, per pushed creature in `world.creatures` order: the shift chance (shift when below
  * wind.dialShiftChance); on a shift, a dial pick over [opener, forgiveness, memory, ear,
  * wanderlust], then the amount draw: the dial moves by (2 x draw - 1) x wind.spread, clamped to [0, 1].
+ * With a ridge, each pushed creature also walks to the gust's end, clamped to the scene (ADR 0012
+ * item 3).
  */
 function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tuning, rng: Rng): void {
   world.fields.gusts.push({ x, y, dx, dy, untilTick: world.tick + t.wind.gustTicks });
@@ -71,6 +75,10 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
     if (dist2(c.x, c.y, x + u * dx, y + u * dy) > half * half) continue;
     c.vx += (dx / len) * t.wind.push;
     c.vy += (dy / len) * t.wind.push;
+    if (world.ridgeX !== undefined) {
+      c.goalX = clamp(x + dx, 0, t.scene.width);
+      c.goalY = clamp(y + dy, 0, t.scene.height);
+    }
     if (rng.next() >= t.wind.dialShiftChance) continue;
     const dial = rng.pick(DIAL_KEYS);
     c.dials[dial] = clamp(c.dials[dial] + (2 * rng.next() - 1) * t.wind.spread, 0, 1);
@@ -79,9 +87,10 @@ function blow(world: World, x: number, y: number, dx: number, dy: number, t: Tun
 
 /**
  * Applies one command. Returns [] and changes nothing for a command that is not an object, an
- * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point outside the scene, an unknown tag
- * or value, a pair naming one creature twice, a fog radius of 0 or less, or a gust whose length
- * squared is 0 or overflows. Only `blow` draws from the PRNG.
+ * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point
+ * outside the scene, a bridge outside water, an unknown tag or value, a pair naming one creature
+ * twice, a fog radius of 0 or less, or a gust whose length squared is 0 or overflows. Only `blow`
+ * draws from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   const raw: unknown = cmd; // commands cross the worker boundary, so check at runtime
@@ -105,11 +114,12 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
     case 'place': {
       if (!onScene(cmd.x, cmd.y, t)) return [];
       const kind: string = cmd.kind; // commands cross the worker boundary, so check at runtime
-      if (kind !== 'bench' && kind !== 'bush') return [];
+      if (!PLACE_KINDS.includes(kind)) return [];
+      if (cmd.kind === 'bridge' && !inWater(world, cmd.x, cmd.y)) return [];
       const id = `${cmd.kind}-${String(world.nextId)}`;
       world.nextId += 1;
-      if (cmd.kind === 'bench') world.structures.push({ id, kind: 'bench', x: cmd.x, y: cmd.y });
-      else world.bushes.push({ id, x: cmd.x, y: cmd.y, berries: 0 });
+      if (cmd.kind === 'bush') world.bushes.push({ id, x: cmd.x, y: cmd.y, berries: 0 });
+      else world.structures.push({ id, kind: cmd.kind, x: cmd.x, y: cmd.y });
       return [];
     }
     case 'thread': {
@@ -168,6 +178,13 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       // The 6-second auto-respond with `away` is the story director's job, not the sim's.
       const c = present(world, cmd.who);
       return c ? [{ t: 'skyBid', who: c.id }] : [];
+    }
+    case 'dance': {
+      // The event marks a real change, as for wake.
+      const c = present(world, cmd.who);
+      if (!c || c.dancing) return [];
+      c.dancing = true;
+      return [{ t: 'dance', who: c.id }];
     }
     case 'overPoke':
       for (const c of world.creatures) {

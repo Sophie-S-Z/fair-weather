@@ -7,7 +7,7 @@ import type { Tuning } from '../sim/tuning.ts';
 import type { Command, World } from '../sim/types.ts';
 import { createWorld } from '../sim/world.ts';
 import { toLite } from './lite.ts';
-import type { FromWorker, ToWorker } from './protocol.ts';
+import type { FromWorker, ToWorker, WorldLite } from './protocol.ts';
 
 export interface Clock {
   now(): number;
@@ -38,6 +38,10 @@ export function createWorkerCore(
   let multiplier = 0;
   let stopTimer: (() => void) | null = null;
   let failed = false;
+  /** For rewind: copies of the first world and of the world after each dusk, in tick order. */
+  let kept: World[] = [];
+  /** For rewind: every accepted list since init. */
+  let accepted: { tick: number; list: Command[] }[] = [];
 
   function fail(message: string, lastGoodTick: number): void {
     failed = true;
@@ -63,6 +67,7 @@ export function createWorkerCore(
       post({ t: 'events', tick, list: events });
       post({ t: 'snapshot', tick: w.tick, lite: toLite(w, t) });
       if (tick % w.ticksPerDay === w.ticksPerDay - 1) {
+        kept.push(structuredClone(w));
         post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
       }
       return true;
@@ -91,10 +96,29 @@ export function createWorkerCore(
     });
   }
 
+  /**
+   * The world at `tick`, clamped to [first world, `live`]: the latest kept copy at or before it,
+   * cloned and stepped with the accepted lists. `live` and the kept copies do not change. `kept`
+   * is never empty once a world exists, so the fallbacks only satisfy the types.
+   */
+  function rewound(tick: number, live: World, t: Tuning): { tick: number; lite: WorldLite } {
+    const target = Math.min(Math.max(tick, kept[0]?.tick ?? live.tick), live.tick);
+    const base = kept.findLast((k) => k.tick <= target) ?? live;
+    const w = structuredClone(base);
+    while (w.tick < target) {
+      const at = w.tick;
+      const list = accepted.filter((e) => e.tick === at).flatMap((e) => e.list);
+      step(w, list, t);
+    }
+    return { tick: w.tick, lite: toLite(w, t) };
+  }
+
   function handle(m: ToWorker): void {
     if (m.t === 'init') {
       tuning = parseTuning(m.tuning);
       world = m.checkpoint ?? createWorld(m.seed, tuning, m.scenario);
+      kept = [structuredClone(world)];
+      accepted = [];
       pending = [];
       multiplier = 0; // a new world starts paused (ADR 0009 item 2)
       failed = false;
@@ -112,6 +136,7 @@ export function createWorkerCore(
       case 'commands':
         if (!Array.isArray(m.list)) return; // the list crosses the worker boundary
         pending.push(...m.list);
+        accepted.push({ tick: world.tick, list: m.list });
         post({ t: 'accepted', tick: world.tick, list: m.list });
         return;
       case 'hash':
@@ -127,6 +152,9 @@ export function createWorkerCore(
         return;
       case 'advance':
         for (let i = 0; i < m.ticks; i++) if (!stepOnce(world, tuning)) break;
+        return;
+      case 'rewind':
+        post({ t: 'rewound', id: m.id, ...rewound(m.tick, world, tuning) });
         return;
     }
   }

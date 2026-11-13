@@ -1,0 +1,19 @@
+{
+  "id": "thaw",
+  "ink": "#2b2a28",
+  "paper": "#fffdf6",
+  "accent": "#18714a",
+  "warmth": "#ecdccd",
+  "leaf": "#d6e5bf",
+  "background": "#f2f0e2",
+  "light": {
+    "color": "#ffdb94",
+    "alpha": 0.45
+  },
+  "fog": {
+    "color": "#dde3e4",
+    "alpha": 0.85
+  },
+  "water": "#bcd9de",
+  "full": ["#e0604a", "#ec9142", "#ebc556", "#18714a", "#4a8cbe", "#8a66b4"]
+}

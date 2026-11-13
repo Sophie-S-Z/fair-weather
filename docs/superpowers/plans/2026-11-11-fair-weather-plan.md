@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript 6 (strict), Vite 8, PixiJS 8, inkjs 2, Zod 4, Vitest 5, fast-check 4, Playwright 1.64, ESLint 10 with typescript-eslint, Prettier 3. Svelte 5 and axe-core arrive in M1. Exact pins are in ADR 0008.
 
-**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0010`. A task that cites "ADR n" uses the exact rule in that file.
+**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0012`. A task that cites "ADR n" uses the exact rule in that file.
 
 ## Global Constraints
 
@@ -786,13 +786,485 @@ The scene canvas fills the window. The chapter title sits small at the top left.
 
 ---
 
+## Milestone M2: Part 1 complete (chapters 4 to 10)
+
+Exit check: T3 passes for chapters 4 to 10 (`npm run test:t3`); T4 passes (`tests/science/trust.test.ts`); T6 passes (at least 900 distinct myths in 1,000 random-play runs); the auto-player and a keyboard-only player both reach the end of Part 1 in Chromium; axe-core finds no serious or critical issue on any new screen. The golden hash in `tests/golden/m0-hash.json` stays `c29d2fa4dbda4dcf`: no M2 task rebaselines it, and every new sim rule is switched on only by an optional scenario field. Then run superpowers:verification-before-completion and superpowers:requesting-code-review, and report to the user.
+
+Scope: chapters 4 to 10 and the five interludes as configs and Ink, with placeholder text (ADR 0010); the sim rules they need (land, ambient sky bids, the dew mushroom, the festival); the year carry; the Cosmos and Soul views with peek, zoom, rewind, and threads; the myth and the *Book of Skies*; the Quiet Visitor; the structured margin notes drawer; the action log in saves; and dash fog (spec 11.3). ADR 0012 holds every M2 ruling on a spec gap. A task that cites "ADR 0012 item n" uses that exact rule.
+
+### M2 file structure
+
+| Path | Responsibility |
+| --- | --- |
+| `src/sim/types.ts`, `world.ts`, `commands.ts`, `step.ts`, `move.ts`, `light.ts`, `meeting.ts`, `invariants.ts`, `tuning.ts` (modify) | Scenario ties and carry fields, structures, the new commands and events |
+| `src/sim/land.ts` | Water, bridges, and the ridge (ADR 0012 item 3) |
+| `src/sim/festival.ts` | The threshold dance (ADR 0012 item 6) |
+| `src/sim/daily/sky-bid.ts`, `src/sim/daily/mushroom.ts` | Ambient sky bids and the mushroom dawn (ADR 0012 items 4 and 5) |
+| `src/sim-host/protocol.ts`, `lite.ts`, `worker-core.ts`, `host.ts` (modify) | Snapshot detail and rewind |
+| `src/story/carry.ts` | The year carry from a snapshot (ADR 0012 item 1) |
+| `src/story/verbs.ts`, `schema.ts`, `scenario.ts`, `flags.ts`, `twists.ts`, `bets.ts`, `action-log.ts`, `chapter-runner.ts` (modify) | Part 1 verbs, configs, flags, twists, activities, the year log |
+| `src/story/diary.ts`, `src/story/names.ts`, `src/story/peek.ts` | Diary lines, display names, the peek rule text |
+| `src/myth/features.ts`, `src/myth/grammar.ts` | Action log to features; verses and slots (spec 10.6) |
+| `src/render/line/strip.ts`, `line-view.ts`, `meadow-view.ts`, `palette.ts` (modify) | Dash fog, land, mushroom, dance, heat map, season palettes, the visitor |
+| `src/render/cosmos-view.ts`, `src/render/soul-view.ts`, `src/render/timeline.ts` | The two new views and the timeline |
+| `src/input/zoom.ts`, `hold-still.ts`, `wait.ts`; `keyboard.ts`, `pointer.ts`, `verbs.ts` (modify) | View changes, the hidden verbs, Part 1 tools |
+| `src/ui/components/CosmosPanel.svelte`, `WhisperCard.svelte`, `MythScroll.svelte`; `ToolTray.svelte`, `Drawer.svelte` (modify) | Panels and cards |
+| `src/ui/interludes/*.svelte`, `src/ui/interludes/activities.ts` | The five interlude activities |
+| `src/ui/screens/BookOfSkies.svelte`; `Game.svelte`, `Title.svelte`, `App.svelte`, `game-service.ts` (modify) | Screens |
+| `src/persist/format.ts`, `migrations.ts` (modify), `src/persist/profile.ts` | Save version 2 with the year log; myths and feathers |
+| `content/chapters/ch4.json` to `ch10.json`, `i3.json`, `i4.json`, `i5.json`, `i7.json`, `i8.json`; `content/ink/` the same ids; `content/diary.json`; `content/myth/verses.json`; `content/palettes/<season>.json`; `content/placeholder/PLACEHOLDER-visitor.svg` and its rig | Data |
+| `tests/golden/players.ts`, `year.ts`, `carry/*.json`, `ch4.test.ts` to `ch10.test.ts`, `ch9-control.test.ts`, `carry.test.ts` | T3 |
+| `tests/unit/myth/*.test.ts`, `tests/e2e/part1.spec.ts` | T6, T7 runs |
+
+### Task M2.1: Snapshot detail and the carried scenario (sim, sim-host)
+
+**Files:** Modify `src/sim/types.ts`, `world.ts`, `daily/population.ts`, `src/sim-host/protocol.ts`, `lite.ts`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/world.test.ts`, `tests/unit/sim/daily/population.test.ts`, `tests/unit/sim-host/lite.test.ts` (new).
+
+**Interfaces:**
+- Produces in `types.ts`: `Scenario.ties?: { a: string; b: string; ab: Side; ba: Side }[]`; scenario creature `skyWarmth?: number` and `gone?: true`; `Creature.gone?: true`.
+- Produces in `protocol.ts`: `WorldLite.creatures[]` gains `dials: Dials`; `WorldLite.ties: { a: string; b: string; ab: number; ba: number }[]` (warmths, every tie, in tie-key order); `WorldLite.rumor: { about: string; sign: 1 | -1; holders: string[] } | null` (the last rumor; `holders` are the creatures, not away and not `about`, whose opinion of `about` has that sign and an absolute value of at least `opinion.holdAt`, in id order).
+- `createWorld` adds each scenario tie with `meetings: 1` and `lastDay: -1`, warmths clamped to [−1, 1], and drops a tie that names an unknown id or one id twice. A scenario with no `ties` adds none. `skyWarmth` is clamped. `gone` copies only when set, so the m0 world has the same keys as before.
+- `returnAway` never returns a `gone` creature.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('scenario ties become ties that are not first meetings', () => {
+  const w = createWorld(1, t, { ...base, ties: [{ a: 'pim', b: 'krit', ab: { warmth: 0.5, slights: 1 }, ba: { warmth: -2, slights: 0 } }] });
+  const tie = getTie(w, 'pim', 'krit');
+  expect(tie).toMatchObject({ meetings: 1, lastDay: -1 });
+  expect(side(tie!, 'pim')).toEqual({ warmth: 0.5, slights: 1 });
+  expect(side(tie!, 'krit').warmth).toBe(-1);
+});
+test('a scenario tie with an unknown or repeated id is dropped', () => {});
+test('a gone creature never returns', () => {}); // day 7, draw 0, average warmth 0.9
+test('lite carries dials, tie warmths in key order, and the rumor holders', () => {
+  // whisper echo about krit (-1), then set moss's opinion of krit to -0.4 and pim's to -0.2
+  expect(toLite(w, t).rumor).toEqual({ about: 'krit', sign: -1, holders: ['echo', 'moss'] });
+});
+test('lite rumor is null with no rumor', () => {});
+test('the m0 golden hash is unchanged', () => expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf'));
+```
+
+Add scenario ties (sometimes with unknown ids) and `skyWarmth` to `scenarioArb`.
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/sim tests/unit/sim-host`. Expected: FAIL.
+- [ ] **Step 3: Implement** the fields above. In `toLite`, sort ties by key with `byCodeUnit`.
+- [ ] **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS, golden hash unchanged.
+- [ ] **Step 5: Commit.** `feat(sim): carry ties and sky warmth in scenarios; richer snapshots`
+
+### Task M2.2: Land: water, bridges, lanterns, and the ridge (sim)
+
+**Files:** Create `src/sim/land.ts`. Modify `types.ts`, `world.ts`, `move.ts`, `commands.ts`, `light.ts`, `step.ts`, `invariants.ts`, `tuning.ts`, `content/tuning.json`, `lite.ts`, `protocol.ts`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/land.test.ts`, extend `tests/unit/sim/tuning.test.ts`, `commands.test.ts`.
+
+**Interfaces:**
+- Consumes: M2.1 scenario fields.
+- Produces in `types.ts`: `interface Rect { x: number; y: number; w: number; h: number }`; `Structure.kind: 'bench' | 'bridge' | 'lantern'`; the `place` command's `kind: 'bench' | 'bush' | 'bridge' | 'lantern'`; `Scenario.water?: Rect[]`, `Scenario.ridgeX?: number`; `World.water?: Rect[]`, `World.ridgeX?: number` (set only when the scenario has them).
+- Produces in `land.ts`: `inWater(world: World, x: number, y: number): boolean`; `bridgeNear(world: World, x: number, y: number, t: Tuning): Structure | null` (within `bridge.radius`); `crossRidge(world: World): SimEvent[]` (a `wander` creature with `x >= ridgeX` becomes `away` and `gone`, and emits `leave`).
+- Produces in `protocol.ts`: `WorldLite.water: Rect[]` (`[]` with none).
+- Tuning: `bridge: { radius: 32 }`, `lantern: { radius: 120, fogFactor: 0.5 }`.
+- Rules (ADR 0012 item 3): `steer` refuses a move into water away from a bridge and sets the goal to the nearest bridge on that rectangle, or picks a new goal when it has none; a bridge `place` outside water is ignored; `fogAt` scales by `lantern.fogFactor` within `lantern.radius` of any lantern; with a ridge, random goals stay at `x < ridgeX` and `blow` sets each pushed creature's goal to the gust's end, clamped to the scene. `step` runs `crossRidge` after movement. A world with no water, lantern, or ridge takes the same PRNG draws as before.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+const brook: Rect = { x: 780, y: 0, w: 60, h: 900 };
+test('with no bridge, no creature crosses the brook in 10 days', () => {
+  // 30 creatures, half west and half east, goals across: every creature stays on its side every tick
+});
+test('with one bridge at (810, 450), a creature crosses only within 32 units of it', () => {});
+test('a creature never stands in water away from a bridge (property, 500 runs)', () => {
+  fc.assert(fc.property(landRunArb, (run) => replay(run, (w) => {
+    for (const c of activeCreatures(w)) if (inWater(w, c.x, c.y)) expect(bridgeNear(w, c.x, c.y, t)).not.toBeNull();
+  })), { numRuns: 500 });
+});
+test('a bridge placed outside water is ignored; one inside water is added', () => {});
+test('a lantern halves the fog within 120 units and nowhere else', () => {
+  expect(fogAt(w, 100, 100, t)).toBeCloseTo(0.3); expect(fogAt(w, 400, 400, t)).toBeCloseTo(0.6);
+});
+test('with a ridge at 1500, no random goal is at x >= 1500', () => {});
+test('a gust from (1300, 300) by (400, 0) sends Wisp to the ridge, and Wisp leaves for good', () => {
+  // step until Wisp is away: one leave event for wisp, wisp.gone true, never returns on day 7, 14, 21
+});
+test('without a ridge, blow leaves goals alone (the M0 rule)', () => {});
+```
+
+`landRunArb` extends `runArb` with 0 to 2 water rectangles, bridges, and lanterns. Review Focus 3 (below) pins this property.
+
+- [ ] **Step 2: Run** and see FAIL.
+- [ ] **Step 3: Implement.** Segment-to-rectangle tests use only `+ − × ÷` and `Math.min`/`Math.max`.
+- [ ] **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS, golden hash unchanged, T2 with 10,000 runs.
+- [ ] **Step 5: Commit.** `feat(sim): add water, bridges, lanterns, and the ridge`
+
+### Task M2.3: Season rules: ambient sky bids, lit meetings, the dew mushroom, the festival (sim)
+
+**Files:** Create `src/sim/daily/sky-bid.ts`, `src/sim/daily/mushroom.ts`, `src/sim/festival.ts`. Modify `types.ts`, `world.ts`, `meeting.ts`, `move.ts`, `commands.ts`, `step.ts`, `daily/index.ts`, `invariants.ts`, `tuning.ts`, `content/tuning.json`, `lite.ts`, `protocol.ts`, `tests/golden/golden-hash.test.ts` (rename `M1Only` to `NotInM0` and add `dance`), `tests/property/arbitraries.ts`. Test `tests/unit/sim/daily/sky-bid.test.ts`, `mushroom.test.ts`, `tests/unit/sim/festival.test.ts`, extend `meeting.test.ts` and `tuning.test.ts`.
+
+**Interfaces:**
+- Produces in `types.ts`: `Scenario.mushroom?: { x: number; y: number }`, `Scenario.ambientSkyBids?: true`; scenario creature `danceThreshold?: number`; `World.mushroom?: { x: number; y: number; drops: number; taken: number; witherDays: number }`; `World.ambientSkyBids?: true`; `Creature.dancing?: true`, `Creature.danceThreshold?: number`, `Creature.mushroomDay?: number`; command `{ t: 'dance'; who: string }`; events `{ t: 'lit'; a: string; b: string; behaviors: Behavior[] }`, `{ t: 'dance'; who: string }`, `{ t: 'mushroom'; taken: number; drops: number }`.
+- Produces: `ambientSkyBid: DailyRule` (last in `RULES`; draws one number only when `world.ambientSkyBids`); `mushroomDawn: DailyRule`; `spreadDance(world: World, t: Tuning): SimEvent[]` (called by `step` after meetings when `tick % festival.everyTicks === 0` and any creature dances).
+- Produces in `protocol.ts`: `WorldLite.creatures[].dancing: boolean`; `WorldLite.mushroom: { x: number; y: number; drops: number; witherDays: number } | null`.
+- `resolveMeeting` appends one `lit` event after its three events when the meeting midpoint is in the lens and neither side avoids it. Events are not part of the hash.
+- Tuning: `sky.ambientBidChance` 0.5; `mushroom.takeBelowBerries` 1, `mushroom.trustFriends` 2; `festival: { threshold: 2, everyTicks: 10 }`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test.each([[0, 20], [6, 20], [7, 10], [8, 10]])('taking %i drops gives %i at the next dawn', (taken, next) => {});
+test('taking 9 withers it: 0, 0, 0, then 10 at the next four dawns', () => {});
+test('a creature takes one drop a day, only below 1 berry, or below 5 with fewer than 2 friends', () => {});
+test('a hungry creature with a full mushroom in reach and no bush heads for the mushroom', () => {});
+test('ambient: with chance draw 0.4, the awake creature with the highest sky warmth bids; at 0.6 nobody does', () => {});
+test('ambient: a world without ambientSkyBids takes no draw at dusk', () => {
+  // the rngState after runDusk equals the M0 value for the same world
+});
+test('dance: Bell (threshold 3) starts on the step where her third friend dances, not the second', () => {});
+test('dance: the spread counts from the same set, so array order does not matter', () => {});
+test('a meeting in the lens adds a lit event naming both creatures and the real behaviors', () => {});
+test('empty winter: mushroom, ambient bid, and dance rules on 0 and 1 creatures give no NaN', () => {});
+```
+
+The last test is Review Focus 5.
+
+- [ ] **Step 2: Run** and see FAIL.
+- [ ] **Step 3: Implement** per ADR 0012 items 4 to 6. Taking a drop happens in `moveCreatures` next to foraging, so it uses the same reach test.
+- [ ] **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS, golden hash unchanged.
+- [ ] **Step 5: Commit.** `feat(sim): add ambient sky bids, lit events, the dew mushroom, and the festival`
+
+### Task M2.4: Rewind in the worker (sim-host)
+
+**Files:** Modify `src/sim-host/protocol.ts`, `worker-core.ts`, `host.ts`. Test `tests/unit/sim-host/worker-core.test.ts`, `host.test.ts`.
+
+**Interfaces:**
+- Produces: `ToWorker` gains `{ t: 'rewind'; tick: number; id: number }`; `FromWorker` gains `{ t: 'rewound'; id: number; tick: number; lite: WorldLite }`. `SimHost.rewind(tick: number): Promise<{ tick: number; lite: WorldLite }>` rejects when the worker fails or restarts first.
+- The core keeps a clone of its first world (the created world or the init checkpoint), a clone at each dusk, and every accepted list since init. A rewind clamps `tick` to [first world tick, current tick], clones the latest kept world at or before it, steps it with the logged lists to that tick, and posts `rewound`. The live world, its PRNG state, and pacing do not change (ADR 0012 item 10).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('rewound lite at tick T equals the live snapshot at T', () => {}); // golden commands, T = 1,234
+test('rewinding does not change the live hash', () => {});
+test('a tick past now gives now; a tick before the first world gives the first world', () => {});
+test('after a restart from a checkpoint, rewinding earlier gives the checkpoint tick', () => {});
+test('host.rewind rejects when the worker errors before answering', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(sim-host): rewind to an earlier tick without changing the run`
+
+### Task M2.5: Story verbs, overrides, and the year carry (story)
+
+**Files:** Create `src/story/carry.ts`, `src/story/names.ts`. Modify `src/story/verbs.ts`, `schema.ts`, `scenario.ts`, `chapter-runner.ts`, `src/ui/screens/Game.svelte` (use `displayName`, tray from `WORLD_VERBS`), `src/input/verbs.ts` (`keyboardTools` keeps world verbs only), `src/main.ts` (carry and year log), `src/ui/game-service.ts`, `content/tuning.json`, `src/sim/tuning.ts`. Test `tests/unit/story/carry.test.ts`, `scenario.test.ts`, `chapter-runner.test.ts`, `schema.test.ts`, `tests/unit/sim/tuning.test.ts`.
+
+**Interfaces:**
+- Produces in `verbs.ts`: `WORLD_VERBS = ['wake', 'respond', 'place', 'shine', 'whisper', 'thread', 'fog', 'blow'] as const`; `MIND_VERBS = ['peek', 'zoom', 'rewind'] as const`; `VERBS = [...WORLD_VERBS, 'bet', 'listen', ...MIND_VERBS] as const`; `WorldVerb`, `MindVerb`, `Verb`; `VerbInput` adds `{ verb: 'shine'; x; y }`, `{ verb: 'whisper'; target: string; about: string; sign: 1 | -1 }`, `{ verb: 'thread'; a: string; b: string; on: boolean }`, `{ verb: 'fog'; x; y; clear: boolean }`, `{ verb: 'blow'; x; y; dx; dy }`. `place` keeps `{ verb: 'place'; x; y }`.
+- Produces in `carry.ts`: `interface Carry { creatures: { id: string; dials: Dials; shell: Shell; skyWarmth: number; away: boolean }[]; ties: { a: string; b: string; ab: number; ba: number }[] }`; `carryFrom(lite: WorldLite): Carry` (ADR 0012 item 1).
+- Produces in `names.ts`: `displayName(id: string): string` (`'villager-3'` gives `'Villager 3'`, `'pim'` gives `'Pim'`), moved from `Game.svelte`'s `nameOf`.
+- `buildScenario(chapter: Chapter, flags: Flags, base: Scenario, carry?: Carry): Scenario` applies the carry (base creatures only; tie sides with 0 slights), then overrides, then the variant.
+- Schema: chapter `carry: boolean`; `place?: { kind: 'bench' | 'bridge' | 'lantern'; limit: number }` (absent means one bench); `when: FlagCondition | FlagCondition[]` (every condition must hold); overrides add `structures?: Structure[]`, `bushes?: Scenario['bushes']` (replaces the base list), `water?: Rect[]`, `ridgeX?: number`, `gone?: string[]` (sets `gone` and `away`), `grudges?: { holder: string; against: string; slights: number }[]`, `danceThreshold?: Record<string, number>`, `mushroom?: { x: number; y: number }`, `ambientSkyBids?: true`, and a `'*'` key in `state` (every creature; named ids win). Beat actions add `{ rumor: { target: string; about: string; sign: 1 | -1 } }` (sends `whisper`) and `{ dance: string }` (sends `dance`). The chapter's `verbs` list at most three world verbs (ADR 0012 item 8).
+- Runner: `STORY_COMMANDS` adds `shine`, `paintFog`, `blow`, `thread`, `whisper`, `dance`. `fog` sends `paintFog` with `r = fog.brushRadius` (120) and `amount = ±fog.brushAmount` (0.3). `place` sends the chapter's kind, up to its `limit`. A sky bid the runner did not prompt gets the automatic `away` and is not prompted again.
+- `type YearLog = { chapterId: string; log: ActionLog }[]` in `action-log.ts`. `GameService.startChapter(chapter, flags)` passes `carryFrom(last snapshot)` when `chapter.carry`; `main.ts` keeps one `YearLog`, pushing each runner's log when `done` settles (a skip included).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('carryFrom keeps dials, shell, sky warmth, away, and tie warmths', () => {});
+test('buildScenario applies a carry to base creatures only, then overrides win', () => {
+  // carry pim opener 0.2, override pim opener 0.9: scenario pim opener is 0.9; a carried 'kith-31' is absent
+});
+test('a carried chapter keeps Krit away; a fresh chapter does not', () => {});
+test('grudges set the holder side slights on the carried tie', () => {});
+test("state '*' sets every creature; a named id wins", () => {});
+test('when [a, b] needs both conditions', () => {});
+test.each([
+  [{ verb: 'shine', x: 10, y: 20 }, { t: 'shine', x: 10, y: 20 }],
+  [{ verb: 'fog', x: 1, y: 2, clear: true }, { t: 'paintFog', x: 1, y: 2, r: 120, amount: -0.3 }],
+  [{ verb: 'thread', a: 'pim', b: 'echo', on: false }, { t: 'thread', a: 'pim', b: 'echo', on: false }],
+])('verb %o sends %o', () => {});
+test('place sends the chapter kind and stops at its limit', () => {}); // bridge, limit 2: third returns false
+test('an ambient sky bid gets away after 6 s and is not prompted again', () => {});
+test('a beat rumor sends one whisper; a beat dance sends one dance', () => {});
+test('a chapter listing four world verbs fails the schema', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** Update ch0 to ch3 configs to set `carry: false`, and add `peek` and `zoom` to ch2 and ch3 (spec 8 teaches them in chapter 2). **Step 4: Run** `npm test && npm run typecheck && npm run validate-content`. Expected: PASS; the ch2 and ch3 T3 runs are unchanged, since fresh chapters build the same scenario.
+- [ ] **Step 5: Commit.** `feat(story): add Part 1 verbs, overrides, and the year carry`
+
+### Task M2.6: Twists, flags, activities, the year log, diaries, and margin notes (story)
+
+**Files:** Create `src/story/diary.ts`, `content/diary.json`. Modify `src/story/schema.ts`, `flags.ts`, `twists.ts`, `bets.ts`, `action-log.ts`, `chapter-runner.ts`, `src/sim/metrics.ts` (the `MetricSpec` type), `content/flags.json`, `content/ink/main.ink` (VARs), `content/chapters/ch0.json` to `ch3.json` (notes as objects), `tools/content-validate/validate.ts` (diary), `src/ui/components/Drawer.svelte` (render a note's fields), `src/ui/screens/Game.svelte` (the heading reads `Chapter n: Title` with `n` from the id `ch<n>`, and `Interlude: Title` for an interlude). Test `tests/unit/story/twists.test.ts`, `bets.test.ts`, `chapter-runner.test.ts`, `schema.test.ts`, `tests/unit/story/diary.test.ts`.
+
+**Interfaces:**
+- Flags add, with these skip defaults (spec P3): `litConflict: 0.3`, `rumorStuck: false`, `echoForgiveness: 0.5`, `wispPushed: true`, `mossShared: true`, `winterLeft: 0`, `bellDanced: true`, `festivalShare: 0.6`, `greetingSong: 0`. `main.ink` declares each as a VAR.
+- `TwistId` adds `'thornsGrow'` (mean tightness of creatures not away rose by at least 0.03 since `before`), `'rumorDrowns'` (`rumor.holders` are at least half of the creatures not away, `about` left out), `'revengeLoop'` (both warmths of the echo and krit tie are below 0), `'wispLeaves'` (Wisp is away), `'mossShares'` (a `gift` event from moss to krit with move `give`), `'bellDances'` (Bell is dancing).
+- `MetricSpec` adds `{ kind: 'maxShell'; shell: keyof Shell }`, `{ kind: 'rumorShare' }`, `{ kind: 'warmth'; from: string; to: string }` (0 with no tie), `{ kind: 'awayCount' }`. The bet gains `buckets?: number[]`: required for the three numeric kinds (length = options − 1), forbidden for `maxBerries` and `maxShell`. `measureBet` returns the option at index "count of buckets at or below the value" (ADR 0012 item 14).
+- `LogEntry` adds `{ kind: 'event'; tick: number; e: SimEvent }` for the kinds in `YEAR_EVENTS = ['lit', 'arrive', 'leave', 'return', 'dance', 'mushroom']`, and `{ kind: 'activity'; tick: number; activity: Activity; result: string }`.
+- Schema: `kind: 'chapter' | 'interlude'`; `activity?: Activity` with `type Activity = 'rhythm' | 'telephone' | 'bubbles' | 'postcard' | 'stillness' | 'fire'`; beat trigger `{ activity: true }`; beat action `{ show: 'heatmap' }`; `diary?: Record<string, string[]>` (authored lines, such as Krit's hunger in chapter 5); `notes: Note[]` with `Note = { title, science, limits, counter, question, sources: { label: string; url: string }[] }` (ADR 0012 item 13): 2 to 4 for a chapter, 0 to 4 for an interlude.
+- Runner adds: `finishActivity(result: string): boolean` (false without an activity or after the first call; logs the entry and runs `{ activity: true }` beats); `onShow(cb: (what: 'heatmap') => void): () => void`; `diary(id: string): readonly string[]` (the chapter's authored lines, then the last 20 bid, gift, leave, return, and dance events that name `id`, as text from `content/diary.json` with `{other}` filled by `displayName`).
+- `FLAG_SOURCES` take `(lite, twistFired, log)`: `litConflict` is the share of this chapter's `lit` events with `against` or `keep`; `rumorStuck`, `wispPushed`, `mossShared` are `twistFired`; `echoForgiveness` is Echo's dial; `winterLeft` counts `leave` events; `bellDanced` reads Bell's `dancing`; `festivalShare` is the dancing share of creatures not away; `greetingSong` is `Number` of the activity result.
+
+- [ ] **Step 1: Write the failing tests.** One true and one false hand-built input per new twist. Then:
+
+```ts
+test('a bucket bet answers the option whose bucket holds the value', () => {
+  expect(measureBet({ kind: 'rumorShare' }, liteWith(0.5), ['few', 'half', 'most'], [0.25, 0.5])).toBe('most');
+  expect(measureBet({ kind: 'warmth', from: 'echo', to: 'krit' }, liteWarmth(-0.1), ['no', 'yes'], [0])).toBe('no');
+});
+test('lit, leave, and dance events go in the log; bid events do not', () => {});
+test('finishActivity logs once, runs the activity beat, and returns false the second time', () => {});
+test('litConflict is 2/3 after three lit meetings, two with a keep', () => {});
+test("Krit's diary starts with the chapter's authored line, then a line that names Echo for Echo's gift", () => {});
+test('a diary keeps the last 20 events', () => {});
+test('a note without a source fails the schema; an interlude with no notes passes', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** Every text value in `content/diary.json` and every note field starts with `[PLACEHOLDER] ` (ADR 0010). The diary keys are `bid.<seenAs>`, `gift.gave.<own move>`, `gift.got.<seenAs>`, `leave`, `return`, and `dance`; at least one template holds a mixed feeling (spec 10.5). **Step 4: Run** `npm test && npm run validate-content`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(story): add Part 1 twists, flags, activities, diaries, and notes`
+
+### Task M2.7: The myth (myth)
+
+**Files:** Create `src/myth/features.ts`, `src/myth/grammar.ts`, `content/myth/verses.json`. Modify `tools/content-validate/validate.ts`. Test `tests/unit/myth/features.test.ts`, `tests/unit/myth/grammar.test.ts`, `tests/unit/myth/t6.test.ts`, `tests/unit/myth/random-year.ts`.
+
+**Interfaces:**
+- Consumes (types only): `YearLog`, `Flags`, `VerbInput`.
+- Produces in `features.ts`: `interface MythFeatures { lightOnConflict: number; lightOnKindness: number; rumbles: number; fogPainted: number; gusts: number; welcomes: number; mostLit: string | null; winterLeft: number; mossShared: boolean; bellDanced: boolean; festivalShare: number; wispPushed: boolean; narrator: string }`; `extractFeatures(year: YearLog, flags: Flags, skyWarmth: Readonly<Record<string, number>>): MythFeatures`. Shares count `lit` events (a meeting can count toward both); 0 with none. `rumbles` counts `respond` verbs with `against`; `fogPainted` is the sum of π × `fog.brushRadius`² × `fog.brushAmount` over `fog` verbs with `clear: false`, divided by the scene area (all from `content/tuning.json`); `gusts` counts `blow` verbs; `welcomes` counts `arrive` events; `mostLit` is the id in most `lit` events, a tie to the lower id; `narrator` is the highest sky warmth, a tie to the lower id, `'pim'` with no creatures. The rest come from flags.
+- Produces in `grammar.ts`: `VersesSchema` (exactly five verses in spec order with ids `waking`, `eye`, `moods`, `winter`, `asking` and titles "The Waking", "The Sky's Eye", "The Sky's Moods", "The Long Winter", "The Asking"; 6 to 8 templates each; a template is `{ when: { feature: keyof MythFeatures; op: 'eq' | 'gte' | 'lte'; value: number | boolean | string }[]; text: string; note?: string }`; the last template's `when` is `[]`; slots are only `{narrator}`, `{mostLit}`, `{rumbles}`, `{gusts}`, `{welcomes}`, `{winterLeft}`); `type Verses`; `interface MythPage { narrator: string; verses: { title: string; text: string; note: string | null }[] }`; `tellMyth(f: MythFeatures, verses: Verses, name: (id: string) => string): MythPage` (the first template whose every condition holds; spec 10.6 items 3 to 5).
+- Produces in `random-year.ts` (test only): `randomYear(rng: Rng): { year: YearLog; flags: Flags; skyWarmth: Record<string, number> }`: per chapter id, 0 to 12 random verbs of the chapter's world verbs, 0 to 40 `lit` events over random pairs of the 30 m0 ids with random behaviors, 0 to 3 `arrive` events, random flags of the right types, and random sky warmths (ADR 0012 item 11).
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('features from a hand-built year', () => {
+  expect(extractFeatures(year, flags, { pim: 0.4, krit: 0.6 })).toMatchObject({
+    lightOnConflict: 0.5, rumbles: 2, gusts: 1, welcomes: 1, mostLit: 'krit', narrator: 'krit',
+  });
+});
+test('an all-skipped year gives five whole verses with no open slot', () => {
+  const page = tellMyth(extractFeatures([], defaultFlags, {}), verses, displayName);
+  expect(page.verses).toHaveLength(5);
+  for (const v of page.verses) expect(v.text).not.toMatch(/\{|undefined|null/);
+});
+test('fog near fights reads as the sky sulking, with a margin note', () => {
+  // fogPainted 0.2, lightOnConflict 0.6: the moods verse has a non-null note
+});
+test('a template with an unknown slot or a verse with 5 templates fails the schema', () => {});
+test('T6: at least 900 of 1,000 random years give different myths', () => {
+  const rng = createRng(6);
+  const texts = new Set<string>();
+  for (let i = 0; i < 1000; i++) { const r = randomYear(rng); texts.add(JSON.stringify(tellMyth(extractFeatures(r.year, r.flags, r.skyWarmth), verses, displayName).verses)); }
+  expect(texts.size).toBeGreaterThanOrEqual(900);
+});
+```
+
+The second test is Review Focus 2.
+
+- [ ] **Step 2: Run** and see FAIL.
+- [ ] **Step 3: Implement.** Write `verses.json` with 6 to 8 templates per verse, every text starting with `[PLACEHOLDER] `, conditions over every feature, at least two misreading templates with notes, and templates that name the narrator in its own voice (conditions on `narrator`). Add the schema check to `validate.ts`.
+- [ ] **Step 4: Run** `npm test && npm run validate-content`. Expected: PASS, with the T6 count printed.
+- [ ] **Step 5: Commit.** `feat(myth): add features, the verse grammar, and placeholder templates (T6)`
+
+### Task M2.8: Chapters 4 to 7 and their T3 runs (content)
+
+**Files:** Create `content/chapters/ch4.json` to `ch7.json`, `i3.json`, `i4.json`, `i5.json`, `content/ink/ch4.ink` to `ch7.ink`, `i3.ink`, `i4.ink`, `i5.ink`, `tests/golden/players.ts`, `tests/golden/year.ts`, `tests/golden/carry.test.ts`, `tests/golden/carry/*.json`, `tests/golden/ch4.test.ts` to `ch7.test.ts`. Modify `content/ink/main.ink` (INCLUDEs), `tests/golden/run-chapter.ts`, `ch2.test.ts`, `ch3.test.ts`, `ch3-control.test.ts` (players move to `players.ts`), `src/main.ts` (the chapter list in `CHAPTER_ORDER` order), `tests/e2e/slice.spec.ts` (the slice runs now end when the heading "Interlude: The Door for Two" shows).
+
+**Interfaces:**
+- `runChapterHeadless(config, seed, player, flags, stopAfterTicks?, carry?: Carry): Promise<HeadlessResult>`; `HeadlessResult` gains `last: WorldLite`, `flags: Flags`, `log: ActionLog`, and `twistFired` becomes `boolean | null` (null for a chapter without a twist).
+- `PLAYERS: Record<string, () => ScriptedPlayer>` in `players.ts`; `CHAPTER_ORDER = ['ch0', 'ch1', 'ch2', 'ch3', 'i3', 'ch4', 'i4', 'ch5', 'i5', 'ch6', 'ch7', 'i7', 'ch8', 'i8', 'ch9', 'ch10']`; `runYear(seed: number, upTo: string): Promise<{ results: Record<string, HeadlessResult>; carries: Record<string, Carry> }>` in `year.ts` (starts at ch3 with default flags, passes each result's flags on, and gives a chapter with `carry: true` the carry from the result before it).
+- `carry.test.ts` (t3 project) runs `runYear(1, …)` and checks each stored carry with `toMatchFileSnapshot('carry/<id>.json')`; T3 tests read those files.
+
+Chapters (each config sets `carry: true`, the bench from chapter 3 under the crooked tree in `structures`, and `ambientSkyBids`; Ink lines one sentence per beat with `#placeholder`; 2 to 4 placeholder notes):
+
+| Id | Season, day | Verbs (tray first) | Bet | Twist, window, retry | Writes | Scripted player |
+| --- | --- | --- | --- | --- | --- | --- |
+| i3 The Door for Two | spring, 600 s | none; activity `rhythm` | none | none | `greetingSong` | finishes with `'0'` |
+| ch4 The Long Gaze | summer, 40 s | shine, respond, bet, peek, zoom | "Where will the thorns grow?" `maxShell` tightness over the six named, 4 days | `thornsGrow`, 6 days, krit and echo; the twist beat has `show: heatmap` | `litConflict` | shines on Krit every 40 ticks; answers the first option |
+| i4 The Telephone Sketch | summer, 600 s | activity `telephone` | none | none | none | finishes |
+| ch5 The Rumor | lateSummer, 40 s | whisper, thread, respond, bet, peek, zoom | "How many will believe it?" `rumorShare`, buckets [0.25, 0.5], options few, half, most, 4 days | `rumorDrowns`, 6 days, echo and pim; a beat at 2 s has `rumor` echo about krit, −1; the twist beat says who got hurt (spec 19.2) | `rumorStuck` | threads Echo to Pim and to six villagers on its first tick |
+| i5 Dream Bubbles | lateSummer, 600 s | activity `bubbles`; `state` `'*'` sleep | none | none | none | finishes |
+| ch6 Fog | autumn, 40 s | fog, place (lantern, limit 2), respond, bet, rewind, peek, zoom | "Will Echo forgive Krit in this fog?" `warmth` echo to krit, buckets [0], options no, yes, 3 days | `revengeLoop`, 5 days, echo and krit | `echoForgiveness` | paints fog three times at the Echo and Krit midpoint |
+| ch7 Wind | autumn, 40 s | blow, respond, rewind, peek, zoom | none | `wispLeaves`, 4 days, wisp and pim; `ridgeX` 1500; Wisp starts at (1300, 300) | `wispPushed` | blows from Wisp by (400, 0) on its first tick |
+
+The `newVerb` is the first tray verb of ch4 to ch7. Krit's authored diary line in ch5 tells of last winter's hunger (spec 6.2).
+
+- [ ] **Step 1: Write the T3 tests** in the M1.11 form, one file per chapter: 200 seeds from the stored carry, the chapter's scripted player, default flags; `expect(closeCalls).toBeLessThan(10)`. Move the ch2 and ch3 players into `players.ts` unchanged.
+- [ ] **Step 2: Write the configs, Ink, and players, then run** `npx vitest run --project t3 tests/golden/carry.test.ts -u` once to write the carries, and `npm run test:t3`. If a chapter fails, change only its overrides or tuning, never its twist check (M1.11), and record a tuning change in ADR 0012.
+- [ ] **Step 3: Run** `npm test && npm run validate-content && npm run test:e2e -- tests/e2e/slice.spec.ts`. Expected: PASS, every knot a config names exists.
+- [ ] **Step 4: Commit.** `feat(content): add chapters 4 to 7 and interludes 3 to 5 with T3 runs`
+
+### Task M2.9: Chapters 8 to 10, the last interludes, and their T3 runs (content)
+
+**Files:** Create `content/chapters/ch8.json`, `ch9.json`, `ch10.json`, `i7.json`, `i8.json`, their Ink files, `tests/golden/ch8.test.ts`, `ch9.test.ts`, `ch10.test.ts`, `ch9-control.test.ts`. Modify `main.ink`, `players.ts`, `src/main.ts`.
+
+Every config from ch8 on lists `gone: ["wisp"]`. ch8 and ch9 set `ambientSkyBids`.
+
+| Id | Season, day | Verbs | Key overrides | Bet | Twist, window, retry | Writes | Scripted player |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| i7 Wisp's Postcard | autumn, 600 s | activity `postcard` | none | none | none | none | finishes |
+| ch8 The Dew Mushroom | winter, 40 s | respond, bet, rewind, peek, zoom; `newVerb` null | `bushes: []`, `mushroom` (800, 600), grudge moss against krit, 1 slight (ADR 0012 item 7); variant `when` [`litConflict` gte 0.5, `rumorStuck` eq true] sets Krit away (spec P6) | "How many will leave this winter?" `awayCount`, buckets [1.5, 4.5], options none, few, many, 6 days (Wisp counts as away) | `mossShares`, 8 days, moss and krit | `mossShared`, `winterLeft` | answers the first option, nothing else |
+| i8 The Long Night | winter, 600 s | activity `stillness` | none | none | none | none | finishes |
+| ch9 Seed and Dance | thaw, 40 s | place (bridge, limit 2), respond, zoom, peek; `newVerb` null | `water` [{ x 780, y 0, w 60, h 900 }], `danceThreshold` bell 3; a beat at day 1 has `dance: pim` | none | `bellDances`, 4 days, bell and pim | `bellDanced`, `festivalShare` | places bridges at (810, 300) and (810, 600) |
+| ch10 The Sky Story | thaw, 60 s | listen; activity `fire` | the water from ch9 | none | none; the `{ activity: true }` beat plays `ch10_ask` (the creatures ask the sky to find Wisp), and the exit is that beat | none | finishes with `'heard'` |
+
+- [ ] **Step 1: Write the T3 tests:** ch8 and ch9 in the M2.8 form. ch10: in all 200 seeds the runner reaches its exit. `ch9-control.test.ts`: from an empty carry (no ties), `bellDances` fires in at most 20 of 200 seeds in its first window, so earlier choices really decide (spec 6.2), in the form of `ch3-control.test.ts`.
+- [ ] **Step 2: Write the configs, Ink, and players; run** the carry update and `npm run test:t3`, calibrating as in M2.8.
+- [ ] **Step 3: Add a myth check** to `tests/golden/carry.test.ts`: the seed-1 year log through ch9 gives `tellMyth` five verses with no open slot (ADR 0012 item 11).
+- [ ] **Step 4: Run** `npm test && npm run validate-content`. **Step 5: Commit.** `feat(content): add chapters 8 to 10 and interludes 7 and 8 with T3 runs`
+
+### Task M2.10: Meadow additions: dash fog, land, seasons, and the heat map (render)
+
+**Files:** Create `content/palettes/summer.json`, `lateSummer.json`, `autumn.json`, `winter.json`, `thaw.json`. Modify `src/render/palette.ts`, `content/palettes/spring.json`, `src/render/line/strip.ts`, `line-view.ts`, `meadow-view.ts`, `src/main.ts`, `src/ui/game-service.ts`. Test `tests/unit/render/strip.test.ts`, `meadow-view.test.ts`, `tests/visual/meadow.spec.ts`.
+
+**Interfaces:**
+- `PaletteSchema` adds `water: Hex` and `full: Hex[]` (six colors for the Soul view). Accents from spec 11.3: summer gold, late summer violet, autumn blue-grey, winter ember red, thaw spring green, each safe for color blindness and never used for text.
+- `dashMask(i: number, fog: number): 0 | 1` in `strip.ts`: 1 for every point when `fog < 0.25`; otherwise runs of `max(2, round(12 × (1 − fog)))` points alternate 1 and 0, starting with 1. `createLineView(...).update` takes `fog: number` and multiplies the width by `dashMask` (spec 11.3; deferred from M1.6).
+- `MeadowView` adds `setPalette(p: Palette): void` and `showHeatmap(on: boolean): void`. It draws the water in `palette.water`, bridges as planks across it, lanterns as small warm glows, the mushroom with one dot per drop, and a small hop for dancing creatures (none with reduced motion). The heat map counts the lens center over a 16 × 9 grid from every snapshot of the chapter and draws each cell's share as an ink wash.
+- `Stage` adds `setSeason(season: Season): void` and `showHeatmap(on: boolean): void`. `Game.svelte` calls `stage.setSeason(chapter.season)` at each chapter start and turns the heat map on from `runner.onShow`.
+
+- [ ] **Step 1: Write the failing tests:** `dashMask` is all 1 at fog 0.2; at fog 0.5 it reads 1 × 6, 0 × 6, 1 × 6; a lite with water, a bridge, a lantern, and a mushroom adds no draw call per creature (the call count rises by at most 4); the heat map cell under a lens held for 10 snapshots has the largest share. Visual: add `meadow-thaw.png` at a fixed tick with the brook, two bridges, and a dancing Bell. The user approves the new baseline before it is committed; the M1 baselines must not change.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(render): add dash fog, land, season palettes, and the heat map`
+
+### Task M2.11: Cosmos and Soul views and zoom (render, input)
+
+**Files:** Create `src/render/cosmos-view.ts`, `src/render/soul-view.ts`, `src/render/timeline.ts`, `src/input/zoom.ts`. Modify `src/main.ts`, `src/ui/game-service.ts`. Test `tests/unit/render/cosmos.test.ts`, `soul.test.ts`, `timeline.test.ts`, `tests/unit/input/zoom.test.ts`.
+
+**Interfaces:**
+- `type ViewName = 'cosmos' | 'meadow' | 'soul'`; `nextView(current: ViewName, dir: 'in' | 'out', picked: string | null): ViewName` (out: soul to meadow to cosmos; in: cosmos to meadow, meadow to soul only with a pick).
+- `cosmosEdges(lite: WorldLite, threshold: number): { a: string; b: string; kind: 'friend' | 'scar'; warmth: number }[]`: a friend when both warmths are above the threshold, a scar when either is below 0, neither otherwise (left out); creatures away are left out.
+- `soulLayout(lite: WorldLite, id: string, threshold: number): { id: string; x: number; y: number; kind: 'friend' | 'scar' | 'met' }[]`: every creature with a tie to `id`, at angles in id order, at a distance that falls as `id`'s warmth toward it rises.
+- `interface TimelinePoint { tick: number; population: number; trust: number }`; `sampleTimeline(points: TimelinePoint[], tick: number, lite: WorldLite, every: number): void` (adds a point when `tick` is at least `every` past the last); `friendshipBreaks(prev: WorldLite, next: WorldLite, threshold: number): { a: string; b: string }[]` (ties whose two-sided friendship ended).
+- `createCosmosView(app, palette, threshold)` and `createSoulView(app, palette, rigs, threshold)` each return `{ container; update(lite, settings, …): void; pick(x, y): string | null }`. Cosmos fades the meadow to 25% and snaps its pick to the nearest node within 44 screen pixels (spec 12.4). Soul draws in `palette.full` (spec 11.3: full color, for the first time).
+- `Stage` adds `setView(view: ViewName, soul: string | null): void`, `snapshot(tick: number, lite: WorldLite): void` (feeds the timeline and the break marks), `timeline(): { points: readonly TimelinePoint[]; breaks: readonly number[] }`. `pick` uses the current view. `GameService.onSnapshot` passes `(lite, tick)`.
+
+- [ ] **Step 1: Write the failing tests:** `nextView` for every pair; `cosmosEdges` on a hand-built lite (a friend, a scar, a plain tie left out, an away creature left out); `soulLayout` puts a warmth 0.9 creature nearer than a warmth 0.1 one and leaves out creatures with no tie; `sampleTimeline` adds one point per `every` ticks; `friendshipBreaks` names a pair that falls from 0.5 to 0.2; Cosmos `pick` returns a node 40 pixels away and `null` at 50; Soul on a creature with no ties draws only the center (Review Focus 5).
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(render): add the Cosmos and Soul views and zoom`
+
+### Task M2.12: Part 1 tools in input and the tray (input, ui)
+
+**Files:** Modify `src/input/keyboard.ts`, `pointer.ts`, `verbs.ts`, `src/ui/components/ToolTray.svelte`, `src/ui/screens/Game.svelte`. Create `src/ui/components/WhisperCard.svelte`. Test `tests/unit/input/input.test.ts`, `tests/e2e/a11y.spec.ts` (whisper card).
+
+**Interfaces:**
+- `InputContext` adds `view(): ViewName`, `zoom(dir: 'in' | 'out'): void`, `water(): readonly Rect[]`, `isFriend(a: string, b: string): boolean`, `threadFrom(): string | null`, `setThreadFrom(id: string | null): void`, `openWhisper(target: string): void`.
+- `snapToWater(p: Point, water: readonly Rect[]): Point | null` (the point clamped into the nearest rectangle; null with none).
+- Keyboard: Z zooms out and X in (when `zoom` is unlocked); Enter acts with the tool: shine at the cursor, fog paints at the cursor and Shift+Enter clears, blow sends a gust of 300 units from the cursor in the last arrow direction (east before any arrow), place snaps a bench to a bench spot, a bridge into water, and sets a lantern at the cursor, whisper opens the card for the picked creature, thread marks the picked creature and a second Enter on another sends `on: !isFriend(a, b)` (Escape clears the mark).
+- Pointer: a click acts as Enter at that point; a drag of at least 40 pixels with blow sends the drag as the gust; with thread in Cosmos a drag from one node to another sends a thread, and a drag that ends on its start or on no node sends nothing; the wheel zooms (one step per 300 ms); two pointers that spread past 1.25 times their start distance zoom in, and closer than 0.8 zoom out, once per gesture.
+- Tray labels: Sunlight, Whisper, Thread, Fog, Wind, and Bench, Bridge, or Lantern by the chapter's place kind. Each new tray verb gets one `[PLACEHOLDER]` hint line (spec 12.6), also when a chapter teaches two (P1's chapter 5 exception).
+- `WhisperCard`: a modal dialog, "Whisper about whom?" with one button per named creature other than the target, then Kind or Unkind; Escape cancels.
+
+- [ ] **Step 1: Write the failing tests:** each key and gesture above maps to its `VerbInput` or zoom; a bridge Enter with no water sends nothing; a thread drag ending on the start node, on empty space, or on an away creature sends nothing (Review Focus 4); pinch fires once per gesture; axe finds no serious issue with the whisper card open.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(input): add Part 1 tools, threads with snapping, and zoom gestures`
+
+### Task M2.13: Mind verbs on screen: Cosmos panel, rewind, peek, diary (ui, story)
+
+**Files:** Create `src/story/peek.ts`, `src/ui/components/CosmosPanel.svelte`. Modify `src/ui/components/Drawer.svelte`, `src/ui/screens/Game.svelte`, `src/ui/game-service.ts`, `src/main.ts`. Test `tests/unit/story/peek.test.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- `peekRule(dials: Dials, season: Season): { payoff: { cost: number; value: number }; lines: string[] }`: the payoff from tuning (cost 1, value 3, or 2 in winter) and three lines with the creature's numbers, from spec 9.3: the first-meeting give chance (its Opener), the slights it forgives (`round(3 × Forgiveness)`), and its slight half-life (`1 + 29 × Memory` days).
+- `GameService.rewind(tick: number): Promise<WorldLite>` (from `SimHost.rewind`).
+- `CosmosPanel` (shown in the Cosmos view): an HTML list of creatures not away, each "Name: n friends, m scars", plus, during the rumor, "imagines k of n friends believe it" (spec 6.2's pond reflection, from `lite.rumor` and the ties); and, when `rewind` is unlocked, a range input labelled "Rewind" from the chapter's first tick to now, with the break ticks as a `datalist`, and a "Back to now" button. Moving the range pauses the sim, asks for that tick (only the newest request is drawn), and draws the rewound lite; verbs do nothing until "Back to now", which restores the speed. The range is disabled while a bet runs.
+- `Drawer` gains `diary: { name: string; lines: readonly string[]; dials: Dials; peek: ReturnType<typeof peekRule> | null } | null`: sections Diary, Dials, Under the hood (when `peek` is unlocked), and Margin notes. P opens the drawer at Under the hood for the picked creature. The Soul view opens the drawer at Diary.
+
+- [ ] **Step 1: Write the failing tests:** `peekRule` gives "forgives 2 slights" at Forgiveness 0.5 and a winter value of 2; axe finds no serious issue in the Cosmos view with the panel and in the Soul view with the drawer open; e2e on `?chapter=9` (ch6): the rewind range moves, the sim speed is 0, verbs send nothing, and "Back to now" restores the speed.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(ui): add the Cosmos panel, rewind, peek, and the diary drawer`
+
+### Task M2.14: Interludes and the fire (ui, input)
+
+**Files:** Create `src/ui/interludes/activities.ts`, `Rhythm.svelte`, `Telephone.svelte`, `Bubbles.svelte`, `Postcard.svelte`, `Stillness.svelte`, `src/ui/components/MythScroll.svelte`, `src/input/hold-still.ts`. Modify `src/ui/screens/Game.svelte`, `src/ui/game-service.ts`, `src/main.ts`, `src/audio/event-sounds.ts`. Test `tests/unit/ui/activities.test.ts`, `tests/unit/input/hold-still.test.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- `activities.ts`: `RHYTHMS: readonly (readonly number[])[]` (four 4-beat patterns); `sharedRhythm(left: readonly number[], right: readonly number[]): number` (the one index both sides accept); `copySketch(points: readonly number[], generation: number): number[]` (each copy moves each point by a fixed hash of `(generation, index)` up to 3 units, so drift adds up; spec 6.4); `traceProgress(path: readonly number[], visited: readonly number[], tolerance: number): number` (share of path points within `tolerance` of a visited point); `poppable(id: string): boolean` (false for moss; spec 6.4).
+- `createHoldStill(clock: () => number): { move(x: number, y: number): void; held(): number }`: seconds since the cursor last moved more than 4 pixels.
+- Each activity component takes `{ lite: WorldLite; finish: (result: string) => void }` and uses real buttons: Rhythm shows the four patterns as "Tap rhythm n" and finishes with the shared index; Telephone has "Pass it on" six times; Bubbles has "Pop Name's bubble" for each sleeper with a scar (Moss's wobbles and stays) and finishes when only Moss's is left; Postcard traces the path with the pointer or one Enter per segment and finishes at 0.9 progress (the path spells "home"); Stillness finishes after 5 seconds held still. `Game.svelte` shows the activity in place of the tool tray and calls `runner.finishActivity`.
+- `MythScroll` takes `{ page: MythPage; finish: () => void }`: a heading "The Sky Story, told by {narrator}", one verse at a time in an `aria-live="polite"` region, a Listen button (Enter) for the next verse, the verse's note behind a "What the sky did" toggle, and `finish` after the last verse. `GameService.myth(flags: Flags): MythPage` builds it from the year log, the flags, and the last snapshot's sky warmths.
+- Audio: a `toward` bid plays its harmony in the `greetingSong` rhythm (spec 6.4).
+
+- [ ] **Step 1: Write the failing tests:** `sharedRhythm` finds the one shared index; `copySketch` of generation 6 differs from generation 0 more than generation 1 does; `traceProgress` is 1 for the path itself and 0 far away; `poppable('moss')` is false; `held()` grows while still and resets on a 5-pixel move; axe finds no serious issue on each activity and on the myth scroll; e2e on `?chapter=15` (ch10): Listen five times shows five verses and ends Part 1.
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(ui): add the five interludes and the fireside myth`
+
+### Task M2.15: Saves with the year log, the *Book of Skies*, and the Quiet Visitor (persist, ui, input, render)
+
+**Files:** Create `src/persist/profile.ts`, `src/ui/screens/BookOfSkies.svelte`, `src/input/wait.ts`, `content/placeholder/PLACEHOLDER-visitor.svg`, `content/rigs/PLACEHOLDER-visitor.rig.json`. Modify `src/persist/format.ts`, `migrations.ts`, `slots.ts`, `src/render/meadow-view.ts`, `src/ui/App.svelte`, `Title.svelte`, `Game.svelte`, `game-service.ts`, `src/main.ts`. Test `tests/unit/persist/slots.test.ts`, `tests/unit/persist/profile.test.ts`, `tests/unit/input/wait.test.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- `SaveV2 = Omit<SaveV1, 'version' | 'log'> & { version: 2; year: YearLog }` (the year so far, at the chapter start; spec 15.1). `migrate(raw: unknown): SaveV2`: a version 1 save gets `year: []`, drops `log`, and fills missing flags from `content/flags.json`.
+- `interface BookPage extends MythPage { year: number; seed: number }`; `createProfile(factory: IDBFactory): Promise<{ pages(): Promise<BookPage[]>; keepMyth(page: MythPage, seed: number): Promise<BookPage>; feathers(): Promise<number>; addFeather(): Promise<number> }`, stored under the key `profile` in the save database. Blocked storage gives an in-memory profile.
+- `createWait(ms: number, timer: HintTimer): { activity(): void; onVisit(cb: () => void): () => void; dispose(): void }`: fires once after `ms` (180,000) with no activity, then not again until `activity()` and another full `ms` (ADR 0012 item 12).
+- `MeadowView.visitor(): Promise<void>`: the visitor walks in from the gate to the nearest bench (or bench spot), sits 20 seconds, leaves a feather, and walks out; reduced motion shows it seated, then gone.
+- `GameService` adds `book(): Promise<BookPage[]>`, `keepMyth(page: MythPage): Promise<void>`, `addFeather(): Promise<number>`, `input.createWait()`. The title's *Book of Skies* button is enabled with at least one page; B opens the book in the game as a modal dialog with the sim paused. After ch10 the end screen reads "End of Part 1" with "Open the Book of Skies" and "Back to title".
+- `BookOfSkies`: one `article` per page with a "Year n" heading, the narrator, each verse as a heading and paragraph, and its note as an `aside`; the feather count; a Back button.
+
+- [ ] **Step 1: Write the failing tests:**
+
+```ts
+test('a v2 save keeps the year log through save and load', async () => {});
+test('a v1 save migrates with an empty year and the new flags at their defaults', () => {});
+test('Continue in chapter 7 gives a myth built from chapters 0 to 6', async () => {
+  // save at ch7 start with a year log holding 3 rumbles; load; myth features show rumbles 3
+});
+test('keepMyth numbers pages from year 1; pages survive a new profile on the same database', async () => {});
+test('wait fires once after 180 s idle, and again only after activity and 180 s more', () => {});
+```
+
+Add axe checks for the *Book of Skies* on the title and in the game. The third test is Review Focus 1.
+
+- [ ] **Step 2–4.** **Step 5: Commit.** `feat(persist): keep the year log and myths; add the Book of Skies and the Quiet Visitor`
+
+### Task M2.16: End of Part 1 and the M2 exit check (e2e)
+
+**Files:** Create `tests/e2e/part1.spec.ts`. Modify `tests/e2e/a11y.spec.ts`.
+
+- [ ] **Step 1: Write the tests.** The auto-player from `slice.spec.ts`, extended: it answers every bet with its last option; with Sunlight it clicks the scene's middle once a day; with Whisper it whispers unkindly about Krit; with Thread it drags between the first two nodes; with Fog and Wind it clicks or drags once; with Bridge or Lantern it clicks the scene's middle row; in each interlude it presses the activity's buttons (or waits 6 seconds for Stillness); at the fire it presses Listen until the end. A keyboard-only run does the same with keys only. Both run in Chromium only, at `?fast=10` from Begin with a 1,200-second timeout, end on "End of Part 1" with focus on it, see no page error, and find the *Book of Skies* enabled on the title. axe runs on each chapter's first screen, the Cosmos and Soul views, an open bet, and the book.
+- [ ] **Step 2: Run** `npm run lint && npm run typecheck && npm test && npm run test:prop && npm run test:t3 && npm run validate-content && npx vite build --mode development && npm run test:e2e`. Expected: all pass; record the T3 close-call counts, the T6 distinct count, and the T4 shares.
+- [ ] **Step 3:** Run superpowers:verification-before-completion, then superpowers:requesting-code-review on the M2 commits. Fix findings.
+- [ ] **Step 4:** Report to the user: the test summary, the numbers from Step 2, the golden hash (still `c29d2fa4dbda4dcf`), and the content still marked placeholder.
+- [ ] **Step 5: Commit.** `test(e2e): play Part 1 to its end`
+
+### M2 Review Focus
+
+1. **Continue mid-year.** A player who closes the tab in autumn and presses Continue expects the myth to remember spring and summer. Owner: M2.15, "Continue in chapter 7 gives a myth built from chapters 0 to 6".
+2. **Skipping.** A player who skips every chapter still hears a whole myth, with no empty verse or raw slot. Owner: M2.7, "an all-skipped year gives five whole verses with no open slot".
+3. **A brook with no bridge.** A player who never places a bridge must not see creatures walk on water, freeze, or vanish. Owner: M2.2, "a creature never stands in water away from a bridge".
+4. **Threads by finger.** On a phone, a thread drag that ends between nodes or back on its start must do nothing, not cut a friendship. Owner: M2.12, the thread drag test.
+5. **An empty winter.** If most of the village leaves, the mushroom, the dance, the views, and the myth must still work with 0 or 1 creature. Owner: M2.3, "empty winter", and M2.11, Soul with no ties.
+
+### M2 pre-flight scan
+
+Pairs of tasks that touch the same file or interface. Each runs after the one before it; the later task adds to what the earlier one made and changes no earlier name.
+
+| Tasks | Shared file or interface | How they stay consistent |
+| --- | --- | --- |
+| M2.1, M2.2, M2.3 | `sim/types.ts`, `world.ts`, `lite.ts`, `protocol.ts`, `arbitraries.ts` | Each adds optional fields and union members only; each runs the golden hash test. |
+| M2.2, M2.3 | `move.ts`, `step.ts`, `commands.ts` | M2.2 adds water steering and `crossRidge`; M2.3 adds drop taking and `spreadDance` after meetings. Step order: commands, movement, `crossRidge`, meetings, dance, light, gusts, dusk. |
+| M2.3, M2.6 | `SimEvent` `lit`, `dance`, `mushroom`; `YEAR_EVENTS` | M2.6 lists exactly the M2.3 kinds plus `arrive`, `leave`, `return`. |
+| M2.4, M2.13 | `SimHost.rewind` | M2.13 wraps it as `GameService.rewind`. |
+| M2.5, M2.6 | `chapter-runner.ts`, `schema.ts` | M2.5 adds verbs, overrides, carry; M2.6 adds twists, activities, log kinds, diaries, notes. |
+| M2.5, M2.8, M2.9 | `Carry`, `buildScenario(..., carry)`, `chapter.carry` | `runChapterHeadless` and `runYear` pass the carry the same way `main.ts` does. |
+| M2.6, M2.7 | `YearLog`, `LogEntry`, `Flags` | `extractFeatures` reads only `verb`, `event`, and flag fields that M2.6 defines. |
+| M2.7, M2.14, M2.15 | `MythPage`, `tellMyth` | M2.14 shows a page; M2.15 stores it as a `BookPage`. |
+| M2.8, M2.9 | `players.ts`, `year.ts`, `carry/*.json`, `main.ink`, `main.ts` chapter list | M2.9 appends to `CHAPTER_ORDER` order already fixed in M2.8 and regenerates the carries after ch7. |
+| M2.10, M2.11, M2.15 | `meadow-view.ts`, `Stage`, `main.ts` | M2.10 adds `setPalette`, `showHeatmap`; M2.11 adds `setView`, `snapshot`, `timeline`; M2.15 adds `visitor`. |
+| M2.11, M2.12 | `ViewName`, Cosmos `pick` with 44-pixel snapping | Input calls `ctx.zoom` and the stage's `pick`; it never computes node positions. |
+| M2.12, M2.13, M2.14, M2.15 | `Game.svelte`, `game-service.ts`, `keyboard.ts` | Keys: Z, X, P, B are new and unused before; G, H, R act only with the respond tool. |
+| M2.6, M2.13 | `Note`, `Drawer.svelte` | M2.6 renders a note's fields; M2.13 adds the diary, dials, and peek sections around them. |
+
+Per-task self-consistency:
+
+- M2.1 to M2.4 change no M0 rule when the new scenario fields are absent; each ends with `c29d2fa4dbda4dcf`.
+- M2.5's tray limit (three world verbs) matches every config row in M2.8 and M2.9.
+- M2.6's flag defaults are the skip path of M2.7's "all-skipped year" test.
+- M2.8 and M2.9 use only twist ids, metric kinds, and override fields that M2.5 and M2.6 define.
+- M2.12 sends only `VerbInput` shapes that M2.5 maps to commands.
+- M2.14's activity results are the strings M2.6's `greetingSong` source and the scripted players use (`'0'` to `'3'`, `'heard'`).
+- M2.15's `SaveV2.year` is the `YearLog` that `main.ts` keeps since M2.5.
+
+---
+
 ## Milestones M2 to M5 (outline)
 
-Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check.
+Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. M2's detailed plan is above.
 
 | Milestone | Contents | Exit check |
 | --- | --- | --- |
-| **M2: Part 1 complete** | Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. Persist the runner action log in saves (spec 10.4; myth needs it). | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs |
+| **M2: Part 1 complete** | Detailed in "Milestone M2: Part 1 complete (chapters 4 to 10)" above, with its rulings in ADR 0012. Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. Persist the runner action log in saves (spec 10.4; myth needs it). | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs; the auto-player and a keyboard player reach the end of Part 1 |
 | **M3: Part 2, Stage 1** | `RulePack` interface (spec 9.5) and `heroGift`/`localVerb` commands. Bridge scene and hero choice with naming (six designed heroes, knacks as exact rules from spec 5.5). Rule packs for Murmuration Fen, Hearsay Hollow, Halcyon (ADR 0007). Reputation (spec 9.6), postcards with Kith fast-forward, travel journal with keepsakes and "What they say about you". Homecoming and the sixth myth verse. Wisp's choice (spec 7.4). | T3 for each valley; every hero playtested in every valley; playtest |
 | **M4: Launch quality** | Sandbox (4 panels, timeline, 3 challenges, modes from finished valleys). Seed links with fflate (`#v1.<data>`, file fallback above 2 KB) and the broken-link page. Postcard GIF ring buffer and PNG page exports. Opt-in count-only analytics. Accessibility pass and a manual screen-reader pass. Phone performance at 30 fps on the reference phone. No-WebGL still-image fallback. Asset retry. Offline after first load (service worker). "Where this model is wrong" page. | T7 to T11 pass |
 | **M5: Stage 2** | Foglight Heights, Toadstool Council, Lily Shallows rule packs. Rule cards. Travelers by code. Remix tree for seed links. | T3 and T5 pass |

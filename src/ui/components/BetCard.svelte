@@ -6,11 +6,14 @@
     options,
     label,
     onAnswer,
+    home,
   }: {
     question: string;
     options: readonly string[];
     label: (option: string) => string;
     onAnswer: (option: string) => void;
+    /** Moves focus home on close when nothing held it at open, or that control has gone. */
+    home: () => void;
   } = $props();
 
   let card: HTMLElement;
@@ -22,7 +25,8 @@
     // After the update that closes the card, so the screen behind it is no longer inert.
     return () => {
       void tick().then(() => {
-        if (back instanceof HTMLElement && back.isConnected) back.focus();
+        if (back instanceof HTMLElement && back.isConnected && back !== document.body) back.focus();
+        else home();
       });
     };
   });

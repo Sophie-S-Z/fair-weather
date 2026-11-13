@@ -1,0 +1,12 @@
+{
+  "bid.toward": "[PLACEHOLDER] Waved at {other}. {other} waved back.",
+  "bid.away": "[PLACEHOLDER] Waved at {other}. {other} looked somewhere else.",
+  "bid.against": "[PLACEHOLDER] Waved at {other}. {other} bristled at me.",
+  "gift.gave.give": "[PLACEHOLDER] Gave {other} a berry. Felt good. Felt stupid. Both.",
+  "gift.gave.keep": "[PLACEHOLDER] Kept my berry from {other}. Safe, and a little ashamed.",
+  "gift.got.give": "[PLACEHOLDER] {other} gave me a berry.",
+  "gift.got.keep": "[PLACEHOLDER] {other} kept a berry from me.",
+  "leave": "[PLACEHOLDER] Left the valley.",
+  "return": "[PLACEHOLDER] Came back to the valley.",
+  "dance": "[PLACEHOLDER] Danced with the others."
+}

@@ -1,5 +1,10 @@
 const TAPER_POINTS = 6;
 const TAPER_END = 0.3;
+/** Fog under this keeps a line whole; thicker fog breaks it into dashes (spec 11.3). */
+const DASH_FOG = 0.25;
+/** A dash, and the gap after it, is this many points long in clear air, and never under 2. */
+const DASH_POINTS = 12;
+const DASH_MIN = 2;
 
 /**
  * Builds a triangle strip around a polyline: 2 vertices per point, offset either side along the
@@ -62,4 +67,14 @@ export function stripIndices(vertexCount: number): Uint32Array {
     idx.set([a, a + 1, a + 2, a + 1, a + 3, a + 2], q * 6);
   }
   return idx;
+}
+
+/**
+ * 1 where a line in `fog` is drawn and 0 in its gaps: the whole line under DASH_FOG, else runs of
+ * max(2, round(12 x (1 - fog))) points that alternate drawn and gap, starting drawn.
+ */
+export function dashMask(i: number, fog: number): 0 | 1 {
+  if (fog < DASH_FOG) return 1;
+  const run = Math.max(DASH_MIN, Math.round(DASH_POINTS * (1 - fog)));
+  return Math.floor(i / run) % 2 === 0 ? 1 : 0;
 }

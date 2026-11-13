@@ -1,6 +1,9 @@
-// Builds a chapter's starting scenario (spec 10.1, P6): the overrides, at most one variant, and the
-// chapter's day length, so the runner and the sim count the same days.
-import type { DialKey, Scenario } from '../sim/types.ts';
+// Builds a chapter's starting scenario (spec 10.1, P6): the year carry, the overrides, at most one
+// variant, and the chapter's day length, so the runner and the sim count the same days.
+import type { DialKey, Rect, Scenario } from '../sim/types.ts';
+import type { WorldLite } from '../sim-host/protocol.ts';
+import { applyCarry, carryFrom, restoreDials } from './carry.ts';
+import type { Carry } from './carry.ts';
 import type { Flags } from './flags.ts';
 import type { Chapter, FlagCondition, Overrides } from './schema.ts';
 import { tuning } from './tuning.ts';
@@ -40,24 +43,113 @@ function apply(s: Scenario, o: Overrides): void {
     for (const [key, value] of Object.entries(dials))
       if (value !== undefined) c.dials[key as DialKey] = value;
   }
-  for (const [id, state] of Object.entries(o.state ?? {})) creature(id).state = state;
+  const { '*': every, ...named } = o.state ?? {};
+  // `'*'` leaves an away creature away (a carried leaver stays gone); a named id can still wake it.
+  if (every) for (const c of s.creatures) if (c.state !== 'away' && !c.gone) c.state = every;
+  for (const [id, state] of Object.entries(named)) creature(id).state = state;
+  for (const id of o.gone ?? []) {
+    const c = creature(id);
+    c.gone = true;
+    c.state = 'away';
+  }
+  for (const [id, n] of Object.entries(o.danceThreshold ?? {})) creature(id).danceThreshold = n;
+  for (const g of o.grudges ?? []) {
+    creature(g.holder); // throws on an unknown id
+    creature(g.against);
+    s.ties ??= [];
+    let tie = s.ties.find(
+      (t) => (t.a === g.holder && t.b === g.against) || (t.a === g.against && t.b === g.holder),
+    );
+    if (!tie) {
+      tie = { a: g.holder, b: g.against, ab: { warmth: 0, slights: 0 }, ba: { warmth: 0, slights: 0 } };
+      s.ties.push(tie);
+    }
+    (tie.a === g.holder ? tie.ab : tie.ba).slights = g.slights;
+  }
   if (o.weather?.light !== undefined)
     throw new Error('A weather.light override is not supported: Scenario has no light');
   if (o.weather?.season) s.season = o.weather.season;
+  if (o.structures) s.structures.push(...o.structures.map((x) => ({ ...x })));
+  if (o.bushes) s.bushes = o.bushes.map((b) => ({ ...b }));
+  if (o.water) s.water = o.water.map((r) => ({ ...r }));
+  if (o.ridgeX !== undefined) s.ridgeX = o.ridgeX;
+  if (o.mushroom) s.mushroom = { ...o.mushroom };
+  if (o.ambientSkyBids) s.ambientSkyBids = true;
+  if (o.rumorFirst) s.rumorFirst = true;
+  if (o.friendsForgive) s.friendsForgive = true;
 }
 
 /**
- * A deep copy of `base` (never mutated) for this chapter: season from the chapter, then
- * `chapter.overrides`, then the first variant in array order whose `when` matches `flags`, applied
- * last so it wins on conflicts; `ticksPerDay` from chapterTicksPerDay. Throws on an override id
- * that is not in `base.creatures` and on a `weather.light` override.
+ * Throws when a creature still in the valley, a bush, a bench, or the gate is in water or at or
+ * past the ridge, or a bridge is outside every water rectangle (ADR 0012 item 3).
  */
-export function buildScenario(chapter: Chapter, flags: Flags, base: Scenario): Scenario {
+function checkLand(s: Scenario): void {
+  const wet = (r: Rect, x: number, y: number): boolean =>
+    x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  const { gateX, gateY } = tuning.scene;
+  const things = [
+    ...s.creatures.filter((c) => !c.gone),
+    ...s.bushes,
+    ...s.structures.filter((x) => x.kind === 'bench'),
+    { id: 'the gate', x: gateX, y: gateY },
+  ];
+  for (const b of s.structures.filter((x) => x.kind === 'bridge')) {
+    if (!s.water?.some((r) => wet(r, b.x, b.y))) throw new Error(`${b.id} stands on dry land`);
+  }
+  for (const t of things) {
+    if (s.water?.some((r) => wet(r, t.x, t.y))) throw new Error(`${t.id} stands in water`);
+    if (s.ridgeX !== undefined && t.x >= s.ridgeX) throw new Error(`${t.id} stands at or past the ridge`);
+  }
+}
+
+/** The chapter's overrides, then the first variant in array order whose every `when` condition matches `flags`. */
+export function chosenOverrides(chapter: Chapter, flags: Flags): Overrides[] {
+  const variant = chapter.variants.find((v) => [v.when].flat().every((c) => matches(c, flags)));
+  return variant ? [chapter.overrides, variant.overrides] : [chapter.overrides];
+}
+
+/** What a chapter starts from (ADR 0012 item 1): its carry, and its dial overrides, which the next chapter's carry puts back. */
+export interface ChapterStart {
+  carry: Carry | undefined;
+  overrides: Overrides[];
+}
+
+/**
+ * The start of `chapter` with `flags`. On Continue (`saved`), the carry is the save's. Otherwise a
+ * `carry: true` chapter takes the carry from the last snapshot and its runner's diaries, with the
+ * dials that the last chapter's overrides set put back (restoreDials); any other chapter starts
+ * fresh.
+ */
+export function chapterStart(
+  chapter: Chapter,
+  flags: Flags,
+  base: Scenario,
+  from:
+    | { saved: Carry | null }
+    | { lite: WorldLite | null; diaries: ReadonlyMap<string, readonly string[]>; last: ChapterStart | null },
+): ChapterStart {
+  let carry: Carry | undefined;
+  if ('saved' in from) carry = from.saved ?? undefined;
+  else {
+    carry = chapter.carry && from.lite ? carryFrom(from.lite, from.diaries) : undefined;
+    if (carry && from.last) restoreDials(carry, from.last.carry, base, from.last.overrides);
+  }
+  return { carry, overrides: chosenOverrides(chapter, flags) };
+}
+
+/**
+ * A deep copy of `base` (never mutated) for this chapter: season from the chapter, then `carry`
+ * when given (ADR 0012 item 1), then `chapter.overrides`, then the first variant in array order
+ * whose every `when` condition matches `flags`, applied last so it wins on conflicts;
+ * `ticksPerDay` from chapterTicksPerDay. Throws on an override id that is not in
+ * `base.creatures`, on a `weather.light` override, and on land that checkLand refuses.
+ */
+export function buildScenario(chapter: Chapter, flags: Flags, base: Scenario, carry?: Carry): Scenario {
   const s = structuredClone(base);
   s.season = chapter.season;
-  apply(s, chapter.overrides);
-  const variant = chapter.variants.find((v) => matches(v.when, flags));
-  if (variant) apply(s, variant.overrides);
+  if (carry) applyCarry(s, carry);
+  for (const o of chosenOverrides(chapter, flags)) apply(s, o);
   s.ticksPerDay = chapterTicksPerDay(chapter);
+  checkLand(s);
   return s;
 }

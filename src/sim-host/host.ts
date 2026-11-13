@@ -1,7 +1,7 @@
 // The main-thread side of the worker (ADR 0009 items 1 and 5): the accepted log, the last
 // checkpoint, and restart with replay.
 import type { Command, World } from '../sim/types.ts';
-import type { FromWorker, SimPort, ToWorker } from './protocol.ts';
+import type { FromWorker, SimPort, ToWorker, WorldLite } from './protocol.ts';
 
 export interface SimHost extends SimPort {
   /** Sends any message. `init` starts a new run; `commands` is the same as `send`. */
@@ -10,6 +10,11 @@ export interface SimHost extends SimPort {
   restart(): void;
   /** Asks the worker for its world now; the answer is a structured clone. A daily checkpoint never answers it. */
   requestCheckpoint(): Promise<{ tick: number; world: World }>;
+  /**
+   * The world at an earlier tick, clamped to what the worker kept (ADR 0012 item 10). Rejects
+   * when the worker fails or restarts first.
+   */
+  rewind(tick: number): Promise<{ tick: number; lite: WorldLite }>;
   log(): readonly { tick: number; list: Command[] }[];
 }
 
@@ -29,6 +34,11 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     reject(e: Error): void;
   }[] = [];
   let nextCheckpointId = 1;
+  let rewindWaiters = new Map<
+    number,
+    { resolve(r: { tick: number; lite: WorldLite }): void; reject(e: Error): void }
+  >();
+  let nextRewindId = 1;
   let log: { tick: number; list: Command[] }[] = [];
   /** Lists sent but not yet accepted, with the tick they are expected to run at. */
   let inFlight: { tick: number; list: Command[] }[] = [];
@@ -54,6 +64,14 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     const cps = checkpointWaiters;
     checkpointWaiters = [];
     for (const c of cps) c.reject(new Error(reason));
+    rejectRewinds(reason);
+  }
+
+  /** A restarted worker does not know the old requests, so rewinds reject instead of resending. */
+  function rejectRewinds(reason: string): void {
+    const waiters = rewindWaiters;
+    rewindWaiters = new Map();
+    for (const r of waiters.values()) r.reject(new Error(reason));
   }
 
   function onFailure(lastGoodTick: number): void {
@@ -96,6 +114,10 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       case 'hash':
         hashWaiters.shift()?.resolve({ tick: m.tick, value: m.value });
         return;
+      case 'rewound':
+        rewindWaiters.get(m.id)?.resolve({ tick: m.tick, lite: m.lite });
+        rewindWaiters.delete(m.id);
+        return;
       case 'error':
         for (const cb of listeners) cb(m);
         onFailure(m.lastGoodTick);
@@ -126,6 +148,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
   function restart(): void {
     if (!init) return;
     gaveUp = null;
+    rejectRewinds('the worker restarted before answering the rewind');
     disconnect();
     worker = connect();
     const w = worker;
@@ -175,6 +198,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         break;
       case 'hash':
       case 'checkpoint':
+      case 'rewind':
         break;
     }
     worker?.postMessage(m);
@@ -211,6 +235,17 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         const id = nextCheckpointId++;
         checkpointWaiters.push({ id, resolve, reject });
         worker?.postMessage({ t: 'checkpoint', id } satisfies ToWorker);
+      });
+    },
+    rewind(tick) {
+      return new Promise((resolve, reject) => {
+        if (gaveUp !== null) {
+          reject(new Error(gaveUp));
+          return;
+        }
+        const id = nextRewindId++;
+        rewindWaiters.set(id, { resolve, reject });
+        worker?.postMessage({ t: 'rewind', tick, id } satisfies ToWorker);
       });
     },
     restart,

@@ -104,6 +104,16 @@ describe('soundFor', () => {
     expect(soundFor({ t: 'return', who: 'pim' })).toBeNull();
     expect(soundFor({ t: 'arrive', who: 'pim' })).toBeNull();
   });
+
+  it('plays a toward harmony in the greeting song rhythm once there is one (spec 6.4)', () => {
+    const toward = { t: 'bid', from: 'pim', to: 'krit', reply: 'toward', seenAs: 'toward' } as const;
+    expect(soundFor(toward, [1, 0, 1, 1])).toMatchObject({ kind: 'harmony', rhythm: [1, 0, 1, 1] });
+    expect(soundFor(toward)).not.toHaveProperty('rhythm');
+    expect(soundFor({ ...toward, reply: 'away', seenAs: 'away' }, [1, 0, 1, 1])).toEqual({
+      kind: 'fade',
+      who: 'pim',
+    });
+  });
 });
 
 describe('createAudioEngine', () => {
@@ -143,6 +153,20 @@ describe('createAudioEngine', () => {
     engine.setEnabled(false);
     engine.play({ kind: 'fade', who: 'pim' });
     expect(c.oscillators).toHaveLength(5);
+  });
+
+  it('plays a harmony with a rhythm on each tap beat, a rest skipped', () => {
+    const { made, engine } = setup();
+    engine.setEnabled(true);
+    const c = made[0] as FakeCtx;
+    c.currentTime = 2;
+    engine.play({ kind: 'harmony', who: 'pim', ratio: 1.5, rhythm: [1, 0, 1, 1] });
+    const starts = c.oscillators.slice(3).map((o) => o.start);
+    expect(starts).toHaveLength(6);
+    // Beats 0, 2, and 3 sound; beat 1 rests.
+    const beat = ((starts[2] ?? 0) - 2) / 2;
+    expect(beat).toBeGreaterThan(0);
+    expect(starts.map((t) => Math.round((t - 2) / beat))).toEqual([0, 0, 2, 2, 3, 3]);
   });
 });
 

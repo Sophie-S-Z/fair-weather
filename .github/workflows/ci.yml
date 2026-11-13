@@ -24,4 +24,4 @@ jobs:
       # Chromium e2e only (axe, keyboard-only and auto-player runs). Visual stays a manual gate: its
       # baselines are renders from the cloud container's Chromium build, not CI's.
       - name: E2E (Chromium)
-        run: npx playwright test --project=e2e
+        run: npx playwright test --project=e2e --project=e2e-year

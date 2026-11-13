@@ -5,12 +5,21 @@ import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { World } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
 import type { FromWorker, ToWorker } from '../../../src/sim-host/protocol.ts';
+import { toLite } from '../../../src/sim-host/lite.ts';
 import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
 import { runGolden } from '../../golden/run-golden.ts';
 import golden from '../../golden/m0-hash.json';
 import tuningJson from '../../../content/tuning.json';
 import type { Endpoint } from './harness.ts';
-import { coreOverChannel, initGolden, manualClock, nextMessage, playGolden, scenario } from './harness.ts';
+import {
+  coreOverChannel,
+  goldenLists,
+  initGolden,
+  manualClock,
+  nextMessage,
+  playGolden,
+  scenario,
+} from './harness.ts';
 
 const tuning = parseTuning(tuningJson);
 const open: Endpoint[] = [];
@@ -77,8 +86,33 @@ test('the snapshot holds the world-lite fields only', () => {
   send({ t: 'advance', ticks: 1 });
   const lite = ofType(got, 'snapshot')[0]?.lite;
   const c = lite?.creatures[0];
-  expect(Object.keys(c ?? {}).sort()).toEqual(['berries', 'id', 'shell', 'skyWarmth', 'state', 'x', 'y']);
-  expect(Object.keys(lite ?? {}).sort()).toEqual(['creatures', 'fog', 'light', 'metrics', 'structures']);
+  expect(Object.keys(c ?? {}).sort()).toEqual([
+    'berries',
+    'dancing',
+    'dials',
+    'gone',
+    'id',
+    'shell',
+    'skyWarmth',
+    'state',
+    'x',
+    'y',
+  ]);
+  expect(Object.keys(lite ?? {}).sort()).toEqual([
+    'banks',
+    'bushes',
+    'creatures',
+    'decks',
+    'fog',
+    'islets',
+    'light',
+    'metrics',
+    'mushroom',
+    'rumor',
+    'structures',
+    'ties',
+    'water',
+  ]);
   expect(lite?.fog.cells).toBeInstanceOf(Float32Array);
 });
 
@@ -186,4 +220,65 @@ test('a checkpoint request posts the world now, and the golden hash is unchanged
   const direct = createWorld(golden.seed, tuning, scenario);
   for (let i = 0; i < 3; i++) step(direct, [], tuning);
   expect(ofType(fresh.got, 'hash')[0]?.value).toBe(hashWorld(direct));
+});
+
+/** Plays the golden run to `ticks` on a direct core, then rewinds to `to` with id 1. */
+function rewindAfter(ticks: number, to: number): { send: (m: ToWorker) => void; got: FromWorker[] } {
+  const { send, got } = directCore();
+  playGolden(send, ticks);
+  send({ t: 'rewind', tick: to, id: 1 });
+  return { got, send };
+}
+
+test.each([1_234, 3_300])(
+  'rewound lite at tick %i equals the live snapshot at that tick',
+  { timeout: 60_000 },
+  (T) => {
+    const { got } = rewindAfter(golden.ticks, T);
+    const live = ofType(got, 'snapshot').find((m) => m.tick === T);
+    expect(ofType(got, 'rewound')).toEqual([{ t: 'rewound', id: 1, tick: T, lite: live?.lite }]);
+  },
+);
+
+test('rewinding does not change the live hash', { timeout: 60_000 }, () => {
+  const { send, got } = directCore();
+  playGolden(send, 2_000);
+  send({ t: 'hash' });
+  send({ t: 'rewind', tick: 1_234, id: 1 });
+  send({ t: 'hash' });
+  let at = 2_000;
+  for (const { tick, list } of goldenLists().filter((e) => e.tick >= at)) {
+    send({ t: 'advance', ticks: tick - at });
+    send({ t: 'commands', list });
+    at = tick;
+  }
+  send({ t: 'advance', ticks: golden.ticks - at });
+  send({ t: 'hash' });
+  const [before, after, end] = ofType(got, 'hash');
+  expect(after).toEqual(before);
+  expect(end).toEqual({ t: 'hash', tick: golden.ticks, value: golden.hash });
+});
+
+test('a tick past now gives now; a tick before the first world gives the first world', () => {
+  const { send, got } = rewindAfter(300, 10_000);
+  send({ t: 'rewind', tick: -5, id: 2 });
+  const last = ofType(got, 'snapshot').at(-1);
+  expect(ofType(got, 'rewound')).toEqual([
+    { t: 'rewound', id: 1, tick: 300, lite: last?.lite },
+    { t: 'rewound', id: 2, tick: 0, lite: toLite(createWorld(golden.seed, tuning, scenario), tuning) },
+  ]);
+});
+
+test('after a restart from a checkpoint, rewinding earlier gives the checkpoint tick', () => {
+  const day = tuning.sim.stepsPerSecond * tuning.story.dayLengthSeconds;
+  const first = directCore();
+  playGolden(first.send, day);
+  const [cp] = ofType(first.got, 'checkpoint');
+  const { send, got } = directCore();
+  send({ ...initGolden, checkpoint: structuredClone(cp?.world) } as ToWorker);
+  send({ t: 'advance', ticks: 50 });
+  send({ t: 'rewind', tick: 100, id: 7 });
+  expect(ofType(got, 'rewound')).toEqual([
+    { t: 'rewound', id: 7, tick: day, lite: toLite(cp?.world as World, tuning) },
+  ]);
 });

@@ -3,6 +3,7 @@ import { interpolateCreatures } from '../../../src/render/scene.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 
 const shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };
+const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
 const creature = (id: string, x: number, y: number) => ({
   id,
   x,
@@ -11,6 +12,9 @@ const creature = (id: string, x: number, y: number) => ({
   shell,
   berries: 0,
   skyWarmth: 0,
+  dancing: false,
+  gone: false,
+  dials,
 });
 const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   creatures,
@@ -18,6 +22,14 @@ const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   fog: { w: 0, h: 0, cells: new Float32Array(0) },
   metrics: { averageWarmth: 0, friendPairs: 0 },
   structures: [],
+  water: [],
+  banks: [],
+  decks: [],
+  islets: [],
+  mushroom: null,
+  bushes: [],
+  ties: [],
+  rumor: null,
 });
 
 const prev = lite([creature('a', 0, 100), creature('b', 50, 50), creature('gone', 7, 8)]);

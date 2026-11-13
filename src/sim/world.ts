@@ -3,6 +3,7 @@ import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './t
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { byCodeUnit, clamp } from './math.ts';
+import { clearOfBanks, landOf } from './land.ts';
 
 const VISIT_CELLS = 32; // 8 columns by 4 rows (ADR 0005)
 
@@ -13,7 +14,7 @@ function zeroShell(): Shell {
 /** A fresh creature from a scenario entry: at rest, no ties, opinions, or memories. */
 export function newCreature(s: Scenario['creatures'][number]): Creature {
   const shell = s.shell ? { ...s.shell } : zeroShell();
-  return {
+  const c: Creature = {
     id: s.id,
     speciesId: s.speciesId,
     name: s.name,
@@ -24,13 +25,13 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     goalX: s.x,
     goalY: s.y,
     berries: s.berries,
-    state: s.state ?? 'wander',
+    state: s.gone ? 'away' : (s.state ?? 'wander'),
     stateUntilTick: 0,
     forageReadyTick: 0,
     dials: { ...s.dials },
     shell,
     restShell: { ...shell },
-    skyWarmth: 0,
+    skyWarmth: clamp(s.skyWarmth ?? 0, -1, 1),
     skyLightToday: 0,
     opinions: {},
     hungryDusks: 0,
@@ -38,13 +39,24 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
     benchMemory: null,
     diary: [],
   };
+  // Only when set, so other creatures keep the same keys (and hash).
+  if (s.gone) c.gone = true;
+  if (s.danceThreshold !== undefined) c.danceThreshold = s.danceThreshold;
+  return c;
 }
 
 export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): World {
   const fogW = Math.ceil(tuning.scene.width / tuning.fog.cellSize);
   const fogH = Math.ceil(tuning.scene.height / tuning.fog.cellSize);
   const creatures = scenario.creatures.map(newCreature);
-  return {
+  const ids = new Set(creatures.map((c) => c.id));
+  const ties = new Map<string, Tie>();
+  const clampSide = (s: Side): Side => ({ warmth: clamp(s.warmth, -1, 1), slights: s.slights });
+  for (const { a, b, ab, ba } of scenario.ties ?? []) {
+    if (a === b || !ids.has(a) || !ids.has(b)) continue;
+    ties.set(tieKey(a, b), { a, b, ab: clampSide(ab), ba: clampSide(ba), meetings: 1, lastDay: -1 });
+  }
+  const world: World = {
     seed,
     rngState: seed >>> 0,
     tick: 0,
@@ -55,13 +67,32 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     nextId: 1,
     artStreak: 0,
     creatures,
-    ties: new Map(),
+    ties,
     fields: { light: null, fog: new Float32Array(fogW * fogH), fogW, fogH, gusts: [] },
     bushes: scenario.bushes.map((b) => ({ ...b })),
     structures: scenario.structures.map((s) => ({ ...s })),
     rumors: [],
     boosts: [],
   };
+  // Only when set, so a world without land keeps the same keys (and hash).
+  if (scenario.water) {
+    world.water = scenario.water.map((r) => ({ ...r }));
+    // No body starts over water: feet in a bank, off a deck and an islet, move just past it.
+    const land = landOf(world, tuning);
+    for (const c of world.creatures) {
+      [c.x, c.y] = clearOfBanks(land, c.x, c.y, tuning);
+      [c.goalX, c.goalY] = [c.x, c.y];
+    }
+  }
+  if (scenario.ridgeX !== undefined) world.ridgeX = scenario.ridgeX;
+  if (scenario.mushroom) {
+    const { x, y } = scenario.mushroom;
+    world.mushroom = { x, y, drops: tuning.mushroom.drops, taken: 0, witherDays: 0 };
+  }
+  if (scenario.ambientSkyBids) world.ambientSkyBids = true;
+  if (scenario.rumorFirst) world.rumorFirst = true;
+  if (scenario.friendsForgive) world.friendsForgive = true;
+  return world;
 }
 
 /** The two ids sorted by code unit and joined with `|` (ADR 0002). */
@@ -102,8 +133,6 @@ export function byId(world: World, id: string): Creature | undefined {
 
 /** The structures that count as benches (ADR 0003 item 9). */
 export function benchesOf(world: World): Structure[] {
-  // Structure['kind'] is only 'bench' today; the check keeps later kinds (spec 9.1) from counting.
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
   return world.structures.filter((s) => s.kind === 'bench');
 }
 
@@ -113,6 +142,7 @@ export function activeCreatures(world: World): Creature[] {
 
 /**
  * Creatures, not away, that `c` counts as friends (warmth above friend.threshold, ADR 0002),
+ * one-sided: only c's own warmth counts, unlike the Cosmos's mutual friendships (ADR 0012 item 6);
  * sorted by id in code-unit order so PRNG picks never depend on tie insertion order.
  */
 export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[] {

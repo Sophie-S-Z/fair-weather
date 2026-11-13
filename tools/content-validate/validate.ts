@@ -7,11 +7,13 @@ import { CompilerOptions } from 'inkjs/compiler/CompilerOptions';
 import { ErrorType } from 'inkjs/engine/Error';
 import { AudioSchema } from '../../src/audio/schema.ts';
 import { VoiceSchema } from '../../src/audio/voices.ts';
+import { VersesSchema } from '../../src/myth/grammar.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
+import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
@@ -37,11 +39,18 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Every creature id a chapter names: beats, bet options, the twist retry pair, and overrides. */
+/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, and overrides. */
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
-    ids.push(...Object.keys(o.positions ?? {}), ...Object.keys(o.dials ?? {}), ...Object.keys(o.state ?? {}));
+    ids.push(
+      ...Object.keys(o.positions ?? {}),
+      ...Object.keys(o.dials ?? {}),
+      ...Object.keys(o.state ?? {}).filter((id) => id !== '*'),
+      ...(o.gone ?? []),
+      ...(o.grudges ?? []).flatMap((g) => [g.holder, g.against]),
+      ...Object.keys(o.danceThreshold ?? {}),
+    );
   };
   for (const beat of c.beats) {
     if ('event' in beat.trigger && beat.trigger.who !== undefined) ids.push(beat.trigger.who);
@@ -49,15 +58,21 @@ function creatureRefs(c: Chapter): string[] {
       if ('focus' in a && a.focus !== null) ids.push(a.focus);
       else if ('arrange' in a) ids.push(...a.arrange);
       else if ('promptSkyBid' in a) ids.push(a.promptSkyBid);
+      else if ('rumor' in a) ids.push(a.rumor.target, a.rumor.about);
+      else if ('dance' in a) ids.push(a.dance);
     }
   }
-  ids.push(...(c.bet?.options ?? []), ...(c.twist?.retryArrange ?? []));
+  // Only a bet on who (maxBerries, maxShell) has creature ids for options; a bet on a number names buckets.
+  const who = c.bet?.metric.kind === 'maxBerries' || c.bet?.metric.kind === 'maxShell';
+  if (who) ids.push(...(c.bet?.options ?? []));
+  if (c.bet?.metric.kind === 'warmth') ids.push(c.bet.metric.from, c.bet.metric.to);
+  ids.push(...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
   fromOverrides(c.overrides);
   for (const v of c.variants) fromOverrides(v.overrides);
   return ids;
 }
 
-/** Checks tuning, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/** Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -74,6 +89,22 @@ export function validateContent(root: string): ValidationResult {
       FlagsSchema.parse(JSON.parse(readFileSync(flagsPath, 'utf8')));
     } catch (e) {
       errors.push(`flags.json: ${(e as Error).message}`);
+    }
+  }
+  const diaryPath = join(content, 'diary.json');
+  if (existsSync(diaryPath)) {
+    try {
+      DiarySchema.parse(JSON.parse(readFileSync(diaryPath, 'utf8')));
+    } catch (e) {
+      errors.push(`diary.json: ${(e as Error).message}`);
+    }
+  }
+  const versesPath = join(content, 'myth', 'verses.json');
+  if (existsSync(versesPath)) {
+    try {
+      VersesSchema.parse(JSON.parse(readFileSync(versesPath, 'utf8')));
+    } catch (e) {
+      errors.push(`myth/verses.json: ${(e as Error).message}`);
     }
   }
   for (const f of filesIn(join(content, 'chapters'), '.json')) {
@@ -138,7 +169,16 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
-  for (const f of filesIn(join(content, 'ink'), '.ink')) {
+  // An INCLUDEd file compiles inside the file that includes it, so it may use that file's VARs.
+  const inkFiles = filesIn(join(content, 'ink'), '.ink');
+  const included = new Set(
+    inkFiles.flatMap((f) =>
+      [...readFileSync(join(content, 'ink', f), 'utf8').matchAll(/^\s*INCLUDE\s+(.+?)\s*$/gm)].map(
+        (m) => m[1],
+      ),
+    ),
+  );
+  for (const f of inkFiles.filter((name) => !included.has(name))) {
     try {
       const options = new CompilerOptions(
         f,

@@ -18,6 +18,8 @@ export interface AudioEngine {
 }
 
 const WELCOME: Timbre = { wave: 'sine', attack: 0.15, decay: 1.6 };
+/** One beat of a cue's rhythm, in seconds. */
+const BEAT = 0.2;
 
 export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOptions): AudioEngine {
   let ctx: AudioContext | null = null;
@@ -37,10 +39,15 @@ export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOp
     const timbre = v?.timbre ?? DEFAULT_TIMBRE;
     const f = pitchFor(v?.lineLength ?? 3.5, opts.season());
     switch (cue.kind) {
-      case 'harmony':
-        playNote(ctx, bus, f, timbre, t);
-        playNote(ctx, bus, f * cue.ratio, timbre, t);
+      case 'harmony': {
+        const rhythm = cue.rhythm ?? [1];
+        for (let i = 0; i < rhythm.length; i++) {
+          if (rhythm[i] === 0) continue;
+          playNote(ctx, bus, f, timbre, t + i * BEAT);
+          playNote(ctx, bus, f * cue.ratio, timbre, t + i * BEAT);
+        }
         break;
+      }
       case 'fade':
         playNote(ctx, bus, f, { ...timbre, decay: timbre.decay * 2 }, t);
         break;

@@ -1,0 +1,19 @@
+{
+  "id": "lateSummer",
+  "ink": "#2b2a28",
+  "paper": "#fffcf5",
+  "accent": "#8456b8",
+  "warmth": "#ecdbd0",
+  "leaf": "#e1dfb2",
+  "background": "#f3ead8",
+  "light": {
+    "color": "#ffcf8a",
+    "alpha": 0.45
+  },
+  "fog": {
+    "color": "#dfdee6",
+    "alpha": 0.85
+  },
+  "water": "#bccfd9",
+  "full": ["#d9573f", "#e98a3a", "#e2b64a", "#8aa851", "#4a7fb3", "#8456b8"]
+}

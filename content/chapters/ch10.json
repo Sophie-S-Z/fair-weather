@@ -1,0 +1,93 @@
+{
+  "id": "ch10",
+  "kind": "chapter",
+  "activity": "fire",
+  "title": "The Sky Story",
+  "season": "thaw",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 60,
+  "carry": true,
+  "verbs": ["listen"],
+  "newVerb": "listen",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "gone": ["wisp"],
+    "water": [
+      {
+        "x": 780,
+        "y": 0,
+        "w": 60,
+        "h": 900
+      }
+    ]
+  },
+  "beats": [
+    {
+      "id": "ch10_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch10_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch10_ask",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "ch10_ask"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "ch10_ask"
+  },
+  "feeling": "[PLACEHOLDER] Reckoning",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Stories about weather",
+      "science": "[PLACEHOLDER] People tell stories to make sense of forces they cannot see.",
+      "limits": "[PLACEHOLDER] The myth here is built from what the player did.",
+      "counter": "[PLACEHOLDER] Some say a myth hides more than it shows.",
+      "question": "[PLACEHOLDER] What story would you tell about your own weather?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Being seen",
+      "science": "[PLACEHOLDER] Learning how others saw you can change what you do next.",
+      "limits": "[PLACEHOLDER] The creatures only tell what the sim recorded.",
+      "counter": "[PLACEHOLDER] Some say we can never see ourselves as others do.",
+      "question": "[PLACEHOLDER] Did the story sound like you?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

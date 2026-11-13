@@ -54,6 +54,14 @@ export interface Creature {
   diary: DiaryEntry[]; // last 20
   /** Set by overPoke: the creature gets no sky warmth from the lens through this day. */
   lensAvoidUntilDay?: number;
+  /** Left over the east ridge for good (ADR 0012 item 3): never returns. */
+  gone?: true;
+  /** Dancing at the festival (ADR 0012 item 6). */
+  dancing?: true;
+  /** Dancing friends needed to start; festival.threshold when unset. */
+  danceThreshold?: number;
+  /** The last day it took a dew drop (ADR 0012 item 5). */
+  mushroomDay?: number;
 }
 export interface Side {
   warmth: number;
@@ -73,12 +81,24 @@ export interface Bush {
   y: number;
   berries: number;
 }
+/** An axis-aligned rectangle, edges included. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 export interface Structure {
   id: string;
-  kind: 'bench';
+  kind: 'bench' | 'bridge' | 'lantern';
   x: number;
   y: number;
 }
+/**
+ * The latest whisper. Only `about` and `sign` are read (lite.ts lastRumor). `strength`, `origin`,
+ * and `tick` are written but never read; they stay because they are hashed, and removing them would
+ * move the M0 golden hash. Remove them at the next planned hash change.
+ */
 export interface Rumor {
   about: string;
   sign: 1 | -1;
@@ -124,12 +144,27 @@ export interface World {
   structures: Structure[];
   rumors: Rumor[];
   boosts: BehaviorBoost[];
+  /** Water rectangles (ADR 0012 item 3), set only when the scenario has them. */
+  water?: Rect[];
+  /** The east ridge: a wandering creature at or past it leaves for good. Set only with the scenario's. */
+  ridgeX?: number;
+  /**
+   * The dew mushroom (ADR 0012 item 5), set only with the scenario's: today's `drops`, how many
+   * were `taken` today, and the withered dawns left, counting today's (0 when not withered).
+   */
+  mushroom?: { x: number; y: number; drops: number; taken: number; witherDays: number };
+  /** Set only with the scenario's: a creature may bid to the sky at dusk (ADR 0012 item 4). */
+  ambientSkyBids?: true;
+  /** Set only with the scenario's: a holder of the latest rumor shares it first at dusk (ADR 0012 item 15). */
+  rumorFirst?: true;
+  /** Set only with the scenario's: a giver with mutual friends forgives as they do, when they forgive more (ADR 0012 item 16). */
+  friendsForgive?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
   | { t: 'paintFog'; x: number; y: number; r: number; amount: number }
   | { t: 'blow'; x: number; y: number; dx: number; dy: number }
-  | { t: 'place'; kind: 'bench' | 'bush'; x: number; y: number }
+  | { t: 'place'; kind: 'bench' | 'bush' | 'bridge' | 'lantern'; x: number; y: number }
   | { t: 'thread'; a: string; b: string; on: boolean }
   | { t: 'whisper'; target: string; about: string; sign: 1 | -1 }
   | { t: 'respond'; to: string; reply: BidReply }
@@ -137,7 +172,8 @@ export type Command =
   | { t: 'setSeason'; season: Season }
   | { t: 'wake'; who: string }
   | { t: 'promptSkyBid'; who: string }
-  | { t: 'overPoke' };
+  | { t: 'overPoke' }
+  | { t: 'dance'; who: string };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -145,8 +181,11 @@ export type SimEvent =
   | { t: 'imitate'; who: string; from: string; dial: DialKey }
   | { t: 'arrive' | 'leave' | 'return'; who: string }
   | { t: 'art'; who: string; kind: 'stack' | 'spiral' | 'chime' }
-  | { t: 'skyBid'; who: string }
-  | { t: 'wake'; who: string };
+  | { t: 'skyBid'; who: string; ambient?: true } // ambient: a dusk bid of its own (ADR 0012 item 4)
+  | { t: 'wake'; who: string }
+  | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
+  | { t: 'dance'; who: string }
+  | { t: 'mushroom'; taken: number; drops: number };
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -161,7 +200,18 @@ export interface Scenario {
     dials: Dials;
     shell?: Shell;
     state?: CreatureState;
+    skyWarmth?: number;
+    gone?: true;
+    danceThreshold?: number;
   }[];
+  /** Ties that start already met (ADR 0012 item 1). A pair listed twice keeps the later entry. */
+  ties?: { a: string; b: string; ab: Side; ba: Side }[];
   bushes: { id: string; x: number; y: number; berries: number }[];
   structures: Structure[];
+  water?: Rect[];
+  ridgeX?: number;
+  mushroom?: { x: number; y: number };
+  ambientSkyBids?: true;
+  rumorFirst?: true;
+  friendsForgive?: true;
 }

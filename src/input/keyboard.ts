@@ -1,14 +1,19 @@
 // Keyboard play (spec 12.5). The Game screen supplies the InputContext.
-import type { BidReply } from '../sim/types.ts';
-import type { Verb, VerbInput } from '../story/verbs.ts';
-import { keyboardTools, snapToBench, type BenchSpot, type Point } from './verbs.ts';
+import type { ViewName } from './zoom.ts';
+import type { BidReply, Rect, Structure } from '../sim/types.ts';
+import type { Verb, VerbInput, WorldVerb } from '../story/verbs.ts';
+import { keyboardTools, snapToBench, snapToWater, type BenchSpot, type Point } from './verbs.ts';
 
 export type InputContext = {
-  /** Unlocked tools, up to 3. */
+  /** The chapter's unlocked verbs; the world verbs among them are the tools. */
   tools: () => readonly Verb[];
   /** Creatures in id order. `away` ones are skipped by Tab. */
   creatures: () => readonly { id: string; state: string }[];
   benchSpots: () => readonly BenchSpot[];
+  /** What the place tool sets in this chapter. */
+  placeKind: () => Structure['kind'];
+  /** The water rectangles a bridge snaps into. */
+  water: () => readonly Rect[];
   cursor: () => Point;
   /** The one owner of the current tool: keyboard, pointer, and HUD all read it here. */
   tool: () => Verb | null;
@@ -22,24 +27,104 @@ export type InputContext = {
   picked: () => string | null;
   select: (id: string | null) => void;
   moveCursor: (p: Point) => void;
+  view: () => ViewName;
+  /** One zoom step; called only while the zoom verb is unlocked. */
+  zoom: (dir: 'in' | 'out') => void;
+  /** Both warmths above the friend threshold. */
+  isFriend: (a: string, b: string) => boolean;
+  /** The creature the thread tool marked, which the next thread starts from. Owned by the caller, so the HUD shows it. */
+  threadFrom: () => string | null;
+  setThreadFrom: (id: string | null) => void;
+  /** Opens the whisper card for `target`, which sends the whisper. */
+  openWhisper: (target: string) => void;
 };
 
 export const CURSOR_STEP = 20;
+/** How far a keyboard gust or a click's gust blows, in scene units. */
+const GUST = 300;
+/** Enter's gust blows east before any arrow, and a click's always does. */
+export const EAST: Point = { x: 1, y: 0 };
 const ARROWS: Record<string, Point> = {
-  ArrowLeft: { x: -CURSOR_STEP, y: 0 },
-  ArrowRight: { x: CURSOR_STEP, y: 0 },
-  ArrowUp: { x: 0, y: -CURSOR_STEP },
-  ArrowDown: { x: 0, y: CURSOR_STEP },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: EAST,
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
 };
 /** While the respond tool is active: G glow back, H hold still, R rumble. */
 const REPLY_KEYS: Record<string, BidReply> = { g: 'toward', h: 'away', r: 'against' };
+const ZOOM_KEYS: Record<string, 'in' | 'out'> = { z: 'out', x: 'in' };
+
+/** The current tool if it is unlocked, else the first tool. */
+export function activeTool(ctx: InputContext): WorldVerb | null {
+  const tools = keyboardTools(ctx.tools());
+  const t = ctx.tool();
+  return tools.find((v) => v === t) ?? tools[0] ?? null;
+}
+
+/**
+ * Sends a thread from the marked creature to `to`: tied unless they are friends, which cuts it. A
+ * thread is a friendship (spec 9.1): tying one lifts both warmths above the friend threshold.
+ */
+export function threadTo(ctx: InputContext, from: string, to: string): void {
+  ctx.act({ verb: 'thread', a: from, b: to, on: !ctx.isFriend(from, to) });
+}
+
+/**
+ * Enter with the active tool at `at`, the cursor or a click's scene point. `clear` is Shift, which
+ * clears fog; `dir` is the gust's direction.
+ */
+export function useTool(ctx: InputContext, at: Point, clear: boolean, dir: Point): void {
+  const picked = ctx.picked();
+  const { x, y } = at;
+  switch (activeTool(ctx)) {
+    case 'wake':
+      if (picked !== null) ctx.act({ verb: 'wake', who: picked });
+      break;
+    case 'respond':
+      ctx.act({ verb: 'respond', reply: ctx.reply() });
+      break;
+    case 'place': {
+      const kind = ctx.placeKind();
+      const p =
+        kind === 'bench'
+          ? snapToBench(at, ctx.benchSpots())
+          : kind === 'bridge'
+            ? snapToWater(at, ctx.water())
+            : at;
+      if (p) ctx.act({ verb: 'place', x: p.x, y: p.y });
+      break;
+    }
+    case 'shine':
+      ctx.act({ verb: 'shine', x, y });
+      break;
+    case 'fog':
+      ctx.act({ verb: 'fog', x, y, clear });
+      break;
+    case 'blow':
+      ctx.act({ verb: 'blow', x, y, dx: dir.x * GUST, dy: dir.y * GUST });
+      break;
+    case 'whisper':
+      if (picked !== null) ctx.openWhisper(picked);
+      break;
+    case 'thread': {
+      const from = ctx.threadFrom();
+      if (picked === null || picked === from) break;
+      if (from === null) {
+        ctx.setThreadFrom(picked);
+      } else {
+        threadTo(ctx, from, picked);
+        ctx.setThreadFrom(null);
+      }
+      break;
+    }
+    case null:
+      break;
+  }
+}
 
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
-  const activeTool = (): Verb | null => {
-    const tools = keyboardTools(ctx.tools());
-    const t = ctx.tool();
-    return t !== null && tools.includes(t) ? t : (tools[0] ?? null);
-  };
+  /** The last arrow's direction, which the blow tool gusts in. */
+  let dir = EAST;
 
   const onKey = (e: Event): void => {
     const k = e as KeyboardEvent;
@@ -49,15 +134,16 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
 
     const key = k.key;
+    const lower = key.toLowerCase();
     // Native activation of buttons and links must fire once, not also act here.
     if ((key === 'Enter' || key === ' ') && (tag === 'BUTTON' || tag === 'A')) return;
     if (key >= '1' && key <= '3') {
       const t2 = keyboardTools(ctx.tools())[Number(key) - 1];
       if (t2 !== undefined) ctx.setTool(t2);
     } else if (key in ARROWS) {
-      const d = ARROWS[key] as Point;
+      dir = ARROWS[key] as Point;
       const c = ctx.cursor();
-      ctx.moveCursor({ x: c.x + d.x, y: c.y + d.y });
+      ctx.moveCursor({ x: c.x + dir.x * CURSOR_STEP, y: c.y + dir.y * CURSOR_STEP });
       k.preventDefault();
     } else if (key === 'Tab') {
       const ids = ctx
@@ -72,16 +158,21 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
       ctx.select(ids[next] as string);
       k.preventDefault();
     } else if (key === 'Enter') {
-      const v = activeTool();
-      const picked = ctx.picked();
-      if (v === 'wake' && picked !== null) ctx.act({ verb: 'wake', who: picked });
-      else if (v === 'respond') ctx.act({ verb: 'respond', reply: ctx.reply() });
-      else if (v === 'place') ctx.act({ verb: 'place', ...snapToBench(ctx.cursor(), ctx.benchSpots()) });
+      // Prevented, so a card that Enter opens does not take the same press as a click on its first button.
+      k.preventDefault();
+      useTool(ctx, ctx.cursor(), k.shiftKey, dir);
+    } else if (key === 'Escape') {
+      // Claimed only to clear a mark, so the screen's own Escape (to the tools) waits for the next.
+      if (ctx.threadFrom() === null) return;
+      ctx.setThreadFrom(null);
+      k.preventDefault();
     } else if (key === ' ') {
       ctx.togglePause();
       k.preventDefault();
-    } else if (key.toLowerCase() in REPLY_KEYS && activeTool() === 'respond') {
-      ctx.setReply(REPLY_KEYS[key.toLowerCase()] as BidReply);
+    } else if (lower in ZOOM_KEYS && ctx.tools().includes('zoom')) {
+      ctx.zoom(ZOOM_KEYS[lower] as 'in' | 'out');
+    } else if (lower in REPLY_KEYS && activeTool(ctx) === 'respond') {
+      ctx.setReply(REPLY_KEYS[lower] as BidReply);
     }
   };
 

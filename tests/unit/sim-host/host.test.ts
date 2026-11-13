@@ -165,3 +165,14 @@ test('requestCheckpoint resolves with the world now', async () => {
   expect(cp.tick).toBe(4);
   expect(cp.world.tick).toBe(4);
 });
+
+test('host.rewind rejects when the worker errors before answering', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  play(host, 30);
+  const pending = host.rewind(10);
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  await expect(pending).rejects.toThrow(/restarted/);
+  // The restarted worker answers a new request.
+  await expect(host.rewind(10)).resolves.toMatchObject({ tick: 10 });
+});

@@ -1,6 +1,7 @@
 {
   "id": "krit",
   "scale": 1.2,
+  "color": 0,
   "timbre": {
     "wave": "square",
     "attack": 0.002,

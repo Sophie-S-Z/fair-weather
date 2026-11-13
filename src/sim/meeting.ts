@@ -4,8 +4,8 @@ import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
-import { avoidsLens, boostAt, fogAt, recordLitMeeting } from './light.ts';
-import { benchesOf, ensureTie, getTie, side, tieKey } from './world.ts';
+import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
+import { benchesOf, ensureTie, friendsOf, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
 const DIARY_LENGTH = 20; // spec 9.1
@@ -85,14 +85,40 @@ function pickReply(w: number, replier: Creature, boost: number, draw: number, t:
   return w < t.bid.againstBelowWarmth ? 'against' : 'away';
 }
 
+/**
+ * The Forgiveness a giver weighs remembered slights against: its own, or with `world.friendsForgive`
+ * the mean Forgiveness of its mutual friends (ties warm on both sides) when it has at least
+ * mushroom.trustFriends of them and that mean is higher (ADR 0012 item 16). Since one slight is
+ * forgiven at a Forgiveness of 1/6 or more, this mostly counts mutual friendships.
+ */
+function forgivenessOf(world: World, giver: Creature, t: Tuning): number {
+  const own = giver.dials.forgiveness;
+  if (!world.friendsForgive) return own;
+  const mutual = friendsOf(world, giver, t).filter((f) => {
+    const tie = getTie(world, giver.id, f.id);
+    return tie !== undefined && side(tie, f.id).warmth > t.friend.threshold;
+  });
+  if (mutual.length < t.mushroom.trustFriends) return own;
+  const mean = mutual.reduce((sum, f) => sum + f.dials.forgiveness, 0) / mutual.length;
+  return Math.max(own, mean);
+}
+
 /** Chance that `giver` gives to its partner before light (ADR 0003 item 6). */
-function baseGiveChance(giverSide: Side, giver: Creature, firstMeeting: boolean, t: Tuning): number {
+function baseGiveChance(
+  world: World,
+  giverSide: Side,
+  giver: Creature,
+  firstMeeting: boolean,
+  t: Tuning,
+): number {
   if (firstMeeting) return giver.dials.opener;
   const remembered = Math.round(giverSide.slights);
-  return remembered > Math.round(t.gift.maxSlightsPerForgiveness * giver.dials.forgiveness) ? 0 : 1;
+  if (remembered === 0) return 1;
+  return remembered > Math.round(t.gift.maxSlightsPerForgiveness * forgivenessOf(world, giver, t)) ? 0 : 1;
 }
 
 function pickGift(
+  world: World,
   giverSide: Side,
   giver: Creature,
   firstMeeting: boolean,
@@ -102,7 +128,7 @@ function pickGift(
 ): GiftMove {
   // Below gift.cost a creature cannot pay for a gift, so it keeps (and berries never go negative).
   if (giver.berries < t.gift.cost) return 'keep';
-  const p = clamp(baseGiveChance(giverSide, giver, firstMeeting, t) + boost, 0, 1);
+  const p = clamp(baseGiveChance(world, giverSide, giver, firstMeeting, t) + boost, 0, 1);
   return draw < p ? 'give' : 'keep';
 }
 
@@ -153,7 +179,8 @@ function pushDiary(c: Creature, entries: DiaryEntry[]): void {
 
 /**
  * Resolves one meeting between `a` and `b` and returns its events: the bid, then the bidder's
- * gift, then the replier's gift.
+ * gift, then the replier's gift, then, when the meeting is lit (its midpoint in the lens and
+ * neither side avoiding it), a `lit` event with the real behaviors.
  *
  * PRNG draws: always exactly seven per meeting, taken up front in this order:
  *   1. bidder tie-break (used only when the Openers are equal: below 0.5, `a` bids)
@@ -199,8 +226,8 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
 
   // Gifts.
   const giftBoost = boost('give', 'keep');
-  const bidderMove = pickGift(bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
-  const replierMove = pickGift(replierSide, replier, first, giftBoost, draw.replierGift, t);
+  const bidderMove = pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
+  const replierMove = pickGift(world, replierSide, replier, first, giftBoost, draw.replierGift, t);
   const misread = (m: GiftMove, d: number): GiftMove =>
     m === 'give' && d < t.fog.giftMisreadFactor * fog ? 'keep' : m;
   const bidderSeen = misread(bidderMove, draw.bidderGiftFog); // as the replier saw it
@@ -231,8 +258,8 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   for (const bh of [reply, bidderMove, replierMove]) {
     if (bh !== 'away' && !behaviors.includes(bh)) behaviors.push(bh);
   }
-  if (!avoidsLens(world, bidder) && !avoidsLens(world, replier))
-    recordLitMeeting(world, mx, my, behaviors, t);
+  const lit = inLens(world, mx, my, t) && !avoidsLens(world, bidder) && !avoidsLens(world, replier);
+  if (lit) recordLitMeeting(world, mx, my, behaviors, t);
 
   // Meeting state, tie count, and bench memory.
   const benchId = nearBenchId(world, mx, my, t);
@@ -258,9 +285,11 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
     pushDiary(c, [entry('bid'), entry('gift'), entry('gift')]);
   }
 
-  return [
+  const events: SimEvent[] = [
     { t: 'bid', from: bidder.id, to: replier.id, reply, seenAs: replySeen },
     { t: 'gift', from: bidder.id, to: replier.id, move: bidderMove, seenAs: bidderSeen },
     { t: 'gift', from: replier.id, to: bidder.id, move: replierMove, seenAs: replierSeen },
   ];
+  if (lit) events.push({ t: 'lit', a: a.id, b: b.id, behaviors });
+  return events;
 }

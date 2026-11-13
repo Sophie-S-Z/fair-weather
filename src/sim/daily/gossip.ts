@@ -4,17 +4,26 @@ import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { activeCreatures, friendsOf } from '../world.ts';
 
-function holds(c: Creature, about: string, sign: 1 | -1, t: Tuning): boolean {
+/** True when `c` holds an opinion of `about` with this sign (ADR 0002 item 5). */
+export function holds(c: Creature, about: string, sign: 1 | -1, t: Tuning): boolean {
   const v = c.opinions[about];
   return v !== undefined && Math.abs(v) >= t.opinion.holdAt && Math.sign(v) === sign;
 }
 
-/** The held opinion with the largest absolute value about neither the sharer nor the listener; ties go to the lower id. */
+/**
+ * The held opinion with the largest absolute value about neither the sharer nor the listener; ties
+ * go to the lower id. With `world.rumorFirst`, a sharer that holds the latest rumor (not about the
+ * listener) shares that first (ADR 0012 item 15).
+ */
 function opinionToShare(
+  world: World,
   sharer: Creature,
   listener: Creature,
   t: Tuning,
 ): { about: string; sign: 1 | -1 } | null {
+  const rumor = world.rumors.at(-1);
+  if (world.rumorFirst && rumor && rumor.about !== listener.id && holds(sharer, rumor.about, rumor.sign, t))
+    return { about: rumor.about, sign: rumor.sign };
   let best: string | null = null;
   let bestAbs = 0;
   for (const [about, v] of Object.entries(sharer.opinions)) {
@@ -53,7 +62,7 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
   const heard = new Map<Creature, { about: string; sign: 1 | -1 }[]>();
   for (const sharer of active) {
     for (const listener of friendsOf(world, sharer, t)) {
-      const share = opinionToShare(sharer, listener, t);
+      const share = opinionToShare(world, sharer, listener, t);
       if (!share) continue;
       const list = heard.get(listener) ?? [];
       if (!list.some((s) => s.about === share.about && s.sign === share.sign)) list.push(share);

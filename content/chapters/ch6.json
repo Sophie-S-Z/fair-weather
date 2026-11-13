@@ -1,0 +1,355 @@
+{
+  "id": "ch6",
+  "kind": "chapter",
+  "title": "Fog",
+  "season": "autumn",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["fog", "place", "respond", "bet", "rewind", "peek", "zoom"],
+  "newVerb": "fog",
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-islet",
+        "kind": "bench",
+        "x": 1008,
+        "y": 446
+      }
+    ],
+    "ambientSkyBids": true,
+    "positions": {
+      "echo": {
+        "x": 1005,
+        "y": 420
+      },
+      "krit": {
+        "x": 1035,
+        "y": 420
+      },
+      "villager-9": {
+        "x": 1200,
+        "y": 450
+      }
+    },
+    "dials": {
+      "pim": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "krit": {
+        "forgiveness": 0,
+        "memory": 0,
+        "opener": 0
+      },
+      "echo": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "moss": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "wisp": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "bell": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-1": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-2": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-3": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-4": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-5": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-6": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-7": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-8": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-9": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-10": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-11": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-12": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-13": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-14": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-15": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-16": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-17": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-18": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-19": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-20": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-21": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-22": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-23": {
+        "forgiveness": 0,
+        "memory": 0
+      },
+      "villager-24": {
+        "forgiveness": 0,
+        "memory": 0
+      }
+    },
+    "water": [
+      {
+        "x": 950,
+        "y": 350,
+        "w": 140,
+        "h": 40
+      },
+      {
+        "x": 950,
+        "y": 450,
+        "w": 140,
+        "h": 40
+      },
+      {
+        "x": 950,
+        "y": 390,
+        "w": 40,
+        "h": 60
+      },
+      {
+        "x": 1050,
+        "y": 390,
+        "w": 40,
+        "h": 60
+      }
+    ],
+    "bushes": [
+      {
+        "id": "bush-1",
+        "x": 240,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-2",
+        "x": 613,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-3",
+        "x": 986,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-4",
+        "x": 1359,
+        "y": 260,
+        "berries": 5
+      },
+      {
+        "id": "bush-5",
+        "x": 330,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-6",
+        "x": 703,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-7",
+        "x": 1076,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-8",
+        "x": 1449,
+        "y": 640,
+        "berries": 5
+      },
+      {
+        "id": "bush-isle",
+        "x": 1040,
+        "y": 396,
+        "berries": 5
+      }
+    ]
+  },
+  "place": {
+    "kind": "lantern",
+    "limit": 2
+  },
+  "beats": [
+    {
+      "id": "ch6_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch6_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch6_meet",
+      "trigger": {
+        "at": 1
+      },
+      "actions": [
+        {
+          "arrange": ["echo", "krit"]
+        },
+        {
+          "openBet": true
+        }
+      ]
+    },
+    {
+      "id": "ch6_lantern",
+      "trigger": {
+        "verb": "place"
+      },
+      "actions": [
+        {
+          "ink": "ch6_lantern"
+        }
+      ]
+    },
+    {
+      "id": "ch6_loop",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "echo"
+        },
+        {
+          "ink": "ch6_loop"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "forgive",
+    "knot": "ch6_bet",
+    "options": ["no", "yes"],
+    "metric": {
+      "kind": "warmth",
+      "from": "echo",
+      "to": "krit"
+    },
+    "buckets": [0],
+    "afterDays": 3
+  },
+  "twist": {
+    "id": "revengeLoop",
+    "withinDays": 5,
+    "retryArrange": ["echo", "krit"],
+    "opensOn": {
+      "verb": "fog"
+    }
+  },
+  "reads": [],
+  "writes": ["echoForgiveness"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Sorrow, a misread kindness",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Noise",
+      "science": "[PLACEHOLDER] When signals are noisy, a kind act can look like a slight.",
+      "limits": "[PLACEHOLDER] The fog flips what one side sees, never what happened.",
+      "counter": "[PLACEHOLDER] Some say noise matters less than intent.",
+      "question": "[PLACEHOLDER] How much forgiveness does a noisy world need?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Tit for tat and its slips",
+      "science": "[PLACEHOLDER] A strict copy of the last move can lock two friends in a feud after one mistake.",
+      "limits": "[PLACEHOLDER] Here forgiveness is one dial per creature.",
+      "counter": "[PLACEHOLDER] Generous strategies can be exploited by the unkind.",
+      "question": "[PLACEHOLDER] What breaks a revenge loop?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3594 @@
+{
+  "creatures": [
+    {
+      "id": "pim",
+      "dials": {
+        "opener": 0.9,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.9846380513462792,
+        "bristle": 0,
+        "color": 0.8751238258688,
+        "softness": 1
+      },
+      "skyWarmth": 0.1300000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 22 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 22 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 8. Villager 8 waved back.",
+        "[PLACEHOLDER] Gave Villager 8 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 8 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 14. Villager 14 waved back.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 waved back.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 20. Villager 20 waved back.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry."
+      ]
+    },
+    {
+      "id": "krit",
+      "dials": {
+        "opener": 0.1,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.095,
+        "bristle": 0,
+        "color": 0.112,
+        "softness": 1
+      },
+      "skyWarmth": 0.31000000000000005,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "echo",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.27573749999999997,
+        "bristle": 0,
+        "color": 0.813353472,
+        "softness": 1
+      },
+      "skyWarmth": 0.133,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Kept my berry from Villager 15. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 11. Villager 11 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 11 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 11 kept a berry from me.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 waved back.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 waved back.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Waved at Bell. Bell waved back.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 17. Villager 17 waved back.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry."
+      ]
+    },
+    {
+      "id": "moss",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0,
+        "memory": 1,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.6836693125,
+        "bristle": 0.04286875,
+        "color": 0.67423332352,
+        "softness": 1
+      },
+      "skyWarmth": 0.2430000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 23. Villager 23 waved back.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 waved back.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 22. Villager 22 waved back.",
+        "[PLACEHOLDER] Gave Villager 22 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 22 kept a berry from me.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 looked somewhere else.",
+        "[PLACEHOLDER] Kept my berry from Villager 6. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 6 gave me a berry."
+      ]
+    },
+    {
+      "id": "wisp",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.2,
+        "wanderlust": 0.9
+      },
+      "shell": {
+        "tightness": 0.48977603281250004,
+        "bristle": 0,
+        "color": 0.8465857814528001,
+        "softness": 1
+      },
+      "skyWarmth": 0.06900000000000005,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 4 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 4 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 11. Villager 11 waved back.",
+        "[PLACEHOLDER] Gave Villager 11 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 11 gave me a berry.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 7. Villager 7 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "bell",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.75,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.8193887499999998,
+        "bristle": 0,
+        "color": 0.75490977792,
+        "softness": 1
+      },
+      "skyWarmth": 0.08600000000000006,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 8 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Kept my berry from Villager 21. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 21 kept a berry from me.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 9 kept a berry from me.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Gave Echo a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 waved back.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit looked somewhere else.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-1",
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.6161973140625,
+        "bristle": 0,
+        "color": 0.7860904960000001,
+        "softness": 1
+      },
+      "skyWarmth": 0.03300000000000002,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 8 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 8 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 4 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 4 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Gave Echo a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-2",
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.2547561875,
+        "bristle": 0,
+        "color": 0.8314862870527999,
+        "softness": 1
+      },
+      "skyWarmth": 0.08200000000000006,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 10 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 18 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 18. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Villager 13 kept a berry from me.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 19. Safe, and a little ashamed."
+      ]
+    },
+    {
+      "id": "villager-3",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.176450625,
+        "bristle": 0,
+        "color": 0.68544161792,
+        "softness": 1
+      },
+      "skyWarmth": 0.047000000000000035,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 7. Villager 7 waved back.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 looked somewhere else.",
+        "[PLACEHOLDER] Kept my berry from Villager 21. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 21 kept a berry from me.",
+        "[PLACEHOLDER] Wisp kept a berry from me.",
+        "[PLACEHOLDER] Kept my berry from Wisp. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 15 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 15 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 5 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 5 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-4",
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.5888254078124999,
+        "bristle": 0,
+        "color": 0.714623488,
+        "softness": 1
+      },
+      "skyWarmth": 0.1360000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 17. Villager 17 waved back.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 24. Villager 24 waved back.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 kept a berry from me.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 8. Villager 8 waved back.",
+        "[PLACEHOLDER] Gave Villager 8 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 8 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 looked somewhere else.",
+        "[PLACEHOLDER] Kept my berry from Villager 12. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 12 kept a berry from me.",
+        "[PLACEHOLDER] Waved at Wisp. Wisp looked somewhere else.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-5",
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.6951506250000001,
+        "bristle": 0,
+        "color": 0.8059010326528,
+        "softness": 0.9990114114082032
+      },
+      "skyWarmth": 0.26100000000000007,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 24. Villager 24 waved back.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 17. Villager 17 waved back.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 waved back.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 3. Villager 3 waved back.",
+        "[PLACEHOLDER] Gave Villager 3 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 3 gave me a berry.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 13. Villager 13 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 3. Villager 3 waved back.",
+        "[PLACEHOLDER] Gave Villager 3 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 3 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-6",
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.2508872828125,
+        "bristle": 0,
+        "color": 0.7772570296319999,
+        "softness": 1
+      },
+      "skyWarmth": 0.025000000000000015,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 22 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 22. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 11 kept a berry from me.",
+        "[PLACEHOLDER] Kept my berry from Villager 11. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 14. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 10 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 10. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 3 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 3 a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-7",
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.6659891578125,
+        "bristle": 0,
+        "color": 0.8707590653542401,
+        "softness": 1
+      },
+      "skyWarmth": 0.1350000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Krit. Krit looked somewhere else.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-8",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.53388875,
+        "bristle": 0,
+        "color": 0.8684129394688,
+        "softness": 1
+      },
+      "skyWarmth": 0.21200000000000008,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 kept a berry from me.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 waved back.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Villager 4 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 4 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 15 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 15 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-9",
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.2,
+        "ear": 0.2,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.6123979390625,
+        "bristle": 0,
+        "color": 0.8146117632000001,
+        "softness": 1
+      },
+      "skyWarmth": 0.101,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 24. Villager 24 waved back.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 19. Villager 19 waved back.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Waved at Bell. Bell waved back.",
+        "[PLACEHOLDER] Kept my berry from Bell. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Wisp. Wisp looked somewhere else.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-10",
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.8
+      },
+      "shell": {
+        "tightness": 0.352925625,
+        "bristle": 0,
+        "color": 0.83885484032,
+        "softness": 0.999145809587793
+      },
+      "skyWarmth": 0.2300000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 2 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 14. Villager 14 waved back.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 7. Villager 7 waved back.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 20. Villager 20 waved back.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 9. Villager 9 waved back.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 24. Villager 24 waved back.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 kept a berry from me."
+      ]
+    },
+    {
+      "id": "villager-11",
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.35
+      },
+      "shell": {
+        "tightness": 0.22052756718750005,
+        "bristle": 0,
+        "color": 0.71622912,
+        "softness": 1
+      },
+      "skyWarmth": 0.1210000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Kept my berry from Villager 16. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Kept my berry from Villager 21. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 21 kept a berry from me.",
+        "[PLACEHOLDER] Waved at Krit. Krit looked somewhere else.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Villager 9 kept a berry from me.",
+        "[PLACEHOLDER] Kept my berry from Villager 9. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Echo. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 15 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 15 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Kept my berry from Villager 6. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 6 kept a berry from me.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-12",
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.4911666265625001,
+        "bristle": 0,
+        "color": 0.232064,
+        "softness": 1
+      },
+      "skyWarmth": 0.09500000000000007,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Moss gave me a berry.",
+        "[PLACEHOLDER] Gave Moss a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Moss gave me a berry.",
+        "[PLACEHOLDER] Gave Moss a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 4 kept a berry from me.",
+        "[PLACEHOLDER] Kept my berry from Villager 4. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Gave Echo a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Villager 2 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-13",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.17237809375000002,
+        "bristle": 0,
+        "color": 0.4516352,
+        "softness": 1
+      },
+      "skyWarmth": 0,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 22. Villager 22 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 22 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 22 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 17. Villager 17 waved back.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 11. Villager 11 waved back.",
+        "[PLACEHOLDER] Gave Villager 11 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 11 gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit looked somewhere else.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 2. Villager 2 waved back.",
+        "[PLACEHOLDER] Kept my berry from Villager 2. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 2 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-14",
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.8
+      },
+      "shell": {
+        "tightness": 0.35875918906250004,
+        "bristle": 0,
+        "color": 0.7759117590528,
+        "softness": 1
+      },
+      "skyWarmth": 0.1,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Wisp. Wisp looked somewhere else.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 19. Villager 19 waved back.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 2. Villager 2 waved back.",
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 2 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-15",
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.35
+      },
+      "shell": {
+        "tightness": 0.43861559375,
+        "bristle": 0,
+        "color": 0.8267752448000001,
+        "softness": 1
+      },
+      "skyWarmth": 0.1490000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 12. Villager 12 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 kept a berry from me.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 3. Villager 3 waved back.",
+        "[PLACEHOLDER] Gave Villager 3 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 3 gave me a berry.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 11. Villager 11 waved back.",
+        "[PLACEHOLDER] Gave Villager 11 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 11 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 8. Villager 8 waved back.",
+        "[PLACEHOLDER] Gave Villager 8 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 8 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-16",
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.3542466890625,
+        "bristle": 0,
+        "color": 0.8385360732160001,
+        "softness": 1
+      },
+      "skyWarmth": 0.18000000000000005,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 2 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 12 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 12 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-17",
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.35,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.51126684375,
+        "bristle": 0.038689046875,
+        "color": 0.796576256,
+        "softness": 1
+      },
+      "skyWarmth": 0.18200000000000005,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Gave Echo a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-18",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.8
+      },
+      "shell": {
+        "tightness": 0.51104121875,
+        "bristle": 0,
+        "color": 0.84262971392,
+        "softness": 0.9988041644941407
+      },
+      "skyWarmth": 0.1210000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Bell. Bell looked somewhere else.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 3 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 3 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 2. Villager 2 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 2 kept a berry from me.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 22. Villager 22 waved back.",
+        "[PLACEHOLDER] Gave Villager 22 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 22 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-19",
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.41420650312500007,
+        "bristle": 0,
+        "color": 0.802465058816,
+        "softness": 1
+      },
+      "skyWarmth": 0.10200000000000008,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 24. Villager 24 waved back.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Echo. Echo waved back.",
+        "[PLACEHOLDER] Gave Echo a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Echo gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 2. Villager 2 looked somewhere else.",
+        "[PLACEHOLDER] Gave Villager 2 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 2 kept a berry from me."
+      ]
+    },
+    {
+      "id": "villager-20",
+      "dials": {
+        "opener": 0.8,
+        "forgiveness": 0.8,
+        "memory": 0.8,
+        "ear": 0.8,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.40746746875000006,
+        "bristle": 0,
+        "color": 0.7608198144,
+        "softness": 1
+      },
+      "skyWarmth": 0.17700000000000013,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Waved at Villager 13. Villager 13 waved back.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 21. Villager 21 waved back.",
+        "[PLACEHOLDER] Gave Villager 21 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 21 gave me a berry.",
+        "[PLACEHOLDER] Waved at Wisp. Wisp waved back.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 1. Villager 1 waved back.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-21",
+      "dials": {
+        "opener": 0.2,
+        "forgiveness": 0.35,
+        "memory": 0.5,
+        "ear": 0.65,
+        "wanderlust": 0.5
+      },
+      "shell": {
+        "tightness": 0.42999668906250005,
+        "bristle": 0,
+        "color": 0.8242754396159999,
+        "softness": 1
+      },
+      "skyWarmth": 0.10400000000000008,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Villager 8 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 17 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 17 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Krit. Krit looked somewhere else.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Villager 20 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 20 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 14 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 14 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Wisp gave me a berry.",
+        "[PLACEHOLDER] Gave Wisp a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 1 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 1 a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-22",
+      "dials": {
+        "opener": 0.35,
+        "forgiveness": 0.65,
+        "memory": 0.2,
+        "ear": 0.5,
+        "wanderlust": 0.35
+      },
+      "shell": {
+        "tightness": 0.25924668906250004,
+        "bristle": 0,
+        "color": 0.79554261172224,
+        "softness": 1
+      },
+      "skyWarmth": 0.08000000000000006,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Villager 5 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 5 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 15 gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Villager 15. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Bell gave me a berry.",
+        "[PLACEHOLDER] Gave Bell a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 18 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 18 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Moss gave me a berry.",
+        "[PLACEHOLDER] Kept my berry from Moss. Safe, and a little ashamed.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 kept a berry from me.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Pim gave me a berry.",
+        "[PLACEHOLDER] Gave Pim a berry. Felt good. Felt stupid. Both."
+      ]
+    },
+    {
+      "id": "villager-23",
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.2,
+        "memory": 0.65,
+        "ear": 0.35,
+        "wanderlust": 0.65
+      },
+      "shell": {
+        "tightness": 0.0857375,
+        "bristle": 0,
+        "color": 0.7765409046528,
+        "softness": 1
+      },
+      "skyWarmth": 0.1410000000000001,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Gave Moss a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 24 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 24 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Moss. Moss waved back.",
+        "[PLACEHOLDER] Gave Moss a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Moss gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 22. Villager 22 waved back.",
+        "[PLACEHOLDER] Gave Villager 22 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 22 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 13. Villager 13 waved back.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 7. Villager 7 waved back.",
+        "[PLACEHOLDER] Gave Villager 7 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 7 gave me a berry."
+      ]
+    },
+    {
+      "id": "villager-24",
+      "dials": {
+        "opener": 0.65,
+        "forgiveness": 0.5,
+        "memory": 0.35,
+        "ear": 0.2,
+        "wanderlust": 0.2
+      },
+      "shell": {
+        "tightness": 0.5207793437499999,
+        "bristle": 0,
+        "color": 0.7595277590528,
+        "softness": 1
+      },
+      "skyWarmth": 0.10900000000000008,
+      "away": false,
+      "gone": false,
+      "diary": [
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 23. Villager 23 waved back.",
+        "[PLACEHOLDER] Gave Villager 23 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 23 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 6. Villager 6 waved back.",
+        "[PLACEHOLDER] Gave Villager 6 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 6 gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 13. Villager 13 waved back.",
+        "[PLACEHOLDER] Gave Villager 13 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 13 gave me a berry.",
+        "[PLACEHOLDER] Villager 9 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 9 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Waved at Krit. Krit waved back.",
+        "[PLACEHOLDER] Gave Krit a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Krit gave me a berry.",
+        "[PLACEHOLDER] Waved at Villager 16. Villager 16 waved back.",
+        "[PLACEHOLDER] Gave Villager 16 a berry. Felt good. Felt stupid. Both.",
+        "[PLACEHOLDER] Villager 16 gave me a berry.",
+        "[PLACEHOLDER] Villager 19 gave me a berry.",
+        "[PLACEHOLDER] Gave Villager 19 a berry. Felt good. Felt stupid. Both."
+      ]
+    }
+  ],
+  "ties": [
+    {
+      "a": "bell",
+      "b": "echo",
+      "ab": 0.35570788095679995,
+      "ba": 0.5771684761728
+    },
+    {
+      "a": "bell",
+      "b": "krit",
+      "ab": 0.2848125533246719,
+      "ba": 0.297
+    },
+    {
+      "a": "bell",
+      "b": "moss",
+      "ab": 0.29388701085766394,
+      "ba": 0.6976914391999999
+    },
+    {
+      "a": "bell",
+      "b": "pim",
+      "ab": 0.266620921033132,
+      "ba": 0.15839271931124532
+    },
+    {
+      "a": "bell",
+      "b": "villager-1",
+      "ab": 0.46879200031999996,
+      "ba": 0.23646971152
+    },
+    {
+      "a": "bell",
+      "b": "villager-11",
+      "ab": 0.138355224,
+      "ba": 0.046118407999999986
+    },
+    {
+      "a": "bell",
+      "b": "villager-12",
+      "ab": 0.3300731350749796,
+      "ba": 0.15
+    },
+    {
+      "a": "bell",
+      "b": "villager-14",
+      "ab": 0.3825842380864,
+      "ba": 0.6228763571296
+    },
+    {
+      "a": "bell",
+      "b": "villager-15",
+      "ab": 0.0885842380864,
+      "ba": 0
+    },
+    {
+      "a": "bell",
+      "b": "villager-17",
+      "ab": 0.78597138368,
+      "ba": 0.3285336319999999
+    },
+    {
+      "a": "bell",
+      "b": "villager-18",
+      "ab": 0.38970064887091066,
+      "ba": 0.573398
+    },
+    {
+      "a": "bell",
+      "b": "villager-19",
+      "ab": 0.72376691952,
+      "ba": 1
+    },
+    {
+      "a": "bell",
+      "b": "villager-2",
+      "ab": 0.9039207967999998,
+      "ba": 0.7468555191480319
+    },
+    {
+      "a": "bell",
+      "b": "villager-20",
+      "ab": 0.242236816,
+      "ba": 0.25
+    },
+    {
+      "a": "bell",
+      "b": "villager-21",
+      "ab": 0.1,
+      "ba": 0
+    },
+    {
+      "a": "bell",
+      "b": "villager-22",
+      "ab": 0.201593723337664,
+      "ba": 0.147
+    },
+    {
+      "a": "bell",
+      "b": "villager-23",
+      "ab": 0.06192369774182144,
+      "ba": 0.22561445338726782
+    },
+    {
+      "a": "bell",
+      "b": "villager-24",
+      "ab": 0.14840062766623358,
+      "ba": 0.4979332833742758
+    },
+    {
+      "a": "bell",
+      "b": "villager-4",
+      "ab": 0.14406,
+      "ba": 0.18827681599999999
+    },
+    {
+      "a": "bell",
+      "b": "villager-5",
+      "ab": 0.9496205856479999,
+      "ba": 0.5639822380863999
+    },
+    {
+      "a": "bell",
+      "b": "villager-6",
+      "ab": 0.09315918415999998,
+      "ba": 0.23059203999999997
+    },
+    {
+      "a": "bell",
+      "b": "villager-7",
+      "ab": 0.49,
+      "ba": 0.5492289067745356
+    },
+    {
+      "a": "bell",
+      "b": "villager-8",
+      "ab": 0.495,
+      "ba": 0.5522289067745356
+    },
+    {
+      "a": "bell",
+      "b": "villager-9",
+      "ab": -0.2,
+      "ba": 0.25
+    },
+    {
+      "a": "bell",
+      "b": "wisp",
+      "ab": 0,
+      "ba": 0.09039207968
+    },
+    {
+      "a": "echo",
+      "b": "krit",
+      "ab": 0,
+      "ba": 0
+    },
+    {
+      "a": "echo",
+      "b": "moss",
+      "ab": -0.038451119463005196,
+      "ba": 0
+    },
+    {
+      "a": "echo",
+      "b": "pim",
+      "ab": 0.5705356438192678,
+      "ba": 0.47844346990464637
+    },
+    {
+      "a": "echo",
+      "b": "villager-1",
+      "ab": 0.34039207967999996,
+      "ba": 0.15
+    },
+    {
+      "a": "echo",
+      "b": "villager-10",
+      "ab": 0.38718398782803704,
+      "ba": 0.368947264
+    },
+    {
+      "a": "echo",
+      "b": "villager-11",
+      "ab": 0.207676386652,
+      "ba": 0.35
+    },
+    {
+      "a": "echo",
+      "b": "villager-12",
+      "ab": 0.6814771809337,
+      "ba": 0.40888630856022
+    },
+    {
+      "a": "echo",
+      "b": "villager-13",
+      "ab": -0.040853640344377336,
+      "ba": 0
+    },
+    {
+      "a": "echo",
+      "b": "villager-14",
+      "ab": 0.2777166070986649,
+      "ba": 0.35132099430653047
+    },
+    {
+      "a": "echo",
+      "b": "villager-15",
+      "ab": 0,
+      "ba": -0.04802
+    },
+    {
+      "a": "echo",
+      "b": "villager-17",
+      "ab": 0.48059204,
+      "ba": 0.24406310495679995
+    },
+    {
+      "a": "echo",
+      "b": "villager-19",
+      "ab": 0.3672954002087546,
+      "ba": 0.34039207967999996
+    },
+    {
+      "a": "echo",
+      "b": "villager-2",
+      "ab": 0.368947264,
+      "ba": 0.368947264
+    },
+    {
+      "a": "echo",
+      "b": "villager-20",
+      "ab": 0.36992610368,
+      "ba": 0.6918702392
+    },
+    {
+      "a": "echo",
+      "b": "villager-22",
+      "ab": 0.3485376117245795,
+      "ba": 0.5675504970284693
+    },
+    {
+      "a": "echo",
+      "b": "villager-23",
+      "ab": 0.13558811952,
+      "ba": 0.35505471947656597
+    },
+    {
+      "a": "echo",
+      "b": "villager-24",
+      "ab": 0.09039207968,
+      "ba": 0
+    },
+    {
+      "a": "echo",
+      "b": "villager-3",
+      "ab": 0.6117748000000001,
+      "ba": 0.5176556
+    },
+    {
+      "a": "echo",
+      "b": "villager-4",
+      "ab": 0.73160851792,
+      "ba": 0.73725643824
+    },
+    {
+      "a": "echo",
+      "b": "villager-5",
+      "ab": 0.14406,
+      "ba": 0.332336816
+    },
+    {
+      "a": "echo",
+      "b": "villager-6",
+      "ab": 0.23059203999999997,
+      "ba": 0.23059203999999997
+    },
+    {
+      "a": "echo",
+      "b": "villager-7",
+      "ab": 0.19617918093369996,
+      "ba": -0.15694334474695998
+    },
+    {
+      "a": "echo",
+      "b": "villager-8",
+      "ab": 0.368947264,
+      "ba": 0.368947264
+    },
+    {
+      "a": "echo",
+      "b": "villager-9",
+      "ab": 0.368947264,
+      "ba": 0.368947264
+    },
+    {
+      "a": "echo",
+      "b": "wisp",
+      "ab": 0.5409136213980799,
+      "ba": 0.10043005048025598
+    },
+    {
+      "a": "krit",
+      "b": "moss",
+      "ab": 0.24400039999999998,
+      "ba": 0.2437386648709107
+    },
+    {
+      "a": "krit",
+      "b": "pim",
+      "ab": 0.12761445338726782,
+      "ba": -0.08507630225817855
+    },
+    {
+      "a": "krit",
+      "b": "villager-1",
+      "ab": 0.27206216431952246,
+      "ba": 0.26474955242602993
+    },
+    {
+      "a": "krit",
+      "b": "villager-10",
+      "ab": -0.04340627666233601,
+      "ba": 0.38794435862335996
+    },
+    {
+      "a": "villager-11",
+      "b": "krit",
+      "ab": 0.1430996,
+      "ba": 0.14406
+    },
+    {
+      "a": "villager-12",
+      "b": "krit",
+      "ab": 0.09603999999999999,
+      "ba": 0.2381792
+    },
+    {
+      "a": "villager-13",
+      "b": "krit",
+      "ab": 0.345,
+      "ba": 0.297
+    },
+    {
+      "a": "krit",
+      "b": "villager-14",
+      "ab": 0.27506216431952246,
+      "ba": 0.16662522378698502
+    },
+    {
+      "a": "villager-15",
+      "b": "krit",
+      "ab": 0.44099999999999995,
+      "ba": 0.44099999999999995
+    },
+    {
+      "a": "villager-16",
+      "b": "krit",
+      "ab": -0.046118408,
+      "ba": 0
+    },
+    {
+      "a": "krit",
+      "b": "villager-17",
+      "ab": 0.235022790147008,
+      "ba": 0.163187446675328
+    },
+    {
+      "a": "krit",
+      "b": "villager-18",
+      "ab": -0.046118408,
+      "ba": 0.08007313507497958
+    },
+    {
+      "a": "villager-19",
+      "b": "krit",
+      "ab": 0,
+      "ba": 0
+    },
+    {
+      "a": "villager-2",
+      "b": "krit",
+      "ab": 0,
+      "ba": 0
+    },
+    {
+      "a": "krit",
+      "b": "villager-20",
+      "ab": 0.19519603984,
+      "ba": 0.333374776213015
+    },
+    {
+      "a": "krit",
+      "b": "villager-21",
+      "ab": 0.297,
+      "ba": 0.301593723337664
+    },
+    {
+      "a": "villager-22",
+      "b": "krit",
+      "ab": 0.24009999999999998,
+      "ba": 0.23445207967999995
+    },
+    {
+      "a": "villager-23",
+      "b": "krit",
+      "ab": 0,
+      "ba": 0
+    },
+    {
+      "a": "krit",
+      "b": "villager-24",
+      "ab": 0.381100421987008,
+      "ba": 0.27796861668832007
+    },
+    {
+      "a": "krit",
+      "b": "villager-3",
+      "ab": 0.25522890677453564,
+      "ba": 0
+    },
+    {
+      "a": "villager-4",
+      "b": "krit",
+      "ab": 0.245,
+      "ba": 0.147
+    },
+    {
+      "a": "krit",
+      "b": "villager-5",
+      "ab": 0.08149604538726783,
+      "ba": -0.21269075564544634
+    },
+    {
+      "a": "krit",
+      "b": "villager-6",
+      "ab": 0.41470750856022,
+      "ba": 0.42647167237347994
+    },
+    {
+      "a": "villager-7",
+      "b": "krit",
+      "ab": 0.15188159199999998,
+      "ba": 0.297
+    },
+    {
+      "a": "krit",
+      "b": "villager-8",
+      "ab": 0.12010970261246937,
+      "ba": -0.20018283768744893
+    },
+    {
+      "a": "villager-9",
+      "b": "krit",
+      "ab": 0.5479999999999999,
+      "ba": 0.597
+    },
+    {
+      "a": "krit",
+      "b": "wisp",
+      "ab": 0.27010970261246936,
+      "ba": 0.1699268649250204
+    },
+    {
+      "a": "moss",
+      "b": "villager-1",
+      "ab": 0.38890114421301497,
+      "ba": 0.5245920399999999
+    },
+    {
+      "a": "moss",
+      "b": "villager-10",
+      "ab": 0.6917761199999999,
+      "ba": 0.507302488
+    },
+    {
+      "a": "moss",
+      "b": "villager-12",
+      "ab": 0.698,
+      "ba": 0.254
+    },
+    {
+      "a": "moss",
+      "b": "villager-13",
+      "ab": 0.6464618488709107,
+      "ba": 0.74
+    },
+    {
+      "a": "moss",
+      "b": "villager-14",
+      "ab": 0.147,
+      "ba": 0.245
+    },
+    {
+      "a": "moss",
+      "b": "villager-15",
+      "ab": 0.1053126118934925,
+      "ba": 0.245
+    },
+    {
+      "a": "moss",
+      "b": "villager-16",
+      "ab": 0.17195901429941493,
+      "ba": 0
+    },
+    {
+      "a": "moss",
+      "b": "villager-17",
+      "ab": -0.20426820172188667,
+      "ba": 0.12256092103313201
+    },
+    {
+      "a": "moss",
+      "b": "villager-18",
+      "ab": 0.2439827989912453,
+      "ba": 0.08295556167313199
+    },
+    {
+      "a": "moss",
+      "b": "villager-19",
+      "ab": 0.147,
+      "ba": 0.3335842380864
+    },
+    {
+      "a": "moss",
+      "b": "villager-20",
+      "ab": 0.22455357621301497,
+      "ba": 0.23529799999999998
+    },
+    {
+      "a": "moss",
+      "b": "villager-21",
+      "ab": 0.245,
+      "ba": -0.196
+    },
+    {
+      "a": "moss",
+      "b": "villager-22",
+      "ab": -0.1,
+      "ba": 0.15
+    },
+    {
+      "a": "moss",
+      "b": "villager-23",
+      "ab": 0.3574618488709107,
+      "ba": 0.4
+    },
+    {
+      "a": "moss",
+      "b": "villager-24",
+      "ab": 1,
+      "ba": 0.717346437596864
+    },
+    {
+      "a": "moss",
+      "b": "villager-3",
+      "ab": 0,
+      "ba": -0.0442921190432
+    },
+    {
+      "a": "moss",
+      "b": "villager-4",
+      "ab": 0.27953402399999994,
+      "ba": 0.14306118399999995
+    },
+    {
+      "a": "moss",
+      "b": "villager-6",
+      "ab": 0.001999999999999974,
+      "ba": -0.05300000000000002
+    },
+    {
+      "a": "moss",
+      "b": "villager-7",
+      "ab": -2.3141149056164758e-17,
+      "ba": -0.0416873881065075
+    },
+    {
+      "a": "moss",
+      "b": "villager-8",
+      "ab": 0.18973839965562264,
+      "ba": 0.138355224
+    },
+    {
+      "a": "moss",
+      "b": "villager-9",
+      "ab": 0.004168738810650752,
+      "ba": -0.04418863139289796
+    },
+    {
+      "a": "moss",
+      "b": "wisp",
+      "ab": 0.08985372985004084,
+      "ba": 0.23007313507497956
+    },
+    {
+      "a": "pim",
+      "b": "villager-1",
+      "ab": 1,
+      "ba": 0.8883552240000001
+    },
+    {
+      "a": "pim",
+      "b": "villager-10",
+      "ab": 0.1667835829469332,
+      "ba": 0.12761445338726782
+    },
+    {
+      "a": "pim",
+      "b": "villager-12",
+      "ab": 0.3172954002087547,
+      "ba": 0.2125656378224906
+    },
+    {
+      "a": "pim",
+      "b": "villager-13",
+      "ab": 0.03583179827811333,
+      "ba": 0.266620921033132
+    },
+    {
+      "a": "pim",
+      "b": "villager-14",
+      "ab": 0.84104,
+      "ba": 0.44699999999999995
+    },
+    {
+      "a": "pim",
+      "b": "villager-15",
+      "ab": 0.18170728068875466,
+      "ba": 0.15
+    },
+    {
+      "a": "pim",
+      "b": "villager-16",
+      "ab": -0.11269075564544637,
+      "ba": 0.2776144533872678
+    },
+    {
+      "a": "pim",
+      "b": "villager-18",
+      "ab": -0.07847167237347999,
+      "ba": 0.11770750856021997
+    },
+    {
+      "a": "pim",
+      "b": "villager-19",
+      "ab": 0.19490396016,
+      "ba": 0.14406
+    },
+    {
+      "a": "pim",
+      "b": "villager-2",
+      "ab": -0.08007313507497958,
+      "ba": 0.12010970261246937
+    },
+    {
+      "a": "pim",
+      "b": "villager-20",
+      "ab": 0.25,
+      "ba": 0.24039207967999998
+    },
+    {
+      "a": "pim",
+      "b": "villager-21",
+      "ab": 0.7996974907233242,
+      "ba": 0.654905524481326
+    },
+    {
+      "a": "pim",
+      "b": "villager-22",
+      "ab": 0.5569432683545537,
+      "ba": 0.887564493387268
+    },
+    {
+      "a": "pim",
+      "b": "villager-23",
+      "ab": 0.3200993991999999,
+      "ba": 0.36715899919999995
+    },
+    {
+      "a": "pim",
+      "b": "villager-24",
+      "ab": 0.01266522378698499,
+      "ba": 0.26912216431952246
+    },
+    {
+      "a": "pim",
+      "b": "villager-3",
+      "ab": 0,
+      "ba": -0.046118408
+    },
+    {
+      "a": "pim",
+      "b": "villager-4",
+      "ab": 0.7388698395705536,
+      "ba": 0.6985508105168678
+    },
+    {
+      "a": "pim",
+      "b": "villager-5",
+      "ab": 0.70061950283168,
+      "ba": 0.517610909667008
+    },
+    {
+      "a": "pim",
+      "b": "villager-6",
+      "ab": 0.5038531836643727,
+      "ba": 0.37293641533475574
+    },
+    {
+      "a": "pim",
+      "b": "villager-7",
+      "ab": 0.44299999999999995,
+      "ba": 0.10099999999999998
+    },
+    {
+      "a": "pim",
+      "b": "villager-8",
+      "ab": 0.71620701668832,
+      "ba": 1
+    },
+    {
+      "a": "pim",
+      "b": "villager-9",
+      "ab": 0.9603999999999999,
+      "ba": 0.37680772573670207
+    },
+    {
+      "a": "pim",
+      "b": "wisp",
+      "ab": -0.0017362510664934412,
+      "ba": 0.2578332833742758
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-11",
+      "ab": 0.36618015952,
+      "ba": 0.4547275028799999
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-12",
+      "ab": 0.23541501712043994,
+      "ba": -2.178026436246982e-17
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-13",
+      "ab": 0.21269075564544634,
+      "ba": 0.12761445338726782
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-14",
+      "ab": 0.32388223808639993,
+      "ba": 0.1411788
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-15",
+      "ab": 0,
+      "ba": -0.04253815112908928
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-16",
+      "ab": 0.4520526352159999,
+      "ba": 0.18264734304319996
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-17",
+      "ab": 0.4059360352051725,
+      "ba": 0.26857405398700795
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-18",
+      "ab": 0.086812553324672,
+      "ba": 0
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-19",
+      "ab": 0.21896289573301495,
+      "ba": 0.09039207967999999
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-2",
+      "ab": 0.30441116506198757,
+      "ba": 0.3582101833116799
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-20",
+      "ab": 0.3218072806887547,
+      "ba": 0.14406
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-21",
+      "ab": 0.5529959646781607,
+      "ba": 0.4253815112908927
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-22",
+      "ab": -0.039235836186739995,
+      "ba": 0
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-23",
+      "ab": 0.4314938237188543,
+      "ba": 0.17975513592492284
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-24",
+      "ab": 0.5219529893622016,
+      "ba": 0.147
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-3",
+      "ab": 0.15854480744845956,
+      "ba": 0.12010970261246937
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-4",
+      "ab": 0.0885842380864,
+      "ba": 0
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-6",
+      "ab": -0.1,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-7",
+      "ab": 0.23529799999999998,
+      "ba": 0.1411788
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-8",
+      "ab": 0.41687388106507484,
+      "ba": -0.0416873881065075
+    },
+    {
+      "a": "villager-10",
+      "b": "villager-9",
+      "ab": 0.48029799999999995,
+      "ba": 0.38229799999999997
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-12",
+      "ab": 0.34136163768744887,
+      "ba": 0.07515172985004082
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-13",
+      "ab": 0.15,
+      "ba": 0.342236816
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-15",
+      "ab": 0.3909074760964679,
+      "ba": 0.722061304152664
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-16",
+      "ab": 0,
+      "ba": 0.0941192
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-17",
+      "ab": 0.3228288559999999,
+      "ba": 0.138355224
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-18",
+      "ab": 0.19882924568682683,
+      "ba": 0.7851298415695956
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-2",
+      "ab": 0,
+      "ba": 0.09039207968
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-20",
+      "ab": 0.09039207968,
+      "ba": 0
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-21",
+      "ab": 0.0941192,
+      "ba": 0
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-22",
+      "ab": 0.23059203999999997,
+      "ba": 0.22006250468875466
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-23",
+      "ab": 0.092236816,
+      "ba": 0
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-4",
+      "ab": 0.17366054034457853,
+      "ba": 0.1328763571296
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-5",
+      "ab": 0.6528219156662336,
+      "ba": 0.9411919999999999
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-6",
+      "ab": 0.1,
+      "ba": 0.4830705546608
+    },
+    {
+      "a": "villager-11",
+      "b": "villager-9",
+      "ab": 0,
+      "ba": 0.09604
+    },
+    {
+      "a": "villager-11",
+      "b": "wisp",
+      "ab": 1,
+      "ba": 1
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-13",
+      "ab": 0.12506216431952247,
+      "ba": 0.16758330018816012
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-15",
+      "ab": 0.15,
+      "ba": -0.25
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-16",
+      "ab": 0.5134173883195225,
+      "ba": 0.5890289805325374
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-17",
+      "ab": 0.1023726118934925,
+      "ba": 0.24009999999999998
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-19",
+      "ab": -0.21269075564544634,
+      "ba": 0.12761445338726782
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-2",
+      "ab": 0.15,
+      "ba": 0.19039207968
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-21",
+      "ab": 0.09799999999999999,
+      "ba": 0.10776416381326
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-23",
+      "ab": 0.5066907556454464,
+      "ba": 0.5750763022581785
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-24",
+      "ab": 0.28812,
+      "ba": -2.6656454821250006e-17
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-3",
+      "ab": 0,
+      "ba": -0.0470596
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-4",
+      "ab": 0,
+      "ba": -0.05
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-5",
+      "ab": 0.7358270809567999,
+      "ba": 0.98
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-8",
+      "ab": 0,
+      "ba": 0.07847167237347999
+    },
+    {
+      "a": "villager-12",
+      "b": "villager-9",
+      "ab": 0.3,
+      "ba": 0.43170728068875464
+    },
+    {
+      "a": "villager-12",
+      "b": "wisp",
+      "ab": 0,
+      "ba": 0.08507630225817855
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-15",
+      "ab": 0.1411788,
+      "ba": 0.1882384
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-16",
+      "ab": 0.5,
+      "ba": 0.386812553324672
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-17",
+      "ab": 0.42970728068875463,
+      "ba": 0.13358543862249064
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-18",
+      "ab": 0.3391192,
+      "ba": 0.147
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-19",
+      "ab": 0.20843694053253742,
+      "ba": 0.08337477621301496
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-2",
+      "ab": 0.25,
+      "ba": -0.2
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-20",
+      "ab": 0.44406,
+      "ba": 0.7401
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-22",
+      "ab": 0.09999999999999999,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-23",
+      "ab": 0.15,
+      "ba": 0.25
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-24",
+      "ab": 0.49312926820479996,
+      "ba": 0.503296861668832
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-3",
+      "ab": 0.26710970261246936,
+      "ba": 0.44518283768744893
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-4",
+      "ab": 0.147,
+      "ba": 0.245
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-5",
+      "ab": -0.05018283768744894,
+      "ba": 0.22010970261246937
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-6",
+      "ab": 0.25,
+      "ba": 0.242236816
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-7",
+      "ab": 0.08007313507497958,
+      "ba": 0
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-8",
+      "ab": -0.1,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-13",
+      "b": "villager-9",
+      "ab": 0.3122993206887546,
+      "ba": 0.26091614503313204
+    },
+    {
+      "a": "villager-13",
+      "b": "wisp",
+      "ab": 0.09604,
+      "ba": 0
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-15",
+      "ab": 0.786347514736,
+      "ba": 0.9603999999999999
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-16",
+      "ab": 0.42098411967999994,
+      "ba": 0.288355224
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-17",
+      "ab": 0.086812553324672,
+      "ba": 0
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-18",
+      "ab": 0.245,
+      "ba": 0.23558423808639997
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-19",
+      "ab": 0.618947264,
+      "ba": 0.6111840799999999
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-2",
+      "ab": 0.3350763022581785,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-20",
+      "ab": 0.3761363022581785,
+      "ba": 0.46571445338726786
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-21",
+      "ab": 0.186812553324672,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-22",
+      "ab": 0.5428913606887548,
+      "ba": 0.4809786497218866
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-24",
+      "ab": 0.4963447542592,
+      "ba": 0.2712315811296
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-3",
+      "ab": 0.47172811952000004,
+      "ba": 0.46980808015680003
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-4",
+      "ab": 0.9313452090327143,
+      "ba": 0.4835981511290892
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-5",
+      "ab": 0,
+      "ba": -0.0442921190432
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-6",
+      "ab": -0.1,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-7",
+      "ab": 0.9148657141516711,
+      "ba": 0.8010912533872677
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-8",
+      "ab": 0.16492369774182145,
+      "ba": 0.2776144533872678
+    },
+    {
+      "a": "villager-14",
+      "b": "villager-9",
+      "ab": 0.12010970261246937,
+      "ba": 0.08007313507497957
+    },
+    {
+      "a": "villager-14",
+      "b": "wisp",
+      "ab": 0.19039207968,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-16",
+      "ab": 0.09604,
+      "ba": 0
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-17",
+      "ab": 0.3110565014581785,
+      "ba": 0.13558811952
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-18",
+      "ab": 0.12599939973195462,
+      "ba": 0.19092239096809058
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-19",
+      "ab": 0.33539207968,
+      "ba": 0.147
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-2",
+      "ab": 0.31637227887999986,
+      "ba": 0.13558811952
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-20",
+      "ab": 0.5264768,
+      "ba": 0.720596
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-21",
+      "ab": 0.559843068073408,
+      "ba": 0.33712380380492796
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-22",
+      "ab": -0.098,
+      "ba": 0.47469771159999996
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-23",
+      "ab": 0.1369582482367004,
+      "ba": 0.2503285325994774
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-3",
+      "ab": 0.25,
+      "ba": 0.22847167237347998
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-5",
+      "ab": 0.14406,
+      "ba": 0.1901592
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-6",
+      "ab": -2.7755575615628914e-17,
+      "ba": 0.3
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-7",
+      "ab": 0,
+      "ba": 0.0885842380864
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-8",
+      "ab": 0.8224179906233599,
+      "ba": 0.641029699974016
+    },
+    {
+      "a": "villager-15",
+      "b": "villager-9",
+      "ab": 0.09799999999999999,
+      "ba": 0.147
+    },
+    {
+      "a": "villager-15",
+      "b": "wisp",
+      "ab": 0.247926338547228,
+      "ba": 0.13855971093819996
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-17",
+      "ab": 1,
+      "ba": 1
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-18",
+      "ab": 0.08858423808639998,
+      "ba": -0.22146059521599995
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-19",
+      "ab": 0.9967683180864,
+      "ba": 1
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-2",
+      "ab": 0.33078415936,
+      "ba": 0.38558811952
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-20",
+      "ab": 0.6241896547917375,
+      "ba": 0.8622754737947224
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-21",
+      "ab": 0.497674094162732,
+      "ba": 0.5281085385272453
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-22",
+      "ab": 0.22874730367999999,
+      "ba": 0.09223681599999999
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-23",
+      "ab": 0.2823576,
+      "ba": 0.56098807968
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-24",
+      "ab": 0.759384633004672,
+      "ba": 1
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-3",
+      "ab": 0,
+      "ba": 0.086812553324672
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-4",
+      "ab": 0.25888630856022,
+      "ba": 0.15682632762652
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-5",
+      "ab": 0.3465227595355224,
+      "ba": -0.13464734030416237
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-6",
+      "ab": 0.22006250468875466,
+      "ba": 0.23059203999999997
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-7",
+      "ab": 0.660810869987008,
+      "ba": 0.70538660731168
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-8",
+      "ab": 0.2689406626224906,
+      "ba": 0.5169440966887546
+    },
+    {
+      "a": "villager-16",
+      "b": "villager-9",
+      "ab": 0.60232938331168,
+      "ba": 0.521397629987008
+    },
+    {
+      "a": "villager-16",
+      "b": "wisp",
+      "ab": 0,
+      "ba": 0.086812553324672
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-18",
+      "ab": 0.4265340239999999,
+      "ba": 0.33145326368
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-19",
+      "ab": 0.31456443728639993,
+      "ba": 0.13558811952
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-2",
+      "ab": 0.18257392253766397,
+      "ba": 0.13558811952
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-20",
+      "ab": 0.7783858976080001,
+      "ba": 0.3911788
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-21",
+      "ab": 1,
+      "ba": 0.44848921190432
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-22",
+      "ab": 0.3031678759047547,
+      "ba": 0.1328763571296
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-23",
+      "ab": 0,
+      "ba": 0.09039207968
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-24",
+      "ab": 0.447406159524695,
+      "ba": 0.22821882998700796
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-3",
+      "ab": 0.28812,
+      "ba": 0.33613999999999994
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-4",
+      "ab": 0.49949694053253735,
+      "ba": 0.31835044757397
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-5",
+      "ab": 0.6949966333246721,
+      "ba": 0.608523001324672
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-6",
+      "ab": -0.15,
+      "ba": 0.3
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-7",
+      "ab": 0.5439579488083148,
+      "ba": 0.8760883856324544
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-8",
+      "ab": 0.138355224,
+      "ba": 0.18262889568
+    },
+    {
+      "a": "villager-17",
+      "b": "villager-9",
+      "ab": 0.09039207967999999,
+      "ba": 0.09039207967999999
+    },
+    {
+      "a": "villager-17",
+      "b": "wisp",
+      "ab": 0.22598019919999995,
+      "ba": 0.21566125459497956
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-19",
+      "ab": 0.3898592318182463,
+      "ba": 0.09560010974284286
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-2",
+      "ab": -0.25,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-20",
+      "ab": 0.2385842380864,
+      "ba": 0.25
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-21",
+      "ab": 0,
+      "ba": 0.09039207968
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-22",
+      "ab": 0.637218712849367,
+      "ba": 0.41043765997401593
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-23",
+      "ab": 0.1057078809568,
+      "ba": 0.25
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-24",
+      "ab": 0.539,
+      "ba": 0.588
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-3",
+      "ab": 0.3512682017218866,
+      "ba": -0.06541456137750935
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-4",
+      "ab": 0.30127499373184635,
+      "ba": -0.34732108068915707
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-5",
+      "ab": 0.55630094352,
+      "ba": 0.7915801196800001
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-6",
+      "ab": 0.5237287969378867,
+      "ba": 0.11646179575209062
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-7",
+      "ab": 0.08858423808639998,
+      "ba": 0.09202271678522264
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-8",
+      "ab": -0.16014627014995916,
+      "ba": 0.08007313507497957
+    },
+    {
+      "a": "villager-18",
+      "b": "villager-9",
+      "ab": 0.22870728068875468,
+      "ba": 0.245
+    },
+    {
+      "a": "villager-18",
+      "b": "wisp",
+      "ab": 0.09604,
+      "ba": 0
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-2",
+      "ab": -0.25,
+      "ba": 0.47197731596000003
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-20",
+      "ab": 0.54235247808,
+      "ba": 0.27117623904
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-21",
+      "ab": 0.137195595279315,
+      "ba": 0.3927696728797424
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-22",
+      "ab": 0.09039207968,
+      "ba": 0
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-23",
+      "ab": 0.4519603983999999,
+      "ba": 0.35976047712639997
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-24",
+      "ab": 0.5708539404784,
+      "ba": 0.6751338094016001
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-3",
+      "ab": 0.59604,
+      "ba": 0.3
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-4",
+      "ab": 0.052544485495487195,
+      "ba": 0.3277972910747168
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-5",
+      "ab": 0.1336239728070887,
+      "ba": 0.26049081051686784
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-6",
+      "ab": 0.6911791809337,
+      "ba": 0.14005665525304
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-7",
+      "ab": 0.7202378791091545,
+      "ba": 0.7158437166785783
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-8",
+      "ab": 0.043239492940488976,
+      "ba": 0.3162888835461694
+    },
+    {
+      "a": "villager-19",
+      "b": "villager-9",
+      "ab": 0.342255597315026,
+      "ba": 0.09619552214797922
+    },
+    {
+      "a": "villager-19",
+      "b": "wisp",
+      "ab": 0,
+      "ba": -0.04003656753748979
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-10",
+      "ab": 0.3467921645325374,
+      "ba": 0.06384248757397001
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-11",
+      "ab": 0.1834420480709107,
+      "ba": 0.13558811952
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-12",
+      "ab": 0.294,
+      "ba": 0.14797999999999997
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-13",
+      "ab": 0.25492,
+      "ba": 0.92849207968
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-14",
+      "ab": 0.45766517507497956,
+      "ba": 0.2232089538500408
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-15",
+      "ab": 0.3543369523456,
+      "ba": 0.39862907138879994
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-16",
+      "ab": 0.7581840799999999,
+      "ba": 0.541118408
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-17",
+      "ab": 0,
+      "ba": 0.0885842380864
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-18",
+      "ab": 0.386236816,
+      "ba": 0.49
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-19",
+      "ab": 1,
+      "ba": 1
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-2",
+      "ab": 0.36156831872,
+      "ba": 0.6779405975999999
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-20",
+      "ab": 0.43729452426604076,
+      "ba": 0.4086024810346489
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-21",
+      "ab": 0.7075315020864,
+      "ba": 0.518947264
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-22",
+      "ab": 0.38877372333766397,
+      "ba": 0.17541514880400003
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-23",
+      "ab": 0.24094668095679997,
+      "ba": 0.33421919999999994
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-24",
+      "ab": 0.4848137233376639,
+      "ba": 0.62426
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-3",
+      "ab": -0.21269075564544634,
+      "ba": 0.12761445338726782
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-4",
+      "ab": 0.38337477621301497,
+      "ba": 0.19999999999999998
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-5",
+      "ab": 0.5396406488709108,
+      "ba": 0.49388079999999995
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-6",
+      "ab": -0.039235836186739995,
+      "ba": 0.086812553324672
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-7",
+      "ab": 0.7712600000000001,
+      "ba": 0.86926
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-8",
+      "ab": 0.2776144533872678,
+      "ba": 0.16492369774182145
+    },
+    {
+      "a": "villager-1",
+      "b": "villager-9",
+      "ab": 0.294,
+      "ba": 0.4655000000000001
+    },
+    {
+      "a": "villager-1",
+      "b": "wisp",
+      "ab": -0.027826441857509383,
+      "ba": 0.17209936036875467
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-21",
+      "ab": 0.2671923934941133,
+      "ba": 0.405437278162732
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-22",
+      "ab": 0.09411919999999999,
+      "ba": 0.23157087967999995
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-24",
+      "ab": 0.09039207968,
+      "ba": 0
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-3",
+      "ab": 0.523606276662336,
+      "ba": 0.6353702132986879
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-4",
+      "ab": 0.12010970261246937,
+      "ba": 0.20018283768744893
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-5",
+      "ab": 0.049921591999999994,
+      "ba": 0.14406
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-6",
+      "ab": 0.33858423808640004,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-7",
+      "ab": 0.25,
+      "ba": 0.242236816
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-8",
+      "ab": 0.9040397333506559,
+      "ba": 0.9411919999999999
+    },
+    {
+      "a": "villager-20",
+      "b": "villager-9",
+      "ab": 0.7959275946836429,
+      "ba": 0.7923388751654463
+    },
+    {
+      "a": "villager-20",
+      "b": "wisp",
+      "ab": 0.38021882998700796,
+      "ba": 0.4538439366363518
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-22",
+      "ab": 0.22146059521599995,
+      "ba": 0.21968891045427197
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-23",
+      "ab": 0.12506216431952247,
+      "ba": 0.16508205690176964
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-24",
+      "ab": 0,
+      "ba": -0.04168738810650749
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-3",
+      "ab": 0.3754414028032,
+      "ba": -0.05
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-4",
+      "ab": 0,
+      "ba": 0.09604
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-5",
+      "ab": -0.08337477621301498,
+      "ba": 0.12506216431952247
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-6",
+      "ab": 0.15,
+      "ba": 0.2099634324625102
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-7",
+      "ab": 0.5126907556454463,
+      "ba": 0.3298473954836429
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-8",
+      "ab": 0.75933934368,
+      "ba": 0.68816310464
+    },
+    {
+      "a": "villager-21",
+      "b": "villager-9",
+      "ab": 0.551294438632997,
+      "ba": 0.4253815112908927
+    },
+    {
+      "a": "villager-21",
+      "b": "wisp",
+      "ab": 0.5408170262945357,
+      "ba": 0.4759801992
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-23",
+      "ab": 0.9270155767980899,
+      "ba": 1
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-24",
+      "ab": 0.14406,
+      "ba": 0.09603999999999999
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-3",
+      "ab": 0.09411919999999999,
+      "ba": 0.23529799999999998
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-4",
+      "ab": 0.1110299688900408,
+      "ba": 0.5320335334749796
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-5",
+      "ab": 0.4047102838395225,
+      "ba": 0.25764325866746257
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-6",
+      "ab": -0.1,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-7",
+      "ab": 0.5511508533872678,
+      "ba": 0.47963889774182145
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-8",
+      "ab": 0.1328763571296,
+      "ba": 0.30653689747417856
+    },
+    {
+      "a": "villager-22",
+      "b": "villager-9",
+      "ab": 0.271397629987008,
+      "ba": 0.148485446675328
+    },
+    {
+      "a": "villager-22",
+      "b": "wisp",
+      "ab": 0.1411788,
+      "ba": -0.0941192
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-24",
+      "ab": 0.386812553324672,
+      "ba": 0.5
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-3",
+      "ab": 0.0941192,
+      "ba": 0
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-5",
+      "ab": 0.31637227887999986,
+      "ba": 0.22776996237766395
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-6",
+      "ab": 0.4768841199968,
+      "ba": 0.6019603983999999
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-7",
+      "ab": 0.5636608780579186,
+      "ba": 0.37240067284467193
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-8",
+      "ab": 0.21294949220457957,
+      "ba": 0.22146059521599995
+    },
+    {
+      "a": "villager-23",
+      "b": "villager-9",
+      "ab": 0.5837614327646153,
+      "ba": 0.49
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-4",
+      "ab": 0.147,
+      "ba": -0.098
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-5",
+      "ab": 0.7009315142592,
+      "ba": 0.8581743571296
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-6",
+      "ab": 0.4533126118934925,
+      "ba": 0.5888117167455523
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-7",
+      "ab": 0.597741344897944,
+      "ba": 0.6421745115976493
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-8",
+      "ab": -0.04519603984,
+      "ba": 0
+    },
+    {
+      "a": "villager-24",
+      "b": "villager-9",
+      "ab": 0.23507630225817855,
+      "ba": 0.07984739548364289
+    },
+    {
+      "a": "villager-24",
+      "b": "wisp",
+      "ab": 0.08507630225817853,
+      "ba": 0.6380722669363391
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-20",
+      "ab": 0.3739394620863999,
+      "ba": 0.47559204
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-22",
+      "ab": 0.23059203999999997,
+      "ba": 0.23059203999999997
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-24",
+      "ab": -0.040036567537489805,
+      "ba": 0.2802559727624284
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-4",
+      "ab": 0,
+      "ba": 0.09039207968
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-5",
+      "ab": 0.34402506005253736,
+      "ba": 0.05923064677397001
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-6",
+      "ab": 0.2017476029420131,
+      "ba": 0.4342042212212921
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-7",
+      "ab": 0.2802559727624284,
+      "ba": 0.12010970261246937
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-8",
+      "ab": 0.431115498594502,
+      "ba": 0.34402506005253736
+    },
+    {
+      "a": "villager-2",
+      "b": "villager-9",
+      "ab": 0.20018283768744893,
+      "ba": -0.16014627014995916
+    },
+    {
+      "a": "villager-2",
+      "b": "wisp",
+      "ab": 0.5211410943563901,
+      "ba": 0.4074549323546559
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-4",
+      "ab": 0,
+      "ba": 0.086812553324672
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-5",
+      "ab": 0.3,
+      "ba": 0.5
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-6",
+      "ab": 0.3828763571296,
+      "ba": 0.3314240276785102
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-7",
+      "ab": 0.2910460869573107,
+      "ba": -0.030168476172800007
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-8",
+      "ab": 0,
+      "ba": 0.08507630225817855
+    },
+    {
+      "a": "villager-3",
+      "b": "villager-9",
+      "ab": 0.7879323222688063,
+      "ba": 0.7067248895742987
+    },
+    {
+      "a": "villager-3",
+      "b": "wisp",
+      "ab": 0,
+      "ba": 0.1
+    },
+    {
+      "a": "villager-4",
+      "b": "villager-6",
+      "ab": 0.44099999999999995,
+      "ba": 0.5313920796799999
+    },
+    {
+      "a": "villager-4",
+      "b": "villager-7",
+      "ab": 0.19225559731502595,
+      "ba": -0.15380447785202078
+    },
+    {
+      "a": "villager-4",
+      "b": "villager-8",
+      "ab": 0.32847167237347996,
+      "ba": 0.15
+    },
+    {
+      "a": "villager-4",
+      "b": "villager-9",
+      "ab": 0.33613999999999994,
+      "ba": 0.3822392
+    },
+    {
+      "a": "villager-4",
+      "b": "wisp",
+      "ab": 0.09999999999999999,
+      "ba": 0.24039207967999998
+    },
+    {
+      "a": "villager-5",
+      "b": "villager-6",
+      "ab": 0.092236816,
+      "ba": 0
+    },
+    {
+      "a": "villager-5",
+      "b": "villager-7",
+      "ab": 0.18794321207065598,
+      "ba": 0.57859970203168
+    },
+    {
+      "a": "villager-5",
+      "b": "villager-9",
+      "ab": 0.09799999999999999,
+      "ba": 0.147
+    },
+    {
+      "a": "villager-6",
+      "b": "villager-7",
+      "ab": 0.147,
+      "ba": -0.245
+    },
+    {
+      "a": "villager-6",
+      "b": "villager-8",
+      "ab": 0.15,
+      "ba": -0.25
+    },
+    {
+      "a": "villager-6",
+      "b": "villager-9",
+      "ab": 0.28558811951999996,
+      "ba": 0.41279275252467196
+    },
+    {
+      "a": "villager-6",
+      "b": "wisp",
+      "ab": 0.12761445338726782,
+      "ba": 0.1710033675389389
+    },
+    {
+      "a": "villager-7",
+      "b": "villager-8",
+      "ab": 0.5873427956454464,
+      "ba": 0.7187604330327143
+    },
+    {
+      "a": "villager-7",
+      "b": "villager-9",
+      "ab": 0.6522101833116799,
+      "ba": 0.9405931322451865
+    },
+    {
+      "a": "villager-7",
+      "b": "wisp",
+      "ab": 0.15,
+      "ba": 0.0583126118934925
+    },
+    {
+      "a": "villager-8",
+      "b": "villager-9",
+      "ab": 0.426205819002985,
+      "ba": 0.7381385214491224
+    },
+    {
+      "a": "villager-8",
+      "b": "wisp",
+      "ab": 0.4899250718656,
+      "ba": 0.6620244322343548
+    },
+    {
+      "a": "villager-9",
+      "b": "wisp",
+      "ab": 0.1941192,
+      "ba": 0.29117879999999996
+    }
+  ]
+}

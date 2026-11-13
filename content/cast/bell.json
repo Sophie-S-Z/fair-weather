@@ -1,6 +1,7 @@
 {
   "id": "bell",
   "scale": 1.2,
+  "color": 2,
   "timbre": {
     "wave": "sine",
     "attack": 0.01,

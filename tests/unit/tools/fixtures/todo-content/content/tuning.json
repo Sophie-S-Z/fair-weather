@@ -12,7 +12,14 @@
   "rumor": { "whisperStrength": 0.6 },
   "thread": { "warmth": 0.4 },
   "light": { "lensRadius": 120, "boost": 0.15, "radius": 300, "cap": 0.3, "days": 1 },
-  "sky": { "toward": 0.1, "still": -0.03, "rumble": -0.15, "lightPerSecond": 0.01, "lightDailyCap": 0.1 },
+  "sky": {
+    "toward": 0.1,
+    "still": -0.03,
+    "rumble": -0.15,
+    "lightPerSecond": 0.01,
+    "lightDailyCap": 0.1,
+    "ambientBidChance": 0.5
+  },
   "overPoke": { "count": 8, "windowSeconds": 30, "skyWarmth": -0.05 },
   "shell": {
     "colorRate": 0.2,
@@ -23,7 +30,13 @@
     "giftSoftness": 0.05
   },
   "wind": { "width": 80, "push": 60, "dialShiftChance": 0.2, "spread": 0.15, "gustTicks": 10 },
-  "fog": { "cellSize": 40, "bidFlipFactor": 0.5, "giftMisreadFactor": 0.5 },
+  "fog": {
+    "cellSize": 40,
+    "bidFlipFactor": 0.5,
+    "giftMisreadFactor": 0.5,
+    "brushRadius": 120,
+    "brushAmount": 0.3
+  },
   "population": {
     "returnEveryDays": 7,
     "newcomerSparePerCreature": 3,
@@ -50,9 +63,20 @@
   "imitation": { "everyDays": 3, "radius": 200, "rate": 0.3, "friendWeight": 2 },
   "art": { "minWarmth": 0.4, "minBerries": 1.5, "days": 2 },
   "cap": { "story": 30, "sandbox": 60 },
-  "mushroom": { "drops": 10, "doubleAtMost": 6, "witherAtLeast": 9, "witherDays": 3 },
+  "mushroom": {
+    "drops": 10,
+    "doubleAtMost": 6,
+    "witherAtLeast": 9,
+    "witherDays": 3,
+    "takeBelowBerries": 1,
+    "trustFriends": 2
+  },
+  "festival": { "threshold": 2, "everyTicks": 10 },
   "postcard": { "nudge": 0.1 },
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
   "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6 },
-  "bet": { "revealSpeed": 8 }
+  "bet": { "revealSpeed": 8 },
+  "bridge": { "radius": 32, "landing": 14 },
+  "bank": { "side": 53, "below": 123 },
+  "lantern": { "radius": 120, "fogFactor": 0.5 }
 }

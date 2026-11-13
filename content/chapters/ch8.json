@@ -1,0 +1,147 @@
+{
+  "id": "ch8",
+  "kind": "chapter",
+  "title": "The Dew Mushroom",
+  "season": "winter",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["respond", "bet", "rewind", "peek", "zoom"],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "friendsForgive": true,
+    "gone": ["wisp"],
+    "bushes": [],
+    "mushroom": {
+      "x": 800,
+      "y": 600
+    },
+    "grudges": [
+      {
+        "holder": "moss",
+        "against": "krit",
+        "slights": 1
+      }
+    ]
+  },
+  "beats": [
+    {
+      "id": "ch8_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch8_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch8_open_bet",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "openBet": true
+        }
+      ]
+    },
+    {
+      "id": "ch8_shares",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "moss"
+        },
+        {
+          "ink": "ch8_shares"
+        }
+      ]
+    }
+  ],
+  "bet": {
+    "id": "winter",
+    "knot": "ch8_bet",
+    "options": ["none", "few", "many"],
+    "metric": {
+      "kind": "awayCount"
+    },
+    "buckets": [1.5, 4.5],
+    "afterDays": 6
+  },
+  "twist": {
+    "id": "mossShares",
+    "withinDays": 8,
+    "retryArrange": ["moss", "krit"]
+  },
+  "reads": [],
+  "writes": ["mossShared", "winterLeft"],
+  "variants": [
+    {
+      "when": [
+        {
+          "flag": "litConflict",
+          "op": "gte",
+          "value": 0.5
+        },
+        {
+          "flag": "rumorStuck",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "overrides": {
+        "state": {
+          "krit": "away"
+        }
+      }
+    }
+  ],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Dread, then solidarity",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] The commons",
+      "science": "[PLACEHOLDER] A shared store lasts only while each takes a little.",
+      "limits": "[PLACEHOLDER] One mushroom and one rule for taking are a toy model of a commons.",
+      "counter": "[PLACEHOLDER] Some say a commons needs an owner or a rule from outside.",
+      "question": "[PLACEHOLDER] Who takes too much when everyone is hungry?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Giving when it costs",
+      "science": "[PLACEHOLDER] Sharing in hard times is rarer, and it says more.",
+      "limits": "[PLACEHOLDER] Here a gift is worth less in winter, so giving costs more.",
+      "counter": "[PLACEHOLDER] Some say people share most when times are hardest.",
+      "question": "[PLACEHOLDER] Would you share with someone who once kept from you?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

@@ -50,6 +50,18 @@ test('place adds a bench or a bush with the next id', () => {
   expect(w.nextId).toBe(3);
 });
 
+test('place adds a lantern anywhere, and a bridge only inside water', () => {
+  const w = makeWorld([], { water: [{ x: 780, y: 0, w: 60, h: 900 }] });
+  applyCommand(w, { t: 'place', kind: 'bridge', x: 700, y: 450 }, t, scriptedRng([]));
+  applyCommand(w, { t: 'place', kind: 'bridge', x: 810, y: 450 }, t, scriptedRng([]));
+  applyCommand(w, { t: 'place', kind: 'lantern', x: 100, y: 100 }, t, scriptedRng([]));
+  expect(w.structures).toEqual([
+    { id: 'bridge-1', kind: 'bridge', x: 810, y: 450 },
+    { id: 'lantern-2', kind: 'lantern', x: 100, y: 100 },
+  ]);
+  expect(w.nextId).toBe(3);
+});
+
 test('thread on raises both warmths to at least 0.4 and sets both opinions to match', () => {
   const w = world();
   setWarmth(w, 'a', 'b', 0.7);
@@ -154,6 +166,25 @@ test('blow: the dial shift is (2 x draw - 1) x 0.15, clamped at 0', () => {
   expect(get(w2, 'c').vy).toBe(t.wind.push);
 });
 
+test('without a ridge, blow leaves goals alone (the M0 rule)', () => {
+  const w = makeWorld([{ id: 'c', x: 300, y: 400 }]);
+  applyCommand(w, { t: 'blow', x: 300, y: 100, dx: 0, dy: 600 }, t, scriptedRng([0.9]));
+  expect([get(w, 'c').goalX, get(w, 'c').goalY]).toEqual([300, 400]);
+});
+
+test('with a ridge, blow sends each pushed creature to the gust end, clamped to the scene', () => {
+  const w = makeWorld(
+    [
+      { id: 'c', x: 300, y: 400 },
+      { id: 'far', x: 900, y: 400 },
+    ],
+    { ridgeX: 1500 },
+  );
+  applyCommand(w, { t: 'blow', x: 300, y: 100, dx: 0, dy: 900 }, t, scriptedRng([0.9]));
+  expect([get(w, 'c').goalX, get(w, 'c').goalY]).toEqual([300, t.scene.height]);
+  expect([get(w, 'far').goalX, get(w, 'far').goalY]).toEqual([900, 400]);
+});
+
 const badCommands: [string, Command][] = [
   ['thread, unknown id', { t: 'thread', a: 'a', b: 'nobody', on: true }],
   ['thread, away id', { t: 'thread', a: 'gone', b: 'a', on: true }],
@@ -192,7 +223,8 @@ const badCommands: [string, Command][] = [
   ['place bench, x right of the scene', { t: 'place', kind: 'bench', x: 1700, y: 100 }],
   ['place bush, y above the scene', { t: 'place', kind: 'bush', x: 100, y: -5 }],
   ['place, Infinity', { t: 'place', kind: 'bush', x: 0, y: -Infinity }],
-  ['place, unknown kind', { t: 'place', kind: 'lantern' as 'bench', x: 0, y: 0 }],
+  ['place, unknown kind', { t: 'place', kind: 'path' as 'bench', x: 0, y: 0 }],
+  ['place bridge, no water', { t: 'place', kind: 'bridge', x: 810, y: 450 }],
   ['setSeason, unknown season', { t: 'setSeason', season: 'monsoon' as 'winter' }],
   ['unknown tag', { t: 'rain' } as unknown as Command],
   ['null', null as unknown as Command],

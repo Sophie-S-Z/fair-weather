@@ -35,6 +35,7 @@ export const TuningSchema = obj({
     rumble: signed,
     lightPerSecond: signed,
     lightDailyCap: prob,
+    ambientBidChance: prob,
   }),
   overPoke: obj({ count, windowSeconds: pos, skyWarmth: signed }),
   shell: obj({
@@ -46,7 +47,13 @@ export const TuningSchema = obj({
     giftSoftness: prob,
   }),
   wind: obj({ width: pos, push: pos, dialShiftChance: prob, spread: prob, gustTicks: count }),
-  fog: obj({ cellSize: count, bidFlipFactor: prob, giftMisreadFactor: prob }),
+  fog: obj({
+    cellSize: count,
+    bidFlipFactor: prob,
+    giftMisreadFactor: prob,
+    brushRadius: pos,
+    brushAmount: prob,
+  }),
   population: obj({
     returnEveryDays: count,
     newcomerSparePerCreature: pos,
@@ -73,11 +80,31 @@ export const TuningSchema = obj({
   imitation: obj({ everyDays: count, radius: pos, rate: prob, friendWeight: nonNeg }),
   art: obj({ minWarmth: signed, minBerries: nonNeg, days: count }),
   cap: obj({ story: count, sandbox: count }),
-  mushroom: obj({ drops: count, doubleAtMost: count, witherAtLeast: count, witherDays: count }),
+  mushroom: obj({
+    drops: count,
+    doubleAtMost: count,
+    witherAtLeast: count,
+    witherDays: count,
+    takeBelowBerries: count,
+    trustFriends: count,
+  }),
+  festival: obj({ threshold: count, everyTicks: count }),
   postcard: obj({ nudge: signed }),
   wisp: obj({ minWarmth: signed, minKithWarmth: signed }),
   halcyon: obj({ giftWarmthMultiplier: prob, keepsakeWarmth: signed }),
   bet: obj({ revealSpeed: pos }),
+  bridge: obj({ radius: pos, landing: pos }),
+  /**
+   * The bank round each water rectangle, in scene units (ADR 0012 item 3): off a deck, feet stay
+   * out of it, so no drawn body or feet shadow covers water. A body stands on its feet at (x, y).
+   * Drawn at its widest (full bristle, the largest boil, the high-contrast ink line, swayed about
+   * its feet, hopping), Moss reaches 52.4 to each side and Wisp 122.6 above its feet; Wisp's
+   * shadow reaches 51.8 to each side and 13.8 below. So `side` is 53 (left, right, and above the
+   * water, where a body's foot and shadow hang below its feet) and `below` is 123 (under the
+   * water, where the body rises above its feet). tests/unit/render/bank.test.ts measures each rig.
+   */
+  bank: obj({ side: pos, below: pos }),
+  lantern: obj({ radius: pos, fogFactor: prob }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

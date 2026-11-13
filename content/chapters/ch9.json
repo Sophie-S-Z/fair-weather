@@ -1,0 +1,145 @@
+{
+  "id": "ch9",
+  "kind": "chapter",
+  "title": "Seed and Dance",
+  "season": "thaw",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["place", "respond", "zoom", "peek"],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "ambientSkyBids": true,
+    "gone": ["wisp"],
+    "water": [
+      {
+        "x": 780,
+        "y": 0,
+        "w": 60,
+        "h": 900
+      }
+    ],
+    "danceThreshold": {
+      "bell": 3
+    }
+  },
+  "place": {
+    "kind": "bridge",
+    "limit": 2
+  },
+  "beats": [
+    {
+      "id": "ch9_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "ch9_intro"
+        }
+      ]
+    },
+    {
+      "id": "ch9_seed",
+      "trigger": {
+        "at": 40
+      },
+      "actions": [
+        {
+          "dance": "pim"
+        }
+      ]
+    },
+    {
+      "id": "ch9_pim_dances",
+      "trigger": {
+        "event": "dance",
+        "who": "pim"
+      },
+      "actions": [
+        {
+          "focus": "pim"
+        },
+        {
+          "ink": "ch9_seed"
+        }
+      ]
+    },
+    {
+      "id": "ch9_bridge",
+      "trigger": {
+        "verb": "place"
+      },
+      "actions": [
+        {
+          "ink": "ch9_bridge"
+        }
+      ]
+    },
+    {
+      "id": "ch9_dance",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "focus": "bell"
+        },
+        {
+          "ink": "ch9_dance"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "bellDances",
+    "withinDays": 4,
+    "retryArrange": ["bell", "pim"]
+  },
+  "reads": [],
+  "writes": ["bellDanced", "festivalShare"],
+  "variants": [],
+  "exit": {
+    "onTwist": true
+  },
+  "feeling": "[PLACEHOLDER] Hope or ache",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Thresholds",
+      "science": "[PLACEHOLDER] Some people join only when enough friends already have.",
+      "limits": "[PLACEHOLDER] Here each creature has one fixed threshold.",
+      "counter": "[PLACEHOLDER] Some joiners follow strangers, not friends.",
+      "question": "[PLACEHOLDER] How many friends would it take for you to dance?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Friends across a gap",
+      "science": "[PLACEHOLDER] A dance spreads through friendships, wherever the friends stand.",
+      "limits": "[PLACEHOLDER] Here a bridge only lets creatures cross; the dance follows ties, not paths.",
+      "counter": "[PLACEHOLDER] Some say being near matters more than being friends.",
+      "question": "[PLACEHOLDER] Who would you be waiting for before you joined in?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

@@ -239,6 +239,55 @@ test('Forgiveness 0 and Memory 1: a slight faded to 0.51 still keeps; at 0.49 it
   expect(giftFrom(resolveMeeting(p.w, p.a, p.b, t, draws({ bidderGift: 0.99 })), 'a').move).toBe('give');
 });
 
+test('friendsForgive: a Grudger with one slight gives when two mutual friends forgive at 0.5, else keeps', () => {
+  /** `a` (Forgiveness 0, one slight toward `b`) with friends c and d at warmth `ac`, who feel `ca` back. */
+  const run = (friendsForgive: boolean, ac: number, ca: number, friends = ['c', 'd']) => {
+    const w = makeWorld(
+      [
+        { id: 'a', x: 800, opener: 0.6, forgiveness: 0, memory: 1 },
+        { id: 'b', x: 810, opener: 0.4 },
+        { id: 'c', x: 100, forgiveness: 0.5 },
+        { id: 'd', x: 300, forgiveness: 0.5 },
+      ],
+      friendsForgive ? { friendsForgive: true } : {},
+    );
+    const a = byId(w, 'a')!;
+    side(metBefore(w, a, byId(w, 'b')!), 'a').slights = 1;
+    for (const id of friends) {
+      const tie = metBefore(w, a, byId(w, id)!);
+      side(tie, 'a').warmth = ac;
+      side(tie, id).warmth = ca;
+    }
+    return giftFrom(resolveMeeting(w, a, byId(w, 'b')!, t, draws({ bidderGift: 0.99 })), 'a').move;
+  };
+  expect(run(true, 0.5, 0.5)).toBe('give');
+  expect(run(false, 0.5, 0.5)).toBe('keep');
+  expect(run(true, 0.5, 0.2)).toBe('keep'); // c and d do not count a as a friend
+  expect(run(true, 0.5, 0.5, ['c'])).toBe('keep'); // one mutual friend is fewer than mushroom.trustFriends
+});
+
+test("friendsForgive keeps the giver's own Forgiveness when its mutual friends forgive less", () => {
+  const w = makeWorld(
+    [
+      { id: 'a', x: 800, opener: 0.6, forgiveness: 0.5 },
+      { id: 'b', x: 810, opener: 0.4 },
+      { id: 'c', x: 100, forgiveness: 0 },
+      { id: 'd', x: 300, forgiveness: 0 },
+    ],
+    { friendsForgive: true },
+  );
+  const a = byId(w, 'a')!;
+  side(metBefore(w, a, byId(w, 'b')!), 'a').slights = 1;
+  for (const id of ['c', 'd']) {
+    const tie = metBefore(w, a, byId(w, id)!);
+    side(tie, 'a').warmth = 0.5;
+    side(tie, id).warmth = 0.5;
+  }
+  expect(giftFrom(resolveMeeting(w, a, byId(w, 'b')!, t, draws({ bidderGift: 0.99 })), 'a').move).toBe(
+    'give',
+  );
+});
+
 test('a gift costs the giver 1 and gives the receiver 3; in winter the receiver gets 2', () => {
   let p = pair({ berries: 3 }, { berries: 3 });
   resolveMeeting(p.w, p.a, p.b, t, draws({ bidderGift: 0 }));
@@ -427,6 +476,24 @@ test('light: a lit meeting records a boost for each behavior that happened', () 
   q.w.fields.light = { x: 805, y: 450 };
   resolveMeeting(q.w, q.a, q.b, t, draws({ reply: 0.99, bidderGift: 0, replierGift: 0 }));
   expect(q.w.boosts.map((b) => b.behavior)).toEqual(['give']); // an away reply adds none
+});
+
+test('a meeting in the lens adds a lit event naming both creatures and the real behaviors', () => {
+  const p = pair();
+  p.w.fields.light = { x: 805, y: 450 };
+  // b replies toward, a gives, and fog would misread it: the lit event lists what really happened.
+  const ev = resolveMeeting(p.w, p.a, p.b, t, draws({ reply: 0, bidderGift: 0, bidderGiftFog: 0 }));
+  expect(ev).toHaveLength(4);
+  expect(ev[3]).toEqual({ t: 'lit', a: 'a', b: 'b', behaviors: ['toward', 'give', 'keep'] });
+
+  // Outside the lens, or with one side avoiding it, there is no lit event.
+  const far = pair();
+  far.w.fields.light = { x: 805 + t.light.lensRadius + 1, y: 450 };
+  expect(resolveMeeting(far.w, far.a, far.b, t, draws({}))).toHaveLength(3);
+  const shy = pair();
+  shy.w.fields.light = { x: 805, y: 450 };
+  shy.b.lensAvoidUntilDay = shy.w.day;
+  expect(resolveMeeting(shy.w, shy.a, shy.b, t, draws({}))).toHaveLength(3);
 });
 
 test('light: a toward boost nearby raises the reply chance, an against boost lowers it', () => {

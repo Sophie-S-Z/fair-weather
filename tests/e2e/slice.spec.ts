@@ -1,20 +1,16 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
+import { canvasPoints, tabTo, tap } from './helpers.ts';
 
 // The vertical slice (M1.8, M1.12). Dev builds only: ?chapter=N starts at chapter N, and ?fast=N
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
 
 const live = (page: Page) => page.locator('[aria-live="polite"]');
-/** Presses Tab until the status line names `name`: ch0's Pim beats wait for the sim to wake Pim. */
-const tabTo = async (page: Page, name: string) => {
-  // The status line is a live region (role=status), so a screen reader hears each pick.
-  const picked = page.getByRole('status').filter({ hasText: new RegExp(`^Picked: ${name}(,|$)`) });
-  for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
-  await expect(picked).toBeVisible();
-};
 const scene = (page: Page) => page.getByRole('application', { name: 'The meadow' });
 const dev = (page: Page) =>
   page.evaluate(
-    () => (window as unknown as { fairWeather: { speeds: number[]; frames: number } }).fairWeather,
+    () =>
+      (window as unknown as { fairWeather: { speeds: number[]; frames: number; snapshots: number } })
+        .fairWeather,
   );
 
 test('Begin starts chapter 0 and its first lines are in the beat line', async ({ page }) => {
@@ -85,10 +81,59 @@ test('chapter 3: one bench, the tray shows it used, and a reply with no wave get
   await expect(live(page)).toContainText('Nobody is waving at the sky');
 });
 
+test('the place tool is named by what it sets', async ({ page }) => {
+  const tray = page.getByRole('group', { name: 'Tools' });
+  // ch6 sets lanterns and ch9 bridges (index 9 and 14 in play order).
+  for (const [index, name] of [
+    [9, 'Lantern'],
+    [14, 'Bridge'],
+  ] as const) {
+    await page.goto(`/?chapter=${String(index)}`);
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(tray.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+    await expect(tray.getByRole('button', { name: /Bench/ })).toHaveCount(0);
+  }
+});
+
+test('with a point tool the Meadow cursor is named in the status line', async ({ page }) => {
+  // ch4 (index 5) teaches shine.
+  await page.goto('/?chapter=5');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(scene(page)).toBeFocused();
+  const status = page.getByRole('status');
+  await expect(status).toHaveText(/^Spot near: under crooked tree/);
+  for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowRight');
+  await expect(status).toHaveText(/^Spot near: east meadow/);
+});
+
+test('Z zooms out to the Cosmos and X back in; Escape lets go of a thread mark first', async ({ page }) => {
+  // ch5 (index 7): whisper, thread, and zoom.
+  await page.goto('/?chapter=7');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(scene(page)).toBeFocused();
+  await expect(live(page)).toContainText('Late summer'); // the first snapshot is in, so Tab has creatures
+  await page.keyboard.press('z');
+  const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
+  await expect(cosmos).toBeFocused();
+  await expect(page.getByRole('status')).toContainText('The Cosmos');
+  await page.keyboard.press('x');
+  await expect(scene(page)).toBeFocused();
+  // Thread is tool 3: Tab picks a creature, Enter marks it, Escape lets go and keeps focus here.
+  await page.keyboard.press('3');
+  await tabTo(page, 'Pim');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status')).toContainText('Thread from');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('status')).not.toContainText('Thread from');
+  await expect(scene(page)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group', { name: 'Tools' }).getByRole('button').first()).toBeFocused();
+});
+
 test('the notes drawer opens with a button, takes focus, and closes with Escape', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
-  const notes = page.getByRole('button', { name: 'Notes' });
+  const notes = page.getByRole('button', { name: 'Diary and notes' });
   await notes.click();
   await expect(notes).toHaveAttribute('aria-expanded', 'true');
   const panel = page.getByRole('region', { name: 'Margin notes' });
@@ -121,6 +166,8 @@ test('the bet card takes focus, keeps it, ignores Escape, and gives it back', as
   await expect(live(page)).toContainText(/Your guess: Pim\. The answer: (Pim|Krit|Echo|Moss|Bell|Wisp)\./, {
     timeout: 90_000,
   });
+  // The answer can end the chapter; it stays a short time into the next one, and then goes.
+  await expect(live(page)).not.toContainText('Your guess', { timeout: 15_000 });
 });
 
 test('a hidden tab sets speed 0 and stops drawing; a visible one restores both', async ({ page }) => {
@@ -187,44 +234,72 @@ test('Continue is enabled after a chapter has started, and resumes it', async ({
   await expect(live(page)).toContainText('press Enter to wake it');
 });
 
+/** The chapter id of the autosave in IndexedDB, or null. */
+function autosaveChapter(page: Page): Promise<string | null> {
+  return page.evaluate(
+    () =>
+      new Promise<string | null>((resolve) => {
+        const open = indexedDB.open('fair-weather');
+        open.onerror = () => {
+          resolve(null);
+        };
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('saves')) {
+            db.close();
+            resolve(null);
+            return;
+          }
+          const get = db.transaction('saves').objectStore('saves').get('auto');
+          get.onsuccess = () => {
+            db.close();
+            resolve((get.result as { chapterId?: string } | undefined)?.chapterId ?? null);
+          };
+          get.onerror = () => {
+            db.close();
+            resolve(null);
+          };
+        };
+      }),
+  );
+}
+
+test('Continue keeps the year so far: gusts blown in chapter 7 reach the myth after a reload', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  // Chapter 7 is index 10 in play order; its tool is picked, and the arrows aim the gust.
+  await page.goto('/?chapter=10');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  await expect(page.locator('.beat-line')).toContainText('The autumn wind'); // the runner takes verbs after a snapshot
+  await page.keyboard.press('ArrowRight');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  await expect(page.getByRole('heading', { name: /^Interlude: Wisp's Postcard/ })).toBeVisible();
+  await expect.poll(() => autosaveChapter(page)).toBe('i7');
+
+  // A new visit: only the save holds chapter 7's log and the carry into the chapters after it.
+  await page.reload();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page.getByRole('heading', { name: /^Interlude: Wisp's Postcard/ })).toBeVisible();
+  for (const name of ['Chapter 8', 'Interlude: The Long Night', 'Chapter 9', 'Chapter 10']) {
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+    await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) })).toBeVisible();
+  }
+  const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
+  for (let i = 0; i < 3; i++) await scroll.getByRole('button', { name: 'Listen' }).click();
+  await expect(scroll.locator('[aria-live="polite"]')).toContainText('The sky huffed at us 5 times');
+});
+
 // Whole-slice runs (M1.12, spec T7). They drive the real UI only: keys, clicks, and taps.
 
 const FAST = '10';
-const SCENE_ASPECT = 1600 / 900; // content/scenes/kith-meadow.json; the view fits it in the canvas
 /** Pim's feet in content/scenarios/m0.json; Pim sleeps there at ch0's dawn, so the search starts there. */
 const PIM_START = { x: 160, y: 130 };
-const endTitle = (page: Page) => page.getByRole('heading', { name: 'End of the first spring' });
+/** The slice runs end where chapter 3 hands over to the first interlude. */
+const interlude = (page: Page) => page.getByRole('heading', { name: 'Interlude: The Door for Two' });
 const chapter = (page: Page, n: number) => page.getByRole('heading', { name: `Chapter ${String(n)}` });
-
-/**
- * Canvas points on a grid over the fitted scene where no HUD element is on top, nearest first to
- * the scene point `near` (the wide shot shows the whole scene, so scene units map onto the fit).
- */
-async function scenePoints(
-  page: Page,
-  step: number,
-  near: { x: number; y: number },
-): Promise<{ x: number; y: number }[]> {
-  return page.evaluate(
-    ({ step, aspect, near }) => {
-      const canvas = document.querySelector('canvas');
-      if (!canvas) return [];
-      const r = canvas.getBoundingClientRect();
-      const w = Math.min(r.width, r.height * aspect);
-      const h = w / aspect;
-      const left = r.left + (r.width - w) / 2;
-      const top = r.top + (r.height - h) / 2;
-      const out: { x: number; y: number }[] = [];
-      for (let y = top + step / 2; y < top + h; y += step)
-        for (let x = left + step / 2; x < left + w; x += step)
-          if (document.elementFromPoint(x, y) === canvas) out.push({ x, y });
-      const nx = left + (near.x / 1600) * w;
-      const ny = top + (near.y / 900) * h;
-      return out.sort((a, b) => Math.hypot(a.x - nx, a.y - ny) - Math.hypot(b.x - nx, b.y - ny));
-    },
-    { step, aspect: SCENE_ASPECT, near },
-  );
-}
 
 /**
  * Clicks or taps across the scene, nearest Pim's spot first, until the status line names Pim as
@@ -241,7 +316,7 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
   const pausing = (await pause.isEnabled()) && (await pause.getAttribute('aria-pressed')) === 'false';
   if (pausing) await toggle(pause);
   let found = false;
-  for (const { x, y } of await scenePoints(page, step, PIM_START)) {
+  for (const { x, y } of await canvasPoints(page, step, PIM_START, true)) {
     await press(x, y);
     const now = await page.evaluate(
       ({ t, w }) => ({
@@ -262,28 +337,6 @@ async function pickByPointer(page: Page, touch: boolean, step: number, title: st
 }
 
 /**
- * Clicks the middle of a button that may go away as the chapter moves on: the button under the
- * element `scope` (a CSS selector) whose text has `text`, or its last button. A missing button is
- * skipped. It finds the button in one page.evaluate and clicks at once, as a player would. Locator
- * actions wait on animation frames (to resolve the locator, and for click, to see the button hold
- * still), so with a short timeout they time out when software rendering draws two or three
- * frames a second, as on CI with no GPU; and at ?fast=10 a sky bid's 6 s reply window is only
- * 0.6 s of real time.
- */
-async function tryClick(page: Page, scope: string, text?: string): Promise<void> {
-  const at = await page.evaluate(
-    ({ scope, text }) => {
-      const buttons = [...(document.querySelector(scope)?.querySelectorAll('button') ?? [])];
-      const b = text === undefined ? buttons.at(-1) : buttons.find((e) => e.textContent.includes(text));
-      const r = b?.getBoundingClientRect();
-      return r && r.width > 0 ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
-    },
-    { scope, text },
-  );
-  if (at) await page.mouse.click(at.x, at.y);
-}
-
-/**
  * The auto-player: it reads the screen and acts with the active tool, as a player would. It clicks
  * until it wakes Pim in chapter 0, answers every bet with its last option, holds still for every wave, and
  * sets one bench at the spot nearest the middle of the scene.
@@ -294,9 +347,9 @@ async function autoPlay(page: Page): Promise<void> {
   const acted = new Set<string>();
   let shown = '';
   let framesAtStart = 0;
-  while (!(await endTitle(page).isVisible())) {
+  while (!(await interlude(page).isVisible())) {
     if (await bet.isVisible()) {
-      await tryClick(page, '[role="dialog"]');
+      await tap(page, '[role="dialog"]');
       continue;
     }
     const [title = ''] = await page.locator('h1').allTextContents();
@@ -317,7 +370,7 @@ async function autoPlay(page: Page): Promise<void> {
       acted.add(key);
       await pickByPointer(page, false, 16, title);
     } else if (tool.includes('Respond')) {
-      await tryClick(page, '[aria-label="Reply to the sky"]', 'Hold still');
+      await tap(page, '[aria-label="Reply to the sky"]', 'Hold still');
     } else if (tool.includes('Bench') && !acted.has(key)) {
       const box = await scene(page).boundingBox();
       if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -334,7 +387,7 @@ test('the auto-player finishes chapters 0 to 3', async ({ page }) => {
   await page.goto(`/?fast=${FAST}`);
   await page.getByRole('button', { name: 'Begin' }).click();
   await autoPlay(page);
-  await expect(endTitle(page)).toBeFocused();
+  await expect(interlude(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -382,8 +435,19 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(live(page)).toContainText('A crooked tree'); // the runner takes verbs after a snapshot
   await page.keyboard.press('Enter');
   await expect(live(page)).toContainText('A bench sits under the tree');
-  await expect(endTitle(page)).toBeVisible({ timeout: 300_000 });
-  await expect(endTitle(page)).toBeFocused();
+  await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
+});
+
+test('the end screen takes focus, and its button returns to the title', async ({ page }) => {
+  // Chapter 10 is the last in play order (index 15); skipping it ends the year so far.
+  await page.goto('/?chapter=15');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(chapter(page, 10)).toBeVisible();
+  await page.getByRole('button', { name: 'Skip chapter' }).click();
+  const endTitle = page.getByRole('heading', { name: 'End of Part 1' });
+  await expect(endTitle).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Open the Book of Skies' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
@@ -408,6 +472,48 @@ test.describe('on a phone', () => {
     await expect(live(page)).toContainText('The dawn'); // the scene is drawn, so there is a creature to tap
     expect(await pickByPointer(page, true, 8, 'Chapter 0: First Light')).toBe(true);
     await expect(chapter(page, 1)).toBeVisible({ timeout: 60_000 });
+  });
+
+  test('a tap on Book of Skies in the drawer opens the book with the sim paused', async ({ page }) => {
+    await page.goto('/');
+    // One kept year in the profile, as a finished Part 1 leaves it.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open('fair-weather', 1);
+          open.onupgradeneeded = () => open.result.createObjectStore('saves');
+          open.onerror = () => {
+            reject(open.error ?? new Error('open failed'));
+          };
+          open.onsuccess = () => {
+            const tx = open.result.transaction('saves', 'readwrite');
+            const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
+            tx.objectStore('saves').put(
+              { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0 },
+              'profile',
+            );
+            tx.oncomplete = () => {
+              resolve();
+            };
+            tx.onerror = () => {
+              reject(tx.error ?? new Error('put failed'));
+            };
+          };
+        }),
+    );
+    await page.reload();
+    await page.getByRole('button', { name: 'Begin' }).tap();
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+    await page.getByRole('button', { name: 'Diary and notes' }).tap();
+    const open = page.getByRole('button', { name: 'Book of Skies' });
+    await open.tap();
+    const book = page.getByRole('dialog', { name: 'Book of Skies' });
+    await expect(book.getByRole('article', { name: 'Year 1' })).toContainText('A test verse.');
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
+    await book.getByRole('button', { name: 'Back' }).tap();
+    await expect(book).toBeHidden();
+    await expect(open).toBeFocused();
+    await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
   });
 });
 
@@ -450,3 +556,79 @@ test('without reduced motion, the paused scene boils (the control for the test a
   const [a, b] = await pausedFrames(page);
   expect(a.equals(b)).toBe(false);
 });
+
+test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now restores the speed', async ({
+  page,
+}) => {
+  const sent = async () =>
+    page.evaluate(() => (window as unknown as { fairWeather: { sent: number } }).fairWeather.sent);
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  // ch6 opens its bet at tick 1; the range waits for its reveal.
+  test.setTimeout(120_000);
+  await page.getByRole('dialog', { name: 'A bet' }).getByRole('button').first().click();
+  await expect(live(page)).toContainText('Your guess', { timeout: 90_000 });
+  await expect(scene(page)).toBeFocused();
+  await page.keyboard.press('z');
+  const range = page.getByLabel('Rewind');
+  await expect(range).toBeEnabled();
+  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Shift+Tab');
+  await expect(range).toBeFocused();
+  // A few seconds of chapter, so the range has room to move.
+  await expect
+    .poll(async () => Number(await range.getAttribute('max')) - Number(await range.getAttribute('min')), {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(20);
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+  await page.keyboard.press('Home');
+  await expect(range).toHaveValue((await range.getAttribute('min')) ?? '');
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Rewound' })).toBeVisible();
+  // A snapshot already on its way can still run a beat that sends; count from when the sim is quiet.
+  let last = -1;
+  await expect
+    .poll(
+      async () => {
+        const n = (await dev(page)).snapshots;
+        const quiet = n === last;
+        last = n;
+        return quiet;
+      },
+      { intervals: [500] },
+    )
+    .toBe(true);
+  const before = await sent();
+  // Space and the tool send nothing while rewound.
+  const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
+  await cosmos.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press(' ');
+  await page.waitForTimeout(300);
+  expect(await sent()).toBe(before);
+  expect((await dev(page)).speeds.at(-1)).toBe(0);
+  await page.getByRole('button', { name: 'Back to now' }).click();
+  await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
+  // The control: back at now, the same Enter sends the fog command.
+  await cosmos.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(sent).toBeGreaterThan(before);
+});
+
+for (const [n, heading] of [
+  [9, 'Chapter 6: Fog'],
+  [4, 'Interlude: '],
+] as const) {
+  test(`the current chapter ribbon entry names the heading (${heading})`, async ({ page }) => {
+    await page.goto(`/?chapter=${String(n)}`);
+    await page.getByRole('button', { name: 'Begin' }).click();
+    const h1 = page.getByRole('heading', { level: 1 });
+    await expect(h1).toContainText(heading);
+    const current = page
+      .getByRole('navigation', { name: 'Chapters' })
+      .locator('li[aria-current="step"] .sr-only');
+    await expect(current).toHaveText((await h1.textContent()) ?? '');
+  });
+}

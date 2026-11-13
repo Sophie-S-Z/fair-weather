@@ -1,10 +1,12 @@
 {
   "id": "ch3",
+  "kind": "chapter",
   "title": "The Bench",
   "season": "spring",
   "scene": "kith-meadow",
   "dayLengthSeconds": 45,
-  "verbs": ["wake", "respond", "bet", "place"],
+  "carry": false,
+  "verbs": ["wake", "respond", "bet", "place", "peek", "zoom"],
   "newVerb": "place",
   "overrides": {
     "dials": {
@@ -154,8 +156,44 @@
   },
   "feeling": "[PLACEHOLDER] Relief, warmth",
   "notes": [
-    "[PLACEHOLDER] Repeated meetings make cooperation pay: the same pairs meet again.",
-    "[PLACEHOLDER] Limit: one bench is a toy stand-in for real places.",
-    "[PLACEHOLDER] Open question: how much of warmth is place and how much is people?"
+    {
+      "title": "[PLACEHOLDER] Repeated meetings",
+      "science": "[PLACEHOLDER] Cooperation pays when the same pairs meet again.",
+      "limits": "[PLACEHOLDER] One bench is a toy stand-in for real places.",
+      "counter": "[PLACEHOLDER] Places can also gather old grudges.",
+      "question": "[PLACEHOLDER] How much of warmth is place and how much is people?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Places",
+      "science": "[PLACEHOLDER] A shared spot raises the chance that neighbors meet.",
+      "limits": "[PLACEHOLDER] The bench only changes who meets, not how.",
+      "counter": "[PLACEHOLDER] Some say people make places warm, not the other way round.",
+      "question": "[PLACEHOLDER] Would two benches split a village or join it?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Friends of friends",
+      "science": "[PLACEHOLDER] A warm tie makes the next meeting warmer.",
+      "limits": "[PLACEHOLDER] Warmth here is one number per side.",
+      "counter": "[PLACEHOLDER] Real friendship has many kinds of warmth.",
+      "question": "[PLACEHOLDER] What makes a friend thread snap?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
   ]
 }

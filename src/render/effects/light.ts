@@ -9,7 +9,7 @@ export function createLight(
   palette: Palette,
   radius: number,
 ): { graphics: Graphics; update(light: { x: number; y: number } | null): void } {
-  const graphics = new Graphics();
+  const graphics = new Graphics({ label: 'light' });
   const fill = { color: palette.light.color, alpha: palette.light.alpha / RINGS };
   for (let i = RINGS; i >= 1; i--) graphics.circle(0, 0, (radius * i) / RINGS).fill(fill);
   return {

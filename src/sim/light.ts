@@ -4,12 +4,18 @@ import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { activeCreatures } from './world.ts';
 
-/** Fog (0..1) in the fog cell under (x, y); points outside the scene use the nearest edge cell. */
+/**
+ * Fog (0..1) in the fog cell under (x, y); points outside the scene use the nearest edge cell.
+ * Within lantern.radius of any lantern it is scaled by lantern.fogFactor (ADR 0012 item 3).
+ */
 export function fogAt(world: World, x: number, y: number, t: Tuning): number {
   const { fog, fogW, fogH } = world.fields;
   const col = clamp(Math.floor(x / t.fog.cellSize), 0, fogW - 1);
   const row = clamp(Math.floor(y / t.fog.cellSize), 0, fogH - 1);
-  return fog[row * fogW + col] ?? 0;
+  const f = fog[row * fogW + col] ?? 0;
+  const r2 = t.lantern.radius * t.lantern.radius;
+  const lit = world.structures.some((s) => s.kind === 'lantern' && dist2(x, y, s.x, s.y) <= r2);
+  return lit ? f * t.lantern.fogFactor : f;
 }
 
 /** True while an over-poke keeps `c` out of the lens (through day lensAvoidUntilDay). */

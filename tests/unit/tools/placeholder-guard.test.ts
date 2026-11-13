@@ -44,6 +44,13 @@ describe('placeholderGuard', () => {
   test('fails a production build that imports an INCLUDEd .ink file with #placeholder', async () => {
     await expect(buildFixture('ink-source', 'production')).rejects.toThrow(/part\.ink/);
   });
+  // The myth verses (content/myth/verses.json), and so the Book of Skies pages made from them.
+  test('fails a production build that imports JSON content with [PLACEHOLDER] text and names it', async () => {
+    await expect(buildFixture('json', 'production')).rejects.toThrow(/\[PLACEHOLDER\] in .*verses\.json/);
+  });
+  test('builds the JSON placeholder fixture in development mode', async () => {
+    await expect(buildFixture('json', 'development')).resolves.toBeDefined();
+  });
   test('builds the Ink placeholder fixture in development mode', async () => {
     await expect(buildFixture('ink-source', 'development')).resolves.toBeDefined();
   });
@@ -68,6 +75,25 @@ describe('validateContent', () => {
     writeFileSync(join(root, 'content', 'chapters', 'bad.json'), JSON.stringify({ id: 'bad' }));
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
+  });
+  test('reports a bad myth verses file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'myth'), { recursive: true });
+    writeFileSync(join(root, 'content', 'myth', 'verses.json'), JSON.stringify({ verses: [] }));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
+  });
+  test("compiles an INCLUDEd Ink file inside its includer, so it may use the includer's VARs", () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'ink'), { recursive: true });
+    const ink = (name: string, text: string) => {
+      writeFileSync(join(root, 'content', 'ink', name), text);
+    };
+    ink('main.ink', 'VAR flag = true\nINCLUDE part.ink\n');
+    ink('part.ink', '=== part ===\n{flag: yes | no}\n-> END\n');
+    expect(validateContent(root).errors.filter((e) => e.includes('.ink'))).toEqual([]);
+    ink('part.ink', '=== part ===\n{missing: yes | no}\n-> END\n');
+    expect(validateContent(root).errors.some((e) => e.includes('missing'))).toBe(true);
   });
   /** A content root holding the repo's kith-meadow scene and ch1 changed by `edit`. */
   function chapterRoot(edit: (chapter: { scene: string; beats: { actions: object[] }[] }) => void): string {
@@ -94,14 +120,42 @@ describe('validateContent', () => {
     expect(errors.some((e) => e.includes('camera shot nowhere, which scene kith-meadow lacks'))).toBe(true);
   });
   test('reports a creature id that the m0 scenario lacks', () => {
-    const root = chapterRoot((c) => c.beats[0]?.actions.push({ promptSkyBid: 'pym' }));
+    const root = chapterRoot((c) => {
+      c.beats[0]?.actions.push({ promptSkyBid: 'pym' }, { dance: 'pym' });
+      Object.assign(c, {
+        overrides: { grudges: [{ holder: 'moss', against: 'krut', slights: 1 }], state: { '*': 'sleep' } },
+      });
+    });
     mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
     writeFileSync(
       join(root, 'content', 'scenarios', 'm0.json'),
       readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
     );
     const errors = validateContent(root).errors.filter((e) => e.startsWith('ch1.json'));
-    expect(errors).toEqual(['ch1.json: names creature pym, which scenario m0 lacks']);
+    expect(errors).toEqual([
+      'ch1.json: names creature pym, which scenario m0 lacks',
+      'ch1.json: names creature krut, which scenario m0 lacks',
+    ]);
+  });
+  test('reads creature ids from a bet on who or on a warmth, never from the options of a bet on a number', () => {
+    const bet = (metric: object, options: string[], buckets?: number[]) => (c: object) =>
+      Object.assign(c, { bet: { id: 'b', knot: 'k', options, metric, buckets, afterDays: 1 } });
+    const errorsFor = (edit: (c: object) => void): string[] => {
+      const root = chapterRoot(edit);
+      mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+      writeFileSync(
+        join(root, 'content', 'scenarios', 'm0.json'),
+        readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
+      );
+      return validateContent(root).errors.filter((e) => e.startsWith('ch1.json'));
+    };
+    expect(errorsFor(bet({ kind: 'rumorShare' }, ['few', 'most'], [0.5]))).toEqual([]);
+    expect(errorsFor(bet({ kind: 'maxShell', shell: 'tightness' }, ['pim', 'pym']))).toEqual([
+      'ch1.json: names creature pym, which scenario m0 lacks',
+    ]);
+    expect(errorsFor(bet({ kind: 'warmth', from: 'echo', to: 'krut' }, ['no', 'yes'], [0]))).toEqual([
+      'ch1.json: names creature krut, which scenario m0 lacks',
+    ]);
   });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));

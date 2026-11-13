@@ -49,7 +49,7 @@ import { createSoulView } from './render/soul-view.ts';
 import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
-import type { SaveV2 } from './persist/format.ts';
+import type { SaveV3 } from './persist/format.ts';
 import { createProfile } from './persist/profile.ts';
 import type { BookPage } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
@@ -70,6 +70,7 @@ import {
   KITH_VALLEYS,
   kithCarry,
   kithLeg,
+  kithLegsBefore,
   kithScenario,
   leaveValley,
   newJourney,
@@ -201,6 +202,8 @@ const chapters = [
 ].map((c) => ChapterSchema.parse(c));
 /** The homecoming: Kith counts its days while the player is away (ADR 0013 item 18). */
 const homecoming = ChapterSchema.parse(home);
+/** The bridge: Kith's silent run starts from its scenario (ADR 0013 item 10). */
+const bridgeChapter = ChapterSchema.parse(bridge);
 const scenarioFiles = import.meta.glob<Scenario>('../content/scenarios/*.json', {
   eager: true,
   import: 'default',
@@ -331,7 +334,7 @@ const slotsReady = createSlots(indexedDB, storageNotice);
 const profileReady = createProfile(indexedDB, storageNotice);
 const tuningHash = hashTuning(JSON.stringify(tuningJson));
 /** The loaded autosave, held until its chapter starts. */
-let resuming: SaveV2 | null = null;
+let resuming: SaveV3 | null = null;
 /** The last snapshot of the run so far: a carried chapter starts from it, a skip included. */
 let lastLite: WorldLite | null = null;
 /** The last chapter's runner: a carried chapter keeps its diaries. */
@@ -372,6 +375,34 @@ function dropStart(): void {
 function kithAt(answer: Promise<{ lite: WorldLite }>): void {
   kithNow = answer.then((r) => r.lite);
   kithNow.catch(() => undefined);
+}
+/** Starts Kith's silent run on its own worker from `from`, Kith at the end of Part 1 (ADR 0013 item 10). */
+function startKith(from: Carry | null): SimHost {
+  kithStart = from;
+  kith ??= createSimHost(spawnWorker);
+  kith.post({
+    t: 'init',
+    seed: SEED,
+    tuning: tuningJson,
+    scenario: kithScenario(bridgeChapter, homecoming, baseOf(bridgeChapter), kithStart),
+  });
+  kithAt(kith.rewind(0));
+  return kith;
+}
+/** Runs one of Kith's legs at once: the postcard's nudge, when one was sent, then the leg's days. */
+function runKithLeg(host: SimHost, leg: ReturnType<typeof kithLeg>): void {
+  if (leg.commands.length > 0) host.send(leg.commands);
+  kithAt(host.fastForward(leg.ticks));
+}
+/**
+ * Continue in a valley: the journey from the save, the year's page its verse joins, and Kith
+ * rebuilt by running its legs again from the journey's kithStart (ADR 0013 item 10).
+ */
+async function continueJourney(journey: Journey, chapterId: string): Promise<void> {
+  journeyNow = journey;
+  keptPage = (await (await profileReady).pages()).find((p) => p.year === journey.bookYear) ?? null;
+  const host = startKith(journey.kithStart);
+  for (const leg of kithLegsBefore(journey, chapterId, homecoming)) runKithLeg(host, leg);
 }
 
 const game: GameService = {
@@ -533,12 +564,16 @@ const game: GameService = {
     const save = await (await slotsReady).load('auto');
     const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
     if (!save || index < 0) return null;
+    // A valley continues only with its journey.
+    const valley = chapters[index]?.valley !== undefined;
+    if (valley && !save.journey) return null;
     try {
       ink.load(save.ink);
     } catch {
       return null;
     }
     resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
+    if (valley && save.journey) await continueJourney(save.journey, save.chapterId);
     return { index, flags: save.flags };
   },
   async hasSave() {
@@ -581,16 +616,8 @@ const game: GameService = {
     const scenario = buildScenario(chapter, flags, base, carry, journey);
     if (chapter.activity === 'hero') {
       // Kith from the end of Part 1 runs silently on its own worker while the player is away.
-      kithStart = carry ?? null;
       journeyNow = null;
-      kith ??= createSimHost(spawnWorker);
-      kith.post({
-        t: 'init',
-        seed: SEED,
-        tuning: tuningJson,
-        scenario: kithScenario(chapter, homecoming, base, kithStart),
-      });
-      kithAt(kith.rewind(0));
+      startKith(carry ?? null);
     }
     season = scenario.season;
     // A year that starts again at this chapter (Begin after an earlier year this visit) forgets
@@ -608,16 +635,17 @@ const game: GameService = {
       scenario,
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
     });
-    // A valley's save needs the journey, which save version 3 (M3.15) keeps.
-    if (!resumed && !chapter.valley) {
+    if (!resumed) {
       // The autosave at the chapter start: the world now, Ink before the chapter plays, the year
-      // log of the chapters before it, and the carry it started from.
+      // log of the chapters before it, the carry it started from, and in a valley the journey so
+      // far, captions and the hero's name included, which stay on the device.
       const inkState = ink.state();
       const year = yearLog.slice();
+      const savedJourney = chapter.valley && journeyNow ? structuredClone(journeyNow) : null;
       host.requestCheckpoint().then(
         async ({ world }) =>
           (await slotsReady).save('auto', {
-            version: 2,
+            version: 3,
             seed: SEED,
             tuningHash,
             ink: inkState,
@@ -626,6 +654,7 @@ const game: GameService = {
             year,
             carry: carry ?? null,
             checkpoint: world,
+            journey: savedJourney,
           }),
         () => undefined, // the worker gave up; the chapter plays without this save
       );
@@ -683,12 +712,8 @@ const game: GameService = {
       whenDone(() => {
         // A sent postcard ends the valley, so a Skip after it still counts the valley as played.
         const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
-        if (leg >= 0 && kith) {
-          // Kith's leg first: the postcard's nudge, when one was sent, then the leg's days at once.
-          const { commands, ticks } = kithLeg(leg, sent[0] ?? null, homecoming);
-          if (commands.length > 0) kith.send(commands);
-          kithAt(kith.fastForward(ticks));
-        }
+        // Kith's leg first, with the postcard sent here; Continue replays it from the journal page.
+        if (leg >= 0 && kith) runKithLeg(kith, kithLeg(leg, sent[0] ?? null, homecoming));
         if ((!skipped || sent.length > 0) && journeyNow && lastLite)
           journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
       });
@@ -727,8 +752,10 @@ const game: GameService = {
     // Told by the year's narrator, as it joins the year's page; Pim, the guide home, without a page.
     return tellSixth(sixthFeatures(journeyNow, flags), sixth, name, keptPage?.narrator ?? 'pim', displayName);
   },
-  async finishJourney() {
-    // M3.15 adds the verse to the year's page here (Profile.addVerse with journey.bookYear).
+  async finishJourney(verse) {
+    // The verse joins the year's page, when this journey's year kept one.
+    const year = journeyNow?.bookYear ?? null;
+    if (year !== null) await (await profileReady).addVerse(year, verse);
     await (await slotsReady).keepYear();
   },
   async feathers() {

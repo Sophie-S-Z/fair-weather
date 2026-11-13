@@ -300,6 +300,23 @@ export function kithLeg(
   return { commands: nudge, ticks: kithDays(index) * chapterTicksPerDay(home) };
 }
 
+/**
+ * Kith's legs, in play order, for the Stage 1 valleys before `chapterId` (all three before the
+ * homecoming), each with the postcard its journal page kept (none for a skipped valley, which has no
+ * page). Continue runs them again from journey.kithStart, which the deterministic sim makes exact
+ * (ADR 0013 item 10).
+ */
+export function kithLegsBefore(
+  j: Journey,
+  chapterId: string,
+  home: Pick<Chapter, 'dayLengthSeconds'>,
+): { commands: Command[]; ticks: number }[] {
+  const at = (KITH_VALLEYS as readonly string[]).indexOf(chapterId);
+  return KITH_VALLEYS.slice(0, at < 0 ? KITH_VALLEYS.length : at).map((valley, i) =>
+    kithLeg(i, j.pages.find((p) => p.valley === valley)?.postcard ?? null, home),
+  );
+}
+
 /** The homecoming's carry: Kith after its last leg, with the diaries of Kith's start, since a silent run writes none. */
 export function kithCarry(lite: WorldLite, kithStart: Carry | null): Carry {
   return carryFrom(lite, new Map(kithStart?.creatures.map((c) => [c.id, c.diary])));

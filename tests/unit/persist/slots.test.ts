@@ -7,12 +7,16 @@ import versesJson from '../../../content/myth/verses.json';
 import ch4Json from '../../../content/chapters/ch4.json';
 import ch5Json from '../../../content/chapters/ch5.json';
 import i5Json from '../../../content/chapters/i5.json';
+import bridgeJson from '../../../content/chapters/bridge.json';
+import fenJson from '../../../content/valleys/fen.json';
+import homeJson from '../../../content/valleys/home.json';
 import ch4Carry from '../../golden/carry/ch4.json';
+import ch10Carry from '../../golden/carry/ch10.json';
 import { brushShare, extractFeatures } from '../../../src/myth/features.ts';
 import { tellMyth, VersesSchema } from '../../../src/myth/grammar.ts';
 import { openDb } from '../../../src/persist/db.ts';
 import { hashTuning } from '../../../src/persist/format.ts';
-import type { SaveV2 } from '../../../src/persist/format.ts';
+import type { SaveV3 } from '../../../src/persist/format.ts';
 import { migrate } from '../../../src/persist/migrations.ts';
 import { createProfile } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
@@ -22,24 +26,29 @@ import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
 import type { YearLog } from '../../../src/story/action-log.ts';
+import { CarrySchema } from '../../../src/story/carry.ts';
+import type { Carry } from '../../../src/story/carry.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
+import { kithLeg, kithLegsBefore, kithScenario, newJourney } from '../../../src/story/journey.ts';
+import type { Journey } from '../../../src/story/journey.ts';
 import { displayName } from '../../../src/story/names.ts';
 import { buildScenario, chapterStart } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter } from '../../../src/story/schema.ts';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
+import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
 
 const tuning = parseTuning(tuningJson);
 const share = brushShare(tuning);
 const flags = parseFlags(flagsJson);
 const base = scenarioJson as Scenario;
 
-function makeSave(chapterId: string, ticks = 5): SaveV2 {
+function makeSave(chapterId: string, ticks = 5): SaveV3 {
   const world = createWorld(7, tuning, base);
   for (let i = 0; i < ticks; i++) step(world, [], tuning);
   return {
-    version: 2,
+    version: 3,
     seed: 7,
     tuningHash: hashTuning(JSON.stringify(tuningJson)),
     ink: '{}',
@@ -48,6 +57,56 @@ function makeSave(chapterId: string, ticks = 5): SaveV2 {
     year: [],
     carry: null,
     checkpoint: structuredClone(world),
+    journey: null,
+  };
+}
+
+/** Kith at the end of Part 1 (the stored ch10 carry), where its silent run starts. */
+const kithStart: Carry = CarrySchema.parse(ch10Carry);
+
+/** A journey two valleys in: Fen sent its first postcard, Hollow was skipped and left no page. */
+function midJourney(): Journey {
+  const j = newJourney('kite', 'Ash: the quiet one', kithStart, 2);
+  j.record = { moves: ['give', 'keep', 'give'], answered: 2, against: 1 };
+  j.rumor = { value: 0.25, strength: 0.5 };
+  j.shell = { tightness: 0.4, bristle: 0.2, color: 0.7, softness: 0.6 };
+  j.keepsakes = [{ id: 'starling-feather', given: true }];
+  j.pages = [
+    {
+      valley: 'fen',
+      stamp: 'welcomed',
+      said: { value: 0.25, strength: 0.5 },
+      keepsake: 'starling-feather',
+      postcard: 'generosity',
+      caption: 'Tove flew, and we flew too. 🐦',
+    },
+  ];
+  return j;
+}
+
+/** Kith's silent run on a worker core, as main.ts's Kith host runs it. */
+function kithHost(scenario: Scenario): {
+  leg: (l: ReturnType<typeof kithLeg>) => void;
+  lite: () => WorldLite;
+} {
+  const out = { lite: null as WorldLite | null, error: null as string | null };
+  const core = createWorkerCore(
+    (m) => {
+      if (m.t === 'forwarded') out.lite = m.lite;
+      if (m.t === 'error') out.error = m.message;
+    },
+    { now: () => 0, every: () => () => undefined },
+  );
+  core({ t: 'init', seed: 1, tuning: tuningJson, scenario });
+  return {
+    leg(l) {
+      core({ t: 'commands', list: l.commands });
+      core({ t: 'fastForward', ticks: l.ticks, id: 0 });
+    },
+    lite() {
+      if (out.error !== null || !out.lite) throw new Error(`Kith did not run: ${String(out.error)}`);
+      return out.lite;
+    },
   };
 }
 
@@ -57,7 +116,7 @@ const rumbles = (chapterId: string, ticks: number[]): YearLog[number] => ({
   log: ticks.map((tick) => ({ kind: 'verb', tick, input: { verb: 'respond', reply: 'against' } })),
 });
 
-test('a v2 save keeps the year log through save and load', async () => {
+test('a save keeps the year log through save and load', async () => {
   const slots = await createSlots(new IDBFactory());
   const year: YearLog = [
     rumbles('ch1', [3]),
@@ -95,9 +154,10 @@ test('a v1 save migrates with an empty year and the new flags at their defaults'
     checkpoint,
   };
   const save = migrate(v1);
-  expect(save.version).toBe(2);
+  expect(save.version).toBe(3);
   expect(save.year).toEqual([]);
   expect(save.carry).toBeNull();
+  expect(save.journey).toBeNull();
   expect('log' in save).toBe(false);
   expect(save.flags).toEqual({ ...flags, pimSkyBond: 0.9 });
   expect(save.chapterId).toBe('ch2');
@@ -106,6 +166,90 @@ test('a v1 save migrates with an empty year and the new flags at their defaults'
     ...flags,
     pimSkyBond: 0.9,
   });
+});
+
+test('a v3 save keeps the journey through save and load', async () => {
+  const factory = new IDBFactory();
+  const slots = await createSlots(factory);
+  const journey = { ...midJourney(), wisp: 'stay' as const };
+  await slots.save('auto', { ...makeSave('ch10'), journey: null });
+  await slots.save('auto', { ...makeSave('halcyon'), journey });
+  const loaded = await slots.load('auto');
+  // The hero's name, the captions, and journey.bookYear come back as they were.
+  expect(loaded?.journey).toEqual(journey);
+  expect(loaded?.journey?.bookYear).toBe(2);
+
+  // A v3 save with a bad journey, or none, is damaged like any other: the autosave falls back.
+  const bad = { ...makeSave('halcyon'), journey: { ...journey, wisp: 'maybe' } };
+  expect(() => migrate(bad)).toThrow();
+  const long = { ...journey, pages: journey.pages.map((p) => ({ ...p, caption: 'x'.repeat(81) })) };
+  expect(() => migrate({ ...makeSave('halcyon'), journey: long })).toThrow();
+  const missing: Partial<SaveV3> = makeSave('halcyon');
+  delete missing.journey;
+  expect(() => migrate(missing)).toThrow();
+  await (await openDb(factory)).putAll([['auto', bad]]);
+  expect((await slots.load('auto'))?.chapterId).toBe('ch10');
+});
+
+test('a v2 save migrates with a null journey and the new flags at their defaults', () => {
+  const rest: Partial<SaveV3> = makeSave('hollow');
+  delete rest.journey;
+  // A save from before Part 2's flags (M3.6): version 2, without toveFlew, heroFamous, wispHome, kithHeld.
+  const before = Object.fromEntries(
+    Object.entries({ ...flags, pimSkyBond: 0.9 }).filter(
+      ([k]) => !['toveFlew', 'heroFamous', 'wispHome', 'kithHeld'].includes(k),
+    ),
+  );
+  const save = migrate({ ...rest, version: 2, flags: before });
+  expect(save.version).toBe(3);
+  expect(save.journey).toBeNull();
+  expect(save.flags).toEqual({ ...flags, pimSkyBond: 0.9 });
+  expect(save.chapterId).toBe('hollow');
+  // A v2 save written with all the flags keeps them; one stored as undefined takes its default.
+  const all = { ...flags, kithHeld: false, toveFlew: false };
+  expect(migrate({ ...rest, version: 2, flags: all }).flags).toEqual(all);
+  expect(migrate({ ...rest, version: 2, flags: { ...before, wispHome: undefined } }).flags).toEqual({
+    ...flags,
+    pimSkyBond: 0.9,
+  });
+  // The flags a v2 save always had are still required.
+  const lacking = { ...before };
+  delete lacking['pimScar'];
+  expect(() => migrate({ ...rest, version: 2, flags: lacking })).toThrow();
+});
+
+// Review Focus 1 (ADR 0013 item 10): Continue in a valley runs Kith's legs again from the journey's
+// kithStart, each finished valley's postcard nudge and then its days, as the unbroken run did.
+test('Continue in Halcyon rebuilds Kith to the same average warmth as the run that saved', async () => {
+  const bridge = ChapterSchema.parse(bridgeJson);
+  const home = ChapterSchema.parse(homeJson);
+  const scenario = kithScenario(bridge, home, base, kithStart);
+  // The run that saved: main.ts sends each leg when its valley ends, with the postcard it sent.
+  const unbroken = kithHost(scenario);
+  unbroken.leg(kithLeg(0, ChapterSchema.parse(fenJson).valley?.postcards[0] ?? null, home));
+  unbroken.leg(kithLeg(1, null, home)); // Hollow was skipped: no postcard, still its days
+  const saved = unbroken.lite();
+
+  // Halcyon's autosave, a reload, and Continue.
+  const slots = await createSlots(new IDBFactory());
+  await slots.save('auto', { ...makeSave('halcyon'), journey: midJourney() });
+  const loaded = await slots.load('auto');
+  const journey = loaded?.journey;
+  if (!journey) throw new Error('no journey in the save');
+  const legs = kithLegsBefore(journey, 'halcyon', home);
+  expect(legs).toHaveLength(2);
+  const rebuilt = kithHost(kithScenario(bridge, home, base, journey.kithStart));
+  for (const l of legs) rebuilt.leg(l);
+
+  expect(rebuilt.lite().metrics.averageWarmth).toBe(saved.metrics.averageWarmth);
+  expect(rebuilt.lite()).toEqual(saved);
+  // The nudge matters: without Fen's postcard Kith ends elsewhere.
+  const unnudged = kithHost(scenario);
+  for (const l of legs) unnudged.leg({ ...l, commands: [] });
+  expect(unnudged.lite()).not.toEqual(saved);
+  // Before the homecoming every Stage 1 valley is replayed; before Fen, none.
+  expect(kithLegsBefore(journey, 'home', home)).toHaveLength(3);
+  expect(kithLegsBefore(journey, 'fen', home)).toEqual([]);
 });
 
 // Review Focus 1: the year so far is in the chapter-start save, so the myth after a Continue counts it.
@@ -247,11 +391,12 @@ test('blocked storage gives a no-save mode and one notice', async () => {
   expect(second).toHaveBeenCalledTimes(1);
 });
 
-test('migrate rejects an unknown version and a damaged save, and accepts version 2', () => {
+test('migrate rejects an unknown version and a damaged save, and accepts version 3', () => {
   expect(() => migrate({ ...makeSave('ch0'), version: 99 })).toThrow(/version 99/);
   expect(() => migrate(null)).toThrow();
   expect(() => migrate({ version: 1 })).toThrow();
   expect(() => migrate({ version: 2 })).toThrow();
+  expect(() => migrate({ version: 3 })).toThrow();
   expect(() => migrate({ ...makeSave('ch0'), carry: { creatures: 'none' } })).toThrow();
   expect(migrate(makeSave('ch0')).chapterId).toBe('ch0');
 });

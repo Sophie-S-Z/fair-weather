@@ -574,6 +574,9 @@ const game: GameService = {
     }
     resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
     if (valley && save.journey) await continueJourney(save.journey, save.chapterId);
+    // The bridge comes right after the fire's page is kept, so that year's page is the newest.
+    else if (save.chapterId === bridgeChapter.id)
+      keptPage = (await (await profileReady).pages()).at(-1) ?? null;
     return { index, flags: save.flags };
   },
   async hasSave() {

@@ -20,6 +20,7 @@ import {
   bodyHeight,
   createMeadowView,
   dewColor,
+  placeOf,
   rigArea,
   VISITOR_SIT_SECONDS,
   VISITOR_SPEED,
@@ -935,7 +936,7 @@ function fen(n: number, flying: string[] = [], perceived: Record<string, number>
   };
 }
 
-test('40 starlings without rigs of their own are ink ticks in one Graphics: at most 2 more objects', () => {
+test('40 starlings without rigs of their own are ink ticks in one Graphics: at most 2 more display objects', () => {
   const count = (world: WorldLite): number => {
     const app = fakeApp(800, 450);
     createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
@@ -976,9 +977,63 @@ test('the reflection draws a faint tick under a grounded starling that sees at l
     createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
     return graphicsIn(app, 'flock').getLocalBounds().maxY;
   };
-  // starling-1 stands at y 480; its reflection lies under its feet.
-  expect(below(0.4)).toBeLessThanOrEqual(482);
-  expect(below(0.5)).toBeGreaterThan(490);
+  // The reflection lies under the tick's feet, wherever the tick is fanned to.
+  expect(below(0.5)).toBeGreaterThan(below(0.4) + 10);
+});
+
+test('Tove, a starling with a rig of her own, gets her reflection under her shadow too', () => {
+  const flock = (perceived: number): Graphics => {
+    const app = fakeApp(800, 450);
+    const world = fen(0, [], { tove: perceived });
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    return graphicsIn(app, 'flock');
+  };
+  // Only Tove could add a mark here: no ticks, and the hero is no starling.
+  expect(flock(0.4).context.instructions).toHaveLength(0);
+  // Tove stands at y 520; the reflection lies below her shadow.
+  expect(flock(0.5).getLocalBounds().minY).toBeGreaterThan(520 + 10);
+});
+
+test('a flying Tove is picked and framed where she is drawn, and her shadow stays on the ground', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const world = fen(0, ['tove']);
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const tove = creatureIn(app, 'tove');
+  expect(tove.y).toBeLessThan(520 - 40);
+  // The center of the drawn body, half a body above its lifted feet.
+  expect(view.pick(...view.toScreen(520, tove.y - heightOf('tove') / 2))).toBe('tove');
+  expect(graphicsIn(app, 'shadows').getLocalBounds().maxY).toBeGreaterThan(520);
+});
+
+test('a tight bed of grounded starlings is fanned about its birds, each tick picked where it is drawn', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const base = fen(10);
+  // All ten at one spot, as a clumped bed can be.
+  const world = {
+    ...base,
+    creatures: base.creatures.map((c) =>
+      c.id === 'hero' || c.id === 'tove' ? c : { ...c, x: 1000, y: 600 },
+    ),
+  };
+  view.update(world, world, 1, settings);
+  const b = graphicsIn(app, 'flock').getLocalBounds();
+  expect(b.width).toBeGreaterThan(30);
+  // At most 24 units off each way, inside the reed bed.
+  expect(b.minX).toBeGreaterThanOrEqual(1000 - 24 - 8 - 4);
+  expect(b.maxX).toBeLessThanOrEqual(1000 + 24 + 8 + 4);
+  // Each tick is picked at its own fanned spot: its center is half a tick (8 units) above it.
+  for (const id of ['starling-1', 'starling-7']) {
+    const [across, high] = placeOf(id);
+    const [x, y] = [1000 + 48 * (across - 0.5), 600 + 48 * (high - 0.5)];
+    expect(view.pick(...view.toScreen(x, y - 8))).toBe(id);
+  }
+});
+
+test("the Fen's sky band lies above its far hills", () => {
+  const top = Math.min(...fenScene.hills.flatMap((h) => h.filter((_, i) => i % 2 === 1)));
+  expect(fenScene.sky[1]).toBeLessThan(top);
 });
 
 test('a hero of kind kite draws the kite rig', () => {

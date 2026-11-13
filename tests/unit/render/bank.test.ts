@@ -52,8 +52,9 @@ function reach(id: string): { side: number; up: number; down: number } {
 }
 
 // The Quiet Visitor walks by the same bank (meadow-view.ts overWater), so its rig is checked too,
-// and so is each hero's, which walks by Halcyon's mirror sea (ADR 0013 item 18).
-const ids = [...new Set([VILLAGER_RIG, 'visitor', ...cast.keys(), ...HERO_KINDS])];
+// and so is each hero's, which walks by Halcyon's mirror sea (ADR 0013 item 18), and the frogs' of
+// Hearsay Hollow, which a valley with water may hold.
+const ids = [...new Set([VILLAGER_RIG, 'visitor', ...cast.keys(), ...HERO_KINDS, 'frog'])];
 
 test.each(ids)('%s, drawn at its widest, stays inside the bank', (id) => {
   const r = reach(id);

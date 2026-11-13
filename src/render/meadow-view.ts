@@ -42,8 +42,8 @@ const HEAT_ALPHA = 0.4;
 const CURSOR_RADIUS = 16;
 /**
  * Murmuration Fen (spec 7.3: a sky full of small dark marks). A starling with no rig of its own is
- * a small ink tick, `TICK` wide each side: a check mark at its feet on the ground, and a level "v"
- * when it flies, spread over the scene's sky band above its place on the ground, where it drifts
+ * a small ink tick, `TICK` wide each side: on the ground a check mark, fanned up to `GROUND_SPREAD`
+ * units each way about its feet so a tight bed reads as its birds, and a level "v" when it flies, spread over the scene's sky band above its place on the ground, where it drifts
  * `DRIFT` units about its place once every `DRIFT_SECONDS`, slowly, so reduced motion keeps it.
  * `TICK_HEIGHT` is its size for picking.
  */
@@ -54,9 +54,11 @@ const DRIFT = 24;
 const DRIFT_SECONDS = 30;
 /** A flying flock spreads this wide about its birds' places on the ground. */
 const SPREAD = 200;
+const GROUND_SPREAD = 24;
 /**
- * The reflection (ADR 0007): under a grounded starling whose perceived share is at least
- * `REFLECT_AT`, a faint upturned tick `REFLECT_DROP` below its feet, the flier the water shows it.
+ * The reflection (ADR 0007): under each grounded starling, Tove included, whose perceived share is
+ * at least `REFLECT_AT`, a faint upturned tick `REFLECT_DROP` below its feet (below its shadow for a
+ * body), the flier the water shows it.
  */
 const REFLECT_AT = 0.5;
 const REFLECT_DROP = 14;
@@ -231,7 +233,7 @@ function phaseOf(id: string): number {
  * Two numbers in [0, 1) from a creature id, well mixed (FNV-1a, then a final avalanche), so
  * neighbors in id order land apart.
  */
-function placeOf(id: string): [number, number] {
+export function placeOf(id: string): [number, number] {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
   h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
@@ -642,6 +644,22 @@ export function createMeadowView(
   let topInset = 0;
   let lineWidth = 0;
   const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
+  /**
+   * The Fen's frame scratch, reused so the flock allocates nothing per frame: who flies, the ticks
+   * as flat x, y, up (1 or 0) triples, the reflections as flat x, y pairs, and each bird's place.
+   */
+  const flying = new Set<string>();
+  const ticks: number[] = [];
+  const reflected: number[] = [];
+  const places = new Map<string, [number, number]>();
+  const placeFor = (id: string): [number, number] => {
+    let p = places.get(id);
+    if (!p) {
+      p = placeOf(id);
+      places.set(id, p);
+    }
+    return p;
+  };
 
   /** The creature's view, made anew when its rig changes (a new hero of another kind). */
   function viewFor(
@@ -760,33 +778,45 @@ export function createMeadowView(
       };
       for (const { view } of views.values()) view.container.visible = false;
       const fen = next.pack?.id === 'fen' ? next.pack : null;
-      const flying = new Set(fen?.flying);
-      /** The ticks as [x, y, flying], and the grounded ones that see a flier in the water. */
-      const ticks: [number, number, boolean][] = [];
-      const reflected: [number, number][] = [];
-      const [skyTop, skyBottom] = scene.sky;
+      flying.clear();
+      if (fen) for (const id of fen.flying) flying.add(id);
+      ticks.length = 0;
+      reflected.length = 0;
+      const skyTop = scene.sky[0];
+      const skyBottom = scene.sky[1];
       for (const c of interpolateCreatures(prev, next, alpha)) {
         if (c.state === 'away') continue;
+        const up = flying.has(c.id);
+        // A grounded starling that sees at least half its neighbors flying in the water.
+        const sees = c.speciesId === STARLING && !up && (fen?.perceived[c.id] ?? 0) >= REFLECT_AT;
         if (c.speciesId === STARLING && !rigs.has(c.id)) {
-          if (flying.has(c.id)) {
+          const place = placeFor(c.id);
+          const across = place[0];
+          const high = place[1];
+          if (up) {
             // Each bird keeps its own place in the band, above its place on the ground, and drifts about it.
             const turn = 2 * Math.PI * (seconds / DRIFT_SECONDS + phaseOf(c.id));
-            const [across, up] = placeOf(c.id);
             const x = c.x + SPREAD * (across - 0.5);
-            const y = skyTop + (skyBottom - skyTop) * up;
-            ticks.push([x + DRIFT * Math.sin(turn), y + (DRIFT / 4) * Math.cos(turn), true]);
+            const y = skyTop + (skyBottom - skyTop) * high;
+            ticks.push(x + DRIFT * Math.sin(turn), y + (DRIFT / 4) * Math.cos(turn), 1);
           } else {
-            ticks.push([c.x, c.y, false]);
-            if ((fen?.perceived[c.id] ?? 0) >= REFLECT_AT) reflected.push([c.x, c.y + REFLECT_DROP]);
-            drawn.push({ ...c, height: TICK_HEIGHT });
+            // Fanned about its feet, inside its reed bed; drawn, reflected, and picked there.
+            const x = c.x + 2 * GROUND_SPREAD * (across - 0.5);
+            const y = c.y + 2 * GROUND_SPREAD * (high - 0.5);
+            ticks.push(x, y, 0);
+            if (sees) reflected.push(x, y + REFLECT_DROP);
+            drawn.push({ ...c, x, y, height: TICK_HEIGHT });
           }
           continue;
         }
         const entry = viewFor(c.id, c.speciesId);
         if (!entry) continue;
-        drawn.push({ ...c, height: entry.height });
-        // On the ground, so a hop lifts the body off its shadow.
         const h = entry.height;
+        // A flier is drawn, picked, and framed where it flies; its shadow stays on the ground.
+        const lift = up ? FLY_LIFT : 0;
+        drawn.push({ ...c, y: c.y - lift, height: h });
+        if (sees) reflected.push(c.x, c.y + REFLECT_DROP + (SHADOW_HEIGHT * h) / 2);
+        // On the ground, so a hop lifts the body off its shadow.
         const onDeck = next.decks.some(
           (d) => c.x >= d.x && c.x <= d.x + d.w && c.y >= d.y && c.y <= d.y + d.h,
         );
@@ -797,7 +827,7 @@ export function createMeadowView(
         // Dancers hop together.
         const hop =
           c.dancing && motion ? HOP_HEIGHT * Math.abs(Math.sin((Math.PI * seconds) / HOP_SECONDS)) : 0;
-        container.position.set(c.x, c.y - hop - (flying.has(c.id) ? FLY_LIFT : 0));
+        container.position.set(c.x, c.y - hop - lift);
         container.zIndex = c.y;
         // Creatures in a meeting sway in time (spec 11.1 harmony); the rest sway out of step.
         const phase = c.state === 'meet' ? 0 : phaseOf(c.id);
@@ -812,14 +842,19 @@ export function createMeadowView(
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
       flock.clear();
-      for (const [x, y] of reflected)
+      for (let k = 0; k + 1 < reflected.length; k += 2) {
+        const x = reflected[k] ?? 0;
+        const y = reflected[k + 1] ?? 0;
         flock
           .moveTo(x - TICK, y + TICK / 2)
           .lineTo(x, y)
           .lineTo(x + TICK, y + TICK / 2);
+      }
       if (reflected.length > 0) flock.stroke(inkStroke(palette, w * 0.4, FAR_ALPHA));
-      for (const [x, y, up] of ticks) {
-        if (up)
+      for (let k = 0; k + 2 < ticks.length; k += 3) {
+        const x = ticks[k] ?? 0;
+        const y = ticks[k + 1] ?? 0;
+        if (ticks[k + 2] === 1)
           flock
             .moveTo(x - TICK, y - TICK / 2)
             .lineTo(x, y)

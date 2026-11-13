@@ -2,6 +2,7 @@
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { SimEvent } from '../sim/types.ts';
 import { creature, rumorShare, warmth } from './bets.ts';
+import { tuning } from './tuning.ts';
 
 export const TWIST_IDS = [
   'kritExploitsPim',
@@ -12,11 +13,17 @@ export const TWIST_IDS = [
   'wispLeaves',
   'mossShares',
   'bellDances',
+  'toveFlies',
+  'heroFamous',
+  'homeWelcome',
 ] as const;
 export type TwistId = (typeof TWIST_IDS)[number];
 
 /** Float slack so a rise of exactly 0.1 passes despite rounding (for example 0.3 - 0.2). */
 const EPSILON = 1e-9;
+
+/** The named cast the homecoming counts (ADR 0013 item 12). */
+const CAST = ['pim', 'krit', 'echo', 'moss', 'wisp', 'bell'];
 
 const gave = (events: SimEvent[], from: string, to: string, move: 'give' | 'keep'): boolean =>
   events.some((e) => e.t === 'gift' && e.from === from && e.to === to && e.move === move);
@@ -36,6 +43,8 @@ function meanTightness(lite: WorldLite): number {
  * rumorDrowns: the rumor's holders are at least half of the creatures not away, `about` left out.
  * revengeLoop: both warmths of the Echo and Krit tie are below 0.
  * wispLeaves: Wisp is gone over the ridge. mossShares: Moss gives to Krit. bellDances: Bell is dancing.
+ * toveFlies: Tove is in the Fen's flock. heroFamous: the hero's fame is above hollow.fearAt.
+ * homeWelcome: at least 3 of the named cast hold warmth toward the hero above friend.threshold.
  */
 export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, events: SimEvent[]): boolean {
   switch (id) {
@@ -60,5 +69,11 @@ export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, event
       return gave(events, 'moss', 'krit', 'give');
     case 'bellDances':
       return creature(now, 'bell')?.dancing === true;
+    case 'toveFlies':
+      return now.pack?.id === 'fen' && now.pack.flying.includes('tove');
+    case 'heroFamous':
+      return now.pack?.id === 'hollow' && (now.pack.fame.hero ?? 0) > tuning.hollow.fearAt;
+    case 'homeWelcome':
+      return CAST.filter((id) => warmth(now, id, 'hero') > tuning.friend.threshold).length >= 3;
   }
 }

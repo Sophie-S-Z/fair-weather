@@ -72,7 +72,10 @@ function creatureRefs(c: Chapter): string[] {
   return ids;
 }
 
-/** Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/**
+ * Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter and valley camera
+ * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
+ */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -107,9 +110,13 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`myth/verses.json: ${(e as Error).message}`);
     }
   }
-  for (const f of filesIn(join(content, 'chapters'), '.json')) {
+  // Part 1 chapters and the bridge sit in content/chapters/, the valleys in content/valleys/.
+  const configs = ['chapters', 'valleys'].flatMap((dir) =>
+    filesIn(join(content, dir), '.json').map((f) => ({ f, path: join(content, dir, f) })),
+  );
+  for (const { f, path } of configs) {
     try {
-      ChapterSchema.parse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+      ChapterSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
     } catch (e) {
       errors.push(`${f}: ${(e as Error).message}`);
     }
@@ -134,24 +141,29 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
-  // Chapters start from the m0 scenario (src/main.ts), so every creature id they name must be in it.
-  const scenarioPath = join(content, 'scenarios', 'm0.json');
-  const creatures = existsSync(scenarioPath)
-    ? new Set(
-        (JSON.parse(readFileSync(scenarioPath, 'utf8')) as { creatures: { id: string }[] }).creatures.map(
-          (c) => c.id,
-        ),
-      )
-    : null;
-  // A chapter's `scene` names a file in content/scenes/, and every camera shot its beats name
+  // A config starts from its `scenario` (m0 by default), so every creature id it names must be in
+  // it; a valley may also name the hero.
+  const creaturesOf = (scenario: string): Set<string> | null => {
+    const path = join(content, 'scenarios', `${scenario}.json`);
+    if (!existsSync(path)) return null;
+    const json = JSON.parse(readFileSync(path, 'utf8')) as { creatures: { id: string }[] };
+    return new Set(json.creatures.map((c) => c.id));
+  };
+  // A config's `scene` names a file in content/scenes/, and every camera shot its beats name
   // must be one of that scene's cameras.
-  for (const f of filesIn(join(content, 'chapters'), '.json')) {
-    const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+  for (const { f, path } of configs) {
+    const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(path, 'utf8')));
     if (!parsed.success) continue;
+    const c = parsed.data;
+    const creatures = creaturesOf(c.scenario);
     if (creatures) {
-      for (const id of new Set(creatureRefs(parsed.data)))
-        if (!creatures.has(id)) errors.push(`${f}: names creature ${id}, which scenario m0 lacks`);
+      for (const id of new Set(creatureRefs(c)))
+        if (!creatures.has(id) && !(c.valley && id === 'hero'))
+          errors.push(`${f}: names creature ${id}, which scenario ${c.scenario} lacks`);
     }
+    // In Hearsay Hollow the drama sky is the lens (ADR 0013 item 6); a shine would move it.
+    if (c.valley?.pack === 'hollow' && c.verbs.includes('shine'))
+      errors.push(`${f}: a Hollow valley may not list shine`);
     const scenePath = join(content, 'scenes', `${parsed.data.scene}.json`);
     if (!existsSync(scenePath)) {
       errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);

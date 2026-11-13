@@ -12,7 +12,7 @@
   import type { Flags } from '../../story/flags.ts';
   import { displayName } from '../../story/names.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
-  import { VERBS, WORLD_VERBS } from '../../story/verbs.ts';
+  import { unlockingVerb, VERBS, WORLD_VERBS } from '../../story/verbs.ts';
   import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
@@ -56,6 +56,11 @@
       '[PLACEHOLDER] Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
     fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
     blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
+    walk: '[PLACEHOLDER] Press Enter to walk to the spot, or pick a creature to wave at it.',
+    manner: '[PLACEHOLDER] Choose how your hero answers and whether it gives or keeps.',
+    join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
+    pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
+    keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
     zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
     peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
@@ -254,7 +259,7 @@
     hints.activity();
     if (!runner || rewindAt !== null) return;
     if (runner.verb(v)) {
-      hints.used(v.verb);
+      hints.used(unlockingVerb(v));
       if (v.verb === 'place') {
         placed += 1;
         if (placed === chapter?.place.limit) used = [...used, 'place'];
@@ -347,7 +352,7 @@
       // Answering starts the sim, so a bet that arrives while rewound brings the world back to now.
       backToNow();
       bet = { question: p.question, options: p.options };
-    } else {
+    } else if (p.kind === 'reveal') {
       betRunning = false;
       say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`, true);
     }

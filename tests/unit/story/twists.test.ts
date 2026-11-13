@@ -173,3 +173,33 @@ describe('bellDances', () => {
     expect(checkTwist('bellDances', w, now, [])).toBe(false);
   });
 });
+
+describe('Part 2 twists', () => {
+  const w = lite(0, 0);
+  const tie = (a: string, ab: number) => ({ a, b: 'hero', ab, ba: 0 });
+
+  test('toveFlies reads the Fen flock', () => {
+    const fen = (flying: string[]): WorldLite => world({ pack: { id: 'fen', flying, perceived: {} } });
+    expect(checkTwist('toveFlies', w, fen(['starling-1', 'tove']), [])).toBe(true);
+    expect(checkTwist('toveFlies', w, fen(['starling-1']), [])).toBe(false);
+    expect(checkTwist('toveFlies', w, w, [])).toBe(false);
+  });
+
+  test("heroFamous needs the hero's fame above hollow.fearAt (0.5)", () => {
+    const hollow = (fame: number): WorldLite =>
+      world({ pack: { id: 'hollow', fame: { hero: fame, quill: 1 }, front: 'hero' } });
+    expect(checkTwist('heroFamous', w, hollow(0.6), [])).toBe(true);
+    expect(checkTwist('heroFamous', w, hollow(0.5), [])).toBe(false);
+    expect(checkTwist('heroFamous', w, w, [])).toBe(false);
+  });
+
+  test('homeWelcome needs three of the cast warm toward the hero', () => {
+    // friend.threshold is 0.3; villagers and the hero's own side do not count.
+    const two = [tie('pim', 0.5), tie('krit', 0.31), tie('villager-1', 0.9), tie('echo', 0.3)];
+    expect(checkTwist('homeWelcome', w, world({ ties: two }), [])).toBe(false);
+    expect(
+      checkTwist('homeWelcome', w, world({ ties: [{ a: 'hero', b: 'bell', ab: 0.9, ba: 0.9 }, ...two] }), []),
+    ).toBe(true);
+    expect(checkTwist('homeWelcome', w, world({ ties: [...two, tie('wisp', 0.4)] }), [])).toBe(true);
+  });
+});

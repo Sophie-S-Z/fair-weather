@@ -1,6 +1,6 @@
 // Builds a chapter's starting scenario (spec 10.1, P6): the year carry, the overrides, at most one
 // variant, and the chapter's day length, so the runner and the sim count the same days.
-import type { DialKey, Rect, Scenario } from '../sim/types.ts';
+import type { DialKey, HeroKind, Rect, Scenario } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import { applyCarry, carryFrom, restoreDials } from './carry.ts';
 import type { Carry } from './carry.ts';
@@ -138,17 +138,69 @@ export function chapterStart(
 }
 
 /**
+ * What a valley takes from the journey (ADR 0013 item 9): the hero, its keepsakes and rumor, who
+ * came home with it from Halcyon (Wisp, or Wisp's seed), and Kith's average warmth so far.
+ */
+export interface JourneyStart {
+  kind: HeroKind;
+  name: string;
+  keepsakes: string[];
+  rumor: { value: number; strength: number } | null;
+  companion: 'wisp' | 'seed' | null;
+  kithWarmth: number;
+}
+
+/**
+ * The hero at the gate with 3 berries, the valley's pack with the base scenario's pack fields
+ * (Halcyon's kithWarmth from the journey), and the companion (ADR 0013 item 12): Wisp back beside
+ * the gate, or the `wisp-seed` bush 40 units right of the first bench.
+ */
+function startValley(s: Scenario, valley: NonNullable<Chapter['valley']>, journey: JourneyStart): void {
+  const { gateX, gateY } = tuning.scene;
+  const { kind, name, keepsakes, rumor } = journey;
+  s.hero = { kind, name, x: gateX, y: gateY, berries: 3, keepsakes: [...keepsakes], rumor };
+  const pack = valley.pack;
+  if (pack === null) delete s.pack;
+  else if (pack === 'hollow') s.pack = { id: 'hollow' };
+  else if (s.pack?.id !== pack) throw new Error(`The base scenario has no ${pack} pack fields`);
+  else if (s.pack.id === 'halcyon') s.pack.kithWarmth = journey.kithWarmth;
+  if (journey.companion === 'wisp') {
+    const wisp = s.creatures.find((c) => c.id === 'wisp');
+    if (!wisp) throw new Error('The base scenario has no Wisp to come home');
+    delete wisp.gone;
+    wisp.state = 'wander';
+    wisp.x = gateX + 40;
+    wisp.y = gateY;
+  } else if (journey.companion === 'seed') {
+    const bench = s.structures.find((x) => x.kind === 'bench');
+    if (!bench) throw new Error("Wisp's seed needs a bench to grow by");
+    s.bushes.push({ id: 'wisp-seed', x: bench.x + 40, y: bench.y, berries: 3 });
+  }
+}
+
+/**
  * A deep copy of `base` (never mutated) for this chapter: season from the chapter, then `carry`
  * when given (ADR 0012 item 1), then `chapter.overrides`, then the first variant in array order
- * whose every `when` condition matches `flags`, applied last so it wins on conflicts;
- * `ticksPerDay` from chapterTicksPerDay. Throws on an override id that is not in
- * `base.creatures`, on a `weather.light` override, and on land that checkLand refuses.
+ * whose every `when` condition matches `flags`, applied last so it wins on conflicts; for a valley,
+ * then the journey's start (startValley); `ticksPerDay` from chapterTicksPerDay. Throws on an
+ * override id that is not in `base.creatures`, on a `weather.light` override, on a valley with no
+ * journey, and on land that checkLand refuses.
  */
-export function buildScenario(chapter: Chapter, flags: Flags, base: Scenario, carry?: Carry): Scenario {
+export function buildScenario(
+  chapter: Chapter,
+  flags: Flags,
+  base: Scenario,
+  carry?: Carry,
+  journey?: JourneyStart,
+): Scenario {
   const s = structuredClone(base);
   s.season = chapter.season;
   if (carry) applyCarry(s, carry);
   for (const o of chosenOverrides(chapter, flags)) apply(s, o);
+  if (chapter.valley) {
+    if (!journey) throw new Error(`Valley ${chapter.id} needs a journey`);
+    startValley(s, chapter.valley, journey);
+  }
   s.ticksPerDay = chapterTicksPerDay(chapter);
   checkLand(s);
   return s;

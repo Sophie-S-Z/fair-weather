@@ -9,6 +9,7 @@ import { parseFlags } from '../../../src/story/flags.ts';
 import type { Flags } from '../../../src/story/flags.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import { buildScenario, chapterTicksPerDay, matches } from '../../../src/story/scenario.ts';
+import type { JourneyStart } from '../../../src/story/scenario.ts';
 import { ChapterSchema } from '../../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../../src/story/schema.ts';
 
@@ -250,6 +251,75 @@ describe('buildScenario', () => {
     const east = base.creatures.filter((c) => c.x >= 1440).map((c) => c.id);
     const bushes = base.bushes.filter((b) => b.x < 1440);
     expect(() => build({ ridgeX: 1440, gone: east, bushes })).not.toThrow();
+  });
+});
+
+describe('a valley start', () => {
+  const valleyOf = (pack: 'fen' | 'hollow' | 'halcyon' | null, o: Partial<Chapter> = {}): Chapter => ({
+    ...ch0,
+    kind: 'valley',
+    valley: { pack, guide: 'pim', postcards: [], keepsake: null, locals: [] },
+    ...o,
+  });
+  const journey: JourneyStart = {
+    kind: 'glassling',
+    name: 'Rook',
+    keepsakes: ['starling-feather', 'clipping'],
+    rumor: { value: -0.5, strength: 0.4 },
+    companion: null,
+    kithWarmth: 0.3,
+  };
+  const halcyonBase: Scenario = { ...base, pack: { id: 'halcyon', kithWarmth: 0, seeker: 'wisp' } };
+
+  test('buildScenario puts the hero at the gate with the rumor, keepsakes, and Halcyon kith warmth', () => {
+    const s = buildScenario(valleyOf('halcyon'), flags, halcyonBase, undefined, journey);
+    expect(s.hero).toEqual({
+      kind: 'glassling',
+      name: 'Rook',
+      x: 40, // tuning.scene.gateX
+      y: 450,
+      berries: 3,
+      keepsakes: ['starling-feather', 'clipping'],
+      rumor: { value: -0.5, strength: 0.4 },
+    });
+    expect(s.pack).toEqual({ id: 'halcyon', kithWarmth: 0.3, seeker: 'wisp' });
+    expect(halcyonBase.pack).toEqual({ id: 'halcyon', kithWarmth: 0, seeker: 'wisp' }); // not mutated
+  });
+
+  test("the pack comes from the valley and the base scenario's pack fields", () => {
+    const fenBase: Scenario = { ...base, pack: { id: 'fen', restless: ['krit'], fixed: { pim: 0.5 } } };
+    expect(buildScenario(valleyOf('fen'), flags, fenBase, undefined, journey).pack).toEqual(fenBase.pack);
+    expect(buildScenario(valleyOf('hollow'), flags, base, undefined, journey).pack).toEqual({ id: 'hollow' });
+    expect(buildScenario(valleyOf(null), flags, halcyonBase, undefined, journey).pack).toBeUndefined();
+    expect(() => buildScenario(valleyOf('fen'), flags, base, undefined, journey)).toThrow('fen pack');
+    expect(() => buildScenario(valleyOf('fen'), flags, fenBase)).toThrow('journey');
+  });
+
+  test('a Part 1 chapter gets no hero and no pack, even with a journey', () => {
+    const s = buildScenario(ch0, flags, base, undefined, journey);
+    expect(s.hero).toBeUndefined();
+    expect(s.pack).toBeUndefined();
+  });
+
+  test('companion wisp brings Wisp back beside the gate; seed adds the wisp-seed bush', () => {
+    const home = valleyOf(null, {
+      overrides: { gone: ['wisp'], structures: [{ id: 'bench-1', kind: 'bench', x: 500, y: 300 }] },
+    });
+    const wisp = buildScenario(home, flags, base, undefined, { ...journey, companion: 'wisp' });
+    const w = wisp.creatures.find((c) => c.id === 'wisp');
+    expect(w).toMatchObject({ x: 80, y: 450, state: 'wander' });
+    expect(w?.gone).toBeUndefined();
+    expect(wisp.bushes).toEqual(base.bushes);
+
+    const seed = buildScenario(home, flags, base, undefined, { ...journey, companion: 'seed' });
+    expect(seed.creatures.find((c) => c.id === 'wisp')).toMatchObject({ gone: true, state: 'away' });
+    expect(seed.bushes).toEqual([...base.bushes, { id: 'wisp-seed', x: 540, y: 300, berries: 3 }]);
+
+    const none = buildScenario(home, flags, base, undefined, journey);
+    expect(none.bushes).toEqual(base.bushes);
+    expect(() =>
+      buildScenario(valleyOf(null), flags, base, undefined, { ...journey, companion: 'seed' }),
+    ).toThrow('bench');
   });
 });
 

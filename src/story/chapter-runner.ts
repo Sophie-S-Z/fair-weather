@@ -12,7 +12,7 @@ import diaryJson from '../../content/diary.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, DialKey, Dials, SimEvent } from '../sim/types.ts';
 import { YEAR_EVENTS } from './action-log.ts';
-import type { ActionLog, YearEvent } from './action-log.ts';
+import type { ActionLog, HeroEvent, YearEvent } from './action-log.ts';
 import { parseBeatTag } from './beat-tags.ts';
 import type { BeatAction } from './beat-tags.ts';
 import { creature, measureBet } from './bets.ts';
@@ -21,15 +21,17 @@ import { DEFAULT_FLAGS, FLAG_KEYS } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
 import { chapterTicksPerDay, chosenOverrides } from './scenario.ts';
-import type { Chapter, ChapterBeat } from './schema.ts';
+import type { Chapter, ChapterBeat, Postcard } from './schema.ts';
 import { tuning } from './tuning.ts';
 import { checkTwist } from './twists.ts';
+import { unlockingVerb } from './verbs.ts';
 import type { VerbInput } from './verbs.ts';
 
 export type Prompt =
   | { kind: 'line'; text: string }
   | { kind: 'bet'; question: string; options: string[] }
-  | { kind: 'reveal'; answer: string; result: string };
+  | { kind: 'reveal'; answer: string; result: string }
+  | { kind: 'postcard'; question: string; options: Postcard[] };
 
 /**
  * The runner calls `port.speed(1)` when it starts. It leaves the speed where the chapter ends it
@@ -59,6 +61,12 @@ export interface ChapterRunner {
    * chapter is over.
    */
   finishActivity(result: string): boolean;
+  /**
+   * The player sends the valley's postcard of `type`: logs it and runs the `{ postcard: true }`
+   * beats. False unless the postcard card is open and lists `type`, after the first send, or once
+   * the chapter is over.
+   */
+  sendPostcard(type: Postcard): boolean;
   /** The chapter's authored lines for `id`, then its last 20 diary events, oldest first. */
   diary(id: string): readonly string[];
   /** Each creature's last 20 diary event lines, carried ones included, for the year carry. */
@@ -116,8 +124,22 @@ function verbCommand(v: VerbInput, skyBidder: string | undefined, placeKind: Pla
     }
     case 'blow':
       return { t: 'blow', x: v.x, y: v.y, dx: v.dx, dy: v.dy };
+    case 'walk':
+      return 'to' in v ? { t: 'walk', to: v.to } : { t: 'walk', x: v.x, y: v.y };
+    case 'manner':
+      return { t: 'manner', reply: v.reply, gift: v.gift };
+    case 'plant':
+      return { t: 'plant' };
+    case 'join':
+    case 'pose':
+    case 'keepsake':
+      return { t: 'local', verb: v };
   }
 }
+
+/** A bid or a gift that names the hero, for the journey's record (ADR 0013 item 8). */
+const isHeroEvent = (e: SimEvent): e is HeroEvent =>
+  (e.t === 'bid' || e.t === 'gift') && (e.from === 'hero' || e.to === 'hero');
 
 /** The creature an event beat's `who` matches; undefined for a lit meeting or the mushroom, which have no one actor. */
 function actor(e: SimEvent): string | undefined {
@@ -152,6 +174,8 @@ const yearEvents = (log: ActionLog): YearEvent[] => log.flatMap((e) => (e.kind =
  * festivalShare is the share of the creatures not away that dance.
  * echoForgiveness is Echo's Forgiveness as the carry passes it on: the value the chapter received
  * when its overrides set it (ADR 0012 item 15), else the end value.
+ * wispHome is whether Wisp chose home (a goHome event). The game sets kithHeld from Kith, so it has
+ * no source here.
  */
 const FLAG_SOURCES: {
   [K in FlagKey]: (
@@ -194,6 +218,10 @@ const FLAG_SOURCES: {
     const n = Number(done?.result);
     return done && Number.isFinite(n) ? n : undefined;
   },
+  toveFlew: (_lite, twistFired) => twistFired,
+  heroFamous: (_lite, twistFired) => twistFired,
+  wispHome: (_lite, _twist, log) => yearEvents(log).some((e) => e.t === 'goHome'),
+  kithHeld: () => undefined,
 };
 
 function setFlag<K extends FlagKey>(flags: Flags, key: K, value: Flags[K]): void {
@@ -220,6 +248,7 @@ export function createChapterRunner(
   /** Each creature's diary lines, oldest first, at most DIARY_LENGTH. */
   const diaries = new Map([...carried].map(([id, lines]) => [id, lines.slice(-DIARY_LENGTH)]));
   let activityDone = false;
+  let postcard: 'idle' | 'open' | 'sent' = 'idle';
 
   let origin: number | null = null; // chapter time 0, set by the first snapshot
   let tick = 0;
@@ -276,6 +305,9 @@ export function createChapterRunner(
     for (const key of FLAG_KEYS) ink.setVar(key, flags[key]);
     const pim = creature(latest, 'pim');
     if (pim) ink.setVar('pim_sky_warmth', Math.round(pim.skyWarmth * 100) / 100);
+    const hero = creature(latest, 'hero');
+    ink.setVar('hero_softness', hero?.shell.softness ?? 0);
+    ink.setVar('hero_tightness', hero?.shell.tightness ?? 0);
     const { lines, tags } = ink.play(knot);
     const actions: BeatAction[] = [];
     for (const tag of tags) {
@@ -302,7 +334,17 @@ export function createChapterRunner(
     else if ('rumor' in a) tell({ t: 'whisper', ...a.rumor });
     else if ('dance' in a) tell({ t: 'dance', who: a.dance });
     else if ('show' in a) for (const cb of [...showListeners]) cb(a.show);
+    else if ('postcard' in a) openPostcard();
     else openBet();
+  }
+
+  function openPostcard(): void {
+    const options = config.valley?.postcards ?? [];
+    if (options.length === 0) throw new Error(`Chapter ${config.id} opens a postcard but has none`);
+    if (postcard !== 'idle') return;
+    postcard = 'open';
+    const question = play(`${config.id}_postcard`).join(' ');
+    prompt({ kind: 'postcard', question, options: [...options] });
   }
 
   function openBet(): void {
@@ -433,6 +475,7 @@ export function createChapterRunner(
     stepEvents = list;
     for (const e of list) {
       if (isYearEvent(e)) log.push({ kind: 'event', tick: t, e });
+      else if (isHeroEvent(e)) log.push({ kind: 'hero', tick: t, e });
       for (const { id, text } of diaryLines(e, DIARY)) {
         const lines = diaries.get(id) ?? [];
         lines.push(text);
@@ -484,7 +527,7 @@ export function createChapterRunner(
       return () => showListeners.delete(cb);
     },
     verb(v) {
-      if (finished || origin === null || !config.verbs.includes(v.verb)) return false;
+      if (finished || origin === null || !config.verbs.includes(unlockingVerb(v))) return false;
       if (v.verb === 'place' && placed >= place.limit) return false;
       const cmd = verbCommand(v, skyBids[0]?.who, place.kind);
       if (!cmd) return false;
@@ -515,6 +558,17 @@ export function createChapterRunner(
       try {
         log.push({ kind: 'activity', tick, activity: config.activity, result });
         runBeatsOn((trigger) => 'activity' in trigger);
+      } catch (e) {
+        fail(e);
+      }
+      return !finished;
+    },
+    sendPostcard(type) {
+      if (finished || postcard !== 'open' || !config.valley?.postcards.includes(type)) return false;
+      postcard = 'sent';
+      try {
+        log.push({ kind: 'postcard', tick, type });
+        runBeatsOn((trigger) => 'postcard' in trigger);
       } catch (e) {
         fail(e);
       }

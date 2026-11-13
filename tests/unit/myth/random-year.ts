@@ -44,6 +44,12 @@ function randomVerb(rng: Rng, verb: WorldVerb): VerbInput {
       return { verb, x, y, clear: coin(rng) };
     case 'blow':
       return { verb, x, y, dx: rng.next() * 2 - 1, dy: rng.next() * 2 - 1 };
+    case 'walk':
+    case 'manner':
+    case 'join':
+    case 'pose':
+    case 'keepsake':
+      throw new Error(`No Part 1 chapter lists the Part 2 verb ${verb}`);
   }
 }
 
@@ -63,6 +69,11 @@ function randomFlags(rng: Rng): Flags {
     bellDanced: coin(rng),
     festivalShare: rng.next(),
     greetingSong: between(rng, 0, 5),
+    // The Part 2 flags keep their defaults (no draws), so the Part 1 years stay the same.
+    toveFlew: true,
+    heroFamous: false,
+    wispHome: false,
+    kithHeld: true,
   };
 }
 

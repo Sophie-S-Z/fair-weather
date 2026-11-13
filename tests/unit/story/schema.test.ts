@@ -108,6 +108,62 @@ describe('ChapterSchema', () => {
   });
 });
 
+describe('valleys', () => {
+  const ch = load('chapters/ch3') as { twist: object };
+  const block = {
+    pack: 'fen',
+    guide: 'pim',
+    postcards: ['generosity', 'wandering'],
+    keepsake: { id: 'starling-feather', label: 'a starling feather' },
+    locals: ['[PLACEHOLDER] A local line.'],
+  };
+  const valley = { ...ch, kind: 'valley', scenario: 'fen', palette: 'fen', valley: block };
+
+  test('a valley without its valley block, or a chapter with one, fails the schema', () => {
+    expect(ChapterSchema.safeParse(valley).success).toBe(true);
+    expect(ChapterSchema.safeParse({ ...valley, valley: undefined }).success).toBe(false);
+    expect(ChapterSchema.safeParse({ ...ch, valley: block }).success).toBe(false);
+  });
+
+  test('a Part 1 chapter takes scenario m0 and no palette by default', () => {
+    const parsed = ChapterSchema.parse(ch);
+    expect(parsed.scenario).toBe('m0');
+    expect(parsed.palette).toBeUndefined();
+    expect(parsed.valley).toBeUndefined();
+  });
+
+  test('a valley offers two or three postcards, or none for the homecoming', () => {
+    const cards = (postcards: string[]) => ({ ...valley, valley: { ...block, postcards } });
+    expect(ChapterSchema.safeParse(cards([])).success).toBe(true);
+    expect(ChapterSchema.safeParse(cards(['patience', 'remembering', 'listening'])).success).toBe(true);
+    expect(ChapterSchema.safeParse(cards(['patience'])).success).toBe(false);
+    expect(ChapterSchema.safeParse(cards(['patience', 'patience'])).success).toBe(false);
+    expect(
+      ChapterSchema.safeParse(cards(['patience', 'remembering', 'listening', 'wandering'])).success,
+    ).toBe(false);
+    expect(ChapterSchema.safeParse(cards(['kindness', 'patience'])).success).toBe(false);
+  });
+
+  test('a valley has 2 to 4 notes, and a twist retry may not name the hero', () => {
+    const notes = (valley as unknown as { notes: unknown[] }).notes;
+    expect(ChapterSchema.safeParse({ ...valley, notes: notes.slice(0, 1) }).success).toBe(false);
+    const retry = (pair: string[]) => ({ ...valley, twist: { ...ch.twist, retryArrange: pair } });
+    expect(ChapterSchema.safeParse(retry(['tove', 'starling-1'])).success).toBe(true);
+    expect(ChapterSchema.safeParse(retry(['tove', 'hero'])).success).toBe(false);
+  });
+
+  test('the postcard trigger and action, and the hero activity, parse', () => {
+    const beats = [
+      ...(valley as unknown as { beats: object[] }).beats,
+      { id: 'card', trigger: { at: 5 }, actions: [{ postcard: true }] },
+      { id: 'sent', trigger: { postcard: true }, actions: [] },
+    ];
+    expect(ChapterSchema.safeParse({ ...valley, beats, exit: { onBeat: 'sent' } }).success).toBe(true);
+    const bridge = { ...ch, kind: 'interlude', activity: 'hero', notes: [], twist: undefined };
+    expect(ChapterSchema.safeParse(bridge).success).toBe(true);
+  });
+});
+
 describe('exit.onBeat', () => {
   test('must name a beat in the chapter', () => {
     const ch = load('chapters/ch0') as object;
@@ -136,6 +192,10 @@ describe('flags.json', () => {
       bellDanced: true,
       festivalShare: 0.6,
       greetingSong: 0,
+      toveFlew: true,
+      heroFamous: false,
+      wispHome: false,
+      kithHeld: true,
     });
   });
   test('rejects an unknown key', () => {

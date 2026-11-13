@@ -12,5 +12,9 @@
   "winterLeft": 0,
   "bellDanced": true,
   "festivalShare": 0.6,
-  "greetingSong": 0
+  "greetingSong": 0,
+  "toveFlew": true,
+  "heroFamous": false,
+  "wispHome": false,
+  "kithHeld": true
 }

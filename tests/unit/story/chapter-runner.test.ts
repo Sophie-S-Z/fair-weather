@@ -69,7 +69,7 @@ const flags: Flags = {
 
 // Ink variables mirror the flags (spec 10.3), so every story declares them.
 const FLAG_VARS = FLAG_KEYS.map((k) => `VAR ${k} = ${String(defaults[k])}`).join('\n');
-const VARS = `${FLAG_VARS}\nVAR pim_sky_warmth = 0`;
+const VARS = `${FLAG_VARS}\nVAR pim_sky_warmth = 0\nVAR hero_softness = 0\nVAR hero_tightness = 0`;
 
 function compile(source: string): string {
   return new Compiler(`${VARS}\n${source}`).Compile().ToJson() ?? '';
@@ -1034,6 +1034,187 @@ describe('activities', () => {
     f.step();
     expect(runner.finishActivity('3')).toBe(false);
     expect(runner.log.filter((e) => e.kind === 'activity')).toEqual([]);
+  });
+});
+
+describe('Part 2', () => {
+  /** A Fen-like valley: the postcard opens at 1 s, and sending it ends the valley. */
+  const block: NonNullable<Chapter['valley']> = {
+    pack: 'fen',
+    guide: 'tove',
+    postcards: ['generosity', 'wandering'],
+    keepsake: null,
+    locals: [],
+  };
+  const valley: Chapter = {
+    ...ch0,
+    id: 'fen',
+    kind: 'valley',
+    verbs: ['walk', 'join', 'manner'],
+    newVerb: null,
+    beats: [
+      { id: 'card', trigger: { at: 1 }, actions: [{ postcard: true }] },
+      { id: 'sent', trigger: { postcard: true }, actions: [{ ink: 'fen_sent' }] },
+    ],
+    writes: ['toveFlew', 'wispHome'],
+    exit: { onBeat: 'sent' },
+    valley: block,
+  };
+  const FEN_KNOTS = ['fen_postcard', 'fen_sent'];
+  const withVerbs = (verbs: Chapter['verbs']): Chapter => ({
+    ...valley,
+    verbs,
+    beats: [],
+    exit: { afterDays: 10 },
+  });
+
+  test.each([
+    [
+      { verb: 'walk', x: 10, y: 20 },
+      { t: 'walk', x: 10, y: 20 },
+    ],
+    [
+      { verb: 'walk', to: 'tove' },
+      { t: 'walk', to: 'tove' },
+    ],
+    [
+      { verb: 'manner', reply: 'against', gift: 'keep' },
+      { t: 'manner', reply: 'against', gift: 'keep' },
+    ],
+    [{ verb: 'plant' }, { t: 'plant' }],
+    [
+      { verb: 'join', on: true },
+      { t: 'local', verb: { verb: 'join', on: true } },
+    ],
+    [{ verb: 'pose' }, { t: 'local', verb: { verb: 'pose' } }],
+    [
+      { verb: 'keepsake', to: 'wisp', item: 'clipping' },
+      { t: 'local', verb: { verb: 'keepsake', to: 'wisp', item: 'clipping' } },
+    ],
+  ] satisfies [VerbInput, Command][])('verb %o sends %o', (input, command) => {
+    const f = fakePort();
+    // The runner does not count tray verbs (the schema does), so one config unlocks them all.
+    const all = withVerbs(['walk', 'manner', 'join', 'pose', 'keepsake']);
+    const runner = createChapterRunner(f.port, inkOf([]), all, flags);
+    f.step();
+    expect(runner.verb(input)).toBe(true);
+    expect(cmds(f)).toEqual([command]);
+    expect(runner.log.filter((e) => e.kind === 'verb')).toEqual([{ kind: 'verb', tick: 1, input }]);
+  });
+
+  test('plant is unlocked with manner, and locked without it', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), withVerbs(['walk', 'join']), flags);
+    f.step();
+    expect(runner.verb({ verb: 'plant' })).toBe(false);
+    expect(runner.verb({ verb: 'pose' })).toBe(false);
+    expect(f.sent).toEqual([]);
+  });
+
+  test('the postcard prompt lists the valley types; sendPostcard logs once and runs the postcard beat', async () => {
+    const f = fakePort();
+    const ink = inkOf(FEN_KNOTS);
+    const runner = createChapterRunner(f.port, ink, valley, flags);
+    const prompts = record(runner);
+    f.step();
+    expect(runner.sendPostcard('generosity')).toBe(false); // the card is not open yet
+    f.steps(10);
+    expect(prompts).toEqual([
+      { kind: 'postcard', question: 'fen_postcard line.', options: ['generosity', 'wandering'] },
+    ]);
+    expect(runner.sendPostcard('patience')).toBe(false); // not one of this valley's
+    expect(runner.sendPostcard('wandering')).toBe(true);
+    expect(runner.sendPostcard('generosity')).toBe(false); // once
+    expect(ink.played).toEqual(['fen_postcard', 'fen_sent']);
+    expect(runner.log.filter((e) => e.kind === 'postcard')).toEqual([
+      { kind: 'postcard', tick: 11, type: 'wandering' },
+    ]);
+    f.step();
+    await expect(runner.done).resolves.toEqual({ ...flags, toveFlew: true, wispHome: false });
+  });
+
+  test('a postcard action in a valley with no postcards rejects done', async () => {
+    const f = fakePort();
+    const home: Chapter = { ...valley, valley: { ...block, postcards: [] } };
+    const runner = createChapterRunner(f.port, inkOf(FEN_KNOTS), home, flags);
+    f.steps(11);
+    await expect(runner.done).rejects.toThrow('postcard');
+  });
+
+  test('hero bid and gift events go in the log as hero entries; other bids do not', () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), withVerbs(['walk']), flags);
+    f.step();
+    const bid = (from: string, to: string): SimEvent => ({
+      t: 'bid',
+      from,
+      to,
+      reply: 'toward',
+      seenAs: 'toward',
+    });
+    f.step([
+      bid('tove', 'hero'),
+      bid('pim', 'krit'),
+      gift('hero', 'tove', 'keep'),
+      gift('pim', 'krit', 'give'),
+    ]);
+    expect(runner.log.filter((e) => e.kind === 'hero')).toEqual([
+      { kind: 'hero', tick: 1, e: bid('tove', 'hero') },
+      { kind: 'hero', tick: 1, e: gift('hero', 'tove', 'keep') },
+    ]);
+  });
+
+  test('wispHome reads a goHome event; a skip gives the defaults', async () => {
+    const halcyon: Chapter = {
+      ...valley,
+      id: 'halcyon',
+      beats: [],
+      writes: ['wispHome', 'kithHeld'],
+      exit: { afterDays: 1 },
+    };
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), halcyon, { ...flags, kithHeld: false });
+    f.step();
+    f.step([{ t: 'goHome', who: 'wisp' }]);
+    f.steps(600);
+    expect(runner.log.filter((e) => e.kind === 'event')).toEqual([
+      { kind: 'event', tick: 1, e: { t: 'goHome', who: 'wisp' } },
+    ]);
+    await expect(runner.done).resolves.toEqual({ ...flags, wispHome: true, kithHeld: true });
+
+    const skipped = createChapterRunner(fakePort().port, inkOf([]), halcyon, {
+      ...flags,
+      wispHome: true,
+      kithHeld: false,
+    });
+    expect(skipped.skip()).toEqual({ ...flags, wispHome: false, kithHeld: true });
+  });
+
+  test("before each knot Ink gets the hero's softness and tightness, 0 with no hero", () => {
+    const heroVars = (l: WorldLite): [string, unknown][] => {
+      const f = fakePort();
+      const ink = inkOf(FEN_KNOTS);
+      const set: [string, unknown][] = [];
+      const spy: InkRunner = {
+        ...ink,
+        setVar: (n, v) => {
+          if (n.startsWith('hero_')) set.push([n, v]);
+          ink.setVar(n, v);
+        },
+      };
+      createChapterRunner(f.port, spy, valley, flags);
+      f.steps(10, l);
+      return set;
+    };
+    const shell = { tightness: 0.25, bristle: 0, color: 0, softness: 0.75 };
+    expect(heroVars(lite({ berries: { hero: 0 }, patch: { hero: { shell } } }))).toEqual([
+      ['hero_softness', 0.75],
+      ['hero_tightness', 0.25],
+    ]);
+    expect(heroVars(lite())).toEqual([
+      ['hero_softness', 0],
+      ['hero_tightness', 0],
+    ]);
   });
 });
 

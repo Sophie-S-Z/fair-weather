@@ -1,7 +1,8 @@
-// Chapter config schema (spec 10.1). One JSON file per chapter in content/chapters/.
+// Chapter config schema (spec 10.1). One JSON file per chapter in content/chapters/, and one per
+// valley in content/valleys/.
 import { z } from 'zod';
 import type { MetricSpec } from '../sim/metrics.ts';
-import type { CreatureState, Season, Shell, SimEvent } from '../sim/types.ts';
+import type { CreatureState, DialKey, PackId, Season, Shell, SimEvent } from '../sim/types.ts';
 import { FLAG_KEYS } from './flags.ts';
 import { TWIST_IDS } from './twists.ts';
 import { VERBS, WORLD_VERBS } from './verbs.ts';
@@ -55,8 +56,31 @@ const creatureState = z.enum(Object.keys(STATE_SET) as [CreatureState, ...Creatu
 const SHELL_SET: Record<keyof Shell, true> = { tightness: true, bristle: true, color: true, softness: true };
 const shellKey = z.enum(Object.keys(SHELL_SET) as [keyof Shell, ...(keyof Shell)[]]);
 
-export const ACTIVITIES = ['rhythm', 'telephone', 'bubbles', 'postcard', 'stillness', 'fire'] as const;
+const PACK_SET: Record<PackId, true> = { fen: true, hollow: true, halcyon: true };
+const packId = z.enum(Object.keys(PACK_SET) as [PackId, ...PackId[]]);
+
+/** The bridge's activity is `hero`: the player picks and names a hero (ADR 0013 item 11). */
+export const ACTIVITIES = [
+  'rhythm',
+  'telephone',
+  'bubbles',
+  'postcard',
+  'stillness',
+  'fire',
+  'hero',
+] as const;
 export type Activity = (typeof ACTIVITIES)[number];
+
+/** The postcards home (spec 7.2), each with the dial it raises across Kith. */
+export const POSTCARDS = ['generosity', 'patience', 'remembering', 'listening', 'wandering'] as const;
+export type Postcard = (typeof POSTCARDS)[number];
+export const POSTCARD_DIAL: Record<Postcard, DialKey> = {
+  generosity: 'opener',
+  patience: 'forgiveness',
+  remembering: 'memory',
+  listening: 'ear',
+  wandering: 'wanderlust',
+};
 
 export const MetricSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('maxBerries') }),
@@ -78,6 +102,8 @@ export const BeatSchema = z.strictObject({
     z.strictObject({ twist: z.literal(true) }),
     // Fires once when the player finishes the interlude's activity.
     z.strictObject({ activity: z.literal(true) }),
+    // Fires once when the player sends the valley's postcard.
+    z.strictObject({ postcard: z.literal(true) }),
   ]),
   actions: z.array(
     z.union([
@@ -94,6 +120,8 @@ export const BeatSchema = z.strictObject({
       }),
       z.strictObject({ dance: id }),
       z.strictObject({ show: z.literal('heatmap') }),
+      // Opens the valley's postcard card (ADR 0013 item 9).
+      z.strictObject({ postcard: z.literal(true) }),
     ]),
   ),
 });
@@ -178,11 +206,36 @@ export const NoteSchema = z.strictObject({
 });
 export type Note = z.infer<typeof NoteSchema>;
 
+/** What makes a chapter a valley (ADR 0013 item 9). */
+const ValleySchema = z.strictObject({
+  /** The rule pack; null for the homecoming in Kith. */
+  pack: packId.nullable(),
+  guide: id,
+  /** Two or three distinct types, or none for the homecoming. */
+  postcards: z
+    .array(z.enum(POSTCARDS))
+    .refine((p) => p.length === 0 || (p.length >= 2 && p.length <= 3 && new Set(p).size === p.length), {
+      message: 'a valley offers two or three distinct postcards, or none (spec 7.2)',
+    }),
+  keepsake: z.strictObject({ id, label: text }).nullable(),
+  /** The locals' lines for the journal (ADR 0013 item 14). */
+  locals: z.array(text),
+});
+
 const ChapterObject = z.strictObject({
   id,
-  /** An interlude runs an activity between chapters (ADR 0012 item 9). */
-  kind: z.enum(['chapter', 'interlude']),
+  /**
+   * An interlude runs an activity between chapters (ADR 0012 item 9); a valley is a Part 2 chapter
+   * with a hero (ADR 0013 item 9).
+   */
+  kind: z.enum(['chapter', 'interlude', 'valley']),
   activity: z.enum(ACTIVITIES).optional(),
+  /** The base scenario's file name in content/scenarios/. */
+  scenario: id.default('m0'),
+  /** The palette's file name in content/palettes/; absent means the season's. */
+  palette: id.optional(),
+  /** Required for a valley, and only there. */
+  valley: ValleySchema.optional(),
   /** The chapter's name (spec 6.2), shown in the heading. */
   title: z.string().min(1),
   season,
@@ -272,12 +325,22 @@ export const ChapterSchema = ChapterObject.refine(
     path: ['beats'],
   })
   .refine((c) => c.kind === 'interlude' || c.notes.length >= 2, {
-    message: 'a chapter has 2 to 4 margin notes (spec 10.5)',
+    message: 'a chapter or a valley has 2 to 4 margin notes (spec 10.5)',
     path: ['notes'],
   })
-  .refine((c) => c.kind === 'chapter' || c.activity !== undefined, {
+  .refine((c) => c.kind !== 'interlude' || c.activity !== undefined, {
     message: 'an interlude needs an activity (ADR 0012 item 9)',
     path: ['activity'],
+  })
+  .refine((c) => (c.kind === 'valley') === (c.valley !== undefined), {
+    message: 'a valley needs its valley block, and only a valley has one (ADR 0013 item 9)',
+    path: ['valley'],
+  })
+  // A retry arranges a meeting between two locals: one with the hero would move only the other
+  // creature, to wherever the player left the hero (ADR 0013 item 1).
+  .refine((c) => !c.twist?.retryArrange.includes('hero'), {
+    message: 'a twist retry may not name the hero',
+    path: ['twist', 'retryArrange'],
   })
   .refine((c) => !c.bet || bucketsFit(c.bet), {
     message:

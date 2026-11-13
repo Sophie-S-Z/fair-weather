@@ -157,6 +157,30 @@ describe('validateContent', () => {
       'ch1.json: names creature krut, which scenario m0 lacks',
     ]);
   });
+  test("checks a valley's creature ids against its own scenario, allows the hero, and refuses shine in the Hollow", () => {
+    const root = chapterRoot(() => undefined);
+    const ch1 = JSON.parse(readFileSync(join(root, 'content', 'chapters', 'ch1.json'), 'utf8')) as {
+      beats: { actions: object[] }[];
+    };
+    ch1.beats[0]?.actions.push({ focus: 'hero' }, { focus: 'pim' });
+    const valley = {
+      ...ch1,
+      id: 'hollow',
+      kind: 'valley',
+      scenario: 'hollow',
+      verbs: ['walk', 'shine'],
+      valley: { pack: 'hollow', guide: 'quill', postcards: [], keepsake: null, locals: [] },
+    };
+    mkdirSync(join(root, 'content', 'valleys'), { recursive: true });
+    mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+    writeFileSync(join(root, 'content', 'valleys', 'hollow.json'), JSON.stringify(valley));
+    const scenario = { creatures: [{ id: 'quill' }] };
+    writeFileSync(join(root, 'content', 'scenarios', 'hollow.json'), JSON.stringify(scenario));
+    expect(validateContent(root).errors.filter((e) => e.startsWith('hollow.json'))).toEqual([
+      'hollow.json: names creature pim, which scenario hollow lacks',
+      'hollow.json: a Hollow valley may not list shine',
+    ]);
+  });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));
     expect(errors.some((e) => e.includes('scene no-such-scene has no file'))).toBe(true);

@@ -34,6 +34,11 @@
     thread: 'Thread',
     fog: 'Fog',
     blow: 'Wind',
+    walk: 'Walk',
+    manner: 'Manner',
+    join: 'Join',
+    pose: 'Pose',
+    keepsake: 'Keepsake',
   };
   const PLACE_LABELS: Record<Structure['kind'], string> = {
     bench: 'Bench',

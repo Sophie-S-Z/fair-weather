@@ -62,6 +62,7 @@
       ]
     }
   ],
+  "depth": { "horizon": 92, "reference": 800, "far": 0.8, "near": 1.0 },
   "benchSpots": [
     { "id": "wisp-rise", "x": 540, "y": 330 },
     { "id": "sea-edge", "x": 700, "y": 660 },

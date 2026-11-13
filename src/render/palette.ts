@@ -27,6 +27,17 @@ export const PaletteSchema = z.strictObject({
   fog: Wash,
   water: Hex,
   full: z.array(Hex).length(6),
+  /**
+   * A valley's sky at its hour (the Fen at dusk, the Hollow and Halcyon by day), from the top of
+   * the scene to the horizon, which the accent tints. For a scene with depth.
+   */
+  sky: z.strictObject({ top: Hex, horizon: Hex }).optional(),
+  /** A valley's floor near the viewer, hazing toward the horizon; the page without it. */
+  land: Hex.optional(),
+  /** Reed beds: the back stems (darker and cooler), the front stems (lighter), and the cattail heads. */
+  reeds: z.strictObject({ back: Hex, front: Hex, head: Hex }).optional(),
+  /** A starling's dark, glossy body, and the sheen on its wing. */
+  plumage: z.strictObject({ body: Hex, sheen: Hex }).optional(),
 });
 
 export type Palette = z.output<typeof PaletteSchema>;

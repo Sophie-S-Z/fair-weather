@@ -15,6 +15,18 @@ const cases = [
     what: 'in Murmuration Fen at dusk, with the flock up and Tove beside the hero',
     maxCalls: 10,
   },
+  {
+    name: 'hollow-day',
+    query: '?valley=hollow',
+    what: 'in Hearsay Hollow by day, with its paved lanes, the press, and Quill in focus',
+    maxCalls: 12,
+  },
+  {
+    name: 'halcyon-day',
+    query: '?valley=halcyon',
+    what: 'in Halcyon by day, over the calm mirror sea, with Wisp in focus',
+    maxCalls: 12,
+  },
 ];
 
 /** Opens the Meadow dev page and returns its frame's WebGL draw-call count. */

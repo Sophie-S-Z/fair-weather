@@ -4,7 +4,7 @@
   "paper": "#ffffff",
   "accent": "#cfa84e",
   "warmth": "#ece3d2",
-  "leaf": "#e4e9cf",
+  "leaf": "#cfdfb0",
   "background": "#f5f2ea",
   "light": {
     "color": "#fff0c4",
@@ -14,6 +14,8 @@
     "color": "#e2e6ea",
     "alpha": 0.85
   },
-  "water": "#d3e4ea",
-  "full": ["#e0573f", "#ef8f2f", "#b87400", "#6fae4f", "#3f86b8", "#8458b0"]
+  "water": "#b9d6e2",
+  "full": ["#e0573f", "#ef8f2f", "#b87400", "#6fae4f", "#3f86b8", "#8458b0"],
+  "land": "#e4ebd3",
+  "sky": { "top": "#b4d2e4", "horizon": "#fbf4df" }
 }

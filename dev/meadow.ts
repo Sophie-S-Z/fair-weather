@@ -6,7 +6,8 @@
 // break into dashes. ?heat=1 moves the lens and shows the heat map of every snapshot.
 // ?valley=fen plays Murmuration Fen in its scene and palette, with Tove in focus: a Lantern-bearer
 // walks to Tove and joins the flock at dusk, and the frame is drawn just after the flock goes up.
-// body[data-calls] is the WebGL draw-call count of the frame.
+// ?valley=hollow and ?valley=halcyon play Hearsay Hollow and Halcyon by day, with their guide in
+// focus and a Lantern-bearer at the guide's side. body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
 import scenarioJson from '../content/scenarios/m0.json';
@@ -17,6 +18,12 @@ import meadowJson from '../content/scenes/kith-meadow.json';
 import fenSceneJson from '../content/scenes/fen.json';
 import fenScenarioJson from '../content/scenarios/fen.json';
 import fenJson from '../content/valleys/fen.json';
+import hollowSceneJson from '../content/scenes/hollow.json';
+import hollowScenarioJson from '../content/scenarios/hollow.json';
+import hollowJson from '../content/valleys/hollow.json';
+import halcyonSceneJson from '../content/scenes/halcyon.json';
+import halcyonScenarioJson from '../content/scenarios/halcyon.json';
+import halcyonJson from '../content/valleys/halcyon.json';
 import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { createMeadowView } from '../src/render/meadow-view.ts';
@@ -40,6 +47,8 @@ const TICK = 180;
 /** The Fen's frame is this many ticks after dusk begins: the flock is up, Tove beside the hero. */
 const FEN_AFTER_DUSK = 70;
 const FEN_STEP_ASIDE = 30;
+/** The Hollow and Halcyon are drawn this many ticks into their first day. */
+const DAY_TICK = 600;
 const tuning = parseTuning(tuningJson);
 
 const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
@@ -57,22 +66,30 @@ const cast = new Map<string, Cast>(
   }),
 );
 const params = new URLSearchParams(location.search);
-const fen = params.get('valley') === 'fen';
-const fenChapter = ChapterSchema.parse(fenJson);
-const fenDay = chapterTicksPerDay(fenChapter);
+const valleys = {
+  fen: { chapter: fenJson, scene: fenSceneJson, scenario: fenScenarioJson },
+  hollow: { chapter: hollowJson, scene: hollowSceneJson, scenario: hollowScenarioJson },
+  halcyon: { chapter: halcyonJson, scene: halcyonSceneJson, scenario: halcyonScenarioJson },
+};
+const valleyId = params.get('valley');
+const valley = valleyId && valleyId in valleys ? valleys[valleyId as keyof typeof valleys] : null;
+const fen = valleyId === 'fen';
+const valleyChapter = valley ? ChapterSchema.parse(valley.chapter) : null;
+const guide = valleyChapter?.valley?.guide ?? null;
+const fenDay = valleyChapter ? chapterTicksPerDay(valleyChapter) : 0;
 const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
   eager: true,
   import: 'default',
 });
-const season = params.get('season') ?? (fen ? 'fen' : 'spring');
+const season = params.get('season') ?? valleyChapter?.palette ?? 'spring';
 const palette = PaletteSchema.parse(
   Object.values(paletteFiles).find((json) => (json as { id: string }).id === season),
 );
-const scene = SceneSchema.parse(fen ? fenSceneJson : meadowJson);
+const scene = SceneSchema.parse(valley ? valley.scene : meadowJson);
 const land = params.get('land');
 const chapterJson = land === 'brook' ? ch9Json : land === 'islet' ? ch6Json : null;
-const scenario = fen
-  ? buildScenario(fenChapter, parseFlags(flagsJson), fenScenarioJson as Scenario, undefined, {
+const scenario = valleyChapter
+  ? buildScenario(valleyChapter, parseFlags(flagsJson), valley?.scenario as Scenario, undefined, {
       kind: 'lantern',
       name: 'Test',
       keepsakes: [],
@@ -86,12 +103,12 @@ const scenario = fen
     : (scenarioJson as Scenario);
 /** In the Fen: dusk on day 0 (fen.duskAt), and the frame a little after the flock goes up. */
 const fenDusk = Math.ceil(tuning.fen.duskAt * fenDay);
-const tick = fen ? fenDusk + FEN_AFTER_DUSK : TICK;
+const tick = fen ? fenDusk + FEN_AFTER_DUSK : valley ? DAY_TICK : TICK;
 if (land === 'brook') scenario.mushroom = { x: 1120, y: 560 };
 
 // The sim runs on this thread here: the snapshot must be the same every load.
 const world = createWorld(SEED, tuning, scenario);
-const setup: Command[] = fen
+const setup: Command[] = valley
   ? []
   : [
       { t: 'shine', x: 820, y: 330 },
@@ -123,6 +140,11 @@ while (world.tick < tick - 1) {
   // Once the flock is up, the hero steps a little east of Tove, so both show side by side.
   const tove = fen && world.tick === fenDusk + FEN_STEP_ASIDE && world.creatures.find((c) => c.id === 'tove');
   if (tove) cmds.push({ t: 'walk', x: tove.x + 56, y: tove.y + 8 });
+  // In the Hollow and Halcyon the hero walks to the guide and stands at its side.
+  if (valley && !fen && guide && world.tick % 20 === 0) {
+    const g = world.creatures.find((c) => c.id === guide);
+    if (g) cmds.push({ t: 'walk', x: g.x + 60, y: g.y + 10 });
+  }
   if (heat) {
     let at = 0;
     for (const [x, y, ticks] of lensPath) {
@@ -136,7 +158,7 @@ while (world.tick < tick - 1) {
 const prev = toLite(world, tuning);
 // The bench is placed on the last tick, before a crowd gathers on it, so the baseline shows it.
 // Bell starts dancing then too, so the dance has not spread yet.
-const last: Command[] = fen ? [] : [{ t: 'place', kind: 'bench', x: 290, y: 700 }];
+const last: Command[] = valley ? [] : [{ t: 'place', kind: 'bench', x: 290, y: 700 }];
 if (land === 'brook') last.push({ t: 'dance', who: 'bell' });
 step(world, last, tuning);
 const next = toLite(world, tuning);
@@ -177,7 +199,7 @@ const view = createMeadowView(app, scene, rigs, palette, {
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
-view.setFocus(fen ? 'tove' : 'pim');
+view.setFocus(guide ?? 'pim');
 for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);

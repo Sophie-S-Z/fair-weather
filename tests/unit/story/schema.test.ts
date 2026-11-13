@@ -64,6 +64,15 @@ describe('ChapterSchema', () => {
     expect(ChapterSchema.safeParse({ ...ch, beats }).success).toBe(false);
   });
 
+  test('a twist may set its retries from 0 to tuning.story.honestyRetries', () => {
+    const ch = load('chapters/ch3') as { twist: object };
+    const retries = (n: number) => ({ ...ch, twist: { ...ch.twist, retries: n } });
+    expect(ChapterSchema.safeParse(retries(0)).success).toBe(true);
+    expect(ChapterSchema.safeParse(retries(3)).success).toBe(true);
+    expect(ChapterSchema.safeParse(retries(4)).success).toBe(false);
+    expect(ChapterSchema.safeParse(retries(1.5)).success).toBe(false);
+  });
+
   test('a closeCall beat needs a twist', () => {
     const after = { id: 'after', trigger: { closeCall: true }, actions: [] };
     const ch3 = load('chapters/ch3') as { beats: object[] };

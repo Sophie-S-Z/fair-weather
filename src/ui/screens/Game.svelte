@@ -32,7 +32,7 @@
   import Bubbles from '../interludes/Bubbles.svelte';
   import HeroChoice from '../interludes/HeroChoice.svelte';
   import Postcard from '../interludes/Postcard.svelte';
-  import { journalEntries } from '../journal-pages.ts';
+  import { inSentence, journalEntries } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
@@ -93,7 +93,7 @@
   /** Each valley keepsake's label, without its article, as the keepsake tool says it ("the starling feather"). */
   const KEEPSAKE_LABELS = new Map(
     untrack(() => game.chapters).flatMap((c) =>
-      c.valley?.keepsake ? [[c.valley.keepsake.id, c.valley.keepsake.label.replace(/^(A|An|The) /, '')]] : [],
+      c.valley?.keepsake ? [[c.valley.keepsake.id, inSentence(c.valley.keepsake.label)]] : [],
     ),
   );
   /** How near the cursor a creature is named in the status line, in scene units: two cursor steps. */
@@ -232,6 +232,8 @@
   /** The world drawn now, and what the Cosmos panel and the drawer say about it. */
   // In closures, so TypeScript does not narrow the state to its first value.
   const shown = $derived.by(() => rewound ?? live);
+  /** A creature's name in the scene's text: the player's name for the hero. */
+  const nameOf = (id: string): string => (id === 'hero' && live?.hero ? live.hero.name : displayName(id));
   const ties = $derived.by(() => (shown && (view === 'cosmos' || picked !== null) ? game.ties(shown) : null));
   const diary = $derived.by(() => {
     const c = shown?.creatures.find((x) => x.id === picked);
@@ -239,9 +241,9 @@
     const mine = ties?.get(c.id);
     const away = new Set(shown?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
     // The Cosmos panel's rule too: away ones count, marked away.
-    const named = (id: string): string => `${displayName(id)}${away.has(id) ? ' (away)' : ''}`;
+    const named = (id: string): string => `${nameOf(id)}${away.has(id) ? ' (away)' : ''}`;
     return {
-      name: displayName(c.id),
+      name: nameOf(c.id),
       lines: runner?.diary(c.id) ?? [],
       // The diary lines are the live ones; the rest is the rewound world.
       linesNow: rewound !== null,
@@ -276,13 +278,13 @@
       tool === 'place' && placeKind === 'bench'
         ? `Bench spot: ${spotName}`
         : pointing
-          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${displayName(nearby)}`}`
+          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${nameOf(nearby)}`}`
           : picked
-            ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
+            ? `Picked: ${nameOf(picked)}${pickedState ? `, ${pickedState}` : ''}`
             : '',
       // Walk acts at the spot and waves at the pick, so it names both.
-      pointing && tool === 'walk' && picked ? `Picked: ${displayName(picked)}` : '',
-      tool === 'thread' && threadFrom !== null ? `Thread from ${displayName(threadFrom)}` : '',
+      pointing && tool === 'walk' && picked ? `Picked: ${nameOf(picked)}` : '',
+      tool === 'thread' && threadFrom !== null ? `Thread from ${nameOf(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
       rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
     ]
@@ -907,7 +909,7 @@
               lite={shown}
               {ties}
               {timeline}
-              label={displayName}
+              label={nameOf}
               rewind={chapter.verbs.includes('rewind')
                 ? {
                     now: liveTick,
@@ -927,7 +929,7 @@
             <BeatLine {lines} />
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
-            <ValleyLine lite={shown} label={displayName} />
+            <ValleyLine lite={shown} label={nameOf} />
             <div bind:this={trayEl}>
               {#if chapter?.activity}
                 <!-- The activity stands in for the tool tray; Escape from the scene reaches its first control. -->
@@ -993,7 +995,7 @@
                     id,
                     label: KEEPSAKE_LABELS.get(id) ?? id,
                   }))}
-                  giveTo={picked === null || picked === 'hero' ? null : displayName(picked)}
+                  giveTo={picked === null || picked === 'hero' ? null : nameOf(picked)}
                   onGive={(id: string) => {
                     if (picked !== null && picked !== 'hero') act({ verb: 'keepsake', to: picked, item: id });
                   }}

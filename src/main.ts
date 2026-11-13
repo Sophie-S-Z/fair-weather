@@ -588,6 +588,8 @@ const game: GameService = {
     // A valley waits for Kith's leg from the valley before (ADR 0013 item 10).
     const kithLite = chapter.valley ? await kithNow : null;
     if (start !== starts) throw new Error(`A newer chapter start replaced ${chapter.id}`);
+    // A Part 1 chapter belongs to a new year, which keeps no journey from the last (the bridge clears its own below).
+    if (!chapter.valley && chapter.activity !== 'hero') journeyNow = null;
     if (import.meta.env.DEV) dev.snapshots = 0;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;

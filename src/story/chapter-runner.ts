@@ -403,11 +403,11 @@ export function createChapterRunner(
 
   function checkTwistWindow(t: number, lite: WorldLite): void {
     if (!twist || !config.twist) return;
-    const { id, withinDays, retryArrange } = config.twist;
+    const { id, withinDays, retryArrange, retries = tuning.story.honestyRetries } = config.twist;
     if (checkTwist(id, twist.before, lite, stepEvents)) {
       twistFired = true;
     } else if (t >= twist.deadline) {
-      if (twist.retries < tuning.story.honestyRetries) {
+      if (twist.retries < retries) {
         twist.retries += 1;
         twist.deadline = t + withinDays * ticksPerDay;
         tell({ t: 'arrangeMeeting', a: retryArrange[0], b: retryArrange[1] });
@@ -477,7 +477,7 @@ export function createChapterRunner(
     for (const e of list) {
       if (isYearEvent(e)) log.push({ kind: 'event', tick: t, e });
       else if (isHeroEvent(e)) log.push({ kind: 'hero', tick: t, e });
-      for (const { id, text } of diaryLines(e, DIARY)) {
+      for (const { id, text } of diaryLines(e, DIARY, latest?.hero?.name)) {
         const lines = diaries.get(id) ?? [];
         lines.push(text);
         if (lines.length > DIARY_LENGTH) lines.shift();

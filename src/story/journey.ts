@@ -209,7 +209,8 @@ function stampOf(lite: WorldLite, locals: ReadonlySet<string>): JournalPage['sta
  * away) whose opinion of the hero is at least opinion.holdAt in size, except that a Kite-rider
  * leaving Murmuration Fen keeps the rumor it had (ADR 0013 item 3); keepsake events mark keepsakes
  * given and the valley's own joins them; a goHome or stay event sets Wisp's choice; the hero's
- * shell is the exit snapshot's; and the valley adds its journal page.
+ * shell is the exit snapshot's; and the valley adds its journal page. The homecoming (the valley
+ * with no pack) adds none: the game ends after it, where no journal opens.
  */
 export function leaveValley(j: Journey, chapter: Chapter, lite: WorldLite, log: ActionLog): Journey {
   if (!chapter.valley) throw new Error(`Chapter ${chapter.id} is not a valley`);
@@ -253,10 +254,13 @@ export function leaveValley(j: Journey, chapter: Chapter, lite: WorldLite, log: 
     rumor: kiteInFen ? j.rumor : now,
     shell: heroShell ? { ...heroShell } : j.shell,
     keepsakes,
-    pages: [
-      ...j.pages,
-      { valley: chapter.id, stamp: stampOf(lite, locals), said: now, keepsake, postcard, caption: '' },
-    ],
+    pages:
+      chapter.valley.pack === null
+        ? [...j.pages]
+        : [
+            ...j.pages,
+            { valley: chapter.id, stamp: stampOf(lite, locals), said: now, keepsake, postcard, caption: '' },
+          ],
     wisp,
   };
 }

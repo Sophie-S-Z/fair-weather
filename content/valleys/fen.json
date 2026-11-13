@@ -78,7 +78,8 @@
   "twist": {
     "id": "toveFlies",
     "withinDays": 1,
-    "retryArrange": ["tove", "starling-1"]
+    "retryArrange": ["tove", "starling-1"],
+    "retries": 0
   },
   "reads": [],
   "writes": ["toveFlew"],

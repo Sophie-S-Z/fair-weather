@@ -17,9 +17,9 @@ export interface JournalEntry {
   notes: readonly Note[];
 }
 
-/** "A starling feather" as it reads after "the": "starling feather". */
+/** "A starling feather" as it reads after "the": "starling feather". The keepsake tool and the journal both use it. */
 export function inSentence(label: string): string {
-  return label.replace(/^an? /i, '');
+  return label.replace(/^(an?|the) /i, '');
 }
 
 /**

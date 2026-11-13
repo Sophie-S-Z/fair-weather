@@ -25,7 +25,7 @@ export function valleyLine(lite: WorldLite | null, label: (id: string) => string
     const real = flock.length === 0 ? 0 : flock.filter((c) => flying.has(c.id)).length / flock.length;
     const seen = pack.perceived['tove'] ?? 0;
     const line = (p: number, r: number, about: string): string =>
-      `Tove sees ${about}${String(p)}% of its neighbors flying in the water; ${about}${String(r)}% of the starlings really fly.`;
+      `The water shows Tove ${about}${String(p)}% of the flock flying; ${about}${String(r)}% of the starlings really fly.`;
     return { text: line(percent(seen), percent(real), ''), spoken: line(step(seen), step(real), 'about ') };
   }
   if (pack.id === 'hollow') {

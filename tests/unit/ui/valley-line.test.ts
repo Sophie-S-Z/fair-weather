@@ -26,9 +26,8 @@ describe('valleyLine', () => {
     // Flying: s1, s2, and the joined hero; the away starling and the villager are not counted.
     const fen = world({ id: 'fen', flying: ['s1', 's2', 'hero', 'gone'], perceived: { tove: 0.857 } });
     expect(valleyLine(fen, displayName)).toEqual({
-      text: 'Tove sees 86% of its neighbors flying in the water; 50% of the starlings really fly.',
-      spoken:
-        'Tove sees about 90% of its neighbors flying in the water; about 50% of the starlings really fly.',
+      text: 'The water shows Tove 86% of the flock flying; 50% of the starlings really fly.',
+      spoken: 'The water shows Tove about 90% of the flock flying; about 50% of the starlings really fly.',
     });
   });
   it('Fen: the spoken line moves only in steps of 10%', () => {
@@ -36,13 +35,13 @@ describe('valleyLine', () => {
       valleyLine(world({ id: 'fen', flying, perceived: { tove } }), displayName)?.spoken;
     expect(at(0.14, ['s1'])).toBe(at(0.12, ['s2']));
     expect(at(0.14, ['s1'])).toBe(
-      'Tove sees about 10% of its neighbors flying in the water; about 20% of the starlings really fly.',
+      'The water shows Tove about 10% of the flock flying; about 20% of the starlings really fly.',
     );
   });
   it('Fen: 0% with no flock and no reflection', () => {
     const empty = { ...lite([], []), pack: { id: 'fen', flying: [], perceived: {} } } satisfies WorldLite;
     expect(valleyLine(empty, displayName)?.text).toBe(
-      'Tove sees 0% of its neighbors flying in the water; 0% of the starlings really fly.',
+      'The water shows Tove 0% of the flock flying; 0% of the starlings really fly.',
     );
   });
   it('Hollow: nothing before the first print; then the front page, the hero by its own name', () => {

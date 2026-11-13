@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { MetricSpec } from '../sim/metrics.ts';
 import type { CreatureState, DialKey, PackId, Season, Shell, SimEvent } from '../sim/types.ts';
 import { FLAG_KEYS } from './flags.ts';
+import { tuning } from './tuning.ts';
 import { TWIST_IDS } from './twists.ts';
 import { VERBS, WORLD_VERBS } from './verbs.ts';
 
@@ -277,6 +278,8 @@ const ChapterObject = z.strictObject({
       id: z.enum(TWIST_IDS),
       withinDays: z.number().positive(),
       retryArrange: z.tuple([id, id]),
+      /** How many times a missed twist tries again (spec 10.2, "up to 3"); without it, tuning.story.honestyRetries. */
+      retries: z.number().int().min(0).max(tuning.story.honestyRetries).optional(),
       /** The window opens on the first use of this verb; without it, at chapter start. */
       opensOn: z.strictObject({ verb }).optional(),
     })

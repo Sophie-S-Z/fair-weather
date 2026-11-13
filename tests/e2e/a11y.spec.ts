@@ -486,6 +486,17 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
   await page.getByRole('button', { name: 'Back to title' }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: /^Chapter 7/ })).toBeVisible();
+  // The new year keeps no travel journal from the last one: no journey, no J, no drawer button.
+  expect(
+    await page.evaluate(() =>
+      (window as unknown as { fairWeather: { journey: () => unknown } }).fairWeather.journey(),
+    ),
+  ).toBeNull();
+  await expect(page.locator('#scene-help')).not.toContainText('J opens the travel journal');
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  await expect(page.getByRole('button', { name: 'Book of Skies', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Travel journal' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
   await skipToFire();
   for (let i = 0; i < 3; i++) await listen.click();
   await expect(moods.getByRole('heading', { name: "The Sky's Moods" })).toBeVisible();
@@ -649,12 +660,12 @@ test('the hero choice works by keyboard alone and has no serious axe issues; the
   await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
   // The line is plain text; its live region says it in steps of 10%.
   await expect(page.locator('p.valley')).toHaveText(
-    /^Tove sees \d+% of its neighbors flying in the water; \d+% of the starlings really fly\.$/,
+    /^The water shows Tove \d+% of the flock flying; \d+% of the starlings really fly\.$/,
   );
   await expect(
     page
       .getByRole('status')
-      .filter({ hasText: /^Tove sees about \d*0% of its neighbors .* about \d*0% of the starlings/ }),
+      .filter({ hasText: /^The water shows Tove about \d*0% of the flock .* about \d*0% of the starlings/ }),
   ).toHaveCount(1);
   // The Fen's tools: Walk, Manner, Join; Manner shows its choices as pressed buttons, and a Seedcarrier can plant.
   const tools = page.getByRole('group', { name: 'Tools' });

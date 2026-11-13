@@ -754,6 +754,29 @@ describe('twists', () => {
     expect(f.sent).toHaveLength(4);
   });
 
+  test('a twist with retries 0 arranges no meeting and runs its close call at the first deadline', () => {
+    if (!ch3.twist) throw new Error('ch3 has a twist');
+    const after: Chapter = {
+      ...ch3,
+      beats: [...ch3.beats, { id: 'after', trigger: { closeCall: true }, actions: [{ ink: 'ch3_after' }] }],
+      twist: { ...ch3.twist, retries: 0 },
+    };
+    const f = fakePort();
+    const ink = inkOf([...CH3_KNOTS, 'ch3_after']);
+    const runner = createChapterRunner(f.port, ink, after, flags);
+    const still = lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 } });
+    f.step([], still);
+    expect(runner.verb({ verb: 'place', x: 300, y: 200 })).toBe(true);
+    f.steps(3149, still); // the one window ends at tick 3151
+    expect(ink.played).not.toContain('ch3_close_call');
+    f.step([], still);
+    expect(f.sent).toEqual([{ tick: 1, cmd: { t: 'place', kind: 'bench', x: 300, y: 200 } }]);
+    expect(ink.played.slice(-2)).toEqual(['ch3_close_call', 'ch3_after']);
+    expect(runner.log.filter((e) => e.kind === 'twist')).toEqual([
+      { kind: 'twist', tick: 3151, id: 'benchWarmsVillage', fired: false, retries: 0 },
+    ]);
+  });
+
   test('a closeCall beat runs once, right after the close-call knot, and not when the twist fires', async () => {
     const after: Chapter = {
       ...ch3,
@@ -1270,6 +1293,17 @@ describe('diaries', () => {
     expect(diary[1]).toContain('Echo');
     expect(runner.diary('echo')).toHaveLength(1); // the giver's side
     expect(runner.diary('pim')).toEqual([]);
+  });
+
+  test("a diary names the hero by the player's name", () => {
+    const f = fakePort();
+    const runner = createChapterRunner(f.port, inkOf([]), quiet, flags);
+    const hero = { kind: 'lantern' as const, name: 'Rain', reply: 'toward' as const, gift: 'give' as const };
+    const named = { ...lite(), hero: { ...hero, keepsakes: [], opinions: {} } };
+    f.step([], named);
+    f.step([gift('hero', 'krit', 'give')], named);
+    expect(runner.diary('krit')[1]).toContain('Rain');
+    expect(runner.diary('krit')[1]).not.toContain('Hero');
   });
 
   test('a diary keeps the last 20 events', () => {

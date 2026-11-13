@@ -70,7 +70,10 @@ export const SaveV1Schema = z.object({
   log: z.array(z.object({ tick: z.number(), list: z.array(z.custom<Command>()) })),
 });
 
-/** A version 2 save. A save from before Part 2 lacks its four flags; migrate fills them. */
+/**
+ * A version 2 save. A save from before Part 2 lacks its four flags; migrate fills them. No
+ * `satisfies z.ZodType<SaveV2>` here: the partial flags admit what SaveV2's full Flags does not.
+ */
 export const SaveV2Schema = z.object({
   ...common,
   version: z.literal(2),

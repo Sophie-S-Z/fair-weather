@@ -55,5 +55,6 @@ describe('journalEntries', () => {
   test('inSentence drops the leading article', () => {
     expect(inSentence('A starling feather')).toBe('starling feather');
     expect(inSentence('An old key')).toBe('old key');
+    expect(inSentence('The old key')).toBe('old key');
   });
 });

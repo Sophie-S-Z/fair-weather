@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import ch0Json from '../../../content/chapters/ch0.json';
+import homeJson from '../../../content/valleys/home.json';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import type { GiftMove, HeroKind } from '../../../src/sim/types.ts';
 import type { ActionLog } from '../../../src/story/action-log.ts';
@@ -181,6 +182,14 @@ describe('reputation (ADR 0013 item 8)', () => {
 });
 
 describe('the journey between valleys', () => {
+  test('the homecoming joins the record but adds no journal page: the game ends there, with no journal', () => {
+    const home = ChapterSchema.parse(homeJson);
+    const gift = { t: 'gift', from: 'hero', to: 'pim', move: 'give', seenAs: 'give' } as const;
+    const j = leaveValley(start, home, liteOf(), [{ kind: 'hero', tick: 3, e: gift }]);
+    expect(j.pages).toEqual([]);
+    expect(j.record.moves).toEqual(['give']);
+  });
+
   test('a valley adds its keepsake, a keepsake event marks one given, and the page takes the postcard', () => {
     const j = leaveValley(start, fen, liteOf(), [{ kind: 'postcard', tick: 9, type: 'wandering' }]);
     expect(j.keepsakes).toEqual([{ id: 'starling-feather', given: false }]);

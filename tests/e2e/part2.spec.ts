@@ -48,8 +48,8 @@ const INTRO: Record<string, string> = {
   Halcyon: 'A calm meadow lies over a mirror sea',
   'The Homecoming': 'You walk back over the ridge',
 };
-/** A diary line a gift from the hero writes for its receiver (content/diary.json gift.got.give). */
-const HERO_GAVE = /Hero gave me a berry/;
+/** A diary line a gift from the hero writes for its receiver (content/diary.json gift.got.give), by the player's name. */
+const HERO_GAVE = /Rain gave me a berry/;
 const TOOLS = ['Walk', 'Manner', 'Join', 'Pose', 'Keepsake'] as const;
 type Tool = (typeof TOOLS)[number];
 
@@ -337,8 +337,8 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
     case 'Hearsay Hollow': {
       // walksToSquare(true): to the press, then a pose once a day while the sky is on the hero.
       if (!v.walked) v.walked = await hands.walkTo(PRESS, PRESS_SQUARE);
-      // The Walk tool's status names the creature nearest its spot, the press: the hero once there.
-      v.arrived ||= v.walked && /, by Hero(\.|$)/.test(seen.status);
+      // The Walk tool's status names the creature nearest its spot, the press: the hero, by its name, once there.
+      v.arrived ||= v.walked && /, by Rain(\.|$)/.test(seen.status);
       const day = Math.floor(t / DAY.hollow);
       if (v.arrived && day !== v.posedOn && (await hands.use('Pose'))) {
         v.posedOn = day;
@@ -361,8 +361,8 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
     }
     case 'The Homecoming': {
       // walksToPimThenBench: Pim every 20 ticks until they have met (a line about the hero in
-      // Pim's diary), then the first bench.
-      v.met ||= newLines(seen, v, 'Pim').some((l) => l.includes('Hero'));
+      // Pim's diary, by the player's name), then the first bench.
+      v.met ||= newLines(seen, v, 'Pim').some((l) => l.includes('Rain'));
       if (!v.met) await wave('Pim', true);
       else if (!v.seated) {
         v.seated = await hands.walkTo(BENCH, BENCH);
@@ -455,7 +455,7 @@ for (const mode of ['mouse', 'keyboard'] as const) {
       'Walk to Wisp',
       'Walk to Pim',
     ]);
-    // The journey kept the hero, each valley's first postcard, and Wisp's choice: home with the feather.
+    // The journey kept the hero, each valley's first postcard (the homecoming adds no page), and Wisp's choice: home with the feather.
     const journey = await page.evaluate(() => {
       const j = (
         window as unknown as { fairWeather: { journey: () => Journey | null } }
@@ -467,7 +467,6 @@ for (const mode of ['mouse', 'keyboard'] as const) {
       ['fen', 'generosity'],
       ['hollow', 'patience'],
       ['halcyon', 'generosity'],
-      ['home', null],
     ]);
     expect(journey?.keepsakes).toContainEqual({ id: 'starling-feather', given });
     if (given) expect(journey?.wisp).toBe('home');

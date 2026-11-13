@@ -40,3 +40,5 @@ INCLUDE ch10.ink
 INCLUDE bridge.ink
 INCLUDE fen.ink
 INCLUDE hollow.ink
+INCLUDE halcyon.ink
+INCLUDE home.ink

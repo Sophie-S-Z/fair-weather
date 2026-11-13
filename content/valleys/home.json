@@ -1,0 +1,86 @@
+{
+  "id": "home",
+  "kind": "valley",
+  "valley": {
+    "pack": null,
+    "guide": "pim",
+    "postcards": [],
+    "keepsake": null,
+    "locals": [
+      "[PLACEHOLDER] The sky came back with feet.",
+      "[PLACEHOLDER] We got your postcards.",
+      "[PLACEHOLDER] Pim kept the bench warm."
+    ]
+  },
+  "title": "The Homecoming",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 40,
+  "carry": true,
+  "verbs": ["walk", "manner", "zoom", "peek"],
+  "newVerb": null,
+  "overrides": {
+    "structures": [{ "id": "bench-crooked-tree", "kind": "bench", "x": 600, "y": 430 }],
+    "gone": ["wisp"]
+  },
+  "beats": [
+    { "id": "home_start", "trigger": { "at": 0 }, "actions": [{ "ink": "home_intro" }] },
+    {
+      "id": "home_welcome",
+      "trigger": { "twist": true },
+      "actions": [{ "ink": "home_welcome" }, { "ink": "home_bench" }]
+    },
+    { "id": "home_late", "trigger": { "closeCall": true }, "actions": [{ "ink": "home_bench" }] }
+  ],
+  "twist": {
+    "id": "homeWelcome",
+    "withinDays": 4,
+    "retryArrange": ["pim", "krit"]
+  },
+  "reads": ["kithHeld"],
+  "writes": [],
+  "variants": [
+    {
+      "when": { "flag": "kithHeld", "op": "eq", "value": true },
+      "overrides": {
+        "positions": {
+          "pim": { "x": 100, "y": 420 },
+          "krit": { "x": 100, "y": 480 },
+          "echo": { "x": 140, "y": 390 },
+          "moss": { "x": 140, "y": 510 },
+          "bell": { "x": 160, "y": 450 }
+        }
+      }
+    }
+  ],
+  "exit": { "onTwist": true },
+  "feeling": "[PLACEHOLDER] Return, recognition",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Your name came first",
+      "science": "[PLACEHOLDER] What others heard about you shapes how they first meet you.",
+      "limits": "[PLACEHOLDER] Here a rumor is one number, and only some locals hold it.",
+      "counter": "[PLACEHOLDER] A first meeting can still undo a rumor.",
+      "question": "[PLACEHOLDER] What did Kith hear about you while you were away?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] A culture while you were away",
+      "science": "[PLACEHOLDER] Kith kept meeting without you, and your postcards nudged how it met.",
+      "limits": "[PLACEHOLDER] Each postcard moves one dial by a tenth, for every creature.",
+      "counter": "[PLACEHOLDER] A place can change for reasons no letter could reach.",
+      "question": "[PLACEHOLDER] Did Kith hold together?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

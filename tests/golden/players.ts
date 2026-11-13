@@ -5,6 +5,7 @@ import fenJson from '../../content/valleys/fen.json';
 import hollowScenario from '../../content/scenarios/hollow.json';
 import hollowJson from '../../content/valleys/hollow.json';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
+import type { ActionLog } from '../../src/story/action-log.ts';
 import { creature } from '../../src/story/bets.ts';
 import { heroResult } from '../../src/story/journey.ts';
 import { chapterTicksPerDay } from '../../src/story/scenario.ts';
@@ -70,6 +71,65 @@ export const walksToSquare = (poses: boolean) => (): ScriptedPlayer => {
       const r = tuning.light.lensRadius;
       if ((hero.x - sky.x) ** 2 + (hero.y - sky.y) ** 2 <= r * r && runner.verb({ verb: 'pose' }))
         posedOn = day;
+    },
+  };
+};
+
+/** How many hero entries of `log`, from index `from` on, name `id`; with `gift`, only the hero's gifts to `id`. */
+function heroMeetings(log: ActionLog, from: number, id: string, gift: boolean): number {
+  let n = 0;
+  for (const e of log.slice(from)) {
+    if (e.kind !== 'hero') continue;
+    if (
+      gift
+        ? e.e.t === 'gift' && e.e.from === 'hero' && e.e.to === id && e.e.move === 'give'
+        : e.e.from === id || e.e.to === id
+    )
+      n += 1;
+  }
+  return n;
+}
+
+const FEATHER = fenJson.valley.keepsake.id;
+
+/**
+ * Halcyon's player: walks to Wisp every 20 ticks and sends the first postcard. With `keepsake`,
+ * once it has given Wisp three gifts, it gives Wisp the Fen's feather while Wisp is within
+ * halcyon.keepsakeRadii meeting radii.
+ */
+export const givesToWisp = (keepsake: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  let gifts = 0;
+  let read = 0;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      if (tick >= next && runner.verb({ verb: 'walk', to: 'wisp' })) next = tick + 20;
+      gifts += heroMeetings(runner.log, read, 'wisp', true);
+      read = runner.log.length;
+      if (!keepsake || gifts < 3 || !lite.hero?.keepsakes.includes(FEATHER)) return;
+      const hero = creature(lite, 'hero');
+      const wisp = creature(lite, 'wisp');
+      const reach = tuning.halcyon.keepsakeRadii * tuning.meet.radius;
+      if (hero && wisp && (hero.x - wisp.x) ** 2 + (hero.y - wisp.y) ** 2 <= reach * reach)
+        runner.verb({ verb: 'keepsake', to: 'wisp', item: FEATHER });
+    },
+  };
+};
+
+/** The homecoming's player: walks to Pim every 20 ticks until they have met, then to the first bench. */
+const walksToPimThenBench = (): ScriptedPlayer => {
+  let next = 0;
+  let met = false;
+  let read = 0;
+  let seated = false;
+  return {
+    onTick(tick, runner) {
+      met ||= heroMeetings(runner.log, read, 'pim', false) > 0;
+      read = runner.log.length;
+      if (!met) {
+        if (tick >= next && runner.verb({ verb: 'walk', to: 'pim' })) next = tick + 20;
+      } else if (!seated) seated = runner.verb({ verb: 'walk', x: bench.x, y: bench.y });
     },
   };
 };
@@ -179,4 +239,6 @@ export const PLAYERS = {
   bridge: finishes(heroResult('lantern', 'Test')),
   fen: walksToTove(true),
   hollow: walksToSquare(true),
+  halcyon: givesToWisp(true),
+  home: walksToPimThenBench,
 } satisfies Record<string, () => ScriptedPlayer>;

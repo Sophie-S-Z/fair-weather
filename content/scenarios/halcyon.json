@@ -1,0 +1,217 @@
+{
+  "valleyId": "halcyon",
+  "season": "summer",
+  "creatures": [
+    {
+      "id": "wisp",
+      "speciesId": "kith",
+      "name": "Wisp",
+      "x": 480,
+      "y": 300,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.9
+      }
+    },
+    {
+      "id": "local-1",
+      "speciesId": "kith",
+      "name": "Local 1",
+      "x": 900,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-2",
+      "speciesId": "kith",
+      "name": "Local 2",
+      "x": 1060,
+      "y": 220,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-3",
+      "speciesId": "kith",
+      "name": "Local 3",
+      "x": 1220,
+      "y": 300,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-4",
+      "speciesId": "kith",
+      "name": "Local 4",
+      "x": 1340,
+      "y": 420,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-5",
+      "speciesId": "kith",
+      "name": "Local 5",
+      "x": 980,
+      "y": 420,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-6",
+      "speciesId": "kith",
+      "name": "Local 6",
+      "x": 1140,
+      "y": 480,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-7",
+      "speciesId": "kith",
+      "name": "Local 7",
+      "x": 900,
+      "y": 600,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "local-8",
+      "speciesId": "kith",
+      "name": "Local 8",
+      "x": 1260,
+      "y": 620,
+      "berries": 3,
+      "dials": {
+        "opener": 0.7,
+        "forgiveness": 0.7,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 300,
+      "y": 200,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 640,
+      "y": 160,
+      "berries": 5
+    },
+    {
+      "id": "bush-3",
+      "x": 760,
+      "y": 360,
+      "berries": 5
+    },
+    {
+      "id": "bush-4",
+      "x": 560,
+      "y": 560,
+      "berries": 5
+    },
+    {
+      "id": "bush-5",
+      "x": 820,
+      "y": 520,
+      "berries": 5
+    },
+    {
+      "id": "bush-6",
+      "x": 1000,
+      "y": 140,
+      "berries": 5
+    },
+    {
+      "id": "bush-7",
+      "x": 1180,
+      "y": 380,
+      "berries": 5
+    },
+    {
+      "id": "bush-8",
+      "x": 1400,
+      "y": 240,
+      "berries": 5
+    },
+    {
+      "id": "bush-9",
+      "x": 1080,
+      "y": 660,
+      "berries": 5
+    },
+    {
+      "id": "bush-10",
+      "x": 1420,
+      "y": 580,
+      "berries": 5
+    }
+  ],
+  "structures": [],
+  "water": [
+    {
+      "x": 0,
+      "y": 800,
+      "w": 1600,
+      "h": 100
+    }
+  ],
+  "pack": {
+    "id": "halcyon",
+    "kithWarmth": 0.3,
+    "seeker": "wisp"
+  }
+}

@@ -4,11 +4,11 @@ The press runs by the square. The sky looks for drama. #placeholder
 
 === hollow_famous ===
 The gazette prints your face again. Now the town keeps its distance. #placeholder
-The frogs in its stories were hurt too. Nobody asked them. #placeholder
+The gazette prints people. It never asks them first. #placeholder
 -> END
 
 === hollow_close_call ===
-The gazette never printed you. The town forgot you. #placeholder
+Your face never stayed on the front page. The town forgot you. #placeholder
 -> END
 
 === hollow_postcard ===

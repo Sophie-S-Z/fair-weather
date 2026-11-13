@@ -31,4 +31,4 @@ test('T3 hollow: fewer than 10 close calls, and the postcard at 6 to 8 minutes',
   expect(s.closeCalls).toBeLessThan(10);
   expect(median).toBeGreaterThanOrEqual(360);
   expect(median).toBeLessThanOrEqual(480);
-});
+}, 900_000); // 200 runs to the postcard near 420 s: near the t3 project's 600-s default

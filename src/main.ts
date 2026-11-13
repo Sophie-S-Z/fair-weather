@@ -716,7 +716,7 @@ const game: GameService = {
         // A sent postcard ends the valley, so a Skip after it still counts the valley as played.
         const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
         // Kith's leg first, with the postcard sent here; Continue replays it from the journal page.
-        if (leg >= 0 && kith) runKithLeg(kith, kithLeg(leg, sent[0] ?? null, homecoming));
+        if (leg >= 0 && kith) runKithLeg(kith, kithLeg(leg, sent.at(-1) ?? null, homecoming));
         if ((!skipped || sent.length > 0) && journeyNow && lastLite)
           journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
       });

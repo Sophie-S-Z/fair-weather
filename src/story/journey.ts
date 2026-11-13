@@ -6,12 +6,14 @@ import { z } from 'zod';
 import heroesJson from '../../content/heroes.json' with { type: 'json' };
 import journalJson from '../../content/journal.json' with { type: 'json' };
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { GiftMove, HeroKind, Shell } from '../sim/types.ts';
+import type { Command, GiftMove, HeroKind, Scenario, Shell } from '../sim/types.ts';
 import type { ActionLog } from './action-log.ts';
-import { CarrySchema } from './carry.ts';
+import { carryFrom, CarrySchema } from './carry.ts';
 import type { Carry } from './carry.ts';
+import { DEFAULT_FLAGS } from './flags.ts';
+import { buildScenario, chapterTicksPerDay } from './scenario.ts';
 import type { JourneyStart } from './scenario.ts';
-import { POSTCARDS } from './schema.ts';
+import { POSTCARD_DIAL, POSTCARDS } from './schema.ts';
 import type { Chapter, Postcard } from './schema.ts';
 import { tuning } from './tuning.ts';
 
@@ -143,6 +145,9 @@ export function heroResult(kind: HeroKind, name: string): string {
   return `${kind}:${heroName(kind, name)}`;
 }
 
+/** The bridge's result when no hero is chosen (ADR 0013 item 11): the first hero, with its own name. */
+export const FIRST_HERO = heroResult(heroKind.parse(heroesJson[0]?.id), '');
+
 /** Reads heroResult's `kind:name`, split at the first colon, so a name may hold one. Throws on an unknown kind. */
 export function parseHero(result: string): { kind: HeroKind; name: string } {
   const at = result.indexOf(':');
@@ -250,6 +255,41 @@ export function kithDays(index: number): number {
     throw new Error(`No Stage 1 valley at ${String(index)}`);
   const days = tuning.kith.days;
   return Math.floor(days / n) + (index < days % n ? 1 : 0);
+}
+
+/**
+ * Kith's silent run while the player is away (ADR 0013 items 10 and 18) starts from the bridge's
+ * scenario at Kith's start (the end of Part 1), counting the homecoming's days. The game's Kith
+ * host and the stored home carry (tests/golden/carry.test.ts) both build it here, with kithLeg and
+ * kithCarry, so the two cannot drift.
+ */
+export function kithScenario(
+  bridge: Chapter,
+  home: Pick<Chapter, 'dayLengthSeconds'>,
+  base: Scenario,
+  kithStart: Carry | null,
+): Scenario {
+  const day = { ...bridge, dayLengthSeconds: home.dayLengthSeconds };
+  return buildScenario(day, DEFAULT_FLAGS, base, kithStart ?? undefined);
+}
+
+/**
+ * Kith's leg while the player is in the `index`th Stage 1 valley: first the nudge of the postcard
+ * sent there (none from a skipped valley), then kithDays(index) of the homecoming's days.
+ */
+export function kithLeg(
+  index: number,
+  postcard: Postcard | null,
+  home: Pick<Chapter, 'dayLengthSeconds'>,
+): { commands: Command[]; ticks: number } {
+  const nudge: Command[] =
+    postcard === null ? [] : [{ t: 'nudge', dial: POSTCARD_DIAL[postcard], amount: tuning.postcard.nudge }];
+  return { commands: nudge, ticks: kithDays(index) * chapterTicksPerDay(home) };
+}
+
+/** The homecoming's carry: Kith after its last leg, with the diaries of Kith's start, since a silent run writes none. */
+export function kithCarry(lite: WorldLite, kithStart: Carry | null): Carry {
+  return carryFrom(lite, new Map(kithStart?.creatures.map((c) => [c.id, c.diary])));
 }
 
 /** "What they say about you" (ADR 0013 item 14): how many hold the rumor, then what it says. */

@@ -15,6 +15,7 @@ import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Dials, Season } from '../sim/types.ts';
 import type { ChapterRunner } from '../story/chapter-runner.ts';
 import type { Flags } from '../story/flags.ts';
+import type { Journey } from '../story/journey.ts';
 import type { peekRule } from '../story/peek.ts';
 import type { Chapter } from '../story/schema.ts';
 import type { Settings } from './settings.ts';
@@ -79,9 +80,12 @@ export interface GameService {
   hasSave(): Promise<boolean>;
   /**
    * Builds the chapter's scenario, starts a new sim run, and returns its runner. A `carry: true`
-   * chapter starts from the year carry of the last snapshot (ADR 0012 item 1).
+   * chapter starts from the year carry of the last snapshot (ADR 0012 item 1). A valley first waits
+   * for Kith's leg from the valley before, and starts from the journey; the homecoming starts from
+   * Kith, with `kithHeld` from Kith's average warmth (ADR 0013 items 10 and 12). Rejects when the
+   * chapter cannot start, or when a newer start replaced this one while it waited.
    */
-  startChapter(chapter: Chapter, flags: Flags): ChapterRunner;
+  startChapter(chapter: Chapter, flags: Flags): Promise<ChapterRunner>;
   /** Peek under the hood (spec 8, 9.3) at `dials`, by the rules of the chapter now playing. */
   peek(dials: Dials): ReturnType<typeof peekRule>;
   /**
@@ -98,6 +102,12 @@ export interface GameService {
   book(): Promise<BookPage[]>;
   /** Keeps a finished year's myth as the next page of the Book of Skies, with this valley's seed. */
   keepMyth(page: MythPage): Promise<void>;
+  /** The journey from the bridge's end (ADR 0013 item 9), or null before it. */
+  journey(): Journey | null;
+  /** The sixth verse (ADR 0013 item 13) of the journey and the homecoming's `flags`. Throws with no journey. */
+  sixthVerse(flags: Flags): { title: string; text: string; note: string | null };
+  /** Ends the journey: the verse joins the year's page in the Book of Skies, and the save is kept. */
+  finishJourney(verse: { title: string; text: string; note: string | null }): Promise<void>;
   /** The Quiet Visitor's feathers so far (ADR 0012 item 12). */
   feathers(): Promise<number>;
   /** Counts one more feather; returns the new count. */

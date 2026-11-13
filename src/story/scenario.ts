@@ -35,6 +35,8 @@ function apply(s: Scenario, o: Overrides): void {
   };
   for (const [id, p] of Object.entries(o.positions ?? {})) {
     const c = creature(id);
+    // An away or gone creature is not in the valley to place (the homecoming's gate variant).
+    if (c.state === 'away' || c.gone) continue;
     c.x = p.x;
     c.y = p.y;
   }

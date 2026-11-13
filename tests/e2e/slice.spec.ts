@@ -438,19 +438,40 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
 });
 
-test('the end screen takes focus, and its button returns to the title', async ({ page }) => {
-  // Chapter 10 is the last in play order (index 15); skipping it ends the year so far.
-  await page.goto('/?chapter=15');
+test('after the bridge, where a hero is chosen by button, the Fen begins', async ({ page }) => {
+  // The bridge is index 16 in play order.
+  await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(chapter(page, 10)).toBeVisible();
-  await page.getByRole('button', { name: 'Skip chapter' }).click();
-  const endTitle = page.getByRole('heading', { name: 'End of Part 1' });
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
+  const hero = page.getByRole('region', { name: 'Choose your hero' }).getByRole('button');
+  await expect(hero).toBeFocused();
+  await hero.click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+});
+
+test('the end screen tells the sixth verse, takes focus, and its button returns to the title', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // From the bridge (index 16), each skip moves on: the Fen, the Hollow, Halcyon, home, the end.
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const h1 = page.getByRole('heading', { level: 1 });
+  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+    await expect(h1).toHaveText(name);
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+  }
+  const endTitle = page.getByRole('heading', { name: 'The End' });
   await expect(endTitle).toBeFocused();
+  await expect(page.getByRole('heading', { level: 2, name: 'The Sky Came Down' })).toBeVisible();
+  await expect(page.getByText(/^The sky came down once, and walked with us\. /)).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Open the Book of Skies' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test.describe('on a phone', () => {

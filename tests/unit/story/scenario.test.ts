@@ -4,6 +4,7 @@ import ch2Json from '../../../content/chapters/ch2.json';
 import ch3Json from '../../../content/chapters/ch3.json';
 import flagsJson from '../../../content/flags.json';
 import scenarioJson from '../../../content/scenarios/m0.json';
+import homeJson from '../../../content/valleys/home.json';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { parseFlags } from '../../../src/story/flags.ts';
 import type { Flags } from '../../../src/story/flags.ts';
@@ -155,6 +156,25 @@ describe('buildScenario', () => {
     expect(of('wisp')).toMatchObject({ gone: true }); // the sim keeps a gone creature away
     expect(pimOf(s)?.state).toBe('sleep');
     expect(buildScenario(carried4, flags, base).creatures.some((c) => c.gone)).toBe(false);
+  });
+
+  test("the homecoming's gate variant places only those still in Kith", () => {
+    const home = ChapterSchema.parse(homeJson);
+    const journey: JourneyStart = {
+      kind: 'lantern',
+      name: 'Rook',
+      keepsakes: [],
+      rumor: null,
+      shell: null,
+      companion: null,
+      kithWarmth: 0.5,
+    };
+    const s = buildScenario(home, { ...flags, kithHeld: true }, base, carry, journey);
+    const of = (id: string) => s.creatures.find((c) => c.id === id);
+    const baseOf = (id: string) => base.creatures.find((c) => c.id === id);
+    expect(pimOf(s)).toMatchObject({ x: 100, y: 420 });
+    // Krit is away in the carry, so it is not at the gate.
+    expect(of('krit')).toMatchObject({ state: 'away', x: baseOf('krit')?.x, y: baseOf('krit')?.y });
   });
 
   test('grudges set the holder side slights on the carried tie', () => {

@@ -342,7 +342,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 });
 
-test('the fire: Listen five times tells five verses and ends Part 1; no serious axe issues', async ({
+test('the fire: Listen five times tells five verses, keeps the page, and goes on to the bridge; no serious axe issues', async ({
   page,
 }) => {
   // Chapter 10 is index 15 in play order.
@@ -360,11 +360,10 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
     await expect(verse.getByRole('heading', { name: title })).toBeVisible();
   }
   await page.keyboard.press('Enter');
-  const end = page.getByRole('heading', { name: 'End of Part 1' });
-  await expect(end).toBeFocused();
-  expect(await seriousViolations(page)).toEqual([]);
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
   // The whole story, the last verse too, is the first page of the Book of Skies.
-  const open = page.getByRole('button', { name: 'Open the Book of Skies' });
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('button', { name: 'Book of Skies' });
   await open.click();
   const book = page.getByRole('dialog', { name: 'Book of Skies' });
   const year = book.getByRole('article', { name: 'Year 1' });
@@ -377,7 +376,7 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
   await expect(open).toBeFocused();
 
   // The title's Book of Skies opens now that it has a page.
-  await page.getByRole('button', { name: 'Back to title' }).click();
+  await page.goto('/');
   const button = page.getByRole('button', { name: 'Book of Skies' });
   await expect(button).toBeEnabled();
   await button.click();
@@ -471,9 +470,14 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
   await expect(scroll.getByText(/You blew 5 gusts/)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  // Year two in the same visit, with no gusts: its myth does not tell year one's.
+  // Year two in the same visit, with no gusts: its myth does not tell year one's. Part 2 is
+  // skipped through to the end, from which the title is reached.
   await listen.click();
   await listen.click();
+  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+  }
   await page.getByRole('button', { name: 'Back to title' }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: /^Chapter 7/ })).toBeVisible();

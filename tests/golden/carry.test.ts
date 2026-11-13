@@ -11,7 +11,6 @@ import { displayName } from '../../src/story/names.ts';
 import { runYear } from './year.ts';
 import tuningJson from '../../content/tuning.json';
 import bridgeJson from '../../content/chapters/bridge.json';
-import flagsJson from '../../content/flags.json';
 import m0Json from '../../content/scenarios/m0.json';
 import fenJson from '../../content/valleys/fen.json';
 import halcyonJson from '../../content/valleys/halcyon.json';
@@ -22,10 +21,8 @@ import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import { parseTuning } from '../../src/sim/tuning.ts';
 import type { Scenario } from '../../src/sim/types.ts';
 import { carryFrom } from '../../src/story/carry.ts';
-import { parseFlags } from '../../src/story/flags.ts';
-import { kithDays } from '../../src/story/journey.ts';
-import { buildScenario, chapterTicksPerDay } from '../../src/story/scenario.ts';
-import { ChapterSchema, POSTCARD_DIAL } from '../../src/story/schema.ts';
+import { kithCarry, kithLeg, kithScenario } from '../../src/story/journey.ts';
+import { ChapterSchema } from '../../src/story/schema.ts';
 import { tuning } from '../../src/story/tuning.ts';
 
 const share = brushShare(parseTuning(tuningJson));
@@ -81,14 +78,10 @@ test('Kith after Part 2 gives the stored home carry, and it held', async () => {
   const { results } = await year;
   const ch10 = results.ch10;
   if (!ch10) throw new Error('the year has no ch10');
+  // The same steps as main.ts's Kith host, through the same story functions.
   const kithStart = carryFrom(ch10.last, ch10.diaries);
   const home = ChapterSchema.parse(homeJson);
-  const scenario = buildScenario(
-    { ...ChapterSchema.parse(bridgeJson), dayLengthSeconds: home.dayLengthSeconds },
-    parseFlags(flagsJson),
-    m0Json as Scenario,
-    kithStart,
-  );
+  const scenario = kithScenario(ChapterSchema.parse(bridgeJson), home, m0Json as Scenario, kithStart);
   const out = { lite: null as WorldLite | null, error: null as string | null };
   const core = createWorkerCore(
     (m) => {
@@ -101,12 +94,12 @@ test('Kith after Part 2 gives the stored home carry, and it held', async () => {
   for (const [i, valley] of [fenJson, hollowJson, halcyonJson].entries()) {
     const card = ChapterSchema.parse(valley).valley?.postcards[0];
     if (!card) throw new Error(`${valley.id} has no postcard`);
-    core({ t: 'commands', list: [{ t: 'nudge', dial: POSTCARD_DIAL[card], amount: tuning.postcard.nudge }] });
-    core({ t: 'fastForward', ticks: kithDays(i) * chapterTicksPerDay(home), id: i });
+    const leg = kithLeg(i, card, home);
+    core({ t: 'commands', list: leg.commands });
+    core({ t: 'fastForward', ticks: leg.ticks, id: i });
   }
   if (out.error !== null || !out.lite) throw new Error(`Kith did not run: ${String(out.error)}`);
-  const diaries = new Map(kithStart.creatures.map((c) => [c.id, c.diary]));
-  const carry = carryFrom(out.lite, diaries);
+  const carry = kithCarry(out.lite, kithStart);
   await expect(`${JSON.stringify(carry, null, 2)}\n`).toMatchFileSnapshot('carry/home.json');
   console.log(`Kith after Part 2: averageWarmth ${String(out.lite.metrics.averageWarmth)}`);
   // valley-home.test.ts plays with kithHeld true, so Kith must hold here.

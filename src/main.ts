@@ -2,7 +2,6 @@
 import { Application } from 'pixi.js';
 import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
-import scenarioJson from '../content/scenarios/m0.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import ch0 from '../content/chapters/ch0.json';
 import ch1 from '../content/chapters/ch1.json';
@@ -20,8 +19,14 @@ import ch8 from '../content/chapters/ch8.json';
 import i8 from '../content/chapters/i8.json';
 import ch9 from '../content/chapters/ch9.json';
 import ch10 from '../content/chapters/ch10.json';
+import bridge from '../content/chapters/bridge.json';
+import fen from '../content/valleys/fen.json';
+import hollow from '../content/valleys/hollow.json';
+import halcyon from '../content/valleys/halcyon.json';
+import home from '../content/valleys/home.json';
 import inkStory from '../content/ink/main.ink';
 import versesJson from '../content/myth/verses.json';
+import sixthJson from '../content/myth/sixth.json';
 import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
@@ -34,6 +39,7 @@ import { createWait } from './input/wait.ts';
 import { nextView, type ViewName } from './input/zoom.ts';
 import { brushShare, extractFeatures } from './myth/features.ts';
 import { tellMyth, VersesSchema } from './myth/grammar.ts';
+import { SixthSchema, sixthFeatures, tellSixth } from './myth/sixth.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
@@ -46,22 +52,38 @@ import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/t
 import { hashTuning } from './persist/format.ts';
 import type { SaveV2 } from './persist/format.ts';
 import { createProfile } from './persist/profile.ts';
+import type { BookPage } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
+import type { SimHost } from './sim-host/host.ts';
 import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
 import { carriedDiaries, receivedDials } from './story/carry.ts';
+import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { DEFAULT_FLAGS } from './story/flags.ts';
+import {
+  FIRST_HERO,
+  journeyStart,
+  KITH_VALLEYS,
+  kithCarry,
+  kithLeg,
+  kithScenario,
+  leaveValley,
+  newJourney,
+  parseHero,
+} from './story/journey.ts';
+import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
-import { buildScenario, chapterStart } from './story/scenario.ts';
-import type { ChapterStart } from './story/scenario.ts';
+import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
+import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
+import type { Chapter } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
@@ -137,18 +159,51 @@ function paletteOf(s: Season): Palette {
 }
 const palette = paletteOf('spring');
 const scene = SceneSchema.parse(meadowJson);
-// In play order (tests/golden/year.ts CHAPTER_ORDER).
-const chapters = [ch0, ch1, ch2, ch3, i3, ch4, i4, ch5, i5, ch6, ch7, i7, ch8, i8, ch9, ch10].map((c) =>
-  ChapterSchema.parse(c),
-);
+// In play order (tests/golden/year.ts CHAPTER_ORDER), then Part 2: the bridge, the valleys, home.
+const chapters = [
+  ch0,
+  ch1,
+  ch2,
+  ch3,
+  i3,
+  ch4,
+  i4,
+  ch5,
+  i5,
+  ch6,
+  ch7,
+  i7,
+  ch8,
+  i8,
+  ch9,
+  ch10,
+  bridge,
+  fen,
+  hollow,
+  halcyon,
+  home,
+].map((c) => ChapterSchema.parse(c));
+/** The homecoming: Kith counts its days while the player is away (ADR 0013 item 18). */
+const homecoming = ChapterSchema.parse(home);
+const scenarioFiles = import.meta.glob<Scenario>('../content/scenarios/*.json', {
+  eager: true,
+  import: 'default',
+});
+/** The base scenario a chapter names: content/scenarios/<chapter.scenario>.json. */
+function baseOf(chapter: Chapter): Scenario {
+  const s = scenarioFiles[`../content/scenarios/${chapter.scenario}.json`];
+  if (!s) throw new Error(`${chapter.id} names scenario ${chapter.scenario}, which has no file`);
+  return s;
+}
 const ink = createInk(inkStory);
 const verses = VersesSchema.parse(versesJson);
+const sixth = SixthSchema.parse(sixthJson);
 /** The interlude whose rhythm becomes the village greeting song (spec 6.4). */
 const songFrom = chapters.findIndex((c) => c.activity === 'rhythm');
 
-const host = createSimHost(
-  () => new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' }),
-);
+const spawnWorker = (): Worker =>
+  new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' });
+const host = createSimHost(spawnWorker);
 /**
  * Dev only: every speed sent to the sim, frames drawn, command lists the runner sent, and snapshots
  * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
@@ -261,6 +316,23 @@ host.onMessage((m) => {
 let scenarioNow: Scenario | null = null;
 /** Every chapter's log this year, in play order (spec 10.4); the myth reads it, and a Continue restores it. */
 const yearLog: YearLog = [];
+/** The year's page once kept: the sixth verse joins it, told by the same narrator. */
+let keptPage: BookPage | null = null;
+/** Kith at the bridge's start, the end of Part 1: the journey keeps it (ADR 0013 item 10). */
+let kithStart: Carry | null = null;
+/** The journey from the bridge's end (ADR 0013 item 9), or null before it. */
+let journeyNow: Journey | null = null;
+/** Kith while the player is away: a second worker, made at the bridge's start (ADR 0013 item 10). */
+let kith: SimHost | null = null;
+/** Kith after the last leg sent so far, or at its start before the first; null before the bridge. */
+let kithNow: Promise<WorldLite> | null = null;
+/** Counts chapter starts, so a start that waits on Kith knows when a newer one replaced it. */
+let starts = 0;
+/** Keeps Kith's newest world. A valley's start reports a failure, so none goes unhandled here. */
+function kithAt(answer: Promise<{ lite: WorldLite }>): void {
+  kithNow = answer.then((r) => r.lite);
+  kithNow.catch(() => undefined);
+}
 
 const game: GameService = {
   chapters,
@@ -423,22 +495,53 @@ const game: GameService = {
   async hasSave() {
     return (await slotsReady).hasAuto();
   },
-  startChapter(chapter, flags) {
+  async startChapter(chapter, given) {
+    const start = (starts += 1);
+    // A valley waits for Kith's leg from the valley before (ADR 0013 item 10).
+    const kithLite = chapter.valley ? await kithNow : null;
+    if (start !== starts) throw new Error(`A newer chapter start replaced ${chapter.id}`);
     if (import.meta.env.DEV) dev.snapshots = 0;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
     // Continue: the carry and the year so far come from the save (spec 15.1).
     if (resumed) yearLog.splice(0, yearLog.length, ...resumed.year);
-    lastStart = chapterStart(
-      chapter,
-      flags,
-      scenarioJson as Scenario,
-      resumed
-        ? { saved: resumed.carry }
-        : { lite: lastLite, diaries: lastRunner?.diaries ?? new Map(), last: lastStart },
-    );
+    const base = baseOf(chapter);
+    let flags = given;
+    if (chapter.valley && chapter.carry) {
+      // The homecoming starts from Kith (ADR 0013 item 12), and its variant reads whether Kith held.
+      if (!kithLite) throw new Error(`${chapter.id} needs Kith from the bridge`);
+      flags = { ...given, kithHeld: kithLite.metrics.averageWarmth >= tuning.wisp.minKithWarmth };
+      lastStart = { carry: kithCarry(kithLite, kithStart), overrides: chosenOverrides(chapter, flags) };
+    } else {
+      lastStart = chapterStart(
+        chapter,
+        flags,
+        base,
+        resumed
+          ? { saved: resumed.carry }
+          : { lite: lastLite, diaries: lastRunner?.diaries ?? new Map(), last: lastStart },
+      );
+    }
     const { carry } = lastStart;
-    const scenario = buildScenario(chapter, flags, scenarioJson as Scenario, carry);
+    let journey: JourneyStart | undefined;
+    if (chapter.valley) {
+      if (!journeyNow || !kithLite) throw new Error(`${chapter.id} needs the journey from the bridge`);
+      journey = journeyStart(journeyNow, kithLite.metrics.averageWarmth);
+    }
+    const scenario = buildScenario(chapter, flags, base, carry, journey);
+    if (chapter.activity === 'hero') {
+      // Kith from the end of Part 1 runs silently on its own worker while the player is away.
+      kithStart = carry ?? null;
+      journeyNow = null;
+      kith ??= createSimHost(spawnWorker);
+      kith.post({
+        t: 'init',
+        seed: SEED,
+        tuning: tuningJson,
+        scenario: kithScenario(chapter, homecoming, base, kithStart),
+      });
+      kithAt(kith.rewind(0));
+    }
     season = scenario.season;
     // A year that starts again at this chapter (Begin after an earlier year this visit) forgets
     // what the earlier year logged from here on, so the myth tells only the year it ends.
@@ -455,7 +558,8 @@ const game: GameService = {
       scenario,
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
     });
-    if (!resumed) {
+    // A valley's save needs the journey, which save version 3 (M3.15) keeps.
+    if (!resumed && !chapter.valley) {
       // The autosave at the chapter start: the world now, Ink before the chapter plays, the year
       // log of the chapters before it, and the carry it started from.
       const inkState = ink.state();
@@ -476,19 +580,50 @@ const game: GameService = {
         () => undefined, // the worker gave up; the chapter plays without this save
       );
     }
-    const runner = createChapterRunner(
+    const made = createChapterRunner(
       port,
       ink,
       chapter,
       flags,
-      carry && carriedDiaries(carry, scenarioJson as Scenario),
-      receivedDials(carry, scenarioJson as Scenario),
+      carry && carriedDiaries(carry, base),
+      receivedDials(carry, base),
     );
+    // A skipped valley adds nothing to the journey but its Kith days (ADR 0013 item 9).
+    let skipped = false;
+    const runner: ChapterRunner = {
+      ...made,
+      skip: () => {
+        skipped = true;
+        return made.skip();
+      },
+    };
     lastRunner = runner;
     const keep = (): void => {
       yearLog.push({ chapterId: chapter.id, log: runner.log });
     };
     runner.done.then(keep, keep);
+    const ignore = (): void => undefined; // a failed chapter ends the game on its own
+    if (chapter.activity === 'hero') {
+      // The bridge's result makes the journey; a skip gives the first hero (ADR 0013 item 11).
+      void runner.done.then(() => {
+        const chosen = runner.log.flatMap((e) => (e.kind === 'activity' ? [e.result] : []));
+        const hero = parseHero(chosen[0] ?? FIRST_HERO);
+        journeyNow = newJourney(hero.kind, hero.name, kithStart, keptPage?.year ?? null);
+      }, ignore);
+    }
+    const leg = (KITH_VALLEYS as readonly string[]).indexOf(chapter.id);
+    if (chapter.valley) {
+      void runner.done.then(() => {
+        const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
+        if (!skipped && journeyNow && lastLite)
+          journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
+        if (leg < 0 || !kith) return;
+        // Kith's leg: the postcard's nudge, when one was sent, then the leg's days at once.
+        const { commands, ticks } = kithLeg(leg, skipped ? null : (sent[0] ?? null), homecoming);
+        if (commands.length > 0) kith.send(commands);
+        kithAt(kith.fastForward(ticks));
+      }, ignore);
+    }
     return runner;
   },
   peek(dials) {
@@ -506,8 +641,19 @@ const game: GameService = {
     return (await profileReady).pages();
   },
   async keepMyth(page) {
-    await (await profileReady).keepMyth(page, SEED);
+    keptPage = await (await profileReady).keepMyth(page, SEED);
     // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
+    await (await slotsReady).keepYear();
+  },
+  journey: () => journeyNow,
+  sixthVerse(flags) {
+    if (!journeyNow) throw new Error('The sixth verse needs a journey');
+    const { name } = journeyNow.hero;
+    // Told by the year's narrator, as it joins the year's page; Pim, the guide home, without a page.
+    return tellSixth(sixthFeatures(journeyNow, flags), sixth, name, keptPage?.narrator ?? 'pim', displayName);
+  },
+  async finishJourney() {
+    // M3.15 adds the verse to the year's page here (Profile.addVerse with journey.bookYear).
     await (await slotsReady).keepYear();
   },
   async feathers() {

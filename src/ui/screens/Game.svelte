@@ -10,6 +10,7 @@
   import type { BidReply } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
+  import { FIRST_HERO, parseHero } from '../../story/journey.ts';
   import { displayName } from '../../story/names.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
   import { unlockingVerb, VERBS, WORLD_VERBS } from '../../story/verbs.ts';
@@ -119,6 +120,10 @@
   let ghost: Verb | null = $state(null);
   let speedNow = $state(0);
   let ended: 'done' | 'failed' | null = $state(null);
+  /** The sixth verse at the journey's end. */
+  let verse: ReturnType<GameService['sixthVerse']> | null = $state.raw(null);
+  /** Counts begins: a start that waits (a valley waits for Kith) plays only if no newer one came. */
+  let starting = 0;
   /** The flags the chapter started with, and the fire's myth once its first snapshot is in. */
   let flagsNow: Flags | null = null;
   let myth: MythPage | null = $state.raw(null);
@@ -160,7 +165,7 @@
   /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
   let hasBook = $state(false);
   let speedBeforeBook = 0;
-  /** The finished year's myth on its way into the book. */
+  /** The finished year's myth, or the journey's verse, on its way into the book. */
   let keptMyth: Promise<void> = Promise.resolve();
   /** Back to the title once the year's page is kept, so the title reads the saves after it. */
   function exit(): void {
@@ -381,9 +386,21 @@
     untrack(visit);
   });
 
-  function begin(i: number, flags: Flags): void {
+  async function begin(i: number, flags: Flags): Promise<void> {
     const chapter = game.chapters[i];
     if (!chapter || !stage) return;
+    const token = (starting += 1);
+    // A valley's start waits for Kith. Meanwhile there is no runner, so verbs send nothing, the last
+    // world's snapshots are not drawn, and the heading changes only once Skip reaches the new runner.
+    runner = null;
+    let r: ChapterRunner;
+    try {
+      r = await game.startChapter(chapter, flags);
+    } catch {
+      if (token === starting) finish('failed');
+      return;
+    }
+    if (token !== starting) return;
     index = i;
     bet = null;
     betRunning = false;
@@ -410,7 +427,8 @@
       revealTimer = setTimeout(() => (lines = lines.filter((l) => l.id !== answer.id)), REVEAL_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
     // The host drops every message from the last chapter's worker once startChapter posts init
-    // (host.ts connect), and nothing runs between here and that post, so no old world comes back.
+    // (host.ts connect), and only a microtask passes between that post and here, so no old world
+    // comes back.
     live = null;
     flagsNow = flags;
     myth = null;
@@ -430,7 +448,6 @@
       if (document.activeElement === document.body) sceneEl.focus();
     });
 
-    const r = game.startChapter(chapter, flags);
     runner = r;
     r.onPrompt(onPrompt);
     r.onCamera((shot) => stage?.setShot(shot));
@@ -447,8 +464,15 @@
     r.done.then(
       (out) => {
         if (runner !== r) return;
-        if (i + 1 < game.chapters.length) begin(i + 1, out);
-        else finish('done');
+        if (i + 1 >= game.chapters.length) finish('done', out);
+        else if (chapter.activity === 'fire') {
+          // The year's page is kept before play goes on into the bridge, so the bridge's
+          // autosave comes after the year is marked kept.
+          keepPage();
+          void keptMyth.then(() => {
+            if (runner === r) void begin(i + 1, out);
+          });
+        } else void begin(i + 1, out);
       },
       () => {
         if (runner === r) finish('failed');
@@ -456,10 +480,18 @@
     );
   }
 
-  function finish(how: 'done' | 'failed'): void {
-    // The finished year's myth becomes the next page of the Book of Skies (spec 10.6 item 7).
-    const page = how === 'done' ? (myth ?? (flagsNow ? game.myth(flagsNow) : null)) : null;
+  /** The fire's myth becomes the next page of the Book of Skies (spec 10.6 item 7). */
+  function keepPage(): void {
+    const page = myth ?? (flagsNow ? game.myth(flagsNow) : null);
     if (page) keptMyth = game.keepMyth(page).then(loadHasBook);
+  }
+
+  /** At the journey's end, `flags` are the homecoming's, which the sixth verse reads. */
+  function finish(how: 'done' | 'failed', flags: Flags | null = null): void {
+    if (how === 'done' && flags && game.journey()) {
+      verse = game.sixthVerse(flags);
+      keptMyth = game.finishJourney(verse).then(loadHasBook);
+    }
     endVisit();
     runner = null;
     setSpeed(0);
@@ -587,6 +619,7 @@
     });
     offs.push(
       game.onSnapshot((lite, at) => {
+        if (!runner) return;
         stage?.snapshot(at, lite);
         if (stage) timeline = stage.timeline();
         live = lite;
@@ -659,14 +692,15 @@
       // Continue starts the saved chapter over from its start; no save means a new game.
       const saved = untrack(() => resume) ? await game.resume() : null;
       if (isGone()) return;
-      if (saved) begin(saved.index, saved.flags);
-      else begin(game.firstChapter, game.defaultFlags);
+      if (saved) void begin(saved.index, saved.flags);
+      else void begin(game.firstChapter, game.defaultFlags);
       sceneEl.focus();
       if (!hidden) raf = requestAnimationFrame(frame);
     });
 
     return () => {
       gone = true;
+      starting += 1;
       runner = null;
       if (raf !== null) cancelAnimationFrame(raf);
       clearTimeout(ghostTimer);
@@ -714,14 +748,17 @@
     {#if ended}
       <main class="end">
         <h1 id="end-title" tabindex="-1">
-          {ended === 'done' ? 'End of Part 1' : 'This chapter stopped'}
+          {ended === 'done' ? 'The End' : 'This chapter stopped'}
         </h1>
         {#if ended === 'done'}
-          <p>
-            [PLACEHOLDER] The year in Kith is done. Its sky story is a page in the Book of Skies now, and Part
-            2 is still to come.
-          </p>
-          <!-- The whole story stays in the book, so the last verse can be read after the fire. -->
+          {#if verse}
+            <h2>{verse.title}</h2>
+            <p>{verse.text}</p>
+            {#if verse.note}
+              <p class="note">{verse.note}</p>
+            {/if}
+          {/if}
+          <!-- The whole story stays in the book, so every verse can be read after the end. -->
           <div class="end-actions">
             <button
               type="button"
@@ -805,6 +842,16 @@
                       <Bubbles lite={live} finish={finishActivity} />
                     {:else if chapter.activity === 'postcard'}
                       <Postcard finish={finishActivity} />
+                    {:else if chapter.activity === 'hero'}
+                      <!-- A stand-in for the hero choice (M3.13): the first hero, with its own name. -->
+                      <section aria-label="Choose your hero">
+                        <button
+                          type="button"
+                          onclick={() => {
+                            finishActivity(FIRST_HERO);
+                          }}>Wake as {parseHero(FIRST_HERO).name}</button
+                        >
+                      </section>
                     {:else}
                       <Stillness
                         finish={finishActivity}
@@ -984,6 +1031,10 @@
     padding: 2rem 1rem;
     overflow-y: auto;
     background: var(--bg);
+  }
+  .end .note {
+    font-style: italic;
+    color: var(--muted);
   }
   .end-actions {
     display: flex;

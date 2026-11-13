@@ -11,6 +11,7 @@ import {
   heroResult,
   journeyStart,
   kithDays,
+  kithLeg,
   leaveValley,
   newJourney,
   parseHero,
@@ -233,6 +234,15 @@ describe('the journey between valleys', () => {
   test('kithDays gives 7, 7, 6, summing to 20', () => {
     expect([0, 1, 2].map(kithDays)).toEqual([7, 7, 6]);
     expect(() => kithDays(3)).toThrow();
+  });
+
+  test("kithLeg nudges by the sent postcard's dial, nothing after a skip, then runs the leg's days", () => {
+    const home = { dayLengthSeconds: 40 }; // 400 ticks a day
+    expect(kithLeg(0, 'patience', home)).toEqual({
+      commands: [{ t: 'nudge', dial: 'forgiveness', amount: 0.1 }],
+      ticks: 7 * 400,
+    });
+    expect(kithLeg(2, null, home)).toEqual({ commands: [], ticks: 6 * 400 });
   });
 
   test('parseHero keeps a name with a colon and gives the hero name for an empty one', () => {

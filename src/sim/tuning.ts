@@ -105,6 +105,18 @@ export const TuningSchema = obj({
    */
   bank: obj({ side: pos, below: pos }),
   lantern: obj({ radius: pos, fogFactor: prob }),
+  /** The six hero knacks (ADR 0013 item 3); bellRadius is the Bellchime's reach in scene units. */
+  knack: obj({
+    lanternFog: prob,
+    kiteSpeed: pos,
+    mossMemory: pos,
+    glassWarmth: pos,
+    seedCost: count,
+    seedBerries: count,
+    seedDays: count,
+    seedWarmth: signed,
+    bellRadius: pos,
+  }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

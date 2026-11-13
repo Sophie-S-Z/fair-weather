@@ -98,6 +98,17 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.bridge).toEqual({ radius: 32, landing: 14 });
   expect(t.bank).toEqual({ side: 53, below: 123 });
   expect(t.lantern).toEqual({ radius: 120, fogFactor: 0.5 });
+  expect(t.knack).toEqual({
+    lanternFog: 0.5,
+    kiteSpeed: 1.5,
+    mossMemory: 2,
+    glassWarmth: 1.5,
+    seedCost: 1,
+    seedBerries: 3,
+    seedDays: 2,
+    seedWarmth: 0.1,
+    bellRadius: 72,
+  });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

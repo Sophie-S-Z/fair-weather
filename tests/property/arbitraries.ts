@@ -133,6 +133,7 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
       reply: fc.constantFrom('toward' as const, 'away' as const, 'against' as const),
       gift: fc.constantFrom('give' as const, 'keep' as const),
     }),
+    fc.record({ t: fc.constant('plant' as const) }),
   );
 }
 

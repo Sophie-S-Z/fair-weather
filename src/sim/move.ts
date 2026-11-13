@@ -1,11 +1,11 @@
 // Steering, goal choice, foraging, dew drops, and visit counts (ADR 0005, ADR 0004 item 2,
-// ADR 0003 item 9, ADR 0012 item 5, ADR 0013 item 1).
+// ADR 0003 item 9, ADR 0012 item 5, ADR 0013 items 1 and 3).
 // Velocity is in world units per second; position advances by velocity / stepsPerSecond per tick.
 import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { aimHero, isHero, stopHero } from './hero.ts';
+import { aimHero, isHero, stopHero, takeFromGift, topSpeed } from './hero.ts';
 import { inRect, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
@@ -116,6 +116,7 @@ function forage(c: Creature, world: World, tuning: Tuning): void {
   best.berries -= 1;
   c.berries += 1;
   c.forageReadyTick = world.tick + tuning.forage.cooldownTicks;
+  takeFromGift(world, best, c, tuning);
 }
 
 /** True when the mushroom has a drop left today and `c` has not taken one today. */
@@ -175,7 +176,7 @@ function turnFromWater(c: Creature, water: Rect, land: Land, world: World, tunin
 
 function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng): void {
   const sps = tuning.sim.stepsPerSecond;
-  const maxSpeed = tuning.move.speed;
+  const maxSpeed = topSpeed(world, c, tuning);
   const maxDv = tuning.move.accel / sps;
   const gx = c.goalX - c.x;
   const gy = c.goalY - c.y;

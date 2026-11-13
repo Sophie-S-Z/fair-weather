@@ -78,5 +78,16 @@
   "bet": { "revealSpeed": 8 },
   "bridge": { "radius": 32, "landing": 14 },
   "bank": { "side": 53, "below": 123 },
-  "lantern": { "radius": 120, "fogFactor": 0.5 }
+  "lantern": { "radius": 120, "fogFactor": 0.5 },
+  "knack": {
+    "lanternFog": 0.5,
+    "kiteSpeed": 1.5,
+    "mossMemory": 2,
+    "glassWarmth": 1.5,
+    "seedCost": 1,
+    "seedBerries": 3,
+    "seedDays": 2,
+    "seedWarmth": 0.1,
+    "bellRadius": 72
+  }
 }

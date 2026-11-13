@@ -1,4 +1,5 @@
-// Population at dusk: leave, newcomer, bush regrowth, and return (spec 9.4, ADR 0004 items 4, 5, 7).
+// Population at dusk: leave, newcomer, bush regrowth, and return (spec 9.4, ADR 0004 items 4, 5, 7;
+// gift bushes per ADR 0013 item 3).
 import type { SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
@@ -56,10 +57,17 @@ export const newcomer: DailyRule = (world, t) => {
   return [{ t: 'arrive', who: c.id }];
 };
 
-/** Logistic regrowth plus a base, clamped to [0, bush.limit] (ADR 0004 item 4). No draws. */
+/**
+ * Logistic regrowth plus a base, clamped to [0, bush.limit] (ADR 0004 item 4). A gift bush never
+ * regrows: it holds knack.seedBerries from the dusk of its readyDay (ADR 0013 item 3). No draws.
+ */
 export const regrowBushes: DailyRule = (world, t) => {
   const { growth, limit, base } = t.bush;
   for (const b of world.bushes) {
+    if (b.gift) {
+      if (b.gift.readyDay === world.day) b.berries = t.knack.seedBerries;
+      continue;
+    }
     b.berries = clamp(b.berries + growth * b.berries * (1 - b.berries / limit) + base, 0, limit);
   }
   return [];

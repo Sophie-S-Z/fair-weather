@@ -85,6 +85,11 @@ export interface Bush {
   x: number;
   y: number;
   berries: number;
+  /**
+   * A Seedcarrier's gift (ADR 0013 item 3): planted by `from`, it fills at the dusk of `readyDay`
+   * and never regrows; `found` lists the creatures that have taken a berry from it, in order.
+   */
+  gift?: { from: string; readyDay: number; found: string[] };
 }
 /** An axis-aligned rectangle, edges included. */
 export interface Rect {
@@ -187,7 +192,8 @@ export type Command =
   | { t: 'dance'; who: string }
   | { t: 'walk'; x: number; y: number }
   | { t: 'walk'; to: string }
-  | { t: 'manner'; reply: BidReply; gift: GiftMove };
+  | { t: 'manner'; reply: BidReply; gift: GiftMove }
+  | { t: 'plant' };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }

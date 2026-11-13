@@ -59,6 +59,7 @@ const CommandSchema = z.union([
     z.strictObject({ t: z.literal('overPoke') }),
     z.strictObject({ t: z.literal('dance'), who: str }),
     z.strictObject({ t: z.literal('manner'), reply, gift: z.enum(['give', 'keep']) }),
+    z.strictObject({ t: z.literal('plant') }),
   ]),
 ]) satisfies z.ZodType<Command>;
 

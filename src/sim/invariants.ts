@@ -31,8 +31,9 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
  * the scene; no creature, unless away, in water off a bridge deck; population <= cap.sandbox;
  * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops]; with
- * `world.hero`, a hero creature that waves at no one or at another creature. The hero is a creature,
- * so every creature limit holds for it too.
+ * `world.hero`, a hero creature that waves at no one or at another creature; a gift bush with at
+ * most knack.seedBerries and no finder twice (ADR 0013 item 3). The hero is a creature, so every
+ * creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -66,7 +67,12 @@ export function checkInvariants(world: World, t: Tuning): string[] {
       if (!inRange(v, -1, 1)) out.push(`${c.id}.opinions.${about} ${String(v)}`);
     }
   }
-  for (const b of world.bushes) if (!(b.berries >= 0)) out.push(`${b.id}.berries ${String(b.berries)} < 0`);
+  for (const b of world.bushes) {
+    if (!(b.berries >= 0)) out.push(`${b.id}.berries ${String(b.berries)} < 0`);
+    if (!b.gift) continue;
+    if (b.berries > t.knack.seedBerries) out.push(`gift ${b.id} holds ${String(b.berries)} berries`);
+    if (new Set(b.gift.found).size !== b.gift.found.length) out.push(`gift ${b.id} has a finder twice`);
+  }
   for (const [key, tie] of world.ties) {
     if (key !== tieKey(tie.a, tie.b)) out.push(`tie ${key} holds ${tie.a} and ${tie.b}`);
     if (!inRange(tie.ab.warmth, -1, 1)) out.push(`tie ${key} ab.warmth ${String(tie.ab.warmth)}`);

@@ -105,10 +105,11 @@ test('lite carries the Fen flock: who flies, the hero while it has joined, and e
     hero,
     pack: { id: 'fen', restless: [second.id], fixed: {} },
   });
-  w.pack!.heroFlying = true;
+  if (w.pack?.id === 'fen') w.pack.heroFlying = true;
   const lite = toLite(w, t);
   expect(lite.pack).toEqual({ id: 'fen', flying: [second.id, 'hero'], perceived: perceivedShares(w, t) });
-  expect(Object.keys(lite.pack!.perceived)).toEqual(birds.map((c) => c.id));
+  expect(Object.keys(lite.pack?.id === 'fen' ? lite.pack.perceived : {})).toEqual(birds.map((c) => c.id));
   get(w, second.id).state = 'away';
-  expect(toLite(w, t).pack!.flying).toEqual(['hero']);
+  const later = toLite(w, t).pack;
+  expect(later?.id === 'fen' && later.flying).toEqual(['hero']);
 });

@@ -12,7 +12,7 @@ export type HeroKind = (typeof HERO_KINDS)[number];
 /** The hero's creature id (ADR 0013 item 1). */
 export const HERO = 'hero';
 /** The valleys' rule packs (ADR 0013 item 4); each pack task adds its id. */
-export type PackId = 'fen';
+export type PackId = 'fen' | 'hollow';
 /** The player's local verb, passed to the world's rule pack (ADR 0013 item 4). */
 export type LocalVerb =
   { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string };
@@ -27,7 +27,19 @@ export interface FenState {
   restless: string[];
   heroFlying: boolean;
 }
-export type PackState = FenState;
+/**
+ * Hearsay Hollow's town (ADR 0013 item 6): the drama sky, one drama entry per subject (its total
+ * score, the spot and day of its newest drama, and whether that drama came from a meeting with the
+ * hero or a `pose`), each creature's fame, and the subject of the last print, or null.
+ */
+export interface HollowState {
+  id: 'hollow';
+  sky: { x: number; y: number };
+  drama: { subject: string; x: number; y: number; score: number; day: number; hero: boolean }[];
+  fame: Record<string, number>;
+  front: string | null;
+}
+export type PackState = FenState | HollowState;
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -225,7 +237,8 @@ export type SimEvent =
   | { t: 'wake'; who: string }
   | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
   | { t: 'dance'; who: string }
-  | { t: 'mushroom'; taken: number; drops: number };
+  | { t: 'mushroom'; taken: number; drops: number }
+  | { t: 'print'; subject: string; fame: number }; // the Hollow's gazette, with the fame after the dusk fade
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -268,8 +281,9 @@ export interface Scenario {
     rumor: { value: number; strength: number } | null;
   };
   /**
-   * The valley's rule pack (ADR 0013 items 4 and 5). Murmuration Fen: the `restless` starlings fly
+   * The valley's rule pack (ADR 0013 items 4 to 6). Murmuration Fen: the `restless` starlings fly
    * from the start and never land, and `fixed` holds the thresholds that take no draw (Tove's 0.5).
+   * Hearsay Hollow takes nothing more.
    */
-  pack?: { id: 'fen'; restless: string[]; fixed: Record<string, number> };
+  pack?: { id: 'fen'; restless: string[]; fixed: Record<string, number> } | { id: 'hollow' };
 }

@@ -123,6 +123,12 @@ export const TuningSchema = obj({
    * starling's `neighbors` nearest, with thresholds `duskLift` lower from `duskAt` of the day.
    */
   fen: obj({ everyTicks: count, duskAt: prob, duskLift: prob, neighbors: count }),
+  /**
+   * Hearsay Hollow (ADR 0013 item 6): the drama sky moves `skySpeed` scene units a second; a print
+   * adds `fameStep` to its subject's fame, every fame then falls by `fameFade` of itself, and a
+   * creature with fame above `fearAt` meets no local.
+   */
+  hollow: obj({ skySpeed: pos, fameStep: pos, fameFade: prob, fearAt: pos }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

@@ -111,6 +111,7 @@ test('defaults equal the handoff and ADR values', () => {
     bellRadius: 72,
   });
   expect(t.fen).toEqual({ everyTicks: 10, duskAt: 0.75, duskLift: 0.15, neighbors: 7 });
+  expect(t.hollow).toEqual({ skySpeed: 120, fameStep: 0.2, fameFade: 0.1, fearAt: 0.5 });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

@@ -34,8 +34,9 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * `world.hero`, a hero creature that waves at no one or at another creature; a gift bush with at
  * most knack.seedBerries and no finder twice (ADR 0013 item 3); with a Fen (ADR 0013 item 5),
  * thresholds in [0, 1], each flier and restless starling one with a threshold, no flier twice, every
- * restless starling in flight, and a hero in flight only in a world with a hero. The hero is a
- * creature, so every creature limit holds for it too.
+ * restless starling in flight, and a hero in flight only in a world with a hero; with a Hollow
+ * (ADR 0013 item 6), the lens at the sky, every fame and drama score at least 0, and no drama
+ * subject twice. The hero is a creature, so every creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -83,7 +84,7 @@ export function checkInvariants(world: World, t: Tuning): string[] {
   if (world.hero && !ids.has(HERO)) out.push('world.hero is set without a hero creature');
   if (world.hero?.waveTo === HERO) out.push('the hero waves at itself');
   const fen = world.pack;
-  if (fen) {
+  if (fen?.id === 'fen') {
     for (const [id, v] of Object.entries(fen.thresholds)) {
       if (!inRange(v, 0, 1)) out.push(`fen threshold ${id} ${String(v)}`);
     }
@@ -93,6 +94,15 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (new Set(fen.flying).size !== fen.flying.length) out.push('a starling flies twice');
     if (!fen.restless.every((id) => fen.flying.includes(id))) out.push('a restless starling landed');
     if (fen.heroFlying && !world.hero) out.push('the hero flies in a world without a hero');
+  }
+  const hollow = world.pack;
+  if (hollow?.id === 'hollow') {
+    const light = world.fields.light;
+    if (light?.x !== hollow.sky.x || light.y !== hollow.sky.y) out.push('the lens is off the drama sky');
+    for (const [id, v] of Object.entries(hollow.fame)) if (!(v >= 0)) out.push(`fame ${id} ${String(v)}`);
+    for (const d of hollow.drama) if (!(d.score >= 0)) out.push(`drama ${d.subject} ${String(d.score)}`);
+    const subjects = hollow.drama.map((d) => d.subject);
+    if (new Set(subjects).size !== subjects.length) out.push('a drama subject twice');
   }
   const m = world.mushroom;
   if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);

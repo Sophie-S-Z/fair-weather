@@ -17,7 +17,7 @@ export const TOVE = 'tove';
  */
 export function flies(world: World, c: Creature): boolean {
   const fen = world.pack;
-  if (!fen) return false;
+  if (fen?.id !== 'fen') return false;
   if (world.hero !== undefined && c.id === HERO) return fen.heroFlying;
   // A creature with no threshold (a late arrival) never flies, though it still counts as a neighbor.
   return fen.thresholds[c.id] !== undefined && fen.flying.includes(c.id);
@@ -50,7 +50,7 @@ function flyingShare(world: World, near: Creature[]): number {
  */
 export function perceivedShares(world: World, t: Tuning): Record<string, number> {
   const fen = world.pack;
-  if (!fen) return {};
+  if (fen?.id !== 'fen') return {};
   const lists = starlings(world, fen).map((c) => ({ c, near: neighbors(world, c, t) }));
   const degree = new Map<string, number>();
   for (const { near } of lists) for (const o of near) degree.set(o.id, (degree.get(o.id) ?? 0) + 1);
@@ -77,7 +77,7 @@ export const fen: RulePack = {
    */
   setup(world: World, t: Tuning, rng: Rng): void {
     const state = world.pack;
-    if (!state) return;
+    if (state?.id !== 'fen') return;
     const thresholds: Record<string, number> = {};
     for (const c of world.creatures) {
       if (c.speciesId !== 'starling') continue;
@@ -97,7 +97,7 @@ export const fen: RulePack = {
    */
   step(world: World, events, t: Tuning) {
     const state = world.pack;
-    if (!state) return [];
+    if (state?.id !== 'fen') return [];
     const dayTick = world.tick % world.ticksPerDay;
     if (dayTick === 0) state.flying = state.flying.filter((id) => state.restless.includes(id));
     if (world.tick % t.fen.everyTicks !== 0) return [];
@@ -114,7 +114,7 @@ export const fen: RulePack = {
 
   /** `join` sets the hero flying or grounded; `pose` and `keepsake` do nothing here. No draws. */
   onVerb(world: World, verb) {
-    if (verb.verb === 'join' && world.pack && world.hero && typeof verb.on === 'boolean') {
+    if (verb.verb === 'join' && world.pack?.id === 'fen' && world.hero && typeof verb.on === 'boolean') {
       world.pack.heroFlying = verb.on;
     }
     return [];
@@ -123,7 +123,7 @@ export const fen: RulePack = {
   /** The share of starlings in flight, and Tove's perceived share; 0 for each when there is none. */
   metrics(world: World, t: Tuning) {
     const state = world.pack;
-    const birds = state ? starlings(world, state) : [];
+    const birds = state?.id === 'fen' ? starlings(world, state) : [];
     return {
       flyingShare: flyingShare(world, birds),
       tovePerceived: perceivedShares(world, t)[TOVE] ?? 0,

@@ -28,6 +28,7 @@ const EVENT_KIND_SET: Record<SimEvent['t'], true> = {
   lit: true,
   dance: true,
   mushroom: true,
+  print: true,
 };
 const EVENT_KINDS = Object.keys(EVENT_KIND_SET) as [SimEvent['t'], ...SimEvent['t'][]];
 // The same for seasons and creature states (story may not import sim values, so a Record here).

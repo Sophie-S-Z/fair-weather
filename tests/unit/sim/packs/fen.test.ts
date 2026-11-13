@@ -48,7 +48,9 @@ function fenWorld(
 }
 
 function fen(w: World): FenState {
-  return w.pack!;
+  const p = w.pack!;
+  if (p.id !== 'fen') throw new Error('not a Fen');
+  return p;
 }
 
 /** Runs the Fen's own step at `tick`, with no draws. */
@@ -271,8 +273,8 @@ test('a flying creature meets no one', () => {
     { restless: ['a'] },
     { hero },
   );
-  expect(canMeet(w, get(w, 'a'), get(w, 'b'))).toBe(false);
-  expect(canMeet(w, get(w, 'c'), get(w, 'd'))).toBe(true);
+  expect(canMeet(w, get(w, 'a'), get(w, 'b'), t)).toBe(false);
+  expect(canMeet(w, get(w, 'c'), get(w, 'd'), t)).toBe(true);
   const meetings = () =>
     findMeetings(w, createGrid(t.scene.width, t.scene.height, t.meet.radius), t).map(
       ([x, y]) => `${x.id}|${y.id}`,
@@ -293,7 +295,7 @@ test('a world without a pack takes no pack draw (golden hash unchanged)', () => 
   expect(applyCommand(plain, { t: 'local', verb: { verb: 'join', on: true } }, t, scriptedRng([]))).toEqual(
     [],
   );
-  expect(canMeet(plain, get(plain, 'a'), get(plain, 'b'))).toBe(true);
+  expect(canMeet(plain, get(plain, 'a'), get(plain, 'b'), t)).toBe(true);
   expect(giftCost(plain, t)).toBe(t.gift.cost);
   expect(giftWarmth(plain, t)).toBe(t.warmth.giftReceived);
   expect(hashWorld(runGolden())).toBe(golden.hash);

@@ -51,11 +51,15 @@ export interface WorldLite {
     opinions: Record<string, number>;
   } | null;
   /**
-   * The valley's rule pack (ADR 0013 items 4 and 5), or null without one. Murmuration Fen: the
+   * The valley's rule pack (ADR 0013 items 4 to 6), or null without one. Murmuration Fen: the
    * creatures in flight, the hero among them while it has joined, in creature order, and each
-   * starling's perceived share (the reflection, ADR 0007).
+   * starling's perceived share (the reflection, ADR 0007). Hearsay Hollow: each creature's fame,
+   * and `front`, the last print's subject, or null.
    */
-  pack: { id: 'fen'; flying: string[]; perceived: Record<string, number> } | null;
+  pack:
+    | { id: 'fen'; flying: string[]; perceived: Record<string, number> }
+    | { id: 'hollow'; fame: Record<string, number>; front: string | null }
+    | null;
   /** The light lens. */
   light: { x: number; y: number } | null;
   /** The fog the sim uses in each cell: the cell's fog, lessened at a cell center near a lantern. */

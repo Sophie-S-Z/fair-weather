@@ -6,6 +6,7 @@ import type { Creature, LocalVerb, PackId, PackState, SimEvent, World } from '..
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { fen, flies } from './fen.ts';
+import { hollow, keepsDistance } from './hollow.ts';
 
 export type { LocalVerb } from '../types.ts';
 
@@ -22,19 +23,22 @@ export interface RulePack<S extends PackState = PackState> {
   metrics(world: World, t: Tuning): Record<string, number>;
 }
 
-export const PACKS: Record<PackId, RulePack> = { fen };
+export const PACKS: Record<PackId, RulePack> = { fen, hollow };
 
-/** Whether `a` and `b` may meet: in Murmuration Fen a flying creature meets no one (ADR 0013 item 5). */
-export function canMeet(world: World, a: Creature, b: Creature): boolean {
-  return !flies(world, a) && !flies(world, b);
+/**
+ * Whether `a` and `b` may meet: in Murmuration Fen a flying creature meets no one (ADR 0013 item 5),
+ * and in Hearsay Hollow a creature with fame above hollow.fearAt meets no local (item 6).
+ */
+export function canMeet(world: World, a: Creature, b: Creature, t: Tuning): boolean {
+  return !flies(world, a) && !flies(world, b) && !keepsDistance(world, a, b, t);
 }
 
-/** What a gift costs the giver: gift.cost in the Fen and without a pack. */
+/** What a gift costs the giver: gift.cost in the Fen, the Hollow, and without a pack. */
 export function giftCost(world: World, t: Tuning): number {
   return t.gift.cost;
 }
 
-/** The warmth a received gift is worth: warmth.giftReceived in the Fen and without a pack. */
+/** The warmth a received gift is worth: warmth.giftReceived in the Fen, the Hollow, and without a pack. */
 export function giftWarmth(world: World, t: Tuning): number {
   return t.warmth.giftReceived;
 }

@@ -158,6 +158,6 @@ export function bellReach(world: World, bidder: Creature, partner: Creature, t: 
       c !== partner &&
       c.state === 'wander' &&
       dist2(c.x, c.y, bidder.x, bidder.y) <= r2 &&
-      canMeet(world, bidder, c),
+      canMeet(world, bidder, c, t),
   );
 }

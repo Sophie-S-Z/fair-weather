@@ -127,6 +127,8 @@ function actor(e: SimEvent): string | undefined {
       return e.from;
     case 'opinion':
       return e.holder;
+    case 'print':
+      return e.subject;
     case 'lit':
     case 'mushroom':
       return undefined;

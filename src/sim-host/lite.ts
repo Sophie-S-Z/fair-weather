@@ -51,9 +51,10 @@ function heroLite(w: World): WorldLite['hero'] {
   return { kind, name: hero.name, reply, gift, keepsakes: [...keepsakes], opinions };
 }
 
-/** The Fen's flock as the snapshot shows it (ADR 0013 item 5); null without a pack. */
+/** The Fen's flock or the Hollow's fame as the snapshot shows it (ADR 0013 items 5 and 6); null without a pack. */
 function packLite(w: World, tuning: Tuning): WorldLite['pack'] {
   if (!w.pack) return null;
+  if (w.pack.id === 'hollow') return { id: 'hollow', fame: { ...w.pack.fame }, front: w.pack.front };
   const flying = w.creatures.filter((c) => c.state !== 'away' && flies(w, c)).map((c) => c.id);
   return { id: 'fen', flying, perceived: perceivedShares(w, tuning) };
 }

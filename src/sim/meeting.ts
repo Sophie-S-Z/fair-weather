@@ -67,7 +67,7 @@ export function findMeetings(world: World, grid: Grid, t: Tuning): [Creature, Cr
     if (c.state !== 'wander') return;
     for (const j of grid.query(c.x, c.y, t.meet.radius, near)) {
       const o = cs[j];
-      if (j <= i || !o || o.state !== 'wander' || metToday(world, c, o) || !canMeet(world, c, o)) continue;
+      if (j <= i || !o || o.state !== 'wander' || metToday(world, c, o) || !canMeet(world, c, o, t)) continue;
       const [lo, hi] = c.id < o.id ? [c, o] : [o, c];
       found.push({ key: tieKey(c.id, o.id), lo, hi });
     }

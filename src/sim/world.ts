@@ -1,4 +1,4 @@
-// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4, and 8).
+// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4 to 6, and 8).
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
@@ -128,15 +128,18 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   if (scenario.friendsForgive) world.friendsForgive = true;
   if (scenario.pack) {
     // The pack's setup draws from the world's PRNG, so a scenario without `pack` takes no draw
-    // (ADR 0013 item 4).
-    const { restless, fixed } = scenario.pack;
-    world.pack = {
-      id: 'fen',
-      thresholds: { ...fixed },
-      flying: [],
-      restless: [...restless],
-      heroFlying: false,
-    };
+    // (ADR 0013 item 4). The Hollow's drama sky starts at the scene center (item 6).
+    const p = scenario.pack;
+    world.pack =
+      p.id === 'fen'
+        ? { id: 'fen', thresholds: { ...p.fixed }, flying: [], restless: [...p.restless], heroFlying: false }
+        : {
+            id: 'hollow',
+            sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
+            drama: [],
+            fame: {},
+            front: null,
+          };
     const rng = createRng(world.rngState);
     PACKS[world.pack.id].setup(world, tuning, rng);
     world.rngState = rng.state();

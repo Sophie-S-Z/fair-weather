@@ -32,6 +32,7 @@ function lite(berries: Record<string, number>, averageWarmth = 0, friendPairs = 
     ties: [],
     rumor: null,
     hero: null,
+    pack: null,
   };
 }
 

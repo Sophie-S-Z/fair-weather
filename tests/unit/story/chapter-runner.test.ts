@@ -142,6 +142,7 @@ function lite(
     ties: [],
     rumor: null,
     hero: null,
+    pack: null,
   };
 }
 

@@ -26,6 +26,7 @@ test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', ()
     ties: [{ a: 'krit', b: 'pim', ab: -0.3, ba: 0.6 }],
     rumor: null,
     hero: null,
+    pack: null,
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: { averageWarmth: 0, friendPairs: 0 },

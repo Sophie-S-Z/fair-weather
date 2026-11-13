@@ -32,8 +32,10 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * the scene; no creature, unless away, in water off a bridge deck; population <= cap.sandbox;
  * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops]; with
  * `world.hero`, a hero creature that waves at no one or at another creature; a gift bush with at
- * most knack.seedBerries and no finder twice (ADR 0013 item 3). The hero is a creature, so every
- * creature limit holds for it too.
+ * most knack.seedBerries and no finder twice (ADR 0013 item 3); with a Fen (ADR 0013 item 5),
+ * thresholds in [0, 1], each flier and restless starling one with a threshold, no flier twice, every
+ * restless starling in flight, and a hero in flight only in a world with a hero. The hero is a
+ * creature, so every creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -80,6 +82,18 @@ export function checkInvariants(world: World, t: Tuning): string[] {
   }
   if (world.hero && !ids.has(HERO)) out.push('world.hero is set without a hero creature');
   if (world.hero?.waveTo === HERO) out.push('the hero waves at itself');
+  const fen = world.pack;
+  if (fen) {
+    for (const [id, v] of Object.entries(fen.thresholds)) {
+      if (!inRange(v, 0, 1)) out.push(`fen threshold ${id} ${String(v)}`);
+    }
+    for (const id of [...fen.flying, ...fen.restless]) {
+      if (fen.thresholds[id] === undefined) out.push(`fen ${id} has no threshold`);
+    }
+    if (new Set(fen.flying).size !== fen.flying.length) out.push('a starling flies twice');
+    if (!fen.restless.every((id) => fen.flying.includes(id))) out.push('a restless starling landed');
+    if (fen.heroFlying && !world.hero) out.push('the hero flies in a world without a hero');
+  }
   const m = world.mushroom;
   if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);
   world.fields.fog.forEach((f, i) => {

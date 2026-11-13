@@ -9,13 +9,14 @@ import { crossRidge } from './land.ts';
 import { lightSkyWarmth } from './light.ts';
 import { findMeetings, resolveMeeting } from './meeting.ts';
 import { moveCreatures } from './move.ts';
+import { PACKS } from './packs/index.ts';
 import { createRng } from './rng.ts';
 
 /**
  * Commands in list order, movement, crossing the ridge, meetings, the dance spread every
- * festival.everyTicks ticks while anyone dances, light sky warmth, gust expiry, dusk on the last
- * tick of the day, then `tick += 1`. All draws come from one PRNG resumed from
- * `world.rngState`.
+ * festival.everyTicks ticks while anyone dances, the rule pack's step (ADR 0013 item 4), light sky
+ * warmth, gust expiry, dusk on the last tick of the day, then `tick += 1`. All draws come from one
+ * PRNG resumed from `world.rngState`.
  */
 export function step(world: World, commands: readonly Command[], tuning: Tuning): SimEvent[] {
   const rng = createRng(world.rngState);
@@ -30,6 +31,7 @@ export function step(world: World, commands: readonly Command[], tuning: Tuning)
   if (world.tick % tuning.festival.everyTicks === 0 && world.creatures.some((c) => c.dancing)) {
     events.push(...spreadDance(world, tuning));
   }
+  if (world.pack) events.push(...PACKS[world.pack.id].step(world, events, tuning, rng));
   lightSkyWarmth(world, tuning);
   world.fields.gusts = world.fields.gusts.filter((g) => g.untilTick > world.tick);
   if (world.tick % world.ticksPerDay === world.ticksPerDay - 1) events.push(...runDusk(world, tuning, rng));

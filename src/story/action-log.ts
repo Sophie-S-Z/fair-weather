@@ -60,6 +60,14 @@ const CommandSchema = z.union([
     z.strictObject({ t: z.literal('dance'), who: str }),
     z.strictObject({ t: z.literal('manner'), reply, gift: z.enum(['give', 'keep']) }),
     z.strictObject({ t: z.literal('plant') }),
+    z.strictObject({
+      t: z.literal('local'),
+      verb: z.discriminatedUnion('verb', [
+        z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
+        z.strictObject({ verb: z.literal('pose') }),
+        z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
+      ]),
+    }),
   ]),
 ]) satisfies z.ZodType<Command>;
 

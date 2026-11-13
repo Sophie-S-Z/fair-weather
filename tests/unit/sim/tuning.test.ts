@@ -110,6 +110,7 @@ test('defaults equal the handoff and ADR values', () => {
     seedWarmth: 0.1,
     bellRadius: 72,
   });
+  expect(t.fen).toEqual({ everyTicks: 10, duskAt: 0.75, duskLift: 0.15, neighbors: 7 });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

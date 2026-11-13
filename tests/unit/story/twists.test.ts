@@ -18,6 +18,7 @@ const lite = (averageWarmth: number, friendPairs: number): WorldLite => ({
   ties: [],
   rumor: null,
   hero: null,
+  pack: null,
 });
 type LiteCreature = WorldLite['creatures'][number];
 const dials = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };

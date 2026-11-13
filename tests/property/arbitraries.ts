@@ -39,7 +39,8 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
 /**
  * 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. Sky
  * warmth runs past [-1, 1] and some scenario ties name an unknown id, to test the clamp and drop.
- * Half the scenarios have a hero.
+ * Half the scenarios have a hero. A third are in Murmuration Fen: some creatures are starlings,
+ * some of the ids (and an unknown one) are restless, and some have a fixed threshold.
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -73,12 +74,26 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
       { weight: 9, arbitrary: fc.constantFrom(...scenario.creatures.map((c) => c.id)) },
       { weight: 1, arbitrary: fc.constant('nobody') },
     );
+    const ids = [...scenario.creatures.map((c) => c.id), 'nobody'];
+    const fen = fc.record({
+      starlings: fc.subarray(ids),
+      restless: fc.subarray(ids),
+      fixed: fc.dictionary(fc.constantFrom(...ids), unit, { maxKeys: 3 }),
+    });
     return fc
       .record({
         ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
         hero: fc.option(heroArb, { freq: 2, nil: undefined }),
+        fen: fc.option(fen, { freq: 3, nil: undefined }),
       })
-      .map(({ ties, hero }): Scenario => (hero ? { ...scenario, ties, hero } : { ...scenario, ties }));
+      .map(({ ties, hero, fen }): Scenario => {
+        const out: Scenario = hero ? { ...scenario, ties, hero } : { ...scenario, ties };
+        if (!fen) return out;
+        const creatures = out.creatures.map((c) =>
+          fen.starlings.includes(c.id) ? { ...c, speciesId: 'starling' } : c,
+        );
+        return { ...out, creatures, pack: { id: 'fen', restless: fen.restless, fixed: fen.fixed } };
+      });
   });
 
 /** A coordinate-sized number, NaN 5% of the time. */
@@ -134,6 +149,14 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
       gift: fc.constantFrom('give' as const, 'keep' as const),
     }),
     fc.record({ t: fc.constant('plant' as const) }),
+    fc.record({
+      t: fc.constant('local' as const),
+      verb: fc.oneof(
+        fc.record({ verb: fc.constant('join' as const), on: fc.boolean() }),
+        fc.record({ verb: fc.constant('pose' as const) }),
+        fc.record({ verb: fc.constant('keepsake' as const), to: id, item: fc.constant('feather') }),
+      ),
+    }),
   );
 }
 

@@ -90,5 +90,6 @@
     "seedDays": 2,
     "seedWarmth": 0.1,
     "bellRadius": 72
-  }
+  },
+  "fen": { "everyTicks": 10, "duskAt": 0.75, "duskLift": 0.15, "neighbors": 7 }
 }

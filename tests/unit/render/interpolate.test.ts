@@ -32,6 +32,7 @@ const lite = (creatures: WorldLite['creatures']): WorldLite => ({
   ties: [],
   rumor: null,
   hero: null,
+  pack: null,
 });
 
 const prev = lite([creature('a', 0, 100), creature('b', 50, 50), creature('gone', 7, 8)]);

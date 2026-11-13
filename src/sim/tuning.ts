@@ -118,6 +118,11 @@ export const TuningSchema = obj({
     seedWarmth: signed,
     bellRadius: pos,
   }),
+  /**
+   * Murmuration Fen (ADR 0013 item 5): flight is checked every `everyTicks` ticks against each
+   * starling's `neighbors` nearest, with thresholds `duskLift` lower from `duskAt` of the day.
+   */
+  fen: obj({ everyTicks: count, duskAt: prob, duskLift: prob, neighbors: count }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

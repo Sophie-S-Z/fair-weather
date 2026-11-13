@@ -1,10 +1,12 @@
-// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1 and 8).
+// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4, and 8).
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { byCodeUnit, clamp } from './math.ts';
 import { clearOfBanks, landOf } from './land.ts';
+import { PACKS } from './packs/index.ts';
+import { createRng } from './rng.ts';
 
 const VISIT_CELLS = 32; // 8 columns by 4 rows (ADR 0005)
 
@@ -124,6 +126,21 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   if (scenario.ambientSkyBids) world.ambientSkyBids = true;
   if (scenario.rumorFirst) world.rumorFirst = true;
   if (scenario.friendsForgive) world.friendsForgive = true;
+  if (scenario.pack) {
+    // The pack's setup draws from the world's PRNG, so a scenario without `pack` takes no draw
+    // (ADR 0013 item 4).
+    const { restless, fixed } = scenario.pack;
+    world.pack = {
+      id: 'fen',
+      thresholds: { ...fixed },
+      flying: [],
+      restless: [...restless],
+      heroFlying: false,
+    };
+    const rng = createRng(world.rngState);
+    PACKS[world.pack.id].setup(world, tuning, rng);
+    world.rngState = rng.state();
+  }
   return world;
 }
 

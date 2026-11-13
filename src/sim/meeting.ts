@@ -1,5 +1,5 @@
 // Meeting rules (spec 9.3, ADR 0002, ADR 0003; light boosts per ADR 0004 item 9; the hero per
-// ADR 0013 items 2 and 3).
+// ADR 0013 items 2 and 3; the rule pack's three questions per ADR 0013 item 4).
 import type { Behavior, BidReply, Creature, DiaryEntry, GiftMove, Side, SimEvent, World } from './types.ts';
 import type { Grid } from './grid.ts';
 import type { Rng } from './rng.ts';
@@ -7,6 +7,7 @@ import type { Tuning } from './tuning.ts';
 import { clamp, dist2, sigmoid } from './math.ts';
 import { bellReach, heroFogFactor, heroGift, heroMeetingBidder, heroReply, heroWarmthScale } from './hero.ts';
 import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
+import { canMeet, giftCost, giftWarmth } from './packs/index.ts';
 import { benchesOf, ensureTie, friendsOf, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
@@ -48,7 +49,8 @@ function byKey(x: { key: string }, y: { key: string }): number {
 }
 
 /**
- * Pairs of `wander` creatures within meet.radius that have not met today, sorted by tie key.
+ * Pairs of `wander` creatures within meet.radius that have not met today and that the rule pack
+ * lets meet (canMeet), sorted by tie key.
  * Each pair is [lower id, higher id]. A creature joins at most one pair: the first in key order.
  * Rebuilds `grid` from `world.creatures` in array order.
  */
@@ -65,7 +67,7 @@ export function findMeetings(world: World, grid: Grid, t: Tuning): [Creature, Cr
     if (c.state !== 'wander') return;
     for (const j of grid.query(c.x, c.y, t.meet.radius, near)) {
       const o = cs[j];
-      if (j <= i || !o || o.state !== 'wander' || metToday(world, c, o)) continue;
+      if (j <= i || !o || o.state !== 'wander' || metToday(world, c, o) || !canMeet(world, c, o)) continue;
       const [lo, hi] = c.id < o.id ? [c, o] : [o, c];
       found.push({ key: tieKey(c.id, o.id), lo, hi });
     }
@@ -128,8 +130,8 @@ function pickGift(
   draw: number,
   t: Tuning,
 ): GiftMove {
-  // Below gift.cost a creature cannot pay for a gift, so it keeps (and berries never go negative).
-  if (giver.berries < t.gift.cost) return 'keep';
+  // Below the gift's cost a creature cannot pay for it, so it keeps (and berries never go negative).
+  if (giver.berries < giftCost(world, t)) return 'keep';
   const p = clamp(baseGiveChance(world, giverSide, giver, firstMeeting, t) + boost, 0, 1);
   return draw < p ? 'give' : 'keep';
 }
@@ -143,10 +145,11 @@ function replyWarmth(seen: BidReply, t: Tuning): number {
 }
 
 /**
- * Warmth, slights, and shell for `self`, from what it saw of its partner's gift (ADR 0003 item 8).
- * `scale` multiplies the warmth change (heroWarmthScale).
+ * Warmth, slights, and shell for `self`, from what it saw of its partner's gift (ADR 0003 item 8),
+ * a received gift worth giftWarmth. `scale` multiplies the warmth change (heroWarmthScale).
  */
 function feelGifts(
+  world: World,
   self: Creature,
   selfSide: Side,
   ownMove: GiftMove,
@@ -155,7 +158,7 @@ function feelGifts(
   t: Tuning,
 ): void {
   if (partnerSeen === 'give') {
-    addWarmth(selfSide, t.warmth.giftReceived * scale);
+    addWarmth(selfSide, giftWarmth(world, t) * scale);
     self.shell.softness = clamp(self.shell.softness + t.shell.giftSoftness, 0, 1);
   } else if (ownMove === 'give') {
     addWarmth(selfSide, t.warmth.keepAfterGift * scale);
@@ -275,20 +278,29 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
 
   // Payoffs: real gifts move berries.
   const value = world.season === 'winter' ? t.gift.valueWinter : t.gift.value;
+  const cost = giftCost(world, t);
   if (bidderMove === 'give') {
-    bidder.berries -= t.gift.cost;
+    bidder.berries -= cost;
     replier.berries += value;
   }
   if (replierMove === 'give') {
-    replier.berries -= t.gift.cost;
+    replier.berries -= cost;
     bidder.berries += value;
   }
 
   // Warmth, slights, and shells, from what each side saw.
   const bidderScale = heroWarmthScale(world, bidder, replier, t);
   addWarmth(bidderSide, replyWarmth(replySeen, t) * bidderScale);
-  feelGifts(bidder, bidderSide, bidderMove, replierSeen, bidderScale, t);
-  feelGifts(replier, replierSide, replierMove, bidderSeen, heroWarmthScale(world, replier, bidder, t), t);
+  feelGifts(world, bidder, bidderSide, bidderMove, replierSeen, bidderScale, t);
+  feelGifts(
+    world,
+    replier,
+    replierSide,
+    replierMove,
+    bidderSeen,
+    heroWarmthScale(world, replier, bidder, t),
+    t,
+  );
 
   // Opinions (ADR 0002 item 3).
   bidder.opinions[replier.id] = bidderSide.warmth;

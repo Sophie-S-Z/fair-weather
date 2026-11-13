@@ -6,6 +6,7 @@ import type { BidReply, Bush, Creature, GiftMove, HeroKind, World } from './type
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { giftCost } from './packs/index.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 /** True when `c` is the hero of a world that has one. */
@@ -31,12 +32,12 @@ export function heroReply(world: World, replier: Creature): BidReply | undefined
 }
 
 /**
- * The hero's standing gift move when `giver` is the hero, a keep when it has fewer than gift.cost
- * berries; undefined for anyone else.
+ * The hero's standing gift move when `giver` is the hero, a keep when it has fewer berries than a
+ * gift costs (giftCost); undefined for anyone else.
  */
 export function heroGift(world: World, giver: Creature, t: Tuning): GiftMove | undefined {
   if (!world.hero || !isHero(world, giver)) return undefined;
-  return giver.berries < t.gift.cost ? 'keep' : world.hero.gift;
+  return giver.berries < giftCost(world, t) ? 'keep' : world.hero.gift;
 }
 
 /** The hero stops where it stands and follows no one. */

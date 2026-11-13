@@ -85,6 +85,7 @@ const snapshot = (
   ties: [],
   rumor: null,
   hero: null,
+  pack: null,
 });
 
 /** A stand-in for a Pixi Application: the view reads only the stage, screen, and ticker. */

@@ -1,5 +1,5 @@
 // Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4,
-// ADR 0013 items 1 to 3).
+// ADR 0013 items 1 to 4).
 import type { BidReply, Command, Creature, GiftMove, Season, SimEvent, World } from './types.ts';
 import { DIAL_KEYS, HERO, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
@@ -7,6 +7,7 @@ import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
 import { isHero, plantGift } from './hero.ts';
 import { inWater } from './land.ts';
+import { PACKS } from './packs/index.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
@@ -111,8 +112,9 @@ function walk(world: World, cmd: Extract<Command, { t: 'walk' }>, t: Tuning): vo
  * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point
  * outside the scene, a bridge outside water, an unknown tag or value, a pair naming one creature
  * twice, a fog radius of 0 or less, a gust whose length squared is 0 or overflows, a `walk` or
- * `manner` in a world without a hero, or a `plant` by a hero that cannot (plantGift). Only `blow`
- * draws from the PRNG.
+ * `manner` in a world without a hero, a `plant` by a hero that cannot (plantGift), or a `local` in a
+ * world without a rule pack. Only `blow`, and a `local` as its pack's onVerb says, draw from the
+ * PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   const raw: unknown = cmd; // commands cross the worker boundary, so check at runtime
@@ -223,6 +225,12 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
     case 'plant':
       plantGift(world, t);
       return [];
+    case 'local': {
+      // The player's local verb goes to the valley's rule pack (ADR 0013 item 4).
+      const verb: unknown = cmd.verb; // checked at runtime, as above
+      if (!world.pack || typeof verb !== 'object' || verb === null) return [];
+      return PACKS[world.pack.id].onVerb(world, cmd.verb, t, rng);
+    }
     case 'overPoke':
       for (const c of world.creatures) {
         if (c.state === 'away') continue;

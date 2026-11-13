@@ -6,6 +6,7 @@ import type { WorldLite } from './protocol.ts';
 import { holds } from '../sim/daily/gossip.ts';
 import { landOf } from '../sim/land.ts';
 import { fogAt } from '../sim/light.ts';
+import { flies, perceivedShares } from '../sim/packs/fen.ts';
 import { friendPairs } from '../sim/metrics.ts';
 import { byCodeUnit } from '../sim/math.ts';
 import { averageWarmth, byId } from '../sim/world.ts';
@@ -50,6 +51,13 @@ function heroLite(w: World): WorldLite['hero'] {
   return { kind, name: hero.name, reply, gift, keepsakes: [...keepsakes], opinions };
 }
 
+/** The Fen's flock as the snapshot shows it (ADR 0013 item 5); null without a pack. */
+function packLite(w: World, tuning: Tuning): WorldLite['pack'] {
+  if (!w.pack) return null;
+  const flying = w.creatures.filter((c) => c.state !== 'away' && flies(w, c)).map((c) => c.id);
+  return { id: 'fen', flying, perceived: perceivedShares(w, tuning) };
+}
+
 export function toLite(w: World, tuning: Tuning): WorldLite {
   const land = landOf(w, tuning);
   return {
@@ -71,6 +79,7 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       .map(([, tie]) => ({ a: tie.a, b: tie.b, ab: tie.ab.warmth, ba: tie.ba.warmth })),
     rumor: lastRumor(w, tuning),
     hero: heroLite(w),
+    pack: packLite(w, tuning),
     light: w.fields.light ? { ...w.fields.light } : null,
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: fogCells(w, tuning) },
     structures: w.structures.map((s) => ({ ...s })),

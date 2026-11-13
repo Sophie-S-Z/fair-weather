@@ -11,6 +11,23 @@ export const HERO_KINDS = ['lantern', 'kite', 'mosscoat', 'glassling', 'seedcarr
 export type HeroKind = (typeof HERO_KINDS)[number];
 /** The hero's creature id (ADR 0013 item 1). */
 export const HERO = 'hero';
+/** The valleys' rule packs (ADR 0013 item 4); each pack task adds its id. */
+export type PackId = 'fen';
+/** The player's local verb, passed to the world's rule pack (ADR 0013 item 4). */
+export type LocalVerb =
+  { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string };
+/**
+ * Murmuration Fen's flock (ADR 0013 item 5): each starling's threshold, the starlings in flight in
+ * creature order, the restless ones that never land, and whether the hero has joined.
+ */
+export interface FenState {
+  id: 'fen';
+  thresholds: Record<string, number>;
+  flying: string[];
+  restless: string[];
+  heroFlying: boolean;
+}
+export type PackState = FenState;
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -175,6 +192,8 @@ export interface World {
    * two meet, when water stops the hero, when that creature goes away, and on a `walk` to a point.
    */
   hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] };
+  /** The valley's rule-pack state (ADR 0013 item 4), set only with the scenario's `pack`. */
+  pack?: PackState;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -193,7 +212,8 @@ export type Command =
   | { t: 'walk'; x: number; y: number }
   | { t: 'walk'; to: string }
   | { t: 'manner'; reply: BidReply; gift: GiftMove }
-  | { t: 'plant' };
+  | { t: 'plant' }
+  | { t: 'local'; verb: LocalVerb };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -247,4 +267,9 @@ export interface Scenario {
     keepsakes: string[];
     rumor: { value: number; strength: number } | null;
   };
+  /**
+   * The valley's rule pack (ADR 0013 items 4 and 5). Murmuration Fen: the `restless` starlings fly
+   * from the start and never land, and `fixed` holds the thresholds that take no draw (Tove's 0.5).
+   */
+  pack?: { id: 'fen'; restless: string[]; fixed: Record<string, number> };
 }

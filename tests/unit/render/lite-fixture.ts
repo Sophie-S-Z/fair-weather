@@ -28,6 +28,7 @@ export function lite(
     ties: ties.map(([a, b, ab, ba]) => ({ a, b, ab, ba })),
     rumor: null,
     hero: null,
+    pack: null,
     light: null,
     fog: { w: 0, h: 0, cells: new Float32Array(0) },
     metrics: { averageWarmth, friendPairs: 0 },

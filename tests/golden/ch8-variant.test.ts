@@ -25,4 +25,6 @@ test('T3 ch8 (Krit away): the close call is the minority outcome of 200 seeds', 
   const s = summarize(runs);
   console.log(`T3 ch8 Krit away: ${JSON.stringify(s)}`);
   expect(s.closeCalls).toBeLessThan(100);
-});
+  // Most seeds here retry the twist up to three times, so this is the slowest T3 file: about 10
+  // minutes alone and 16 on a CI runner beside the other files. It gets 30 minutes.
+}, 1_800_000);

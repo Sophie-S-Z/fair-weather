@@ -486,7 +486,7 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
 test('touching nothing for three minutes brings the Quiet Visitor once; its feather is kept in the book', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(180_000);
   // Reduced motion: it shows seated for its 20 s, then is gone, with no walk.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
@@ -502,7 +502,9 @@ test('touching nothing for three minutes brings the Quiet Visitor once; its feat
   // from readers, so the lines say when it comes and goes.
   await page.clock.fastForward(30_000);
   await expect(lines).not.toContainText('left a feather');
-  await expect(lines).toContainText('The visitor left a feather.', { timeout: 30_000 });
+  // A visit counts at most 0.25 s a frame (VISIT_STEP_MAX), so where software rendering draws fewer
+  // than four frames a second (a busy CI runner), its 20 s take longer than 20 s of wall time.
+  await expect(lines).toContainText('The visitor left a feather.', { timeout: 120_000 });
   await page.keyboard.press('b');
   const book = page.getByRole('dialog', { name: 'Book of Skies' });
   await expect(book).toContainText('Feathers from the Quiet Visitor: 1');

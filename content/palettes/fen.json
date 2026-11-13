@@ -1,0 +1,19 @@
+{
+  "id": "fen",
+  "ink": "#2b2a2e",
+  "paper": "#fffbfa",
+  "accent": "#d1557a",
+  "warmth": "#e9d4d4",
+  "leaf": "#d8d6bd",
+  "background": "#e8dfe2",
+  "light": {
+    "color": "#ffcfae",
+    "alpha": 0.45
+  },
+  "fog": {
+    "color": "#dcdbe4",
+    "alpha": 0.85
+  },
+  "water": "#c3c9da",
+  "full": ["#e8604c", "#f08a3c", "#f2c84b", "#7bb661", "#4f8fc0", "#8a63b8"]
+}

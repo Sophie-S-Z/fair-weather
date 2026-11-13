@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The Kite-rider: a long ribbon tied to a small kite. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 46 92 C 44.3 91.2 37.5 89.3 36 87 C 34.5 84.7 35.5 81.2 37 78 C 38.5 74.8 44.5 71.7 45 68 C 45.5 64.3 41.7 60 40 56 C 38.3 52 35.5 48 35 44 C 34.5 40 35.2 35.3 37 32 C 38.8 28.7 42.8 25.2 46 24 C 49.2 22.8 53.3 26 56 25 C 58.7 24 61.8 20.5 62 18 C 62.2 15.5 56.7 12.7 57 10 C 57.3 7.3 61.7 2 64 2 C 66.3 2 70.7 7.3 71 10 C 71.3 12.7 67.7 15.3 66 18 C 64.3 20.7 61 23 61 26 C 61 29 65.8 32.3 66 36 C 66.2 39.7 63.7 44.3 62 48 C 60.3 51.7 56.5 54.7 56 58 C 55.5 61.3 59.8 64.5 59 68 C 58.2 71.5 52.8 75.8 51 79 C 49.2 82.2 47.5 85 48 87 C 48.5 89 53 90.3 54 91" />
+  <circle id="eye-l" cx="45" cy="34" r="2" />
+  <circle id="eye-r" cx="55" cy="34" r="2" />
+  <circle id="blush" cx="61.5" cy="39" r="3" />
+  <line id="neck" x1="20" y1="46" x2="80" y2="46" />
+  <line id="base" x1="20" y1="90" x2="80" y2="90" />
+</svg>

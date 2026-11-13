@@ -10,8 +10,9 @@ const zoom = z.number().min(1);
 
 /**
  * A scene layout in scene units, y down (spec 11.1 item 3): far hills, grass tufts, trees
- * (a tapered trunk, branches, and a canopy of overlapping circles),
- * bench spots for the place verb, and named camera shots that beats ask for. A shot centers a
+ * (a tapered trunk, branches, and a canopy of overlapping circles), and for the valleys (spec
+ * 7.3) reeds, lanes, and squares on the ground and the sky band where a flock flies; bench spots
+ * for the place verb, and named camera shots that beats ask for. A shot centers a
  * fixed point, or follows a creature by id. `credit` names who made the layout; a placeholder
  * layout says so, so the production guard sees it (ADR 0010).
  */
@@ -34,6 +35,16 @@ export const SceneSchema = z.strictObject({
       canopy: z.array(z.tuple([z.number(), z.number(), z.number().positive()])).min(1),
     }),
   ),
+  /** Reeds [x, y, h]: a stem from its foot at (x, y), h tall, with a seed head. */
+  reeds: z.array(z.tuple([z.number(), z.number(), z.number().positive()])).default([]),
+  /** Lane center lines, drawn as faint edges `LANE_WIDTH` apart. */
+  lanes: z.array(Polyline).default([]),
+  /** Open squares [x, y, rx, ry]: a faint oval on the ground. */
+  squares: z
+    .array(z.tuple([z.number(), z.number(), z.number().positive(), z.number().positive()]))
+    .default([]),
+  /** The band [top, bottom] in scene y where a flying flock is drawn, above everything on the ground. */
+  sky: z.tuple([z.number(), z.number()]).default([24, 150]),
   benchSpots: z.array(Spot),
   cameras: z.record(
     z.string(),
@@ -50,6 +61,7 @@ type LiteCreature = WorldLite['creatures'][number];
 
 export interface DrawnCreature {
   id: string;
+  speciesId: string;
   x: number;
   y: number;
   state: LiteCreature['state'];
@@ -69,6 +81,7 @@ export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: nu
     before.delete(b.id);
     return {
       id: b.id,
+      speciesId: b.speciesId,
       x: a.x + (b.x - a.x) * alpha,
       y: a.y + (b.y - a.y) * alpha,
       state: b.state,
@@ -77,6 +90,14 @@ export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: nu
     };
   });
   for (const a of before.values())
-    out.push({ id: a.id, x: a.x, y: a.y, state: a.state, shell: a.shell, dancing: a.dancing });
+    out.push({
+      id: a.id,
+      speciesId: a.speciesId,
+      x: a.x,
+      y: a.y,
+      state: a.state,
+      shell: a.shell,
+      dancing: a.dancing,
+    });
   return out;
 }

@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. A starling of the Fen: slim, with long folded wing tips. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 45 90 C 43.3 89.3 37.2 88 35 86 C 32.8 84 34 78.7 32 78 C 30 77.3 23.2 83.7 23 82 C 22.8 80.3 29.3 73.3 31 68 C 32.7 62.7 31.5 54.8 33 50 C 34.5 45.2 37.7 41.3 40 39 C 42.3 36.7 46 37.7 47 36 C 48 34.3 45.2 29.5 46 29 C 46.8 28.5 50.5 31.8 52 33 C 53.5 34.2 53.3 34.7 55 36 C 56.7 37.3 60 38.3 62 41 C 64 43.7 66 47.5 67 52 C 68 56.5 66.3 63 68 68 C 69.7 73 77 80.3 77 82 C 77 83.7 70 77.3 68 78 C 66 78.7 67.2 84 65 86 C 62.8 88 56.7 89.3 55 90" />
+  <circle id="eye-l" cx="46" cy="50" r="2" />
+  <circle id="eye-r" cx="54" cy="50" r="2" />
+  <circle id="blush" cx="61.5" cy="56" r="3" />
+  <line id="neck" x1="20" y1="60" x2="80" y2="60" />
+  <line id="base" x1="20" y1="88" x2="80" y2="88" />
+</svg>

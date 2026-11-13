@@ -4,9 +4,12 @@ import { describe, expect, test } from 'vitest';
 import { RigSchema } from '../../../src/render/line/rig.ts';
 import { rigToJson, svgToRig } from '../../../tools/svg-to-rig/svg-to-rig.ts';
 
-/** Every placeholder body: the rig id is the part of the file name after `PLACEHOLDER-`. */
+/**
+ * Every placeholder body: the rig id is the part of the file name after `PLACEHOLDER-`. The
+ * journal's drawings (`PLACEHOLDER-journal-*`) are pictures, not bodies, and have no rig.
+ */
 const bodies = readdirSync('content/placeholder')
-  .filter((f) => f.endsWith('.svg'))
+  .filter((f) => f.endsWith('.svg') && !f.startsWith('PLACEHOLDER-journal-'))
   .sort()
   .map((f) => ({ id: f.slice('PLACEHOLDER-'.length, -'.svg'.length), file: f }));
 

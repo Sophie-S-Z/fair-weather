@@ -10,7 +10,7 @@ import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts'
 import { drawLand, inRect } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
-import type { Rig } from './line/rig.ts';
+import { rigFor, type Rig } from './line/rig.ts';
 import type { Palette } from './palette.ts';
 import { interpolateCreatures, type DrawnCreature, type SceneData } from './scene.ts';
 
@@ -40,6 +40,34 @@ const HEAT_ROWS = 9;
 const HEAT_ALPHA = 0.4;
 /** The keyboard cursor's ink ring, in scene units. */
 const CURSOR_RADIUS = 16;
+/**
+ * Murmuration Fen (spec 7.3: a sky full of small dark marks). A starling with no rig of its own is
+ * a small ink tick, `TICK` wide each side: a check mark at its feet on the ground, and a level "v"
+ * when it flies, spread over the scene's sky band above its place on the ground, where it drifts
+ * `DRIFT` units about its place once every `DRIFT_SECONDS`, slowly, so reduced motion keeps it.
+ * `TICK_HEIGHT` is its size for picking.
+ */
+const STARLING = 'starling';
+const TICK = 8;
+const TICK_HEIGHT = 16;
+const DRIFT = 24;
+const DRIFT_SECONDS = 30;
+/** A flying flock spreads this wide about its birds' places on the ground. */
+const SPREAD = 200;
+/**
+ * The reflection (ADR 0007): under a grounded starling whose perceived share is at least
+ * `REFLECT_AT`, a faint upturned tick `REFLECT_DROP` below its feet, the flier the water shows it.
+ */
+const REFLECT_AT = 0.5;
+const REFLECT_DROP = 14;
+/** A body with a rig of its own (Tove, the joined hero) flies this far above its shadow. */
+const FLY_LIFT = 48;
+/** The Hollow's press: a structure of kind bench with this id (ADR 0013 item 17), drawn as a press. */
+const PRESS = 'press';
+/** A lane's two faint edges stand this far apart, in scene units. */
+const LANE_WIDTH = 30;
+/** A square's outline has this many points. */
+const SQUARE_POINTS = 32;
 /**
  * A shadow at each creature's feet: an ink ellipse this wide and tall, as shares of its body
  * height, at this alpha (more in high contrast), so its feet read as on the ground. The sim's bank
@@ -75,8 +103,10 @@ export interface MeadowView {
   setShot(name: string | null): void;
   /** The screen pixels at the top that the scene keeps clear of (the Cosmos timeline band); 0 for none. */
   setTopInset(px: number): void;
-  /** Redraws everything in a season's colors. */
+  /** Redraws everything in a season's or a valley's colors. */
   setPalette(p: Palette): void;
+  /** Redraws the ground and trees from `scene`, whose bench spots and camera shots are used from now on. */
+  setScene(scene: SceneData): void;
   /**
    * Counts a live snapshot's lens center for the heat map. The caller passes each snapshot as it
    * arrives, so frames skipped at high speed still count and rewound or peeked worlds never do.
@@ -197,6 +227,18 @@ function phaseOf(id: string): number {
   return h / 997;
 }
 
+/**
+ * Two numbers in [0, 1) from a creature id, well mixed (FNV-1a, then a final avalanche), so
+ * neighbors in id order land apart.
+ */
+function placeOf(id: string): [number, number] {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = (h ^ (h >>> 13)) >>> 0;
+  return [(h & 0xffff) / 0x10000, (h >>> 16) / 0x10000];
+}
+
 /** A smooth line through flat x, y pairs: quadratic curves through the segment midpoints. */
 function smoothLine(g: Graphics, p: readonly number[]): Graphics {
   const at = (i: number): number => p[i] ?? 0;
@@ -211,10 +253,20 @@ function smoothLine(g: Graphics, p: readonly number[]): Graphics {
 const plainStroke = (palette: Palette, width: number) =>
   ({ color: palette.ink, width, cap: 'square', join: 'miter' }) as const;
 
-/** Paper, far hills, and grass tufts: the layer behind everything, in scene units. */
+/**
+ * Paper, far hills, squares, lanes, grass tufts, and reeds: the layer behind everything, in scene
+ * units. A reed is a stem and a blade from its foot, with a dark seed head.
+ */
 function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
   g.clear().rect(0, 0, scene.width, scene.height).fill(palette.background);
   for (const hill of scene.hills) smoothLine(g, hill).stroke(inkStroke(palette, w, FAR_ALPHA));
+  const faint = inkStroke(palette, w * 0.6, TUFT_ALPHA);
+  for (const [x, y, rx, ry] of scene.squares) oval(g, x, y, rx, ry, SQUARE_POINTS).stroke(faint);
+  for (const lane of scene.lanes) {
+    const edges = limbOutline(lane, LANE_WIDTH, LANE_WIDTH);
+    smoothLine(g, edges.slice(0, lane.length));
+    smoothLine(g, edges.slice(lane.length)).stroke(faint);
+  }
   for (const [x, y] of scene.tufts) {
     g.moveTo(x - 6, y)
       .lineTo(x - 9, y - 8)
@@ -223,6 +275,14 @@ function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number):
       .moveTo(x + 6, y)
       .lineTo(x + 9, y - 8)
       .stroke(inkStroke(palette, w * 0.7, TUFT_ALPHA));
+  }
+  for (const [x, y, h] of scene.reeds) {
+    g.moveTo(x, y)
+      .quadraticCurveTo(x + 1, y - h / 2, x + 4, y - h)
+      .moveTo(x, y)
+      .quadraticCurveTo(x - 5, y - h * 0.3, x - 10, y - h * 0.5)
+      .stroke(inkStroke(palette, w * 0.5, TUFT_ALPHA));
+    oval(g, x + 4, y - h - 5, 2.5, 7, REED_HEAD_POINTS).fill({ color: palette.ink, alpha: TUFT_ALPHA });
   }
 }
 
@@ -335,12 +395,36 @@ function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number
 }
 
 /**
+ * The Hollow's press (ADR 0013 item 17), with its feet at (x, y): a frame of two posts and a beam,
+ * a screw down from the beam with its bar, the platen on the screw, and a sheet on the bed.
+ */
+function drawPress(g: Graphics, { x, y }: Structure, palette: Palette, w: number): void {
+  const ink = plainStroke(palette, w);
+  g.moveTo(x - 22, y)
+    .lineTo(x - 22, y - 56)
+    .lineTo(x + 22, y - 56)
+    .lineTo(x + 22, y)
+    .moveTo(x, y - 56)
+    .lineTo(x, y - 32)
+    .moveTo(x - 12, y - 44)
+    .lineTo(x + 12, y - 44)
+    .stroke(ink);
+  g.rect(x - 15, y - 32, 30, 6)
+    .fill(palette.paper)
+    .stroke(ink);
+  g.rect(x - 18, y - 14, 36, 6)
+    .fill(palette.paper)
+    .stroke(ink);
+}
+
+/**
  * Points round a small shape's outline. Pixi gives a circle of radius r about 18 sqrt(r) points,
  * and a Graphics over 200 vertices cannot batch, so props use plain polygons and stay in the batch.
  */
 const GLOW_POINTS = 16;
 const DEW_POINTS = 5;
 const CAP_POINTS = 12;
+const REED_HEAD_POINTS = 8;
 
 /** A polygon of `n` points round (x, y) on an ellipse with radii `rx` and `ry`: a cheap ellipse. */
 function oval(g: Graphics, x: number, y: number, rx: number, ry: number, n: number): Graphics {
@@ -454,20 +538,25 @@ function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): n
 
 /**
  * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent, in the season's
- * palette. It draws snapshots only and never changes the world. Creatures use their own rig, or
- * the villager rig. Water and bridges lie flat on the ground; each creature's shadow lies under
+ * or the valley's palette, over the scene it was last given. It draws snapshots only and never
+ * changes the world. A creature uses its id's rig, then its species', then the villager's; in the
+ * Fen a starling with no rig of its own is an ink tick, all of them in one Graphics with the
+ * reflection, and a flier with a rig is lifted above its shadow; Hearsay Hollow's drama sky is
+ * the lens in an accent ring, and its press is drawn as a press (spec 7.3). Water and bridges lie
+ * flat on the ground; each creature's shadow lies under
  * them, or on its deck when it stands on one. Creatures, trees, benches, lanterns, and the
  * mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
  * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
  * each cell's share of the most watched cell as an ink wash. The keyboard cursor is a still ink
- * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves; high
- * contrast thickens every line by half again and darkens the shadows.
+ * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves, but
+ * not the flock's slow drift; high contrast thickens every line by half again and darkens the
+ * shadows.
  */
 export function createMeadowView(
   app: Application,
-  scene: SceneData,
+  firstScene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
   options: {
@@ -477,11 +566,15 @@ export function createMeadowView(
   },
 ): MeadowView {
   let palette = firstPalette;
+  let scene = firstScene;
   const world = new Container();
   const ground = new Graphics({ label: 'ground' });
   const land = new Graphics({ label: 'land' });
   const shadows = new Graphics({ label: 'shadows' });
   const deckShadows = new Graphics({ label: 'deck-shadows' });
+  /** The Fen's ink ticks and their reflections, redrawn each frame. */
+  const flock = new Graphics({ label: 'flock' });
+  const lensRing = new Graphics({ label: 'lens-ring', visible: false });
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -492,14 +585,28 @@ export function createMeadowView(
   let cursorAt: { x: number; y: number } | null = null;
   /** What the ring was drawn for; '' redraws it. */
   let cursorKey = '';
-  world.addChild(ground, shadows, land, deckShadows, light.graphics, actors, fog.sprite, heat.sprite, cursor);
+  world.addChild(
+    ground,
+    shadows,
+    land,
+    deckShadows,
+    flock,
+    light.graphics,
+    lensRing,
+    actors,
+    fog.sprite,
+    heat.sprite,
+    cursor,
+  );
   app.stage.addChild(world);
 
-  const trees = scene.trees.map((tree) => {
-    const g = new Graphics({ label: tree.id, zIndex: tree.trunk[1] ?? 0 });
-    actors.addChild(g);
-    return { tree, g };
-  });
+  const plantTrees = (): { tree: SceneData['trees'][number]; g: Graphics }[] =>
+    scene.trees.map((tree) => {
+      const g = new Graphics({ label: tree.id, zIndex: tree.trunk[1] ?? 0 });
+      actors.addChild(g);
+      return { tree, g };
+    });
+  let trees = plantTrees();
   /** Benches, lanterns, and bushes by id, each with the key it was drawn for. Bridges are drawn with the water. */
   const props = new Map<string, { g: Graphics; key: string }>();
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
@@ -527,7 +634,7 @@ export function createMeadowView(
 
   const villager = rigs.get(VILLAGER_RIG);
   const villagerArea = villager ? rigArea(villager) : 1;
-  const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number }>();
+  const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number; rig: Rig }>();
   let drawn: (DrawnCreature & { height: number })[] = [];
   let camera: ViewTransform | null = null;
   let focus: string | null = null;
@@ -536,13 +643,22 @@ export function createMeadowView(
   let lineWidth = 0;
   const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
 
-  function viewFor(id: string): { view: ReturnType<typeof createLineView>; height: number } | undefined {
+  /** The creature's view, made anew when its rig changes (a new hero of another kind). */
+  function viewFor(
+    id: string,
+    speciesId: string,
+  ): { view: ReturnType<typeof createLineView>; height: number } | undefined {
     let entry = views.get(id);
-    const rig = rigs.get(id) ?? villager;
+    const rig = rigFor(rigs, id, speciesId, VILLAGER_RIG);
+    if (entry && entry.rig !== rig) {
+      entry.view.container.destroy({ children: true });
+      views.delete(id);
+      entry = undefined;
+    }
     if (!entry && rig) {
       const height = bodyHeight(rig, villagerArea, options.cast.get(id)?.scale ?? 1);
       const colors = { ink: palette.ink, accent: palette.accent, paper: palette.paper };
-      entry = { view: createLineView(rig, colors, height), height };
+      entry = { view: createLineView(rig, colors, height), height, rig };
       entry.view.container.label = id;
       views.set(id, entry);
       actors.addChild(entry.view.container);
@@ -576,6 +692,7 @@ export function createMeadowView(
         lineWidth = w;
         drawGround(ground, scene, palette, w);
         for (const { tree, g } of trees) drawTree(g, tree, palette, w);
+        lensRing.clear().circle(0, 0, options.lensRadius).stroke({ color: palette.accent, width: w });
         for (const { g } of props.values()) g.destroy();
         props.clear();
         landKey = mushroomKey = '';
@@ -600,6 +717,7 @@ export function createMeadowView(
         if (s.kind === 'bridge') continue;
         const g = redraw(s.id, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
         if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
+        else if (g && s.id === PRESS) drawPress(g, s, palette, w);
         else if (g) drawBench(g, s, palette, w);
       }
       for (const b of next.bushes) {
@@ -621,6 +739,10 @@ export function createMeadowView(
         mushroom.zIndex = m.y;
       }
       light.update(next.light);
+      // In Hearsay Hollow the drama sky is the lens (ADR 0013 item 6).
+      const lens = next.pack?.id === 'hollow' ? next.light : null;
+      lensRing.visible = lens !== null;
+      if (lens) lensRing.position.set(lens.x, lens.y);
       fog.update(next.fog, settings.highContrast);
       cursor.visible = cursorAt !== null;
       const ringKey = cursorAt ? `${String(cursorAt.x)},${String(cursorAt.y)},${String(w)}` : '';
@@ -637,8 +759,30 @@ export function createMeadowView(
         alpha: settings.highContrast ? SHADOW_ALPHA_HIGH_CONTRAST : SHADOW_ALPHA,
       };
       for (const { view } of views.values()) view.container.visible = false;
+      const fen = next.pack?.id === 'fen' ? next.pack : null;
+      const flying = new Set(fen?.flying);
+      /** The ticks as [x, y, flying], and the grounded ones that see a flier in the water. */
+      const ticks: [number, number, boolean][] = [];
+      const reflected: [number, number][] = [];
+      const [skyTop, skyBottom] = scene.sky;
       for (const c of interpolateCreatures(prev, next, alpha)) {
-        const entry = c.state === 'away' ? undefined : viewFor(c.id);
+        if (c.state === 'away') continue;
+        if (c.speciesId === STARLING && !rigs.has(c.id)) {
+          if (flying.has(c.id)) {
+            // Each bird keeps its own place in the band, above its place on the ground, and drifts about it.
+            const turn = 2 * Math.PI * (seconds / DRIFT_SECONDS + phaseOf(c.id));
+            const [across, up] = placeOf(c.id);
+            const x = c.x + SPREAD * (across - 0.5);
+            const y = skyTop + (skyBottom - skyTop) * up;
+            ticks.push([x + DRIFT * Math.sin(turn), y + (DRIFT / 4) * Math.cos(turn), true]);
+          } else {
+            ticks.push([c.x, c.y, false]);
+            if ((fen?.perceived[c.id] ?? 0) >= REFLECT_AT) reflected.push([c.x, c.y + REFLECT_DROP]);
+            drawn.push({ ...c, height: TICK_HEIGHT });
+          }
+          continue;
+        }
+        const entry = viewFor(c.id, c.speciesId);
         if (!entry) continue;
         drawn.push({ ...c, height: entry.height });
         // On the ground, so a hop lifts the body off its shadow.
@@ -653,7 +797,7 @@ export function createMeadowView(
         // Dancers hop together.
         const hop =
           c.dancing && motion ? HOP_HEIGHT * Math.abs(Math.sin((Math.PI * seconds) / HOP_SECONDS)) : 0;
-        container.position.set(c.x, c.y - hop);
+        container.position.set(c.x, c.y - hop - (flying.has(c.id) ? FLY_LIFT : 0));
         container.zIndex = c.y;
         // Creatures in a meeting sway in time (spec 11.1 harmony); the rest sway out of step.
         const phase = c.state === 'meet' ? 0 : phaseOf(c.id);
@@ -667,6 +811,26 @@ export function createMeadowView(
         const fogHere = fogUnder(next.fog, scene.width, c.x, c.y - entry.height / 2);
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
+      flock.clear();
+      for (const [x, y] of reflected)
+        flock
+          .moveTo(x - TICK, y + TICK / 2)
+          .lineTo(x, y)
+          .lineTo(x + TICK, y + TICK / 2);
+      if (reflected.length > 0) flock.stroke(inkStroke(palette, w * 0.4, FAR_ALPHA));
+      for (const [x, y, up] of ticks) {
+        if (up)
+          flock
+            .moveTo(x - TICK, y - TICK / 2)
+            .lineTo(x, y)
+            .lineTo(x + TICK, y - TICK / 2);
+        else
+          flock
+            .moveTo(x - TICK / 2, y - TICK / 2)
+            .lineTo(x, y)
+            .lineTo(x + TICK, y - TICK * 1.4);
+      }
+      if (ticks.length > 0) flock.stroke(inkStroke(palette, w * 0.4));
 
       if (visitAsked) {
         // A seat it can reach without crossing water off a deck: first one on the gate's side
@@ -706,7 +870,7 @@ export function createMeadowView(
         visit.t += Math.min(Math.max(0, seconds - visit.last), VISIT_STEP_MAX);
         visit.last = seconds;
         const { seat, walk, t, path, length } = visit;
-        const entry = viewFor(VISITOR_RIG);
+        const entry = viewFor(VISITOR_RIG, VISITOR_RIG);
         if (t >= 2 * walk + VISITOR_SIT_SECONDS || !entry) {
           visit.done();
           visit = null;
@@ -785,6 +949,14 @@ export function createMeadowView(
     },
     setCursor(p) {
       cursorAt = p;
+    },
+    setScene(s) {
+      if (s === scene) return;
+      scene = s;
+      for (const { g } of trees) g.destroy();
+      trees = plantTrees();
+      // The next update redraws the ground, the trees, and the water over the new scene.
+      lineWidth = 0;
     },
     setPalette(p) {
       if (p === palette) return;

@@ -19,7 +19,7 @@
   },
   "title": "Murmuration Fen",
   "season": "spring",
-  "scene": "kith-meadow",
+  "scene": "fen",
   "dayLengthSeconds": 540,
   "carry": false,
   "verbs": ["walk", "join", "manner", "zoom", "peek"],

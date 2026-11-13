@@ -12,7 +12,7 @@ import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { Dials, Season } from '../sim/types.ts';
+import type { Dials } from '../sim/types.ts';
 import type { ChapterRunner } from '../story/chapter-runner.ts';
 import type { Flags } from '../story/flags.ts';
 import type { Journey } from '../story/journey.ts';
@@ -28,8 +28,16 @@ export interface Stage extends Pick<
   MeadowView,
   'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor' | 'endVisit'
 > {
-  /** Draws every view in the season's palette (spec 11.3). */
-  setSeason(season: Season): void;
+  /**
+   * Draws the Meadow over the scene `content/scenes/<id>.json` (its ground, trees, bench spots, and
+   * camera shots). Throws for an id with no scene.
+   */
+  setScene(id: string): void;
+  /**
+   * Draws every view in the palette of a season or a valley (`content/palettes/<id>.json`, spec
+   * 11.3 and 7.3). Throws for an id with no palette.
+   */
+  setPalette(id: string): void;
   /**
    * Shows a view. `soul` is the creature the Soul view is about, and under Cosmos the picked
    * creature, whose friendships are drawn in full ink. Under Cosmos and Soul the camera shows the
@@ -52,7 +60,8 @@ export interface Stage extends Pick<
   /** The creature under a screen point in the current view, or null. Cosmos snaps within 44 pixels. */
   pick(x: number, y: number): string | null;
   toScene(x: number, y: number): { x: number; y: number };
-  benchSpots: readonly BenchSpot[];
+  /** The current scene's bench spots. */
+  readonly benchSpots: readonly BenchSpot[];
   /** The scene's size in scene units; the cursor stays inside it. */
   sceneSize: { width: number; height: number };
   destroy(): void;

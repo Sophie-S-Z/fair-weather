@@ -9,6 +9,12 @@ const cases = [
     what: 'in thaw with the brook, two bridges, a lantern, the mushroom, and Bell dancing',
     maxCalls: 14,
   },
+  {
+    name: 'fen-dusk',
+    query: '?valley=fen',
+    what: 'in Murmuration Fen at dusk, with the flock up and Tove beside the hero',
+    maxCalls: 10,
+  },
 ];
 
 /** Opens the Meadow dev page and returns its frame's WebGL draw-call count. */

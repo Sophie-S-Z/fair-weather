@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The Lantern-bearer: a round body with a tiny lantern on top. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 43 90 C 40.5 89.5 31.7 89.3 28 87 C 24.3 84.7 22.2 80.2 21 76 C 19.8 71.8 19.8 66.5 21 62 C 22.2 57.5 24.8 52.3 28 49 C 31.2 45.7 36.8 43.5 40 42 C 43.2 40.5 45.7 41.3 47 40 C 48.3 38.7 48.5 35.5 48 34 C 47.5 32.5 44.7 32.7 44 31 C 43.3 29.3 43 25.7 44 24 C 45 22.3 48 21 50 21 C 52 21 55 22.3 56 24 C 57 25.7 56.7 29.3 56 31 C 55.3 32.7 52.5 32.5 52 34 C 51.5 35.5 51.7 38.7 53 40 C 54.3 41.3 56.8 40.5 60 42 C 63.2 43.5 68.8 45.7 72 49 C 75.2 52.3 77.8 57.5 79 62 C 80.2 66.5 80.2 71.8 79 76 C 77.8 80.2 75.7 84.7 72 87 C 68.3 89.3 59.5 89.5 57 90" />
+  <circle id="eye-l" cx="45" cy="52" r="2" />
+  <circle id="eye-r" cx="55" cy="52" r="2" />
+  <circle id="blush" cx="61.5" cy="58" r="3" />
+  <line id="neck" x1="20" y1="62" x2="80" y2="62" />
+  <line id="base" x1="20" y1="88" x2="80" y2="88" />
+</svg>

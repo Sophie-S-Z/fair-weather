@@ -2,7 +2,6 @@
 import { Application } from 'pixi.js';
 import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
-import meadowJson from '../content/scenes/kith-meadow.json';
 import ch0 from '../content/chapters/ch0.json';
 import ch1 from '../content/chapters/ch1.json';
 import ch2 from '../content/chapters/ch2.json';
@@ -45,7 +44,7 @@ import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
-import { SceneSchema } from './render/scene.ts';
+import { SceneSchema, type SceneData } from './render/scene.ts';
 import { createSoulView } from './render/soul-view.ts';
 import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
@@ -151,14 +150,30 @@ const palettes = new Map<string, Palette>(
     return [p.id, p];
   }),
 );
-/** The palette of a season: content has one for each (tests/unit/render/meadow-view.test.ts). */
-function paletteOf(s: Season): Palette {
-  const p = palettes.get(s);
-  if (!p) throw new Error(`No palette for ${s}`);
+/**
+ * The palette of a season or a valley: content has one for each season and each Part 2 valley
+ * (tests/unit/render/meadow-view.test.ts).
+ */
+function paletteOf(id: string): Palette {
+  const p = palettes.get(id);
+  if (!p) throw new Error(`No palette for ${id}`);
   return p;
 }
 const palette = paletteOf('spring');
-const scene = SceneSchema.parse(meadowJson);
+const sceneFiles = import.meta.glob<unknown>('../content/scenes/*.json', { eager: true, import: 'default' });
+const scenes = new Map<string, SceneData>(
+  Object.values(sceneFiles).map((json) => {
+    const s = SceneSchema.parse(json);
+    return [s.id, s];
+  }),
+);
+/** The scene a chapter names: content validation checks that each one has a file. */
+function sceneOf(id: string): SceneData {
+  const s = scenes.get(id);
+  if (!s) throw new Error(`No scene ${id}`);
+  return s;
+}
+const firstScene = sceneOf('kith-meadow');
 // In play order (tests/golden/year.ts CHAPTER_ORDER), then Part 2: the bridge, the valleys, home.
 const chapters = [
   ch0,
@@ -383,6 +398,7 @@ const game: GameService = {
     });
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
+    let scene = firstScene;
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
       cast,
@@ -466,8 +482,12 @@ const game: GameService = {
       setTimelineBand(b) {
         band = b;
       },
-      setSeason(s) {
-        const p = paletteOf(s);
+      setScene(id) {
+        scene = sceneOf(id);
+        view.setScene(scene);
+      },
+      setPalette(id) {
+        const p = paletteOf(id);
         view.setPalette(p);
         cosmos.setPalette(p);
         soul.setPalette(p);
@@ -483,8 +503,12 @@ const game: GameService = {
       endVisit: () => {
         view.endVisit();
       },
-      benchSpots: scene.benchSpots,
-      sceneSize: { width: scene.width, height: scene.height },
+      get benchSpots() {
+        return scene.benchSpots;
+      },
+      get sceneSize() {
+        return { width: scene.width, height: scene.height };
+      },
       destroy() {
         stopCounting();
         app.destroy(true, true);

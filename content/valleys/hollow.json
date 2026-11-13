@@ -19,7 +19,7 @@
   },
   "title": "Hearsay Hollow",
   "season": "spring",
-  "scene": "kith-meadow",
+  "scene": "hollow",
   "dayLengthSeconds": 70,
   "carry": false,
   "verbs": ["walk", "pose", "manner", "zoom", "peek"],

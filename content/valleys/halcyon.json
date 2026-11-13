@@ -16,7 +16,7 @@
   },
   "title": "Halcyon",
   "season": "summer",
-  "scene": "kith-meadow",
+  "scene": "halcyon",
   "dayLengthSeconds": 140,
   "carry": false,
   "verbs": ["walk", "keepsake", "manner", "zoom", "peek"],

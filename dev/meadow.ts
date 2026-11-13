@@ -4,6 +4,8 @@
 // with two bridges over the brook, a lantern, the mushroom, and Bell dancing; ?land=islet plays ch6 (Echo and Krit on the
 // islet) with a lantern on the bank. ?fog=1 paints thick fog over the west meadow, where lines
 // break into dashes. ?heat=1 moves the lens and shows the heat map of every snapshot.
+// ?valley=fen plays Murmuration Fen in its scene and palette, with Tove in focus: a Lantern-bearer
+// walks to Tove and joins the flock at dusk, and the frame is drawn just after the flock goes up.
 // body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
@@ -12,6 +14,9 @@ import flagsJson from '../content/flags.json';
 import ch6Json from '../content/chapters/ch6.json';
 import ch9Json from '../content/chapters/ch9.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
+import fenSceneJson from '../content/scenes/fen.json';
+import fenScenarioJson from '../content/scenarios/fen.json';
+import fenJson from '../content/valleys/fen.json';
 import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { createMeadowView } from '../src/render/meadow-view.ts';
@@ -24,7 +29,7 @@ import { parseTuning } from '../src/sim/tuning.ts';
 import type { Command, Scenario } from '../src/sim/types.ts';
 import { createWorld } from '../src/sim/world.ts';
 import { parseFlags } from '../src/story/flags.ts';
-import { buildScenario } from '../src/story/scenario.ts';
+import { buildScenario, chapterTicksPerDay } from '../src/story/scenario.ts';
 import { ChapterSchema } from '../src/story/schema.ts';
 import type { Settings } from '../src/ui/settings.ts';
 
@@ -32,6 +37,10 @@ const W = 1280;
 const H = 720;
 const SEED = 1;
 const TICK = 180;
+/** The Fen's frame is this many ticks after dusk begins: the flock is up, Tove beside the hero. */
+const FEN_AFTER_DUSK = 70;
+const FEN_STEP_ASIDE = 30;
+const tuning = parseTuning(tuningJson);
 
 const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
 const rigs = new Map<string, Rig>(
@@ -48,29 +57,46 @@ const cast = new Map<string, Cast>(
   }),
 );
 const params = new URLSearchParams(location.search);
+const fen = params.get('valley') === 'fen';
+const fenChapter = ChapterSchema.parse(fenJson);
+const fenDay = chapterTicksPerDay(fenChapter);
 const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
   eager: true,
   import: 'default',
 });
-const season = params.get('season') ?? 'spring';
+const season = params.get('season') ?? (fen ? 'fen' : 'spring');
 const palette = PaletteSchema.parse(
   Object.values(paletteFiles).find((json) => (json as { id: string }).id === season),
 );
-const scene = SceneSchema.parse(meadowJson);
+const scene = SceneSchema.parse(fen ? fenSceneJson : meadowJson);
 const land = params.get('land');
 const chapterJson = land === 'brook' ? ch9Json : land === 'islet' ? ch6Json : null;
-const scenario = chapterJson
-  ? buildScenario(ChapterSchema.parse(chapterJson), parseFlags(flagsJson), scenarioJson as Scenario)
-  : (scenarioJson as Scenario);
+const scenario = fen
+  ? buildScenario(fenChapter, parseFlags(flagsJson), fenScenarioJson as Scenario, undefined, {
+      kind: 'lantern',
+      name: 'Test',
+      keepsakes: [],
+      rumor: null,
+      shell: null,
+      companion: null,
+      kithWarmth: 0.3,
+    })
+  : chapterJson
+    ? buildScenario(ChapterSchema.parse(chapterJson), parseFlags(flagsJson), scenarioJson as Scenario)
+    : (scenarioJson as Scenario);
+/** In the Fen: dusk on day 0 (fen.duskAt), and the frame a little after the flock goes up. */
+const fenDusk = Math.ceil(tuning.fen.duskAt * fenDay);
+const tick = fen ? fenDusk + FEN_AFTER_DUSK : TICK;
 if (land === 'brook') scenario.mushroom = { x: 1120, y: 560 };
 
 // The sim runs on this thread here: the snapshot must be the same every load.
-const tuning = parseTuning(tuningJson);
 const world = createWorld(SEED, tuning, scenario);
-const setup: Command[] = [
-  { t: 'shine', x: 820, y: 330 },
-  { t: 'paintFog', x: 1300, y: 700, r: 180, amount: 0.9 },
-];
+const setup: Command[] = fen
+  ? []
+  : [
+      { t: 'shine', x: 820, y: 330 },
+      { t: 'paintFog', x: 1300, y: 700, r: 180, amount: 0.9 },
+    ];
 if (params.get('fog') === '1') setup.push({ t: 'paintFog', x: 350, y: 450, r: 300, amount: 0.9 });
 if (land === 'brook') {
   setup.push(
@@ -89,8 +115,14 @@ const lensPath: [number, number, number][] = [
 ];
 const snapshots: WorldLite[] = [];
 step(world, setup, tuning);
-while (world.tick < TICK - 1) {
+while (world.tick < tick - 1) {
   let cmds: Command[] = [];
+  // The Fen's T3 player (tests/golden/players.ts): walks to Tove every 20 ticks, joins at dusk.
+  if (fen && world.tick < fenDusk && world.tick % 20 === 0) cmds.push({ t: 'walk', to: 'tove' });
+  if (fen && world.tick === fenDusk) cmds.push({ t: 'local', verb: { verb: 'join', on: true } });
+  // Once the flock is up, the hero steps a little east of Tove, so both show side by side.
+  const tove = fen && world.tick === fenDusk + FEN_STEP_ASIDE && world.creatures.find((c) => c.id === 'tove');
+  if (tove) cmds.push({ t: 'walk', x: tove.x + 56, y: tove.y + 8 });
   if (heat) {
     let at = 0;
     for (const [x, y, ticks] of lensPath) {
@@ -104,7 +136,7 @@ while (world.tick < TICK - 1) {
 const prev = toLite(world, tuning);
 // The bench is placed on the last tick, before a crowd gathers on it, so the baseline shows it.
 // Bell starts dancing then too, so the dance has not spread yet.
-const last: Command[] = [{ t: 'place', kind: 'bench', x: 290, y: 700 }];
+const last: Command[] = fen ? [] : [{ t: 'place', kind: 'bench', x: 290, y: 700 }];
 if (land === 'brook') last.push({ t: 'dance', who: 'bell' });
 step(world, last, tuning);
 const next = toLite(world, tuning);
@@ -145,7 +177,7 @@ const view = createMeadowView(app, scene, rigs, palette, {
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
-view.setFocus('pim');
+view.setFocus(fen ? 'tove' : 'pim');
 for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);

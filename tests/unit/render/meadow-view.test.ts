@@ -5,6 +5,15 @@ import tuningJson from '../../../content/tuning.json';
 import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
 import meadowJson from '../../../content/scenes/kith-meadow.json';
+import fenSceneJson from '../../../content/scenes/fen.json';
+import hollowSceneJson from '../../../content/scenes/hollow.json';
+import halcyonSceneJson from '../../../content/scenes/halcyon.json';
+import fenPaletteJson from '../../../content/palettes/fen.json';
+import hollowPaletteJson from '../../../content/palettes/hollow.json';
+import halcyonPaletteJson from '../../../content/palettes/halcyon.json';
+import fenJson from '../../../content/scenarios/fen.json';
+import hollowJson from '../../../content/scenarios/hollow.json';
+import halcyonJson from '../../../content/scenarios/halcyon.json';
 import { bodyColor } from '../../../src/render/line/fill.ts';
 import type { Rig } from '../../../src/render/line/rig.ts';
 import {
@@ -26,11 +35,15 @@ import { ChapterSchema } from '../../../src/story/schema.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
-import { SEASONS } from '../../../src/sim/types.ts';
+import { HERO_KINDS, SEASONS } from '../../../src/sim/types.ts';
+import { KITH_VALLEYS } from '../../../src/story/journey.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 import { rigs, cast } from './content-fixture.ts';
 
 const scene = SceneSchema.parse(meadowJson);
+const fenScene = SceneSchema.parse(fenSceneJson);
+const hollowScene = SceneSchema.parse(hollowSceneJson);
+const halcyonScene = SceneSchema.parse(halcyonSceneJson);
 const palette = PaletteSchema.parse(springJson);
 const autumn = PaletteSchema.parse(autumnJson);
 const tuning = parseTuning(tuningJson);
@@ -112,18 +125,58 @@ function bodyFillOf(app: Application, id: string): number {
 }
 
 test('the content parses and matches the tuning', () => {
-  expect([scene.width, scene.height]).toEqual([tuningJson.scene.width, tuningJson.scene.height]);
+  for (const s of [scene, fenScene, hollowScene, halcyonScene])
+    expect([s.width, s.height]).toEqual([tuningJson.scene.width, tuningJson.scene.height]);
   expect(scene.cameras['crooked-tree']).toBeDefined();
   expect(scene.cameras['pim-close']).toEqual({ follow: 'pim', zoom: expect.any(Number) as number });
   expect(scene.trees.some((t) => t.id === 'crooked-tree')).toBe(true);
 });
 
-test('every season has a palette', () => {
+test('every season and every valley of Part 2 has a palette', () => {
   const files = readdirSync('content/palettes').filter((f) => f.endsWith('.json'));
   const ids = files.map(
     (f) => PaletteSchema.parse(JSON.parse(readFileSync(`content/palettes/${f}`, 'utf8'))).id,
   );
-  expect(ids.sort()).toEqual([...SEASONS].sort());
+  expect(ids.sort()).toEqual([...SEASONS, ...KITH_VALLEYS].sort());
+});
+
+/** WCAG relative luminance of a 0xrrggbb color. */
+function luminance(c: number): number {
+  const [r, g, b] = [16, 8, 0].map((sh) => {
+    const v = ((c >> sh) & 0xff) / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
+}
+const contrast = (a: number, b: number): number => {
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+
+test("each valley's accent (spec 7.3) stands apart from the paper and the page in lightness", () => {
+  // Rose, hot yellow, soft white-gold: lightness survives every kind of color blindness, hue does not.
+  for (const json of [fenPaletteJson, hollowPaletteJson, halcyonPaletteJson]) {
+    const p = PaletteSchema.parse(json);
+    expect(contrast(p.accent, p.paper)).toBeGreaterThanOrEqual(2);
+    expect(contrast(p.accent, p.background)).toBeGreaterThanOrEqual(1.8);
+  }
+});
+
+test("each valley's scene stands its bench spots on clear ground, off the water and its bank", () => {
+  const scenes = [
+    [fenScene, fenJson],
+    [hollowScene, hollowJson],
+    [halcyonScene, halcyonJson],
+  ] as const;
+  for (const [s, scenario] of scenes) {
+    const banks = ('water' in scenario ? scenario.water : []).map((w) => withBank(w, tuning));
+    for (const spot of s.benchSpots) {
+      expect(
+        banks.some((b) => spot.x >= b.x && spot.x <= b.x + b.w && spot.y >= b.y && spot.y <= b.y + b.h),
+      ).toBe(false);
+    }
+    expect(s.benchSpots.length).toBeGreaterThan(0);
+  }
 });
 
 test('pick returns the nearest creature within the hit radius and null elsewhere', () => {
@@ -815,4 +868,150 @@ test('the Meadow with no creatures, then one, draws and picks only that one', ()
   }).not.toThrow();
   expect(view.pick(400 * 0.5, (400 - heightOf('pim') / 2) * 0.5)).toBe('pim');
   expect(view.pick(10, 10)).toBeNull();
+});
+
+const fenPalette = PaletteSchema.parse(fenPaletteJson);
+const hollowPalette = PaletteSchema.parse(hollowPaletteJson);
+
+test('setScene redraws the ground and trees from the new scene, and the visitor sits at its bench spots', async () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = { ...snapshot([]), structures: [] };
+  view.update(world, world, 1, settings);
+  expect(app.stage.getChildByLabel('crooked-tree', true)).not.toBeNull();
+  const meadowGround = graphicsIn(app, 'ground').context.instructions.length;
+
+  view.setScene(halcyonScene);
+  view.update(world, world, 1, settings);
+  expect(app.stage.getChildByLabel('crooked-tree', true)).toBeNull();
+  for (const t of halcyonScene.trees) expect(app.stage.getChildByLabel(t.id, true)).not.toBeNull();
+  expect(graphicsIn(app, 'ground').context.instructions.length).not.toBe(meadowGround);
+
+  // With no bench, the visitor sits at the new scene's bench spot nearest the gate, reduced motion.
+  let gone = false;
+  void view.visitor().then(() => (gone = true));
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const nearest = [...halcyonScene.benchSpots].sort(
+    (a, b) =>
+      Math.hypot(a.x - options.gate.x, a.y - options.gate.y) -
+      Math.hypot(b.x - options.gate.x, b.y - options.gate.y),
+  )[0];
+  const visitor = creatureIn(app, 'visitor');
+  expect([visitor.x, visitor.y]).toEqual([nearest?.x, nearest?.y]);
+  view.endVisit();
+  await Promise.resolve();
+  expect(gone).toBe(true);
+});
+
+test('the Fen draws its reeds, and the Hollow its lanes and square, on the ground', () => {
+  const strokes = (s: typeof scene): number => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, palette, options);
+    const world = snapshot([]);
+    view.update(world, world, 1, settings);
+    return graphicsIn(app, 'ground').context.instructions.length;
+  };
+  const bare = { ...fenScene, reeds: [], lanes: [], squares: [] };
+  expect(strokes(fenScene)).toBeGreaterThan(strokes(bare));
+  expect(strokes(hollowScene)).toBeGreaterThan(strokes({ ...hollowScene, lanes: [], squares: [] }));
+});
+
+/** A Fen snapshot: `n` starlings in a bed at (600, 500), Tove, and the hero; `flying` ids fly. */
+function fen(n: number, flying: string[] = [], perceived: Record<string, number> = {}): WorldLite {
+  const birds = Array.from({ length: n }, (_, i): [string, number, number] => [
+    `starling-${String(i + 1)}`,
+    560 + (i % 8) * 10,
+    480 + Math.floor(i / 8) * 10,
+  ]);
+  const base = snapshot([...birds, ['tove', 520, 520], ['hero', 480, 520]]);
+  return {
+    ...base,
+    structures: [],
+    creatures: base.creatures.map((c) => ({
+      ...c,
+      speciesId: c.id === 'hero' ? 'lantern' : 'starling',
+    })),
+    pack: { id: 'fen', flying, perceived },
+  };
+}
+
+test('40 starlings without rigs of their own are ink ticks in one Graphics: at most 2 more objects', () => {
+  const count = (world: WorldLite): number => {
+    const app = fakeApp(800, 450);
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    return objectCount(app.stage);
+  };
+  expect(count(fen(40))).toBeLessThanOrEqual(count(fen(0)) + 2);
+  const app = fakeApp(800, 450);
+  createMeadowView(app, fenScene, rigs, fenPalette, options).update(fen(40), fen(40), 1, settings);
+  expect(app.stage.getChildByLabel('starling-1', true)).toBeNull();
+  // Tove has a rig of her own, so she is drawn as a body.
+  expect(creatureIn(app, 'tove').visible).toBe(true);
+});
+
+test('flying starlings are drawn in the sky band and drift slowly, even with reduced motion', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const ids = Array.from({ length: 40 }, (_, i) => `starling-${String(i + 1)}`);
+  const world = fen(40, ids);
+  const still = { ...settings, reducedMotion: true };
+  view.update(world, world, 1, still);
+  const flock = graphicsIn(app, 'flock');
+  const { minX, minY, maxY } = flock.getLocalBounds();
+  const [top, bottom] = fenScene.sky;
+  expect(minY).toBeGreaterThanOrEqual(top - 10);
+  expect(maxY).toBeLessThanOrEqual(bottom + 10);
+  (app.ticker as { lastTime: number }).lastTime = 3000;
+  view.update(world, world, 1, still);
+  const after = graphicsIn(app, 'flock').getLocalBounds().minX;
+  expect(after).not.toBe(minX);
+  // Slow: three seconds move the flock a few units, not across the sky.
+  expect(Math.abs(after - minX)).toBeLessThan(20);
+});
+
+test('the reflection draws a faint tick under a grounded starling that sees at least half its neighbors flying', () => {
+  const below = (perceived: number): number => {
+    const app = fakeApp(800, 450);
+    const world = fen(1, [], { 'starling-1': perceived });
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    return graphicsIn(app, 'flock').getLocalBounds().maxY;
+  };
+  // starling-1 stands at y 480; its reflection lies under its feet.
+  expect(below(0.4)).toBeLessThanOrEqual(482);
+  expect(below(0.5)).toBeGreaterThan(490);
+});
+
+test('a hero of kind kite draws the kite rig', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const base = snapshot([['hero', 400, 400]]);
+  const kite = { ...base, creatures: base.creatures.map((c) => ({ ...c, speciesId: 'kite' })) };
+  view.update(kite, kite, 1, { ...settings, reducedMotion: true });
+  const b = creatureIn(app, 'hero').getLocalBounds();
+  const span = (r: Rig, axis: 0 | 1): number => {
+    const v = r.points.filter((_, i) => i % 2 === axis);
+    return Math.max(...v) - Math.min(...v);
+  };
+  // Drawn at the kite rig's proportions, a tall ribbon, not a round villager.
+  const aspect = (r: Rig): number => span(r, 0) / span(r, 1);
+  expect(Math.abs(b.width / b.height - aspect(rig('kite')))).toBeLessThan(0.1);
+  expect(Math.abs(aspect(rig('kite')) - aspect(rig('villager')))).toBeGreaterThan(0.2);
+  for (const kind of HERO_KINDS) expect(rigs.has(kind)).toBe(true);
+});
+
+test("the Hollow's drama sky is the lens, ringed in the accent, and its press is drawn as a press", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, hollowScene, rigs, hollowPalette, options);
+  const plain = { ...snapshot([]), structures: [{ id: 'press', kind: 'bench' as const, x: 800, y: 400 }] };
+  view.update(plain, plain, 1, settings);
+  const ring = graphicsIn(app, 'lens-ring');
+  expect(ring.visible).toBe(false);
+  const hollow: WorldLite = { ...plain, pack: { id: 'hollow', fame: {}, front: null } };
+  view.update(hollow, hollow, 1, settings);
+  expect(ring.visible).toBe(true);
+  expect([ring.x, ring.y]).toEqual([800, 450]);
+  const stroke = ring.context.instructions.find((i) => i.action === 'stroke');
+  expect((stroke?.data.style as { color: number }).color).toBe(hollowPalette.accent);
+  // The press stands taller than a bench (20 units) on the same bench rules.
+  expect(graphicsIn(app, 'press').getLocalBounds().minY).toBeLessThan(400 - 40);
 });

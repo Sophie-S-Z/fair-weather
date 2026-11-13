@@ -1,6 +1,7 @@
 import { Container, Graphics, type Application } from 'pixi.js';
 import { expect, test } from 'vitest';
 import springJson from '../../../content/palettes/spring.json';
+import m0 from '../../../content/scenarios/m0.json';
 import { castColor, creatureColor } from '../../../src/render/cast.ts';
 import { viewTransform, toScreen } from '../../../src/render/camera.ts';
 import { cosmosEdges, createCosmosView, valleyTop, type Band } from '../../../src/render/cosmos-view.ts';
@@ -146,11 +147,12 @@ test('the picked node lights up on top in its own color with a thick outline; vi
   expect(lit.at(-1)?.line).toBeGreaterThan(plain[0]?.line ?? Infinity);
   expect(lit.slice(0, -1).every((n) => n.fill === palette.paper)).toBe(true);
 
-  // Each cast member has a color of its own; villagers share one more, outside the cast's.
+  // Each of Kith's cast (spec 5.3) has a color of its own; villagers share one more, outside the
+  // cast's. A valley's guide (Tove, Quill) never shares a valley with them, so it may repeat one.
   const shared = creatureColor('villager-1', cast, palette);
-  expect(new Set([...cast.values()].map((c) => castColor(c, palette)).concat(shared)).size).toBe(
-    cast.size + 1,
-  );
+  const kith = [...cast.values()].filter((c) => m0.creatures.some((k) => k.id === c.id));
+  expect(kith).toHaveLength(6);
+  expect(new Set(kith.map((c) => castColor(c, palette)).concat(shared)).size).toBe(kith.length + 1);
   expect(shared).not.toBe(palette.paper);
   const villager = (id: string): number | undefined => {
     cosmos.update(w, settings, same, noTimeline, null, id);

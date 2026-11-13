@@ -1,0 +1,19 @@
+{
+  "id": "hollow",
+  "ink": "#2b2a28",
+  "paper": "#fffdf8",
+  "accent": "#e2a200",
+  "warmth": "#e6d6c3",
+  "leaf": "#dde2c6",
+  "background": "#f3eee4",
+  "light": {
+    "color": "#ffe08a",
+    "alpha": 0.5
+  },
+  "fog": {
+    "color": "#dfe2e8",
+    "alpha": 0.85
+  },
+  "water": "#c6dce4",
+  "full": ["#e8604c", "#f08a3c", "#f2c84b", "#7bb661", "#4f8fc0", "#8a63b8"]
+}

@@ -439,10 +439,11 @@
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
     const verb = chapter.newVerb;
     tool = tools.find((v) => v === verb) ?? tools[0] ?? null;
+    stage.setScene(chapter.scene);
+    stage.setPalette(chapter.palette ?? chapter.season);
     cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     stage.setShot(null);
     stage.setFocus(null);
-    stage.setSeason(chapter.season);
     stage.showHeatmap(false);
     view = 'meadow';
     stage.setView('meadow', null);

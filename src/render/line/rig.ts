@@ -23,3 +23,14 @@ export const RigSchema = z.object({
 });
 
 export type Rig = z.infer<typeof RigSchema>;
+
+/**
+ * A creature's rig: its id's, then its species' (so the hero, id `hero`, wears its kind's), then
+ * `fallback`'s.
+ */
+export const rigFor = (
+  rigs: Map<string, Rig>,
+  id: string,
+  speciesId: string,
+  fallback: string,
+): Rig | undefined => rigs.get(id) ?? rigs.get(speciesId) ?? rigs.get(fallback);

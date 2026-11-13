@@ -354,7 +354,10 @@
    */
   function openJournal(at: string | null, after: (() => void) | null = null): void {
     const j = game.journey();
-    if (!j || journal || book || bookOpening || betRunning) return;
+    if (!j || journal || book || bookOpening || betRunning) {
+      after?.();
+      return;
+    }
     if (after === null) {
       speedBeforeJournal = game.currentSpeed();
       setSpeed(0);

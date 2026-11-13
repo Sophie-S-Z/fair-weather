@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Note } from '../../story/schema.ts';
 
-  let { note, level = 3 }: { note: Note; /** The heading level of the note's title. */ level?: number } =
+  let { note, level = 3 }: { note: Note; /** The heading level of the note's title. */ level?: 3 | 4 } =
     $props();
 </script>
 

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import heroesJson from '../../content/heroes.json' with { type: 'json' };
 import journalJson from '../../content/journal.json' with { type: 'json' };
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { GiftMove, HeroKind } from '../sim/types.ts';
+import type { GiftMove, HeroKind, Shell } from '../sim/types.ts';
 import type { ActionLog } from './action-log.ts';
 import { CarrySchema } from './carry.ts';
 import type { Carry } from './carry.ts';
@@ -32,6 +32,8 @@ export interface Journey {
   /** The hero's last 20 give-or-keep moves, and the bids it answered and how many it turned against. */
   record: { moves: GiftMove[]; answered: number; against: number };
   rumor: { value: number; strength: number } | null;
+  /** The hero's shell at the last valley's exit, or null before the first (ADR 0013 item 1). */
+  shell: Shell | null;
   keepsakes: { id: string; given: boolean }[];
   pages: JournalPage[];
   /** Wisp's choice in Halcyon (ADR 0013 item 7), or null before it. */
@@ -79,6 +81,7 @@ export const JournalSchema = z.strictObject({
 });
 
 const said = z.strictObject({ value: z.number().min(-1).max(1), strength: z.number().min(0).max(1) });
+const unit = z.number().min(0).max(1);
 
 export const JourneySchema = z.strictObject({
   hero: z.strictObject({ kind: heroKind, name: z.string() }),
@@ -88,6 +91,7 @@ export const JourneySchema = z.strictObject({
     against: z.number().int().nonnegative(),
   }),
   rumor: said.nullable(),
+  shell: z.strictObject({ tightness: unit, bristle: unit, color: unit, softness: unit }).nullable(),
   keepsakes: z.array(z.strictObject({ id: z.string(), given: z.boolean() })),
   pages: z.array(
     z.strictObject({
@@ -116,6 +120,7 @@ export function newJourney(
     hero: { kind, name },
     record: { moves: [], answered: 0, against: 0 },
     rumor: null,
+    shell: null,
     keepsakes: [],
     pages: [],
     wisp: null,
@@ -153,6 +158,7 @@ export function journeyStart(j: Journey, kithWarmth: number): JourneyStart {
     name: j.hero.name,
     keepsakes: j.keepsakes.filter((k) => !k.given).map((k) => k.id),
     rumor: j.rumor,
+    shell: j.shell && { ...j.shell },
     companion: j.wisp === 'home' ? 'wisp' : j.wisp === 'stay' ? 'seed' : null,
     kithWarmth,
   };
@@ -184,8 +190,8 @@ function stampOf(lite: WorldLite, locals: ReadonlySet<string>): JournalPage['sta
  * bids join the record; the rumor is the record's value at the share of locals (not the hero, not
  * away) whose opinion of the hero is at least opinion.holdAt in size, except that a Kite-rider
  * leaving Murmuration Fen keeps the rumor it had (ADR 0013 item 3); keepsake events mark keepsakes
- * given and the valley's own joins them; a goHome or stay event sets Wisp's choice; and the valley
- * adds its journal page.
+ * given and the valley's own joins them; a goHome or stay event sets Wisp's choice; the hero's
+ * shell is the exit snapshot's; and the valley adds its journal page.
  */
 export function leaveValley(j: Journey, chapter: Chapter, lite: WorldLite, log: ActionLog): Journey {
   if (!chapter.valley) throw new Error(`Chapter ${chapter.id} is not a valley`);
@@ -221,11 +227,13 @@ export function leaveValley(j: Journey, chapter: Chapter, lite: WorldLite, log: 
   if (keepsake !== null && !keepsakes.some((k) => k.id === keepsake))
     keepsakes.push({ id: keepsake, given: false });
   const kiteInFen = j.hero.kind === 'kite' && chapter.valley.pack === 'fen';
+  const heroShell = lite.creatures.find((c) => c.id === 'hero')?.shell;
   return {
     ...j,
     hero: { ...j.hero },
     record,
     rumor: kiteInFen ? j.rumor : now,
+    shell: heroShell ? { ...heroShell } : j.shell,
     keepsakes,
     pages: [
       ...j.pages,

@@ -15,8 +15,10 @@ Fewer than three of your old friends are warm to you yet. #placeholder
 -> END
 
 === home_bench ===
-You sit with Pim on the first bench. #placeholder
+Pim comes to find you. #placeholder
 {
+- hero_softness == 0 && hero_tightness == 0:
+    Pim says your line has not changed. #placeholder
 - hero_softness > hero_tightness:
     Pim says your line has grown soft. #placeholder
 - hero_tightness > hero_softness:

@@ -266,6 +266,7 @@ describe('a valley start', () => {
     name: 'Rook',
     keepsakes: ['starling-feather', 'clipping'],
     rumor: { value: -0.5, strength: 0.4 },
+    shell: null,
     companion: null,
     kithWarmth: 0.3,
   };
@@ -284,6 +285,10 @@ describe('a valley start', () => {
     });
     expect(s.pack).toEqual({ id: 'halcyon', kithWarmth: 0.3, seeker: 'wisp' });
     expect(halcyonBase.pack).toEqual({ id: 'halcyon', kithWarmth: 0, seeker: 'wisp' }); // not mutated
+    const shell = { tightness: 0.1, bristle: 0, color: 0, softness: 0.2 };
+    expect(
+      buildScenario(valleyOf('halcyon'), flags, halcyonBase, undefined, { ...journey, shell }).hero?.shell,
+    ).toEqual(shell);
   });
 
   test("the pack comes from the valley and the base scenario's pack fields", () => {

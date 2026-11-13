@@ -295,6 +295,8 @@ export interface Scenario {
     berries: number;
     keepsakes: string[];
     rumor: { value: number; strength: number } | null;
+    /** The shell it brings from the last valley (ADR 0013 item 1); none starts it with no shell. */
+    shell?: Shell;
   };
   /**
    * The valley's rule pack (ADR 0013 items 4 to 6). Murmuration Fen: the `restless` starlings fly

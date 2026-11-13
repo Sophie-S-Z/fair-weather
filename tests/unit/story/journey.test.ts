@@ -205,6 +205,7 @@ describe('the journey between valleys', () => {
       name: 'Rook',
       keepsakes: [],
       rumor: { value: 0, strength: 0 },
+      shell: { tightness: 0, bristle: 0, color: 0, softness: 0 },
       companion: 'wisp',
       kithWarmth: 0.25,
     });
@@ -213,6 +214,20 @@ describe('the journey between valleys', () => {
     ]);
     expect(journeyStart(stayed, 0)).toMatchObject({ keepsakes: ['starling-feather'], companion: 'seed' });
     expect(journeyStart(start, 0)).toMatchObject({ keepsakes: [], rumor: null, companion: null });
+  });
+
+  test("the hero's shell at a valley's exit carries into the next valley's start", () => {
+    expect(start.shell).toBeNull();
+    expect(journeyStart(start, 0).shell).toBeNull();
+    const lite = liteOf();
+    const line = { tightness: 0.1, bristle: 0, color: 0.2, softness: 0.3 };
+    lite.creatures = lite.creatures.map((c) => (c.id === 'hero' ? { ...c, shell: line } : c));
+    const j = leaveValley(start, fen, lite, []);
+    expect(j.shell).toEqual(line);
+    expect(journeyStart(j, 0).shell).toEqual(line);
+    // A snapshot with no hero keeps the shell the journey had.
+    lite.creatures = lite.creatures.filter((c) => c.id !== 'hero');
+    expect(leaveValley(j, fen, lite, []).shell).toEqual(line);
   });
 
   test('kithDays gives 7, 7, 6, summing to 20', () => {

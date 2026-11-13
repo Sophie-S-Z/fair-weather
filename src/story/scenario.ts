@@ -1,6 +1,6 @@
 // Builds a chapter's starting scenario (spec 10.1, P6): the year carry, the overrides, at most one
 // variant, and the chapter's day length, so the runner and the sim count the same days.
-import type { DialKey, HeroKind, Rect, Scenario } from '../sim/types.ts';
+import type { DialKey, HeroKind, Rect, Scenario, Shell } from '../sim/types.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
 import { applyCarry, carryFrom, restoreDials } from './carry.ts';
 import type { Carry } from './carry.ts';
@@ -138,27 +138,30 @@ export function chapterStart(
 }
 
 /**
- * What a valley takes from the journey (ADR 0013 item 9): the hero, its keepsakes and rumor, who
- * came home with it from Halcyon (Wisp, or Wisp's seed), and Kith's average warmth so far.
+ * What a valley takes from the journey (ADR 0013 item 9): the hero, its keepsakes and rumor, its
+ * shell from the last valley (null before the first), who came home with it from Halcyon (Wisp,
+ * or Wisp's seed), and Kith's average warmth so far.
  */
 export interface JourneyStart {
   kind: HeroKind;
   name: string;
   keepsakes: string[];
   rumor: { value: number; strength: number } | null;
+  shell: Shell | null;
   companion: 'wisp' | 'seed' | null;
   kithWarmth: number;
 }
 
 /**
- * The hero at the gate with 3 berries, the valley's pack with the base scenario's pack fields
+ * The hero at the gate with 3 berries and its shell, the valley's pack with the base scenario's pack fields
  * (Halcyon's kithWarmth from the journey), and the companion (ADR 0013 item 12): Wisp back beside
  * the gate, or the `wisp-seed` bush 40 units right of the first bench.
  */
 function startValley(s: Scenario, valley: NonNullable<Chapter['valley']>, journey: JourneyStart): void {
   const { gateX, gateY } = tuning.scene;
-  const { kind, name, keepsakes, rumor } = journey;
+  const { kind, name, keepsakes, rumor, shell } = journey;
   s.hero = { kind, name, x: gateX, y: gateY, berries: 3, keepsakes: [...keepsakes], rumor };
+  if (shell) s.hero.shell = { ...shell };
   const pack = valley.pack;
   if (pack === null) delete s.pack;
   else if (pack === 'hollow' && !s.pack) s.pack = { id: 'hollow' };

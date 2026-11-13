@@ -8,12 +8,13 @@ import { SEEDS } from './run-chapter.ts';
 /** Seeds 1 to 200. */
 export const VALLEY_SEEDS: readonly number[] = SEEDS;
 
-/** A Lantern-bearer named "Test", with no rumor, no keepsakes, no companion, and Kith's warmth at 0.3. */
+/** A Lantern-bearer named "Test", with no rumor, no keepsakes, no shell, no companion, and Kith's warmth at 0.3. */
 export const JOURNEY: JourneyStart = {
   kind: 'lantern',
   name: 'Test',
   keepsakes: [],
   rumor: null,
+  shell: null,
   companion: null,
   kithWarmth: 0.3,
 };

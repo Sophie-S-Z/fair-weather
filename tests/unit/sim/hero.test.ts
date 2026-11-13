@@ -55,6 +55,14 @@ test('the hero is the last creature, with its kind as species and a toward-and-g
   expect(makeWorld([{ id: 'a' }])).not.toHaveProperty('hero');
 });
 
+test('a hero with a shell from the last valley starts with it as its shell and resting shell', () => {
+  const shell = { tightness: 0.2, bristle: 0.1, color: 0.3, softness: 0.4 };
+  const w = heroWorld([{ id: 'a' }], { shell });
+  expect(get(w, HERO).shell).toEqual(shell);
+  expect(get(w, HERO).restShell).toEqual(shell);
+  expect(get(w, HERO).shell).not.toBe(shell); // a copy
+});
+
 test('a rumor becomes the first opinion of locals whose Ear is at or below its strength', () => {
   const w = heroWorld(
     [

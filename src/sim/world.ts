@@ -49,7 +49,8 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
 }
 
 /**
- * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, no shell. Each other
+ * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, and the scenario's
+ * shell, or no shell, as its shell and resting shell. Each other
  * creature with Ear at or below the rumor's strength starts with the rumor's value as its opinion
  * of the hero (ADR 0013 item 8). Throws when a scenario creature already uses the hero's id.
  */
@@ -70,6 +71,7 @@ function addHero(creatures: Creature[], hero: NonNullable<Scenario['hero']>): vo
       y: hero.y,
       berries: hero.berries,
       dials: { opener: dial, forgiveness: dial, memory: dial, ear: dial, wanderlust: dial },
+      ...(hero.shell ? { shell: hero.shell } : {}),
     }),
   );
 }

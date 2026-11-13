@@ -93,7 +93,12 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.festival).toEqual({ threshold: 1, everyTicks: 10 });
   expect(t.postcard).toEqual({ nudge: 0.1 });
   expect(t.wisp).toEqual({ minWarmth: 0.6, minKithWarmth: 0.2 });
-  expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6, chooseByDay: 3 });
+  expect(t.halcyon).toEqual({
+    giftWarmthMultiplier: 0.2,
+    keepsakeWarmth: 0.6,
+    keepsakeRadii: 2,
+    chooseByDay: 3,
+  });
   expect(t.kith).toEqual({ days: 20 });
   expect(t.bet).toEqual({ revealSpeed: 8 });
   expect(t.bridge).toEqual({ radius: 32, landing: 14 });

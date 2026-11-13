@@ -39,10 +39,10 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
 /**
  * 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. Sky
  * warmth runs past [-1, 1] and some scenario ties name an unknown id, to test the clamp and drop.
- * Half the scenarios have a hero. A quarter are in Murmuration Fen: some creatures are starlings,
- * some of the ids (and an unknown one) are restless, and some have a fixed threshold. A quarter are
- * in Hearsay Hollow, and a quarter in Halcyon, where the seeker is any id (or an unknown one), Kith's
- * warmth is any, and the hero holds two keepsakes.
+ * Half the scenarios have a hero. Two fifths have no pack. A fifth are in Murmuration Fen: some
+ * creatures are starlings, some of the ids (and an unknown one) are restless, and some have a fixed
+ * threshold. A fifth are in Hearsay Hollow, and a fifth in Halcyon, where the seeker is any id (or
+ * an unknown one), Kith's warmth is any, and the hero holds two keepsakes.
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -87,7 +87,7 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
         ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
         hero: fc.option(heroArb, { freq: 2, nil: undefined }),
         pack: fc.oneof(
-          { weight: 1, arbitrary: fc.constant(undefined) },
+          { weight: 2, arbitrary: fc.constant(undefined) },
           { weight: 1, arbitrary: fen },
           { weight: 1, arbitrary: fc.constant('hollow' as const) },
           {

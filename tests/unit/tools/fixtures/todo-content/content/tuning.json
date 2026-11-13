@@ -74,7 +74,7 @@
   "festival": { "threshold": 2, "everyTicks": 10 },
   "postcard": { "nudge": 0.1 },
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
-  "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6, "chooseByDay": 3 },
+  "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6, "keepsakeRadii": 2, "chooseByDay": 3 },
   "kith": { "days": 20 },
   "bet": { "revealSpeed": 8 },
   "bridge": { "radius": 32, "landing": 14 },

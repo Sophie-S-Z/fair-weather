@@ -91,7 +91,12 @@ export const TuningSchema = obj({
   festival: obj({ threshold: count, everyTicks: count }),
   postcard: obj({ nudge: signed }),
   wisp: obj({ minWarmth: signed, minKithWarmth: signed }),
-  halcyon: obj({ giftWarmthMultiplier: prob, keepsakeWarmth: signed, chooseByDay: count }),
+  halcyon: obj({
+    giftWarmthMultiplier: prob,
+    keepsakeWarmth: signed,
+    keepsakeRadii: pos,
+    chooseByDay: count,
+  }),
   /** Kith's silent run over the Part 2 valleys (ADR 0013 item 10). */
   kith: obj({ days: count }),
   bet: obj({ revealSpeed: pos }),

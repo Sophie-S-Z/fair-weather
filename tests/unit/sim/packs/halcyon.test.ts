@@ -23,7 +23,7 @@ import golden from '../../../golden/m0-hash.json';
 
 const WISP = 'wisp';
 const DIALS = { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 };
-const REACH = 2 * t.meet.radius;
+const REACH = t.halcyon.keepsakeRadii * t.meet.radius;
 
 type Local = { id: string; x: number; y: number; opener?: number };
 
@@ -106,12 +106,14 @@ test('a gift in Halcyon costs nothing and warms by 0.03', () => {
 });
 
 test('a keepsake within 48 units warms the receiver by 0.6 toward the hero and leaves the hero', () => {
+  expect(t.halcyon.keepsakeRadii).toBe(2);
   expect(REACH).toBe(48);
   const w = near();
   setWarmth(w, 'a', HERO, 0.1);
   const rng = scriptedRng([]);
   expect(applyCommand(w, keepsake(WISP, 'feather'), t, rng)).toEqual([
     { t: 'keepsake', to: WISP, item: 'feather' },
+    { t: 'opinion', holder: WISP, about: HERO, value: t.halcyon.keepsakeWarmth },
   ]);
   expect(w.hero!.keepsakes).toEqual(['acorn']);
   expect(wispWarmth(w)).toBe(t.halcyon.keepsakeWarmth);
@@ -127,6 +129,7 @@ test('a keepsake within 48 units warms the receiver by 0.6 toward the hero and l
   setWarmth(other, 'a', HERO, 0.1);
   expect(applyCommand(other, keepsake('a', 'acorn'), t, rng)).toEqual([
     { t: 'keepsake', to: 'a', item: 'acorn' },
+    { t: 'opinion', holder: 'a', about: HERO, value: side(getTie(other, 'a', HERO)!, 'a').warmth },
   ]);
   expect(side(getTie(other, 'a', HERO)!, 'a').warmth).toBeCloseTo(0.7, 12);
   expect(other.hero!.keepsakes).toEqual(['feather']);
@@ -255,6 +258,12 @@ test('nudge raises one dial of every creature not gone by 0.1, clamped', () => {
   nudge('ear', Infinity);
   expect(hashWorld(w)).toBe(before);
   expect(rng.used()).toBe(0);
+  // The hero's dials move only by the player (ADR 0013 item 1).
+  const withHero = near();
+  const heroDials = { ...get(withHero, HERO).dials };
+  applyCommand(withHero, { t: 'nudge', dial: 'ear', amount: 0.1 }, t, rng);
+  expect(get(withHero, HERO).dials).toEqual(heroDials);
+  expect(get(withHero, WISP).dials.ear).toBe(0.5 + 0.1);
   // The plain world keeps the golden hash.
   expect(hashWorld(runGolden())).toBe(golden.hash);
 });

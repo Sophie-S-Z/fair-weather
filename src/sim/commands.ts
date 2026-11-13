@@ -232,10 +232,13 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       return PACKS[world.pack.id].onVerb(world, cmd.verb, t, rng);
     }
     case 'nudge': {
-      // A postcard nudges one dial of every creature not gone (ADR 0013 item 10).
+      // A postcard nudges one dial of every creature not gone (ADR 0013 item 10), but the hero's,
+      // which only the player moves (item 1).
       const { dial, amount } = cmd;
       if (!DIAL_KEYS.includes(dial) || !finite(amount)) return [];
-      for (const c of world.creatures) if (!c.gone) c.dials[dial] = clamp(c.dials[dial] + amount, 0, 1);
+      for (const c of world.creatures) {
+        if (!c.gone && !isHero(world, c)) c.dials[dial] = clamp(c.dials[dial] + amount, 0, 1);
+      }
       return [];
     }
     case 'overPoke':

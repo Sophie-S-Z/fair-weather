@@ -28,6 +28,15 @@ const num = z.number();
 const str = z.string();
 const reply = z.enum(['toward', 'away', 'against']);
 const at = { x: num, y: num };
+// A Record over every dial: a missing dial is a compile error (story may not import sim values).
+const DIAL_SET: Record<DialKey, true> = {
+  opener: true,
+  forgiveness: true,
+  memory: true,
+  ear: true,
+  wanderlust: true,
+};
+const DIALS = Object.keys(DIAL_SET) as [DialKey, ...DialKey[]];
 
 /**
  * Every command shape (sim/types.ts Command). `walk` has two shapes, which a discriminated union
@@ -70,7 +79,7 @@ const CommandSchema = z.union([
     }),
     z.strictObject({
       t: z.literal('nudge'),
-      dial: z.enum(['opener', 'forgiveness', 'memory', 'ear', 'wanderlust'] satisfies DialKey[]),
+      dial: z.enum(DIALS),
       amount: num,
     }),
   ]),

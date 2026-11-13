@@ -67,10 +67,11 @@ export const halcyon: RulePack = {
   },
 
   /**
-   * `keepsake` gives one of the hero's keepsakes to a creature, not away, within 2 × meet.radius of
-   * the hero: the hero loses it, and the receiver's warmth toward the hero rises by
-   * halcyon.keepsakeWarmth, its opinion following as after a meeting. A keepsake to the seeker
-   * marks it given (ADR 0013 item 7). Other verbs do nothing. No draws.
+   * `keepsake` gives one of the hero's keepsakes to a creature, not away, within
+   * halcyon.keepsakeRadii × meet.radius of the hero: the hero loses it, and the receiver's warmth
+   * toward the hero rises by halcyon.keepsakeWarmth, its opinion following as after a meeting (with
+   * an `opinion` event, as for `thread`). A keepsake to the seeker marks it given (ADR 0013 item 7).
+   * Other verbs do nothing. No draws.
    */
   onVerb(world: World, verb, t: Tuning) {
     const h = halcyonOf(world);
@@ -78,14 +79,17 @@ export const halcyon: RulePack = {
     if (!h || !hero || !world.hero || verb.verb !== 'keepsake') return [];
     const i = world.hero.keepsakes.indexOf(verb.item);
     const to = world.creatures.find((c) => c.id === verb.to && c !== hero && c.state !== 'away');
-    const reach = 2 * t.meet.radius;
+    const reach = t.halcyon.keepsakeRadii * t.meet.radius;
     if (i < 0 || !to || dist2(to.x, to.y, hero.x, hero.y) > reach * reach) return [];
     world.hero.keepsakes.splice(i, 1);
     const s = heroSide(world, to, hero, t);
     s.warmth = clamp(s.warmth + t.halcyon.keepsakeWarmth, -1, 1);
     to.opinions[HERO] = s.warmth;
     if (to.id === h.seeker) h.given = true;
-    return [{ t: 'keepsake', to: to.id, item: verb.item }];
+    return [
+      { t: 'keepsake', to: to.id, item: verb.item },
+      { t: 'opinion', holder: to.id, about: HERO, value: s.warmth },
+    ];
   },
 
   /** No numbers yet. */

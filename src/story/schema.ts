@@ -104,6 +104,8 @@ export const BeatSchema = z.strictObject({
     z.strictObject({ activity: z.literal(true) }),
     // Fires once when the player sends the valley's postcard.
     z.strictObject({ postcard: z.literal(true) }),
+    // Fires once when the twist's last retry window ends without the twist, after the close call.
+    z.strictObject({ closeCall: z.literal(true) }),
   ]),
   actions: z.array(
     z.union([

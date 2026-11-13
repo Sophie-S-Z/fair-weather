@@ -100,8 +100,8 @@
     "duskAt": 0.75,
     "duskLift": 0.15,
     "neighbors": 7,
-    "thresholdMin": 0.2,
-    "thresholdSpan": 0.6
+    "thresholdMin": 0.3,
+    "thresholdSpan": 0.5
   },
   "hollow": {
     "skySpeed": 120,

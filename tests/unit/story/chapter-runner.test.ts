@@ -754,6 +754,34 @@ describe('twists', () => {
     expect(f.sent).toHaveLength(4);
   });
 
+  test('a closeCall beat runs once, right after the close-call knot, and not when the twist fires', async () => {
+    const after: Chapter = {
+      ...ch3,
+      beats: [...ch3.beats, { id: 'after', trigger: { closeCall: true }, actions: [{ ink: 'ch3_after' }] }],
+    };
+    const knots = [...CH3_KNOTS, 'ch3_after'];
+    const still = lite({ metrics: { averageWarmth: 0.1, friendPairs: 1 } });
+    const f = fakePort();
+    const ink = inkOf(knots);
+    const runner = createChapterRunner(f.port, ink, after, flags);
+    f.step([], still);
+    expect(runner.verb({ verb: 'place', x: 300, y: 200 })).toBe(true);
+    f.steps(12599, still); // the last window ends at tick 12601
+    expect(ink.played).not.toContain('ch3_after');
+    f.step([], still);
+    expect(ink.played.slice(-2)).toEqual(['ch3_close_call', 'ch3_after']);
+    await expect(runner.done).resolves.toEqual({ ...flags, benchPlaced: false, friendThreads: 1 });
+
+    const g = fakePort();
+    const firedInk = inkOf(knots);
+    const fired = createChapterRunner(g.port, firedInk, after, flags);
+    g.steps(10, still);
+    expect(fired.verb({ verb: 'place', x: 300, y: 200 })).toBe(true);
+    g.step([], lite({ metrics: { averageWarmth: 0.25, friendPairs: 4 }, bench: true }));
+    await expect(fired.done).resolves.toEqual({ ...flags, benchPlaced: true, friendThreads: 4 });
+    expect(firedInk.played).toEqual(['ch3_intro', 'ch3_bench', 'ch3_warm']);
+  });
+
   test('with opensOn, the window stays shut until that verb', async () => {
     const f = fakePort();
     const runner = createChapterRunner(f.port, inkOf(CH3_KNOTS), ch3, flags);

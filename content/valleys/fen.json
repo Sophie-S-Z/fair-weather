@@ -9,7 +9,7 @@
     "postcards": ["generosity", "wandering"],
     "keepsake": {
       "id": "starling-feather",
-      "label": "[PLACEHOLDER] A starling feather"
+      "label": "A starling feather"
     },
     "locals": [
       "[PLACEHOLDER] The flock goes up when enough of us go up.",
@@ -20,7 +20,7 @@
   "title": "Murmuration Fen",
   "season": "spring",
   "scene": "kith-meadow",
-  "dayLengthSeconds": 60,
+  "dayLengthSeconds": 540,
   "carry": false,
   "verbs": ["walk", "join", "manner", "zoom", "peek"],
   "newVerb": "join",
@@ -54,7 +54,7 @@
     {
       "id": "fen_card",
       "trigger": {
-        "at": 725
+        "closeCall": true
       },
       "actions": [
         {
@@ -76,7 +76,7 @@
   ],
   "twist": {
     "id": "toveFlies",
-    "withinDays": 3,
+    "withinDays": 1,
     "retryArrange": ["tove", "starling-1"]
   },
   "reads": [],
@@ -95,7 +95,7 @@
       "question": "[PLACEHOLDER] What would you do only once enough friends did it?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Wisdom and/or Madness of Crowds",
+          "label": "The Wisdom and/or Madness of Crowds",
           "url": "https://ncase.me/crowds/"
         }
       ]
@@ -108,7 +108,7 @@
       "question": "[PLACEHOLDER] Who do you see most, and are they like everyone else?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Wisdom and/or Madness of Crowds",
+          "label": "The Wisdom and/or Madness of Crowds",
           "url": "https://ncase.me/crowds/"
         }
       ]

@@ -423,6 +423,7 @@ export function createChapterRunner(
       runBeatsOn((trigger) => 'twist' in trigger);
     } else {
       say(`${config.id}_close_call`);
+      runBeatsOn((trigger) => 'closeCall' in trigger);
     }
     if ('onTwist' in config.exit) exitReady = true;
   }

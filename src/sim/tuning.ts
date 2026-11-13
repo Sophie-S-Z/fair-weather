@@ -136,8 +136,9 @@ export const TuningSchema = obj({
   /**
    * Murmuration Fen (ADR 0013 item 5): flight is checked every `everyTicks` ticks against each
    * starling's `neighbors` nearest, with thresholds `duskLift` lower from `duskAt` of the day. A
-   * drawn threshold is thresholdMin + thresholdSpan × the draw (0.2 to 0.8, ADR 0007); a span, not
-   * a max, since 0.8 − 0.2 is not 0.6 in floating point and would move every drawn threshold.
+   * drawn threshold is thresholdMin + thresholdSpan × the draw (0.3 to 0.8, ADR 0013 item 16); a
+   * span, not a max, since a max less a min is not always the span in floating point, and a
+   * rounded span would move every drawn threshold.
    */
   fen: obj({
     everyTicks: count,

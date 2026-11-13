@@ -124,8 +124,8 @@ test('defaults equal the handoff and ADR values', () => {
     duskAt: 0.75,
     duskLift: 0.15,
     neighbors: 7,
-    thresholdMin: 0.2,
-    thresholdSpan: 0.6,
+    thresholdMin: 0.3,
+    thresholdSpan: 0.5,
   });
   expect(t.hollow).toEqual({
     skySpeed: 120,

@@ -1,0 +1,1110 @@
+{
+  "valleyId": "fen",
+  "season": "spring",
+  "creatures": [
+    {
+      "id": "starling-1",
+      "speciesId": "starling",
+      "name": "Starling 1",
+      "x": 429,
+      "y": 300,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-2",
+      "speciesId": "starling",
+      "name": "Starling 2",
+      "x": 409,
+      "y": 310,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-3",
+      "speciesId": "starling",
+      "name": "Starling 3",
+      "x": 422,
+      "y": 281,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-4",
+      "speciesId": "starling",
+      "name": "Starling 4",
+      "x": 434,
+      "y": 318,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-5",
+      "speciesId": "starling",
+      "name": "Starling 5",
+      "x": 394,
+      "y": 295,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-6",
+      "speciesId": "starling",
+      "name": "Starling 6",
+      "x": 444,
+      "y": 285,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-7",
+      "speciesId": "starling",
+      "name": "Starling 7",
+      "x": 412,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-8",
+      "speciesId": "starling",
+      "name": "Starling 8",
+      "x": 405,
+      "y": 270,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-9",
+      "speciesId": "starling",
+      "name": "Starling 9",
+      "x": 454,
+      "y": 312,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-10",
+      "speciesId": "starling",
+      "name": "Starling 10",
+      "x": 385,
+      "y": 314,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-11",
+      "speciesId": "starling",
+      "name": "Starling 11",
+      "x": 437,
+      "y": 264,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-12",
+      "speciesId": "starling",
+      "name": "Starling 12",
+      "x": 432,
+      "y": 340,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-13",
+      "speciesId": "starling",
+      "name": "Starling 13",
+      "x": 383,
+      "y": 278,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-14",
+      "speciesId": "starling",
+      "name": "Starling 14",
+      "x": 464,
+      "y": 290,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-15",
+      "speciesId": "starling",
+      "name": "Starling 15",
+      "x": 393,
+      "y": 338,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-16",
+      "speciesId": "starling",
+      "name": "Starling 16",
+      "x": 414,
+      "y": 252,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-17",
+      "speciesId": "starling",
+      "name": "Starling 17",
+      "x": 458,
+      "y": 332,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-18",
+      "speciesId": "starling",
+      "name": "Starling 18",
+      "x": 369,
+      "y": 302,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-19",
+      "speciesId": "starling",
+      "name": "Starling 19",
+      "x": 457,
+      "y": 263,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-20",
+      "speciesId": "starling",
+      "name": "Starling 20",
+      "x": 418,
+      "y": 354,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-21",
+      "speciesId": "starling",
+      "name": "Starling 21",
+      "x": 384,
+      "y": 257,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-22",
+      "speciesId": "starling",
+      "name": "Starling 22",
+      "x": 476,
+      "y": 308,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-23",
+      "speciesId": "starling",
+      "name": "Starling 23",
+      "x": 372,
+      "y": 333,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "tove",
+      "speciesId": "starling",
+      "name": "Tove",
+      "x": 433,
+      "y": 242,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-24",
+      "speciesId": "starling",
+      "name": "Starling 24",
+      "x": 871,
+      "y": 180,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-25",
+      "speciesId": "starling",
+      "name": "Starling 25",
+      "x": 846,
+      "y": 192,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-26",
+      "speciesId": "starling",
+      "name": "Starling 26",
+      "x": 862,
+      "y": 156,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-27",
+      "speciesId": "starling",
+      "name": "Starling 27",
+      "x": 877,
+      "y": 202,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-28",
+      "speciesId": "starling",
+      "name": "Starling 28",
+      "x": 451,
+      "y": 720,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-29",
+      "speciesId": "starling",
+      "name": "Starling 29",
+      "x": 426,
+      "y": 732,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-30",
+      "speciesId": "starling",
+      "name": "Starling 30",
+      "x": 442,
+      "y": 696,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-31",
+      "speciesId": "starling",
+      "name": "Starling 31",
+      "x": 457,
+      "y": 742,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-32",
+      "speciesId": "starling",
+      "name": "Starling 32",
+      "x": 1072,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-33",
+      "speciesId": "starling",
+      "name": "Starling 33",
+      "x": 1044,
+      "y": 714,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-34",
+      "speciesId": "starling",
+      "name": "Starling 34",
+      "x": 1062,
+      "y": 673,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-35",
+      "speciesId": "starling",
+      "name": "Starling 35",
+      "x": 1409,
+      "y": 220,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-36",
+      "speciesId": "starling",
+      "name": "Starling 36",
+      "x": 1388,
+      "y": 231,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-37",
+      "speciesId": "starling",
+      "name": "Starling 37",
+      "x": 1402,
+      "y": 199,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-38",
+      "speciesId": "starling",
+      "name": "Starling 38",
+      "x": 1415,
+      "y": 240,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    },
+    {
+      "id": "starling-39",
+      "speciesId": "starling",
+      "name": "Starling 39",
+      "x": 1372,
+      "y": 215,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0
+      }
+    }
+  ],
+  "ties": [
+    {
+      "a": "starling-1",
+      "b": "starling-2",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-2",
+      "b": "starling-3",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-3",
+      "b": "starling-4",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-4",
+      "b": "starling-5",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-5",
+      "b": "starling-6",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-6",
+      "b": "starling-7",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-7",
+      "b": "starling-8",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-8",
+      "b": "starling-9",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-9",
+      "b": "starling-10",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-10",
+      "b": "starling-11",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-11",
+      "b": "starling-12",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-12",
+      "b": "starling-13",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-13",
+      "b": "starling-14",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-14",
+      "b": "starling-15",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-15",
+      "b": "starling-16",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-16",
+      "b": "starling-17",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-17",
+      "b": "starling-18",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-18",
+      "b": "starling-19",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-19",
+      "b": "starling-20",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-20",
+      "b": "starling-21",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-21",
+      "b": "starling-22",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-22",
+      "b": "starling-23",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-23",
+      "b": "tove",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "tove",
+      "b": "starling-1",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-24",
+      "b": "starling-25",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-25",
+      "b": "starling-26",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-26",
+      "b": "starling-27",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-27",
+      "b": "starling-24",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-28",
+      "b": "starling-29",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-29",
+      "b": "starling-30",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-30",
+      "b": "starling-31",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-31",
+      "b": "starling-28",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-32",
+      "b": "starling-33",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-33",
+      "b": "starling-34",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-34",
+      "b": "starling-32",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-35",
+      "b": "starling-36",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-36",
+      "b": "starling-37",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-37",
+      "b": "starling-38",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-38",
+      "b": "starling-39",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    },
+    {
+      "a": "starling-39",
+      "b": "starling-35",
+      "ab": {
+        "warmth": 0.6,
+        "slights": 0
+      },
+      "ba": {
+        "warmth": 0.6,
+        "slights": 0
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 760,
+      "y": 460,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 1200,
+      "y": 480,
+      "berries": 5
+    }
+  ],
+  "structures": [],
+  "pack": {
+    "id": "fen",
+    "restless": ["starling-35", "starling-36", "starling-37", "starling-38", "starling-39"],
+    "fixed": {
+      "tove": 0.5
+    }
+  }
+}

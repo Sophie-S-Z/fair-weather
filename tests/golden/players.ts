@@ -1,8 +1,12 @@
 // Scripted players for the T3 runs and the year run, by chapter id. Make a new one per run: a
 // player may keep state.
 import sceneJson from '../../content/scenes/kith-meadow.json';
+import fenJson from '../../content/valleys/fen.json';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { creature } from '../../src/story/bets.ts';
+import { heroResult } from '../../src/story/journey.ts';
+import { chapterTicksPerDay } from '../../src/story/scenario.ts';
+import { tuning } from '../../src/story/tuning.ts';
 import type { ScriptedPlayer } from './run-chapter.ts';
 
 const spot = sceneJson.benchSpots.find((s) => s.id === 'under-crooked-tree');
@@ -12,6 +16,30 @@ const bench = spot;
 /** Answers a bet with its first option; leaves sky bids to the runner's automatic 'away'. */
 export const firstOption: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
   if (p.kind === 'bet' && p.options[0] !== undefined) runner.answerBet(p.options[0]);
+};
+
+/** Sends the first postcard the card lists, as soon as it opens. */
+const firstPostcard: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
+  if (p.kind === 'postcard' && p.options[0] !== undefined) runner.sendPostcard(p.options[0]);
+};
+
+const fenDay = chapterTicksPerDay(fenJson);
+
+/**
+ * The Fen's player: walks to Tove every 20 ticks and sends the first postcard. With `joins`, it
+ * joins the flock from fen.duskAt of each day and lands at dawn, as the starlings do.
+ */
+export const walksToTove = (joins: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  let joined = false;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner) {
+      if (tick >= next && runner.verb({ verb: 'walk', to: 'tove' })) next = tick + 20;
+      const dusk = tick % fenDay >= tuning.fen.duskAt * fenDay;
+      if (joins && dusk !== joined && runner.verb({ verb: 'join', on: dusk })) joined = dusk;
+    },
+  };
 };
 
 /** Finishes the interlude's activity with `result` as soon as the runner takes it. */
@@ -116,4 +144,6 @@ export const PLAYERS = {
     };
   },
   ch10: finishes('heard'),
+  bridge: finishes(heroResult('lantern', 'Test')),
+  fen: walksToTove(true),
 } satisfies Record<string, () => ScriptedPlayer>;

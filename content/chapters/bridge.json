@@ -1,0 +1,58 @@
+{
+  "id": "bridge",
+  "kind": "interlude",
+  "activity": "hero",
+  "title": "The Bridge",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 600,
+  "carry": true,
+  "verbs": [],
+  "newVerb": null,
+  "overrides": {
+    "structures": [
+      {
+        "id": "bench-crooked-tree",
+        "kind": "bench",
+        "x": 600,
+        "y": 430
+      }
+    ],
+    "gone": ["wisp"]
+  },
+  "beats": [
+    {
+      "id": "bridge_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "camera": "meadow-wide"
+        },
+        {
+          "ink": "bridge_intro"
+        }
+      ]
+    },
+    {
+      "id": "bridge_end",
+      "trigger": {
+        "activity": true
+      },
+      "actions": [
+        {
+          "ink": "bridge_done"
+        }
+      ]
+    }
+  ],
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "bridge_end"
+  },
+  "feeling": "[PLACEHOLDER] Quiet, a new start",
+  "notes": []
+}

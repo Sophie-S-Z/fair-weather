@@ -1,0 +1,117 @@
+{
+  "id": "fen",
+  "kind": "valley",
+  "scenario": "fen",
+  "palette": "fen",
+  "valley": {
+    "pack": "fen",
+    "guide": "tove",
+    "postcards": ["generosity", "wandering"],
+    "keepsake": {
+      "id": "starling-feather",
+      "label": "[PLACEHOLDER] A starling feather"
+    },
+    "locals": [
+      "[PLACEHOLDER] The flock goes up when enough of us go up.",
+      "[PLACEHOLDER] The water shows more birds in the sky than there are.",
+      "[PLACEHOLDER] Tove has never left the reeds."
+    ]
+  },
+  "title": "Murmuration Fen",
+  "season": "spring",
+  "scene": "kith-meadow",
+  "dayLengthSeconds": 60,
+  "carry": false,
+  "verbs": ["walk", "join", "manner", "zoom", "peek"],
+  "newVerb": "join",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "fen_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "ink": "fen_intro"
+        }
+      ]
+    },
+    {
+      "id": "fen_flew",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "ink": "fen_flew"
+        },
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "fen_card",
+      "trigger": {
+        "at": 725
+      },
+      "actions": [
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "fen_sent",
+      "trigger": {
+        "postcard": true
+      },
+      "actions": [
+        {
+          "ink": "fen_sent"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "toveFlies",
+    "withinDays": 3,
+    "retryArrange": ["tove", "starling-1"]
+  },
+  "reads": [],
+  "writes": ["toveFlew"],
+  "variants": [],
+  "exit": {
+    "onBeat": "fen_sent"
+  },
+  "feeling": "[PLACEHOLDER] Loneliness, belonging",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Complex contagion",
+      "science": "[PLACEHOLDER] Some things spread only when several neighbors do them first, not just one.",
+      "limits": "[PLACEHOLDER] Each starling here counts only its seven nearest birds.",
+      "counter": "[PLACEHOLDER] Some ideas spread from one friend alone.",
+      "question": "[PLACEHOLDER] What would you do only once enough friends did it?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Wisdom and/or Madness of Crowds",
+          "url": "https://ncase.me/crowds/"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] The majority illusion",
+      "science": "[PLACEHOLDER] When the best-known birds fly, it can look as if most birds fly.",
+      "limits": "[PLACEHOLDER] The water's picture here is one simple weighting.",
+      "counter": "[PLACEHOLDER] Often what looks common really is common.",
+      "question": "[PLACEHOLDER] Who do you see most, and are they like everyone else?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Wisdom and/or Madness of Crowds",
+          "url": "https://ncase.me/crowds/"
+        }
+      ]
+    }
+  ]
+}

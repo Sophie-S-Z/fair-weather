@@ -37,3 +37,5 @@ INCLUDE ch8.ink
 INCLUDE i8.ink
 INCLUDE ch9.ink
 INCLUDE ch10.ink
+INCLUDE bridge.ink
+INCLUDE fen.ink

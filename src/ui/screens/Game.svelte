@@ -13,6 +13,7 @@
   import type { Postcard as PostcardType } from '../../story/schema.ts';
   import { displayName } from '../../story/names.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
+  import { tuning } from '../../story/tuning.ts';
   import { unlockingVerb, VERBS, WORLD_VERBS } from '../../story/verbs.ts';
   import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
@@ -130,8 +131,6 @@
   let bet: { question: string; options: string[] } | null = $state(null);
   /** The open postcard card: a valley's choice of postcard home (ADR 0013 item 9). */
   let postcard: { question: string; options: PostcardType[] } | null = $state(null);
-  /** The hero's standing manner (ADR 0013 item 2); each valley starts at toward and give. */
-  let manner: { reply: BidReply; gift: GiftMove } = $state({ reply: 'toward', gift: 'give' });
   let betRunning = $state(false);
   let picked: string | null = $state(null);
   let pickedState = $state('');
@@ -279,6 +278,14 @@
       .join('. '),
   );
 
+  /** The hero's standing manner as the sim has it (ADR 0013 item 2), toward and give without a hero. */
+  function mannerOf(lite: WorldLite | null): { reply: BidReply; gift: GiftMove } {
+    return lite?.hero ? { reply: lite.hero.reply, gift: lite.hero.gift } : { reply: 'toward', gift: 'give' };
+  }
+  function heroBerries(lite: WorldLite | null): number {
+    return lite?.creatures.find((c) => c.id === 'hero')?.berries ?? 0;
+  }
+
   function say(text: string, reveal = false): void {
     lines = [...lines.slice(-2), { id: (lineId += 1), text, reveal }];
   }
@@ -292,7 +299,6 @@
         placed += 1;
         if (placed === chapter?.place.limit) used = [...used, 'place'];
       }
-      if (v.verb === 'manner') manner = { reply: v.reply, gift: v.gift };
     } else if (v.verb === 'respond') {
       say(NO_BID);
     }
@@ -441,7 +447,6 @@
     bet = null;
     betRunning = false;
     postcard = null;
-    manner = { reply: 'toward', gift: 'give' };
     picked = null;
     threadFrom = null;
     whisperCard = null;
@@ -719,8 +724,9 @@
         threadFrom: () => threadFrom,
         setThreadFrom: (id) => (threadFrom = id),
         openWhisper,
-        manner: () => manner,
+        manner: () => mannerOf(next),
         heroKind: () => next?.hero?.kind ?? null,
+        heroBerries: () => heroBerries(next),
         heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
         keepsakes: () => next?.hero?.keepsakes ?? [],
       };
@@ -917,11 +923,13 @@
                     reply = r;
                     act({ verb: 'respond', reply: r });
                   }}
-                  {manner}
+                  manner={mannerOf(live)}
                   onManner={(m: { reply: BidReply; gift: GiftMove }) => {
                     act({ verb: 'manner', ...m });
                   }}
                   canPlant={live?.hero?.kind === 'seedcarrier'}
+                  plantCost={tuning.knack.seedCost}
+                  plantReady={heroBerries(live) >= tuning.knack.seedCost}
                   onPlant={() => {
                     act({ verb: 'plant' });
                   }}
@@ -929,9 +937,9 @@
                     id,
                     label: KEEPSAKE_LABELS.get(id) ?? id,
                   }))}
-                  giveTo={picked === null ? null : displayName(picked)}
+                  giveTo={picked === null || picked === 'hero' ? null : displayName(picked)}
                   onGive={(id: string) => {
-                    if (picked !== null) act({ verb: 'keepsake', to: picked, item: id });
+                    if (picked !== null && picked !== 'hero') act({ verb: 'keepsake', to: picked, item: id });
                   }}
                 />
               {/if}
@@ -963,8 +971,9 @@
       }}
     />
   {:else if postcard}
-    <!-- The postcard home is chosen on the bet card; the runner logs it as a postcard. -->
+    <!-- The postcard home is chosen on the bet card, under its own heading; the runner logs it as a postcard. -->
     <BetCard
+      heading="A postcard home"
       question={postcard.question}
       options={postcard.options}
       label={(o) => POSTCARD_LABELS[o as PostcardType]}

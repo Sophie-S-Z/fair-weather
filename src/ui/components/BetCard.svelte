@@ -7,6 +7,7 @@
     label,
     onAnswer,
     home,
+    heading = 'A bet',
   }: {
     question: string;
     options: readonly string[];
@@ -14,6 +15,8 @@
     onAnswer: (option: string) => void;
     /** Moves focus home on close when nothing held it at open, or that control has gone. */
     home: () => void;
+    /** The card's heading and name: a bet, unless the card asks something else (a postcard home). */
+    heading?: string;
   } = $props();
 
   let card: HTMLElement;
@@ -62,7 +65,7 @@
     bind:this={card}
     onkeydown={onKey}
   >
-    <h2 id="bet-title">A bet</h2>
+    <h2 id="bet-title">{heading}</h2>
     <p id="bet-question">{question}</p>
     <div class="options">
       {#each options as option (option)}

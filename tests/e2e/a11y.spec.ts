@@ -647,11 +647,15 @@ test('the hero choice works by keyboard alone and has no serious axe issues; the
   await expect(wake).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  // The line is plain text; its live region says it in steps of 10%.
+  await expect(page.locator('p.valley')).toHaveText(
+    /^Tove sees \d+% of its neighbors flying in the water; \d+% of the starlings really fly\.$/,
+  );
   await expect(
     page
       .getByRole('status')
-      .filter({ hasText: /^Tove sees \d+% of its neighbors flying in the water; \d+% really fly\.$/ }),
-  ).toBeVisible();
+      .filter({ hasText: /^Tove sees about \d*0% of its neighbors .* about \d*0% of the starlings/ }),
+  ).toHaveCount(1);
   // The Fen's tools: Walk, Manner, Join; Manner shows its choices as pressed buttons, and a Seedcarrier can plant.
   const tools = page.getByRole('group', { name: 'Tools' });
   await expect(tools.getByRole('button')).toHaveText([/Walk/, /Manner/, /Join/]);
@@ -696,7 +700,7 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   await page.keyboard.press('w');
   await page.keyboard.press('3');
   await page.keyboard.press('Enter');
-  const card = page.getByRole('dialog', { name: 'A bet' });
+  const card = page.getByRole('dialog', { name: 'A postcard home' });
   await expect(card).toBeVisible({ timeout: 240_000 });
   await expect(card).toContainText('Which postcard will you send home?');
   await expect(card.getByRole('button')).toHaveText(['Generosity', 'Wandering']);
@@ -708,3 +712,66 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
     timeout: 30_000,
   });
 });
+
+/** Story lines, the status lines, and every control: each fully on screen and on top at its middle. */
+async function offOrHidden(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    // The HUD lets clicks through to the scene; for this check, every part of it is hit-testable.
+    const style = document.createElement('style');
+    style.textContent = 'main, main * { pointer-events: auto !important; }';
+    document.head.append(style);
+    const out: string[] = [];
+    const els = [
+      ...document.querySelectorAll<HTMLElement>(
+        '.beat-line p, p.status:not(.empty), p.valley:not(.empty), main button, main input, main a',
+      ),
+    ];
+    for (const el of els) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const r = el.getBoundingClientRect();
+      const name = `${el.tagName} "${(el.textContent || el.getAttribute('aria-label') || el.id).trim().slice(0, 40)}"`;
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.top < 0 || r.left < 0 || r.bottom > innerHeight || r.right > innerWidth) {
+        out.push(`${name} off screen ${JSON.stringify([r.left, r.top, r.right, r.bottom].map(Math.round))}`);
+        continue;
+      }
+      // The middle and both ends of its middle row.
+      for (const fx of [0.5, 0.1, 0.9]) {
+        const at = document.elementFromPoint(r.left + r.width * fx, r.top + r.height / 2);
+        if (
+          at &&
+          at !== el &&
+          !el.contains(at) &&
+          !(el instanceof HTMLInputElement && at.closest('label')?.contains(el))
+        ) {
+          out.push(`${name} covered by ${at.tagName}.${at.className}`);
+          break;
+        }
+      }
+    }
+    style.remove();
+    return out;
+  });
+}
+
+// M3.13 fix: on a phone the hero choice and the Fen keep every story line and control on screen and uncovered.
+for (const size of [
+  { width: 360, height: 640 },
+  { width: 412, height: 915 },
+]) {
+  test(`at ${String(size.width)}x${String(size.height)}, the hero choice and the Fen keep their lines and controls on screen`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await page.goto('/?chapter=16');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(page.getByRole('group', { name: 'Choose your hero' })).toBeVisible();
+    await expect(page.locator('.beat-line p')).not.toHaveCount(0);
+    expect(await offOrHidden(page)).toEqual([]);
+    await page.getByRole('button', { name: /^Wake as/ }).click();
+    await expect(page.locator('p.valley')).toBeVisible();
+    await page.keyboard.press('2');
+    await expect(page.getByRole('group', { name: 'Give or keep' })).toBeVisible();
+    expect(await offOrHidden(page)).toEqual([]);
+  });
+}

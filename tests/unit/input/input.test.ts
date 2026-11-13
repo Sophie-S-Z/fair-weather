@@ -57,6 +57,7 @@ function context(over: Partial<InputContext> = {}) {
     openWhisper: (target) => whispers.push(target),
     manner: () => ({ reply: 'toward', gift: 'give' }),
     heroKind: () => 'lantern',
+    heroBerries: () => 3,
     heroFlying: () => false,
     keepsakes: () => ['starling-feather', 'clipping'],
     ...over,
@@ -628,15 +629,24 @@ describe('Part 2 tools', () => {
     for (const k of ['g', 'o', 'k', 'l']) s.press(k);
     expect(s.acts).toEqual([]);
   });
-  it('Manner: L plants for a Seedcarrier, and sends nothing for another kind', () => {
+  it('Manner: L plants for a Seedcarrier, and sends nothing for another kind or below knack.seedCost berries', () => {
     const seed = setup({ tools: () => PART2, heroKind: () => 'seedcarrier' });
     seed.press('2');
     seed.press('l');
     const lantern = setup({ tools: () => PART2 });
     lantern.press('2');
     lantern.press('l');
+    const poor = setup({ tools: () => PART2, heroKind: () => 'seedcarrier', heroBerries: () => 0 });
+    poor.press('2');
+    poor.press('l');
     expect(seed.acts).toEqual([{ verb: 'plant' }]);
-    expect(lantern.acts).toEqual([]);
+    expect([...lantern.acts, ...poor.acts]).toEqual([]);
+  });
+  it('Keepsake: Enter gives nothing to the hero itself', () => {
+    const s = setup({ tools: () => ['walk', 'keepsake', 'manner'], picked: () => 'hero' });
+    s.press('2');
+    s.press('Enter');
+    expect(s.acts).toEqual([]);
   });
   it('Join: Enter flies, or lands while flying', () => {
     const up = setup({ tools: () => PART2 });

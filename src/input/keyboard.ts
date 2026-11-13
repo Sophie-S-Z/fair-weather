@@ -1,6 +1,7 @@
 // Keyboard play (spec 12.5). The Game screen supplies the InputContext.
 import type { ViewName } from './zoom.ts';
 import type { BidReply, GiftMove, HeroKind, Rect, Structure } from '../sim/types.ts';
+import { tuning } from '../story/tuning.ts';
 import type { Verb, VerbInput, WorldVerb } from '../story/verbs.ts';
 import { keyboardTools, snapToBench, snapToWater, type BenchSpot, type Point } from './verbs.ts';
 
@@ -41,6 +42,8 @@ export type InputContext = {
   manner: () => { reply: BidReply; gift: GiftMove };
   /** The player's hero kind, or null without a hero. */
   heroKind: () => HeroKind | null;
+  /** The hero's berries; 0 without a hero. */
+  heroBerries: () => number;
   /** Whether the hero has joined the flock (Murmuration Fen). */
   heroFlying: () => boolean;
   /** The keepsakes the hero still holds, in order. */
@@ -146,7 +149,8 @@ export function useTool(ctx: InputContext, at: Point, clear: boolean, dir: Point
       break;
     case 'keepsake': {
       const item = ctx.keepsakes()[0];
-      if (picked !== null && item !== undefined) ctx.act({ verb: 'keepsake', to: picked, item });
+      if (picked !== null && picked !== HERO && item !== undefined)
+        ctx.act({ verb: 'keepsake', to: picked, item });
       break;
     }
     // The manner goes with its keys and buttons.
@@ -211,7 +215,12 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
       ctx.act({ verb: 'manner', reply: REPLY_KEYS[lower] as BidReply, gift: ctx.manner().gift });
     } else if (lower in GIFT_KEYS && activeTool(ctx) === 'manner') {
       ctx.act({ verb: 'manner', reply: ctx.manner().reply, gift: GIFT_KEYS[lower] as GiftMove });
-    } else if (lower === 'l' && activeTool(ctx) === 'manner' && ctx.heroKind() === 'seedcarrier') {
+    } else if (
+      lower === 'l' &&
+      activeTool(ctx) === 'manner' &&
+      ctx.heroKind() === 'seedcarrier' &&
+      ctx.heroBerries() >= tuning.knack.seedCost
+    ) {
       ctx.act({ verb: 'plant' });
     } else if (lower === 'w' && activeTool(ctx) === 'walk') {
       const picked = ctx.picked();

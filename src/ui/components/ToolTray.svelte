@@ -14,6 +14,8 @@
     manner,
     onManner,
     canPlant,
+    plantCost,
+    plantReady,
     onPlant,
     keepsakes,
     giveTo,
@@ -36,6 +38,9 @@
     onManner: (m: { reply: BidReply; gift: GiftMove }) => void;
     /** A Seedcarrier hero can plant a gift. */
     canPlant: boolean;
+    /** The berries a gift costs, and whether the hero has them. */
+    plantCost: number;
+    plantReady: boolean;
     onPlant: () => void;
     /** The keepsakes the hero holds, with their labels ("starling feather"). */
     keepsakes: readonly { id: string; label: string }[];
@@ -134,7 +139,14 @@
         >
       {/each}
       {#if canPlant}
-        <button type="button" onclick={onPlant}><kbd>L</kbd> Plant a gift</button>
+        <button type="button" disabled={!plantReady} aria-describedby="plant-why" onclick={onPlant}
+          ><kbd>L</kbd> Plant a gift</button
+        >
+        <span id="plant-why" class="why"
+          >{plantReady
+            ? ''
+            : `Planting a gift needs ${String(plantCost)} ${plantCost === 1 ? 'berry' : 'berries'}.`}</span
+        >
       {/if}
     </div>
   {:else if active === 'keepsake' && keepsakes.length > 0}
@@ -179,6 +191,13 @@
   }
   .slot {
     position: relative;
+  }
+  .why {
+    align-self: center;
+    background: var(--bg);
+  }
+  .why:empty {
+    display: none;
   }
   /* The ghost hand: a faint fingertip that taps the new verb's tool, once per verb (spec 12.6). */
   .ghost {

@@ -33,6 +33,6 @@
     "id": "bellchime",
     "name": "Bellchime",
     "look": "A small bell with a curl on top",
-    "knack": "One greeting bid reaches every creature within 6 world units. Each one answers separately."
+    "knack": "One greeting bid reaches every creature nearby. Each one answers separately."
   }
 ]

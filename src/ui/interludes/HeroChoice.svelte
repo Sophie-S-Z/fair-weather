@@ -85,6 +85,12 @@
     max-height: 70vh;
     overflow-y: auto;
   }
+  /* On a phone the chapter ribbon wraps to several rows: leave room for it and the story line. */
+  @media (max-width: 600px) {
+    section {
+      max-height: calc(100dvh - 22rem);
+    }
+  }
   /* A quiet rain: thin lines that fall and fade. Reduced motion holds them still. */
   .rain {
     position: relative;

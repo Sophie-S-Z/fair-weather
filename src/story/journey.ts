@@ -141,7 +141,7 @@ export function newJourney(
  */
 function heroName(kind: HeroKind, name: string): string {
   const trimmed = characters(name.trim()).slice(0, NAME_LENGTH).join('').trim();
-  return trimmed || (heroesJson.find((h) => h.id === kind)?.name ?? kind);
+  return trimmed || (HEROES.find((h) => h.id === kind)?.name ?? kind);
 }
 
 /** The bridge's activity result (ADR 0013 item 11): `kind:name`. */
@@ -150,7 +150,7 @@ export function heroResult(kind: HeroKind, name: string): string {
 }
 
 /** The bridge's result when no hero is chosen (ADR 0013 item 11): the first hero, with its own name. */
-export const FIRST_HERO = heroResult(heroKind.parse(heroesJson[0]?.id), '');
+export const FIRST_HERO = heroResult(heroKind.parse(HEROES[0]?.id), '');
 
 /** Reads heroResult's `kind:name`, split at the first colon, so a name may hold one. Throws on an unknown kind. */
 export function parseHero(result: string): { kind: HeroKind; name: string } {

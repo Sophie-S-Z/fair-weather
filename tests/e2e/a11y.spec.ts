@@ -633,6 +633,8 @@ for (const [index, name] of PLAY_ORDER.entries()) {
 test('the hero choice works by keyboard alone and has no serious axe issues; the Fen and its line have none', async ({
   page,
 }) => {
+  // The hero choice and the Fen's first dusk together take 22 to 26 s on a quiet machine.
+  test.slow();
   await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();

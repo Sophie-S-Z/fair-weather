@@ -221,7 +221,13 @@ function keyboardHands(page: Page): Hands {
         // The give lands at the next step, or not at all out of reach; the tray shows which two
         // snapshots on. Read it now: Wisp may choose at this dusk, and its card ends the turns.
         const pressed = (await look(page)).ticks;
-        await expect.poll(async () => (await look(page)).ticks).toBeGreaterThanOrEqual(pressed + 2);
+        // A card that opens stops the snapshots, so it also ends the wait.
+        await expect
+          .poll(async () => {
+            const now = await look(page);
+            return now.dialog !== null || now.ticks >= pressed + 2;
+          })
+          .toBe(true);
       }
       const held = feather(await look(page));
       await keyTool('Walk');

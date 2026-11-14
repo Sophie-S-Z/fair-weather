@@ -6,7 +6,15 @@ import { lerpTransform, toScene, toScreen, viewTransform, type Shot, type ViewTr
 import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
-import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, smoothClosed, smoothLine, TUFT_ALPHA } from './ink.ts';
+import {
+  dashedLine,
+  FAR_ALPHA,
+  HIGH_CONTRAST_WIDTH,
+  inkStroke,
+  smoothClosed,
+  smoothLine,
+  TUFT_ALPHA,
+} from './ink.ts';
 import { drawLand, inRect } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
@@ -151,6 +159,11 @@ export interface MeadowView {
   setPalette(p: Palette): void;
   /** Redraws the ground and trees from `scene`, whose bench spots and camera shots are used from now on. */
   setScene(scene: SceneData): void;
+  /**
+   * Shows the sandbox gate's lamp at `gate`: lit, in an accent ring, unless the snapshot's
+   * `gateDark` (ADR 0014 item 5). Off at first, so a story valley's gate has no lamp.
+   */
+  setGateLamp(on: boolean): void;
   /**
    * Counts a live snapshot's lens center for the heat map. The caller passes each snapshot as it
    * arrives, so frames skipped at high speed still count and rewound or peeked worlds never do.
@@ -519,6 +532,47 @@ function drawLantern(g: Graphics, { x, y }: Structure, palette: Palette, w: numb
     .stroke(plainStroke(palette, w * 0.8));
 }
 
+/** A path's dashes are this long, with gaps at least this long, stretched so both ends are inked. */
+const PATH_DASH = 18;
+const PATH_GAP = 14;
+
+/** A sandbox path (ADR 0014 item 5): a straight dashed ink line from end to end, flat on the ground. */
+function drawPath(g: Graphics, p: Extract<Structure, { kind: 'path' }>, palette: Palette, w: number): void {
+  const len = Math.hypot(p.x2 - p.x, p.y2 - p.y);
+  const dashes = Math.max(1, Math.floor((len + PATH_GAP) / (PATH_DASH + PATH_GAP)));
+  const gap = dashes > 1 ? (len - dashes * PATH_DASH) / (dashes - 1) : 0;
+  dashedLine(g, p.x, p.y, p.x2, p.y2, dashes > 1 ? PATH_DASH : len, gap).stroke(inkStroke(palette, w));
+}
+
+/** The gate lamp's height above its foot, its lamp's size, and the radius of its lit ring. */
+const GATE_LAMP_HEIGHT = 40;
+const GATE_LAMP_SIZE = 12;
+const GATE_RING_RADIUS = 15;
+
+/**
+ * The sandbox gate's lamp (ADR 0014 item 5), with its foot at (x, y) and sized `k` for its depth:
+ * a post and a small lamp, lit in the light color inside an accent ring, or paper when dark.
+ */
+function drawGateLamp(
+  g: Graphics,
+  { x, y }: { x: number; y: number },
+  lit: boolean,
+  palette: Palette,
+  w: number,
+  k: number,
+): void {
+  const [top, s] = [y - GATE_LAMP_HEIGHT * k, (GATE_LAMP_SIZE * k) / 2];
+  g.moveTo(x - s, y)
+    .lineTo(x + s, y)
+    .moveTo(x, y)
+    .lineTo(x, top + s)
+    .stroke(plainStroke(palette, w * 0.8));
+  g.rect(x - s, top - s, 2 * s, 2 * s)
+    .fill(lit ? palette.light.color : palette.paper)
+    .stroke(plainStroke(palette, w * 0.6));
+  if (lit) g.circle(x, top, GATE_RING_RADIUS * k).stroke({ color: palette.accent, width: w * 0.6 });
+}
+
 /** A bush: three leafy lobes [dx, dy, r] from its foot, and where up to five berries show. */
 const BUSH_LOBES: [number, number, number][] = [
   [-11, -11, 11],
@@ -700,6 +754,7 @@ export function createMeadowView(
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
   actors.addChild(mushroom);
   let landKey = '';
+  let gateLamp = false;
   let mushroomKey = '';
   const feather = new Graphics({ label: 'feather', visible: false });
   actors.addChild(feather);
@@ -821,7 +876,9 @@ export function createMeadowView(
         props.clear();
         landKey = mushroomKey = '';
       }
-      const key = JSON.stringify([next.water, next.decks, next.islets]);
+      const paths = next.structures.filter((s) => s.kind === 'path');
+      const gateKey = gateLamp ? next.gateDark : null;
+      const key = JSON.stringify([next.water, next.decks, next.islets, paths, gateKey]);
       if (key !== landKey) {
         landKey = key;
         // A valley's water is calm, with the sky in it.
@@ -831,6 +888,10 @@ export function createMeadowView(
             }
           : undefined;
         drawLand(land, next.water, next.decks, next.islets, palette, w, scene, surface);
+        // Paths and the gate lamp go in the same Graphics, so they cost no draw call of their own.
+        for (const p of paths) drawPath(land, p, palette, w);
+        const { gate } = options;
+        if (gateLamp) drawGateLamp(land, gate, !next.gateDark, palette, w, depthAt(scene, gate.y));
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
@@ -845,7 +906,7 @@ export function createMeadowView(
         return g;
       };
       for (const s of next.structures) {
-        // Bridges are drawn with the water; paths are not drawn yet (plan task M4.9).
+        // Bridges and paths are drawn with the land.
         if (s.kind === 'bridge' || s.kind === 'path') continue;
         const g = redraw(s.id, s.x, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
         if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
@@ -1164,6 +1225,9 @@ export function createMeadowView(
       beds = plantBeds();
       // The next update redraws the ground, the trees, and the water over the new scene.
       lineWidth = 0;
+    },
+    setGateLamp(on) {
+      gateLamp = on;
     },
     setPalette(p) {
       if (p === palette) return;

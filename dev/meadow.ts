@@ -7,7 +7,8 @@
 // ?valley=fen plays Murmuration Fen in its scene and palette, with Tove in focus: a Lantern-bearer
 // walks to Tove and joins the flock at dusk, and the frame is drawn just after the flock goes up.
 // ?valley=hollow and ?valley=halcyon play Hearsay Hollow and Halcyon by day, with their guide in
-// focus and a Lantern-bearer at the guide's side. body[data-calls] is the WebGL draw-call count of the frame.
+// focus and a Lantern-bearer at the guide's side. ?sandbox=1 plays Kith as a sandbox, with two paths
+// and the gate dark. body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
 import scenarioJson from '../content/scenarios/m0.json';
@@ -88,6 +89,7 @@ const palette = PaletteSchema.parse(
 const scene = SceneSchema.parse(valley ? valley.scene : meadowJson);
 const land = params.get('land');
 const chapterJson = land === 'brook' ? ch9Json : land === 'islet' ? ch6Json : null;
+const sandbox = params.get('sandbox') === '1';
 const scenario = valleyChapter
   ? buildScenario(valleyChapter, parseFlags(flagsJson), valley?.scenario as Scenario, undefined, {
       kind: 'lantern',
@@ -100,7 +102,7 @@ const scenario = valleyChapter
     })
   : chapterJson
     ? buildScenario(ChapterSchema.parse(chapterJson), parseFlags(flagsJson), scenarioJson as Scenario)
-    : (scenarioJson as Scenario);
+    : { ...(scenarioJson as Scenario), ...(sandbox && { sandbox: true as const }) };
 /** In the Fen: dusk on day 0 (fen.duskAt), and the frame a little after the flock goes up. */
 const fenDusk = Math.ceil(tuning.fen.duskAt * fenDay);
 const tick = fen ? fenDusk + FEN_AFTER_DUSK : valley ? DAY_TICK : TICK;
@@ -123,6 +125,13 @@ if (land === 'brook') {
   );
 }
 if (land === 'islet') setup.push({ t: 'place', kind: 'lantern', x: 900, y: 470 });
+if (sandbox) {
+  setup.push(
+    { t: 'path', x: 90, y: 480, x2: 520, y2: 610 },
+    { t: 'path', x: 900, y: 640, x2: 1380, y2: 380 },
+    { t: 'welcome', on: false },
+  );
+}
 const heat = params.get('heat') === '1';
 /** With ?heat=1 the lens rests at each spot in turn, longest at the first. */
 const lensPath: [number, number, number][] = [
@@ -200,6 +209,7 @@ const view = createMeadowView(app, scene, rigs, palette, {
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
 view.setFocus(guide ?? 'pim');
+view.setGateLamp(sandbox);
 for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);

@@ -27,6 +27,12 @@ const cases = [
     what: 'in Halcyon by day, over the calm mirror sea, with Wisp in focus',
     maxCalls: 12,
   },
+  {
+    name: 'meadow-sandbox',
+    query: '?sandbox=1',
+    what: 'in the sandbox, with two paths and the gate dark',
+    maxCalls: 11,
+  },
 ];
 
 /** Opens the Meadow dev page and returns its frame's WebGL draw-call count. */
@@ -51,4 +57,10 @@ test('water, bridges, a lantern, and the mushroom add at most 4 draw calls, none
   const plain = await open(page, '?season=thaw');
   const land = await open(page, '?season=thaw&land=brook');
   expect(land - plain).toBeLessThanOrEqual(4);
+});
+
+test('paths and the gate lamp add at most 1 draw call', async ({ page }) => {
+  const plain = await open(page, '');
+  const sandbox = await open(page, '?sandbox=1');
+  expect(sandbox - plain).toBeLessThanOrEqual(1);
 });

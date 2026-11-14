@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { Container, Graphics, Mesh, MeshGeometry, Sprite, type Application } from 'pixi.js';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
 import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
@@ -532,6 +532,103 @@ test('ground the water closes in is drawn as an islet', () => {
   expect(isle[0]?.minX).toBeLessThan(990);
   expect(isle[0]?.maxX).toBeGreaterThan(1050);
   expect(isle[0]?.maxX).toBeLessThan(1090);
+});
+
+/** The strokes of a Graphics that draw something, as color, width, and the bounds of the stroked path. */
+function strokesOf(
+  g: Graphics,
+): { color: number; width: number; minX: number; minY: number; maxX: number; maxY: number }[] {
+  return g.context.instructions.flatMap((i) => {
+    if (i.action !== 'stroke') return [];
+    const { color, width } = i.data.style as { color: number; width: number };
+    const { minX, minY, maxX, maxY } = i.data.path.bounds;
+    // An empty stroke (the ripples of no water) has no bounds.
+    return Number.isFinite(minX) ? [{ color, width, minX, minY, maxX, maxY }] : [];
+  });
+}
+const pathTo = (i: number, x: number, y: number, x2: number, y2: number) => ({
+  id: `path-${String(i)}`,
+  kind: 'path' as const,
+  x,
+  y,
+  x2,
+  y2,
+});
+
+test('paths are dashed ink lines from end to end in the land Graphics, no object of their own', () => {
+  const count = (world: WorldLite): number => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, scene, rigs, palette, options);
+    view.setGateLamp(true);
+    view.update(world, world, 1, settings);
+    return objectCount(app.stage);
+  };
+  const plain = snapshot([['pim', 400, 400]]);
+  const many: WorldLite = {
+    ...plain,
+    structures: [
+      ...plain.structures,
+      ...Array.from({ length: 12 }, (_, i) => pathTo(i, 100, 50 + i * 60, 1500, 80 + i * 60)),
+    ],
+  };
+  expect(count(many)).toBe(count(plain));
+
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world: WorldLite = { ...plain, structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, world, 1, settings);
+  const [line] = strokesOf(graphicsIn(app, 'land'));
+  // Ink at the land's width, inked at both ends, and in more than one dash.
+  expect(line?.color).toBe(palette.ink);
+  expect([line?.minX, line?.minY, line?.maxX, line?.maxY].map((v) => Math.round(v ?? 0))).toEqual([
+    200, 500, 700, 600,
+  ]);
+  const dashes = graphicsIn(app, 'land').context.instructions.flatMap((i) =>
+    i.action === 'stroke' ? i.data.path.instructions.filter((m) => m.action === 'moveTo') : [],
+  );
+  expect(dashes.length).toBeGreaterThan(1);
+  // High contrast thickens it as it does the rest of the land.
+  view.update(world, world, 1, { ...settings, highContrast: true });
+  expect(strokesOf(graphicsIn(app, 'land'))[0]?.width).toBe((line?.width ?? 0) * 1.5);
+});
+
+test('the gate lamp is lit in an accent ring unless the gate is dark, and a story valley has none', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const lit = snapshot([]);
+  const dark: WorldLite = { ...lit, gateDark: true };
+  const accents = (): number =>
+    strokesOf(graphicsIn(app, 'land')).filter((s) => s.color === palette.accent).length;
+  view.update(lit, lit, 1, settings);
+  expect(strokesOf(graphicsIn(app, 'land'))).toEqual([]);
+  view.setGateLamp(true);
+  view.update(lit, lit, 1, settings);
+  expect(accents()).toBe(1);
+  // The lamp stands at the gate.
+  const near = strokesOf(graphicsIn(app, 'land')).every(
+    (s) => Math.abs((s.minX + s.maxX) / 2 - options.gate.x) < 30 && s.maxY <= options.gate.y + 10,
+  );
+  expect(near).toBe(true);
+  view.update(dark, dark, 1, settings);
+  expect(accents()).toBe(0);
+  expect(strokesOf(graphicsIn(app, 'land')).length).toBeGreaterThan(0);
+});
+
+test('the land is redrawn only when the water, the paths, or the gate change', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  view.setGateLamp(true);
+  const world: WorldLite = { ...snapshot([['pim', 400, 400]]), structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, world, 1, settings);
+  const clear = vi.spyOn(graphicsIn(app, 'land'), 'clear');
+  const moved: WorldLite = { ...snapshot([['pim', 420, 400]]), structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, moved, 0.5, settings);
+  expect(clear).not.toHaveBeenCalled();
+  view.update(moved, { ...moved, gateDark: true }, 1, settings);
+  expect(clear).toHaveBeenCalledTimes(1);
+  const two = { ...moved, gateDark: true, structures: [...moved.structures, pathTo(2, 900, 300, 1400, 500)] };
+  view.update(two, two, 1, settings);
+  expect(clear).toHaveBeenCalledTimes(2);
 });
 
 test('dancing creatures hop, and reduced motion stops the hop', () => {

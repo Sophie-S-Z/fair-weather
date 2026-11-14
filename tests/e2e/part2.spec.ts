@@ -194,7 +194,10 @@ function keyboardHands(page: Page): Hands {
     },
     async wave(who, last = false) {
       if (!(await keyTool('Walk'))) return false;
-      await expect(page.getByRole('application')).toBeFocused();
+      // The scene has focus, unless a card opened since the tool was pressed: a valley's postcard
+      // opens at its end and takes focus, and then tabTo ends the move for the main loop to answer it.
+      const scene = page.getByRole('application');
+      await expect.poll(async () => !(await free()) || (await isFocused(scene))).toBe(true);
       return (await tabTo(who, last)) && press('w');
     },
     async walkTo(to, from) {

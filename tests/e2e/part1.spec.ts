@@ -1,4 +1,4 @@
-import { expect as baseExpect, test, type Page } from '@playwright/test';
+import { expect as baseExpect, test, type Locator, type Page } from '@playwright/test';
 import { canvasPoints, pickedIn, tabTo, tap, type Point } from './helpers.ts';
 
 // Part 1 from Begin to its end (M2.16, spec T7), played twice through the real UI: once by pointer,
@@ -20,6 +20,15 @@ const PIM_START = { x: 160, y: 130 };
 const LAST_OPTIONS = ['Wisp', 'Bell', 'Most', 'Yes', 'Many'];
 /** The chapters that open a bet; a keyboard player waits for it before pressing keys there. */
 const BET_CHAPTERS = /^Chapter [24568]:/;
+/**
+ * The bet chapter whose bet opens late: chapter 5 opens it at chapter time 38 s, after the time its
+ * new Whisper is for (the others open theirs at 0 or 1 s). Its twist window runs from the start and
+ * ends the chapter, and an answer holds that end only until the reveal, so a player who waits for
+ * this bet can find the chapter over at the reveal. There the keyboard player uses the chapter's
+ * tools first, with the sim paused, as the pointer player does; it waits for the bet only before the
+ * keys it presses with the sim running.
+ */
+const LATE_BET = /^Chapter 5:/;
 /** The tools used once a chapter. The rest go on: Sunlight once a day, Respond at each wave. */
 const ONCE = ['Bench', 'Bridge', 'Lantern', 'Whisper', 'Thread', 'Fog', 'Wind'];
 const TOOLS = ['Wake', 'Respond', ...ONCE, 'Sunlight'];
@@ -64,6 +73,17 @@ function look(page: Page) {
   });
 }
 type Look = Awaited<ReturnType<typeof look>>;
+
+/**
+ * Whether the screen moved on from `seen`, a look with no dialog or activity:
+ * a new heading, a card, or an activity.
+ */
+async function movedOn(page: Page, seen: Look): Promise<boolean> {
+  const now = await look(page);
+  return now.heading !== seen.heading || now.dialog !== null || now.activity !== null;
+}
+
+const isFocused = (l: Locator) => l.evaluate((el) => el === document.activeElement);
 
 /** The tool's name in the tray (Bench, Sunlight, ...), from a button's text such as "2 Sunlight". */
 const toolName = (text: string): string => TOOLS.find((t) => text.includes(t)) ?? text;
@@ -205,9 +225,10 @@ async function pointerOnce(page: Page, seen: Look, tool: string): Promise<boolea
 
 /**
  * The keyboard player's turn with a tool it uses once, from the scene: Space pauses first, as for
- * the pointer player, and again after.
+ * the pointer player, and again after. With `more` of the chapter's tools to use, a turn that used
+ * its tool leaves the sim paused for the next one, so a late bet cannot open between them.
  */
-async function keyboardOnce(page: Page, seen: Look, tool: string): Promise<boolean> {
+async function keyboardOnce(page: Page, seen: Look, tool: string, more: boolean): Promise<boolean> {
   if (!seen.canPause) return false;
   if (!seen.paused) await page.keyboard.press(' ');
   await expect.poll(async () => (await look(page)).paused).toBe(true);
@@ -245,6 +266,7 @@ async function keyboardOnce(page: Page, seen: Look, tool: string): Promise<boole
   }
   if (done) await expect.poll(async () => (await dev(page)).sent).toBeGreaterThan(sent);
   await expect(page.getByRole('application')).toBeFocused();
+  if (done && more) return done;
   await page.keyboard.press(' ');
   await expect.poll(async () => (await look(page)).paused).toBe(false);
   return done;
@@ -344,12 +366,18 @@ async function playPart1(page: Page, mode: Mode): Promise<Played> {
       continue;
     }
     if (mode === 'keyboard') {
-      // Keys go to whatever has focus, and a bet takes it: so wait for this chapter's bet first.
-      if (!betDone) {
+      // Keys go to whatever has focus, and a bet takes it: so wait for this chapter's bet first,
+      // but use a late bet's chapter tools before it, with the sim paused (LATE_BET).
+      if (!betDone && !(LATE_BET.test(seen.heading) && todo.length > 0)) {
         await page.waitForTimeout(100);
         continue;
       }
-      await expect(page.getByRole('application')).toBeFocused();
+      // The scene has focus, unless the screen moved on since the look: a first snapshot that lands
+      // just after it shows an interlude's activity, whose first control takes focus, and then the
+      // next turn plays the activity.
+      const scene = page.getByRole('application');
+      await expect.poll(async () => (await movedOn(page, seen)) || (await isFocused(scene))).toBe(true);
+      if (await movedOn(page, seen)) continue;
     }
     const tool = todo[0];
     const names = seen.tools.map((t) => toolName(t.text));
@@ -363,7 +391,9 @@ async function playPart1(page: Page, mode: Mode): Promise<Played> {
       played.used.push(`${seen.heading}/${tool}`);
     } else if (tool !== undefined) {
       const done =
-        mode === 'pointer' ? await pointerOnce(page, seen, tool) : await keyboardOnce(page, seen, tool);
+        mode === 'pointer'
+          ? await pointerOnce(page, seen, tool)
+          : await keyboardOnce(page, seen, tool, todo.length > 1);
       if (done) {
         todo.shift();
         played.used.push(`${seen.heading}/${tool}`);

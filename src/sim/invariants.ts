@@ -7,18 +7,49 @@ import { tieKey } from './world.ts';
 
 const SHELL_KEYS = ['tightness', 'bristle', 'color', 'softness'] as const;
 
+/** In a path, the next key is a Map's. */
+const GET = Symbol('get');
+
+/**
+ * The way from the world to a value: array indices and keys, GET before a Map's key. It is spelled
+ * out only for a bad number: the dev build checks every tick (worker-core.ts), and a world holds
+ * thousands of numbers.
+ */
+type Path = (number | string | typeof GET)[];
+
+function spell(root: string, path: Path): string {
+  let out = root;
+  for (let i = 0; i < path.length; i++) {
+    const s = path[i];
+    if (s === GET) out += `.get(${String(path[++i])})`;
+    else out += typeof s === 'number' ? `[${String(s)}]` : `.${String(s)}`;
+  }
+  return out;
+}
+
 /** Pushes a message for every non-finite number reachable from `v`. */
-function findBadNumbers(v: unknown, path: string, out: string[]): void {
+function findBadNumbers(v: unknown, root: string, path: Path, out: string[]): void {
   if (typeof v === 'number') {
-    if (!Number.isFinite(v)) out.push(`${path} is ${String(v)}`);
+    if (!Number.isFinite(v)) out.push(`${spell(root, path)} is ${String(v)}`);
   } else if (v instanceof Float32Array || Array.isArray(v)) {
-    (v as ArrayLike<unknown>[] | Float32Array).forEach((x: unknown, i: number) => {
-      findBadNumbers(x, `${path}[${String(i)}]`, out);
-    });
+    const items = v as ArrayLike<unknown>;
+    for (let i = 0; i < items.length; i++) {
+      path.push(i);
+      findBadNumbers(items[i], root, path, out);
+      path.pop();
+    }
   } else if (v instanceof Map) {
-    for (const [k, x] of v as Map<string, unknown>) findBadNumbers(x, `${path}.get(${k})`, out);
+    for (const [k, x] of v as Map<string, unknown>) {
+      path.push(GET, k);
+      findBadNumbers(x, root, path, out);
+      path.length -= 2;
+    }
   } else if (v !== null && typeof v === 'object') {
-    for (const [k, x] of Object.entries(v)) findBadNumbers(x, `${path}.${k}`, out);
+    for (const k of Object.keys(v)) {
+      path.push(k);
+      findBadNumbers((v as Record<string, unknown>)[k], root, path, out);
+      path.pop();
+    }
   }
 }
 
@@ -40,7 +71,7 @@ function inRange(x: number, lo: number, hi: number): boolean {
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
-  findBadNumbers(world, 'world', out);
+  findBadNumbers(world, 'world', [], out);
   if (world.creatures.length > t.cap.sandbox) {
     out.push(`population ${String(world.creatures.length)} > cap.sandbox ${String(t.cap.sandbox)}`);
   }
@@ -66,7 +97,8 @@ export function checkInvariants(world: World, t: Tuning): string[] {
       if (!inRange(c.shell[k], 0, 1)) out.push(`${c.id}.shell.${k} ${String(c.shell[k])}`);
       if (!inRange(c.restShell[k], 0, 1)) out.push(`${c.id}.restShell.${k} ${String(c.restShell[k])}`);
     }
-    for (const [about, v] of Object.entries(c.opinions)) {
+    for (const about in c.opinions) {
+      const v = c.opinions[about] ?? 0;
       if (!inRange(v, -1, 1)) out.push(`${c.id}.opinions.${about} ${String(v)}`);
     }
   }

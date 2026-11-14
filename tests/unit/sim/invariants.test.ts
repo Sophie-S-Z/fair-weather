@@ -77,3 +77,15 @@ test.each<[string, (h: HollowState, w: World) => void]>([
   edit(w.pack, w);
   expect(checkInvariants(w, t)).not.toEqual([]);
 });
+
+test('a number that is not finite is named by its path in the world', () => {
+  const w = fresh();
+  w.boosts.push({ behavior: 'give', x: 0, y: NaN, untilDay: 1 });
+  w.ties.get('a|b')!.ba.warmth = Infinity;
+  w.fields.fog[2] = NaN;
+  expect(checkInvariants(w, t).filter((m) => m.endsWith(' is NaN') || m.endsWith(' is Infinity'))).toEqual([
+    'world.ties.get(a|b).ba.warmth is Infinity',
+    'world.fields.fog[2] is NaN',
+    'world.boosts[0].y is NaN',
+  ]);
+});

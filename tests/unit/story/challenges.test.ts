@@ -2,12 +2,9 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import sandboxJson from '../../../content/sandbox.json';
 import m0Json from '../../../content/scenarios/m0.json';
-import fenJson from '../../../content/scenarios/fen.json';
-import halcyonJson from '../../../content/scenarios/halcyon.json';
-import hollowJson from '../../../content/scenarios/hollow.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
 import type { FromWorker, SimPort, WorldLite } from '../../../src/sim-host/protocol.ts';
-import type { Command, Scenario, Season, SimEvent } from '../../../src/sim/types.ts';
+import type { Command, Season, SimEvent } from '../../../src/sim/types.ts';
 import { CHALLENGES, ChallengesSchema, createChallengeCheck } from '../../../src/story/challenges.ts';
 import type { ChallengeId } from '../../../src/story/challenges.ts';
 import {
@@ -18,13 +15,8 @@ import {
 } from '../../../src/story/sandbox.ts';
 import type { SandboxSetup } from '../../../src/story/sandbox.ts';
 import { MARKERS } from '../../../tools/content-validate/placeholder-guard.ts';
+import { SANDBOX_BASES as bases } from '../../golden/run-sandbox.ts';
 
-const bases = {
-  kith: m0Json as Scenario,
-  fen: fenJson as Scenario,
-  hollow: hollowJson as Scenario,
-  halcyon: halcyonJson as Scenario,
-};
 const setup = (over: Partial<SandboxSetup> = {}): SandboxSetup => ({
   seed: 1,
   valley: 'kith',
@@ -104,6 +96,13 @@ test('bell passes at a dance event for bell and fails when thaw turns to spring'
       [lite('spring'), [bell]],
     ]),
   ).toEqual(['open', 'open', 'failed', 'failed']);
+  // The festival spreads before dusk, so a Bell dance in the step that turns thaw to spring passes.
+  expect(
+    run('bell', [
+      [lite('thaw'), []],
+      [lite('spring'), [bell]],
+    ]),
+  ).toEqual(['open', 'passed']);
 });
 
 test('krit passes when the season turns to spring with softness at least softAt', () => {
@@ -122,6 +121,14 @@ test('krit passes when the season turns to spring with softness at least softAt'
       [lite('spring', 1), []],
     ]),
   ).toEqual(['open', 'failed', 'failed']);
+  // With no Krit in the snapshot, spring fails.
+  const noKrit = { ...lite('spring', 1), creatures: [] };
+  expect(
+    run('krit', [
+      [lite('thaw', 1), []],
+      [noKrit, []],
+    ]),
+  ).toEqual(['open', 'failed']);
 });
 
 function fakePort() {

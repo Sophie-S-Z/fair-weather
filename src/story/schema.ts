@@ -45,7 +45,7 @@ const SEASON_SET: Record<Season, true> = {
   winter: true,
   thaw: true,
 };
-const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
+export const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
 const STATE_SET: Record<CreatureState, true> = {
   wander: true,
   meet: true,

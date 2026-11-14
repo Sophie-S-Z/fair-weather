@@ -6,22 +6,12 @@ import sandboxJson from '../../content/sandbox.json' with { type: 'json' };
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Scenario, Season, SimEvent } from '../sim/types.ts';
 import { SHELL_SHAPE } from './carry.ts';
-import { OverridesSchema } from './schema.ts';
+import { OverridesSchema, season } from './schema.ts';
 
 export const CHALLENGE_IDS = ['winter', 'bell', 'krit'] as const;
 export type ChallengeId = (typeof CHALLENGE_IDS)[number];
 export type ChallengeState = 'open' | 'passed' | 'failed';
 
-// Story may not import sim values, so a Record over the seasons: a missing one is a compile error.
-const SEASON_SET: Record<Season, true> = {
-  spring: true,
-  summer: true,
-  lateSummer: true,
-  autumn: true,
-  winter: true,
-  thaw: true,
-};
-const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
 const id = z.string().regex(/^[a-z0-9-]{1,40}$/);
 const line = z.string().min(1);
 

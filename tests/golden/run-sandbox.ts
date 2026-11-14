@@ -32,6 +32,11 @@ const BENCH_SPOTS: Record<SandboxValley, readonly { id: string; x: number; y: nu
   halcyon: halcyonScene.benchSpots,
 };
 
+/** The scenario `setup` starts from, with its valley's base and bench spots. */
+export function sandboxStart(setup: SandboxSetup): Scenario {
+  return sandboxScenario(setup, SANDBOX_BASES, BENCH_SPOTS[setup.valley]);
+}
+
 /** A sandbox player. Make a new one per run: it may keep state. */
 export interface SandboxPlayer {
   /** Called after every step, once the runner has seen the step's snapshot `lite`. */
@@ -77,7 +82,7 @@ export function runSandboxHeadless(
     t: 'init',
     seed: setup.seed,
     tuning: sandboxTuning(setup, tuningJson),
-    scenario: sandboxScenario(setup, SANDBOX_BASES, BENCH_SPOTS[setup.valley]),
+    scenario: sandboxStart(setup),
   });
   const name = `${setup.challenge ?? 'no challenge'} seed ${String(setup.seed)}`;
   if (runner.challenge() === null) throw new Error(`${name}: the setup has no challenge`);

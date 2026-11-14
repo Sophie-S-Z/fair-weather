@@ -4,14 +4,11 @@ import { expect, test } from 'vitest';
 import type { ChallengeId } from '../../src/story/challenges.ts';
 import { DEFAULT_SWITCHES } from '../../src/story/sandbox.ts';
 import type { SandboxSetup } from '../../src/story/sandbox.ts';
-import { runSandboxHeadless } from './run-sandbox.ts';
+import { runSandboxHeadless, sandboxStart } from './run-sandbox.ts';
 import type { SandboxPlayer } from './run-sandbox.ts';
 import { bridgesTheBrook, feedsTheValley, idle, warmsKrit } from './sandbox-players.ts';
 
 const SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
-/** Past every challenge's end at the default season length: two seasons of 7 days of 400 ticks. */
-const MAX_TICKS = 2 * 7 * 400 + 400;
-
 const setup = (challenge: ChallengeId, seed: number): SandboxSetup => ({
   seed,
   valley: 'kith',
@@ -23,10 +20,18 @@ const setup = (challenge: ChallengeId, seed: number): SandboxSetup => ({
   bushes: [],
 });
 
+/** Past every challenge's end: two of the scenario's seasons and one more day. */
+function maxTicks(s: SandboxSetup): number {
+  const { seasonDays, ticksPerDay } = sandboxStart(s);
+  if (seasonDays === undefined || ticksPerDay === undefined) throw new Error('the seasons do not turn');
+  return (2 * seasonDays + 1) * ticksPerDay;
+}
+
 function passes(challenge: ChallengeId, player: () => SandboxPlayer): number {
   let n = 0;
   for (const seed of SEEDS) {
-    const { state } = runSandboxHeadless(setup(challenge, seed), player(), MAX_TICKS);
+    const s = setup(challenge, seed);
+    const { state } = runSandboxHeadless(s, player(), maxTicks(s));
     expect(state, `${challenge} seed ${String(seed)} ended`).not.toBe('open');
     if (state === 'passed') n += 1;
   }

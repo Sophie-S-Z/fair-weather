@@ -1,6 +1,8 @@
 import { IDBDatabase, IDBFactory } from 'fake-indexeddb';
 import { expect, test, vi } from 'vitest';
 import type { MythPage } from '../../../src/myth/grammar.ts';
+import type { Carry } from '../../../src/story/carry.ts';
+import { characters } from '../../../src/story/journey.ts';
 import { openDb } from '../../../src/persist/db.ts';
 import { createProfile } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
@@ -136,4 +138,108 @@ test('addVerse adds the sixth verse once', async () => {
     expect(pages[0]).toEqual({ ...page('krit'), year: 1, seed: 1 });
     expect(pages[1]?.verses).toEqual([...five.verses, sixth]);
   }
+});
+
+const carry = (skyWarmth: number): Carry => ({
+  creatures: [
+    {
+      id: 'pim',
+      dials: { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 },
+      shell: { tightness: 0.5, bristle: 0.5, color: 0.5, softness: 0.5 },
+      skyWarmth,
+      away: false,
+      gone: false,
+      diary: ['met krit'],
+    },
+  ],
+  ties: [{ a: 'pim', b: 'krit', ab: 0.4, ba: 0.6 }],
+});
+
+test('an M3 profile loads with its pages and feathers, no Kith, no valleys, and no sandbox', async () => {
+  const factory = new IDBFactory();
+  const kept = { ...page('pim'), year: 1, seed: 3 };
+  await (await openDb(factory)).putAll([['profile', { pages: [kept], feathers: 2 }]]);
+  const profile = await createProfile(factory);
+  expect(await profile.pages()).toEqual([kept]);
+  expect(await profile.feathers()).toBe(2);
+  expect(await profile.kith()).toBeNull();
+  expect(await profile.valleys()).toEqual([]);
+  expect(await profile.sandbox()).toBeNull();
+});
+
+test('a bad new field reads as its default and keeps the pages, feathers, and other new fields', async () => {
+  const factory = new IDBFactory();
+  const kept = { ...page('pim'), year: 1, seed: 3 };
+  await (
+    await openDb(factory)
+  ).putAll([
+    [
+      'profile',
+      {
+        pages: [kept],
+        feathers: 2,
+        kith: { creatures: 'x' },
+        valleys: ['fen', 'nowhere'],
+        sandbox: { link: 'v1.abc', notes: [] },
+      },
+    ],
+  ]);
+  const profile = await createProfile(factory);
+  expect(await profile.kith()).toBeNull();
+  expect(await profile.valleys()).toEqual([]);
+  expect(await profile.sandbox()).toEqual({ link: 'v1.abc', notes: [] });
+  expect(await profile.pages()).toEqual([kept]);
+  expect(await profile.feathers()).toBe(2);
+});
+
+test('setKith keeps the carry; a second call replaces it', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  await profile.setKith(carry(0.2));
+  expect(await (await createProfile(factory)).kith()).toEqual(carry(0.2));
+  await profile.setKith(carry(0.9));
+  expect(await (await createProfile(factory)).kith()).toEqual(carry(0.9));
+});
+
+test('addValley keeps each valley once, in order', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  for (const id of ['fen', 'kith', 'fen', 'nowhere', 'halcyon', 'kith']) await profile.addValley(id);
+  expect(await (await createProfile(factory)).valleys()).toEqual(['fen', 'kith', 'halcyon']);
+});
+
+test('keepSandbox keeps the link and the notes, cutting each note to 80 characters', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  const long = '👩‍👩‍👧é'.repeat(30); // 60 characters, several code units each
+  const longer = `${long}${'x'.repeat(40)}`;
+  await profile.keepSandbox({
+    link: 'v1.abc',
+    notes: [
+      { tick: 5, text: 'a short one' },
+      { tick: 9, text: longer },
+    ],
+  });
+  const kept = await (await createProfile(factory)).sandbox();
+  expect(kept?.link).toBe('v1.abc');
+  expect(kept?.notes[0]).toEqual({ tick: 5, text: 'a short one' });
+  expect(kept?.notes[1]?.text).toBe(`${long}${'x'.repeat(20)}`);
+  expect(characters(kept?.notes[1]?.text ?? '')).toHaveLength(80);
+});
+
+test('with blocked storage the new fields live for this visit', async () => {
+  const notice = vi.fn();
+  const throwing = {
+    open() {
+      throw new Error('SecurityError');
+    },
+  } as unknown as IDBFactory;
+  const profile = await createProfile(throwing, notice);
+  await profile.setKith(carry(0.3));
+  await profile.addValley('hollow');
+  await profile.keepSandbox({ link: 'v1.xyz', notes: [{ tick: 1, text: 'hi' }] });
+  expect(await profile.kith()).toEqual(carry(0.3));
+  expect(await profile.valleys()).toEqual(['hollow']);
+  expect(await profile.sandbox()).toEqual({ link: 'v1.xyz', notes: [{ tick: 1, text: 'hi' }] });
+  expect(notice).toHaveBeenCalledTimes(1);
 });

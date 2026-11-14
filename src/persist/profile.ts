@@ -3,14 +3,28 @@
 // outlasts every save slot.
 import { z } from 'zod';
 import type { MythPage } from '../myth/grammar.ts';
+import { CarrySchema } from '../story/carry.ts';
+import type { Carry } from '../story/carry.ts';
+import { characters } from '../story/journey.ts';
+import { SANDBOX_VALLEYS } from '../story/sandbox.ts';
 import { openDb } from './db.ts';
 import type { Db } from './db.ts';
+import { MAX_LINK_TEXT } from './seed-link.ts';
 
 /** A kept myth: `year` counts the finished years from 1, and `seed` is the valley's seed. */
 export interface BookPage extends MythPage {
   year: number;
   seed: number;
 }
+
+/** A kept sandbox: the `v1.<data>` link (stored as text, decoded by the caller) and the player's notes. */
+export interface SandboxSave {
+  link: string;
+  notes: { tick: number; text: string }[];
+}
+
+/** The longest note, in characters (graphemes). Notes are the player's own words and stay on the device. */
+export const NOTE_LENGTH = 80;
 
 export interface Profile {
   /** The pages in the order they were kept. */
@@ -24,6 +38,17 @@ export interface Profile {
   feathers(): Promise<number>;
   /** Counts one more feather and returns the new count. */
   addFeather(): Promise<number>;
+  /** The Kith the player carries on, or null. */
+  kith(): Promise<Carry | null>;
+  /** Keeps `carry`, replacing any earlier one. */
+  setKith(carry: Carry): Promise<void>;
+  /** The finished valleys, each once, in first-played order. */
+  valleys(): Promise<string[]>;
+  /** Keeps a sandbox valley id once; any other id changes nothing. */
+  addValley(id: string): Promise<void>;
+  sandbox(): Promise<SandboxSave | null>;
+  /** Keeps the sandbox, cutting each note to NOTE_LENGTH characters. */
+  keepSandbox(save: SandboxSave): Promise<void>;
 }
 
 const KEY = 'profile';
@@ -40,10 +65,26 @@ const ProfileSchema = z.object({
     }),
   ),
   feathers: z.number().int().nonnegative(),
-}) satisfies z.ZodType<{ pages: BookPage[]; feathers: number }>;
+  // A profile from before these keys reads as the defaults, and a bad value in one of them falls
+  // back to its default without losing the pages, the feathers, or the other new fields.
+  kith: CarrySchema.nullable().catch(null),
+  valleys: z.array(z.enum(SANDBOX_VALLEYS)).catch([]),
+  sandbox: z
+    .object({
+      link: z.string().max(MAX_LINK_TEXT).startsWith('v1.'),
+      notes: z.array(
+        z.object({
+          tick: z.number().int().nonnegative(),
+          text: z.string().refine((t) => characters(t).length <= NOTE_LENGTH),
+        }),
+      ),
+    })
+    .nullable()
+    .catch(null),
+});
 
 type Data = z.infer<typeof ProfileSchema>;
-const empty = (): Data => ({ pages: [], feathers: 0 });
+const empty = (): Data => ({ pages: [], feathers: 0, kith: null, valleys: [], sandbox: null });
 /** Stored data, or empty when there is none or it is damaged. */
 const parse = (raw: unknown): Data => {
   const parsed = ProfileSchema.safeParse(raw);
@@ -126,6 +167,32 @@ export async function createProfile(
           d.feathers += 1;
         })
       ).feathers;
+    },
+    kith: async () => (await read()).kith,
+    async setKith(carry) {
+      await write((d) => {
+        d.kith = structuredClone(carry);
+      });
+    },
+    valleys: async () => (await read()).valleys,
+    async addValley(id) {
+      const valley = SANDBOX_VALLEYS.find((v) => v === id);
+      if (!valley) return;
+      await write((d) => {
+        if (!d.valleys.includes(valley)) d.valleys.push(valley);
+      });
+    },
+    sandbox: async () => (await read()).sandbox,
+    async keepSandbox(save) {
+      await write((d) => {
+        d.sandbox = {
+          link: save.link,
+          notes: save.notes.map((n) => ({
+            tick: n.tick,
+            text: characters(n.text).slice(0, NOTE_LENGTH).join(''),
+          })),
+        };
+      });
     },
   };
 }

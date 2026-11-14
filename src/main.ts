@@ -400,6 +400,8 @@ let sandboxRun: {
   lite: WorldLite | null;
   tick: number;
 } | null = null;
+/** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
+let startWaiting: ((why: string) => void) | null = null;
 host.onMessage((m) => {
   if (m.t !== 'snapshot') return;
   // A sandbox run is no chapter: the story's carry stays the last chapter's.
@@ -480,7 +482,10 @@ const game: GameService = {
     async status() {
       const p = await profileReady;
       const [pages, kith, valleys] = await Promise.all([p.pages(), p.kith(), p.valleys()]);
-      const finished = SANDBOX_VALLEYS.filter((v) => v !== 'kith' && valleys.includes(v));
+      // The profile's order, which is the order the valleys were first played in.
+      const finished = valleys.filter(
+        (v): v is SandboxValley => v !== 'kith' && (SANDBOX_VALLEYS as readonly string[]).includes(v),
+      );
       return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished };
     },
     devOpen: import.meta.env.DEV && params.get('sandbox') === 'new',
@@ -499,7 +504,7 @@ const game: GameService = {
       };
     },
     start: (setup) =>
-      new Promise((resolve) => {
+      new Promise((resolve, reject) => {
         // Built first, so a setup that throws (and rejects) leaves the run before going on.
         const scenario = sandboxScenario(
           setup,
@@ -510,18 +515,49 @@ const game: GameService = {
         const made = new Set(
           [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
         );
+        startWaiting?.('a newer start replaced this one');
         sandboxRun?.runner.dispose();
         // Before the init, so the runner sees the run's first snapshot.
         const runner = createSandboxRunner(port, setup);
-        sandboxRun = { runner, made, lite: null, tick: 0 };
+        const run = { runner, made, lite: null, tick: 0 };
+        sandboxRun = run;
+        const offs: (() => void)[] = [];
+        const settle = (): void => {
+          for (const off of offs) off();
+          if (startWaiting === drop) startWaiting = null;
+        };
+        const drop = (why: string): void => {
+          settle();
+          reject(new Error(`The sandbox run did not start: ${why}`));
+        };
+        // The worker refused the run, or the host gave up: no run goes on (`running` is false).
+        const fail = (why: string): void => {
+          if (sandboxRun === run) {
+            runner.dispose();
+            sandboxRun = null;
+            speedControl.runner(0);
+          }
+          drop(why);
+        };
+        startWaiting = drop;
+        // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
+        offs.push(
+          host.onMessage((m) => {
+            if (m.t === 'snapshot') {
+              settle();
+              resolve(runner);
+            } else if (m.t === 'error') fail(m.message);
+          }),
+          host.onGiveUp(fail),
+        );
         season = scenario.season;
         greeting = undefined;
         host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
         // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
         speedControl.runner(1);
         speedControl.player(1);
-        resolve(runner);
       }),
+    running: () => sandboxRun !== null,
     placedStructures() {
       const run = sandboxRun;
       if (!run) return [];
@@ -536,6 +572,7 @@ const game: GameService = {
       return now.filter((b) => !run.made.has(b.id)).map(({ id, x, y }) => ({ id, x, y }));
     },
     stop() {
+      startWaiting?.('the sandbox stopped');
       sandboxRun?.runner.dispose();
       sandboxRun = null;
       speedControl.runner(0);
@@ -885,9 +922,10 @@ const game: GameService = {
   },
   async keepMyth(page) {
     keptPage = await (await profileReady).keepMyth(page, yearSeed);
-    await keepKith();
     // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
+    // First, so a Kith that the profile refuses cannot make it offer the fire again.
     await (await slotsReady).keepYear();
+    await keepKith();
   },
   stop: dropStart,
   journey: () => journeyNow,
@@ -906,8 +944,8 @@ const game: GameService = {
     // The verse joins the year's page, when this journey's year kept one.
     const year = journeyNow?.bookYear ?? null;
     if (year !== null) await (await profileReady).addVerse(year, verse);
-    await keepKith();
     await (await slotsReady).keepYear();
+    await keepKith();
   },
   async feathers() {
     return (await profileReady).feathers();

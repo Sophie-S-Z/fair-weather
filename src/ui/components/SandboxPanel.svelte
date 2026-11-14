@@ -15,8 +15,12 @@
     title: string;
     /** The panel's knobs: each one's step index now, its last index, and why it is off, or null. */
     knobs: readonly { knob: Knob; index: number; max: number; why: string | null }[];
-    onKnob: (id: KnobId, index: number) => void;
-    /** The panel's tools with their keys (1 to 8); every panel's are one radio group. */
+    /** A knob moved to `index`; `input` is its range, which a start that fails puts back. */
+    onKnob: (id: KnobId, index: number, input: HTMLInputElement) => void;
+    /**
+     * The panel's tools with their keys (1 to 8). Each panel's are a radio group of their own, all
+     * set from `tool`, so an open panel's radios are in the Tab order when the tool is another panel's.
+     */
     tools: readonly { tool: SandboxTool; key: number; label: string }[];
     tool: SandboxTool;
     onTool: (t: SandboxTool) => void;
@@ -43,7 +47,7 @@
           disabled={why !== null}
           aria-describedby={why === null ? undefined : `why-${knob.id}`}
           onchange={(e) => {
-            onKnob(knob.id, Number(e.currentTarget.value));
+            onKnob(knob.id, Number(e.currentTarget.value), e.currentTarget);
           }}
         />
         <span class="value" aria-hidden="true">{knobValue(knob, index)}</span>
@@ -54,13 +58,13 @@
     {/each}
     {@render children?.()}
     {#if tools.length > 0}
-      <fieldset>
+      <fieldset class="choices">
         <legend>Tools</legend>
         {#each tools as t (t.tool)}
           <label class="tool">
             <input
               type="radio"
-              name="sandbox-tool"
+              name="sandbox-tool-{title.toLowerCase()}"
               value={t.tool}
               checked={t.tool === tool}
               onchange={() => {
@@ -107,27 +111,10 @@
     accent-color: var(--accent);
     min-height: 1.5rem;
   }
-  /* Every box and dot in a panel, also the Sandbox screen's own, is a 24-pixel target (WCAG 2.5.8). */
-  .body :global(input[type='radio']),
-  .body :global(input[type='checkbox']) {
-    width: 1.5rem;
-    height: 1.5rem;
-    margin: 0;
-    accent-color: var(--accent);
-  }
   .why {
     grid-column: 1 / -1;
     margin: 0;
     color: var(--muted);
-  }
-  fieldset {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
-    margin: 0;
-    padding: 0.25rem 0.5rem 0.5rem;
-    border: 1px solid var(--muted);
-    border-radius: 0.4rem;
   }
   .tool {
     display: inline-flex;

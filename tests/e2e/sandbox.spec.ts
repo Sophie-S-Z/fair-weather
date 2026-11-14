@@ -25,6 +25,35 @@ async function open(page: Page, query = ''): Promise<void> {
   await expect.poll(async () => (await run(page)) !== null).toBe(true);
 }
 
+/** Writes a profile with one kept year, as a finished Part 1 leaves it, and the finished `valleys`. */
+async function keepProfile(page: Page, valleys: string[]): Promise<void> {
+  await page.evaluate(
+    (valleys) =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('fair-weather', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('saves');
+        req.onerror = () => {
+          reject(req.error ?? new Error('open failed'));
+        };
+        req.onsuccess = () => {
+          const tx = req.result.transaction('saves', 'readwrite');
+          const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
+          tx.objectStore('saves').put(
+            { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0, valleys },
+            'profile',
+          );
+          tx.oncomplete = () => {
+            resolve();
+          };
+          tx.onerror = () => {
+            reject(tx.error ?? new Error('put failed'));
+          };
+        };
+      }),
+    valleys,
+  );
+}
+
 const PANELS = ['Population', 'Rules', 'Weather', 'Network'];
 const panel = (page: Page, name: string) =>
   page.locator('details', { has: page.getByText(name, { exact: true }) });
@@ -93,7 +122,7 @@ test('setting Gift value starts the run again at day 0, with a bench placed befo
   await expect(gift).toHaveAttribute('aria-valuetext', '3');
   await gift.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(gift).toHaveAttribute('aria-valuetext', '3.5');
+  await expect(gift).toHaveAttribute('aria-valuetext', '4');
   await expect.poll(async () => ((await run(page))?.tick ?? before) < before).toBe(true);
   const after = await run(page);
   expect(after?.lite.day).toBe(0);
@@ -117,30 +146,7 @@ test('the title opens the sandbox once Part 1 is over, and Back to title returns
 }) => {
   await page.goto('/');
   // One kept year in the profile, as a finished Part 1 leaves it.
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        const req = indexedDB.open('fair-weather', 1);
-        req.onupgradeneeded = () => req.result.createObjectStore('saves');
-        req.onerror = () => {
-          reject(req.error ?? new Error('open failed'));
-        };
-        req.onsuccess = () => {
-          const tx = req.result.transaction('saves', 'readwrite');
-          const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
-          tx.objectStore('saves').put(
-            { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0 },
-            'profile',
-          );
-          tx.oncomplete = () => {
-            resolve();
-          };
-          tx.onerror = () => {
-            reject(tx.error ?? new Error('put failed'));
-          };
-        };
-      }),
-  );
+  await keepProfile(page, []);
   await page.reload();
   const sandbox = page.getByRole('button', { name: 'Sandbox' });
   await expect(sandbox).toBeEnabled();
@@ -153,4 +159,70 @@ test('the title opens the sandbox once Part 1 is over, and Back to title returns
   await page.getByRole('button', { name: 'Back to title' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
   await expect(sandbox).toBeFocused();
+});
+
+test('with only Weather open, Tab goes from its knobs to its first tool, Sunlight', async ({ page }) => {
+  await open(page);
+  await page.getByText('Weather', { exact: true }).click();
+  await expect(panel(page, 'Weather')).toHaveAttribute('open');
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Fog level')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Wind strength')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(radio(page, 'Sunlight')).toBeFocused();
+  // Place, in the closed Population panel, stays the tool.
+  await expect(radio(page, 'Place')).toBeChecked();
+});
+
+test('with Population open too, so Place shows checked, Tab from Wind strength goes to Sunlight', async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByText('Population', { exact: true }).click();
+  await page.getByText('Weather', { exact: true }).click();
+  await expect(radio(page, 'Place')).toBeVisible();
+  await expect(radio(page, 'Place')).toBeChecked();
+  await page.getByLabel('Wind strength').focus();
+  await page.keyboard.press('Tab');
+  await expect(radio(page, 'Sunlight')).toBeFocused();
+});
+
+test('the start choice lists the finished valleys in first-played order, and the Fen opens with its own rules', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await keepProfile(page, ['halcyon', 'fen']);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await expect(page.getByRole('group', { name: 'Start from' }).getByRole('button')).toHaveText([
+    'A new valley',
+    'Halcyon',
+    'Murmuration Fen',
+  ]);
+  await page.getByRole('button', { name: 'Murmuration Fen' }).click();
+  await expect(page.getByRole('heading', { name: 'Sandbox: Murmuration Fen' })).toBeVisible();
+  await expect.poll(async () => (await run(page)) !== null).toBe(true);
+  await page.getByText('Rules', { exact: true }).click();
+  await expect(page.getByLabel('Lowest flock threshold')).toBeVisible();
+  // Halcyon's own knob is not the Fen's.
+  await expect(page.getByLabel('Gift warmth')).toHaveCount(0);
+});
+
+test('a rule change that the worker cannot start puts the knob back and says so', async ({ page }) => {
+  await open(page);
+  // The next run's worker does not load, so the host gives up before its first snapshot.
+  await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
+  await page.getByText('Rules', { exact: true }).click();
+  const gift = page.getByLabel('Gift value');
+  await expect(gift).toHaveValue('3');
+  await gift.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+    'The valley could not start again. The rules did not change. Go back to the title to try again.',
+  );
+  await expect(gift).toHaveValue('3');
+  await expect(gift).toHaveAttribute('aria-valuetext', '3');
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });

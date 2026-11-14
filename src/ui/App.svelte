@@ -146,6 +146,41 @@
     outline: 3px solid var(--accent);
     outline-offset: 3px;
   }
+  /* Text for a screen reader only. */
+  :global(.sr-only) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* A row of choices with a legend, as the sandbox panels have. */
+  :global(fieldset.choices) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0;
+    padding: 0.25rem 0.5rem 0.5rem;
+    border: 1px solid var(--muted);
+    border-radius: 0.4rem;
+  }
+  /* One choice: its box or dot, then its words. */
+  :global(.choice-row) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 1.75rem;
+  }
+  /* Each box and dot in a row of choices, or in one choice, is a 24-pixel target (WCAG 2.5.8). */
+  :global(.choices input[type='radio']),
+  :global(.choices input[type='checkbox']),
+  :global(.choice-row input[type='checkbox']) {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0;
+    accent-color: var(--accent);
+  }
   main {
     max-width: 32rem;
     margin: 0 auto;

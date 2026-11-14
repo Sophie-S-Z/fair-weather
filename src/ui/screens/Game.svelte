@@ -2,7 +2,6 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { Writable } from 'svelte/store';
   import type { InputContext } from '../../input/keyboard.ts';
-  import type { BenchSpot } from '../../input/verbs.ts';
   import type { ViewName } from '../../input/zoom.ts';
   import type { MythPage } from '../../myth/grammar.ts';
   import type { BookPage } from '../../persist/profile.ts';
@@ -20,6 +19,15 @@
   import type { Settings } from '../settings.ts';
   import { chapterHeading } from '../chapter-label.ts';
   import { createFrameLoop } from '../frame-loop.ts';
+  import {
+    byId,
+    clampToScene,
+    createPauseToggle,
+    nearestCreature,
+    spotLine,
+    spotName as nearestSpot,
+    whisperOthers,
+  } from '../scene-helpers.ts';
   import BeatLine from '../components/BeatLine.svelte';
   import BetCard from '../components/BetCard.svelte';
   import ChapterRibbon from '../components/ChapterRibbon.svelte';
@@ -224,13 +232,12 @@
   let due = $state(false);
   let visitToken = 0;
 
-  let stage: Stage | null = $state.raw(null);
+  let stage = $state.raw<Stage | null>(null);
   let runner: ChapterRunner | null = null;
   /** The newest live snapshot, which the tools act on. */
   let next: WorldLite | null = null;
   let hidden = $state(document.visibilityState === 'hidden');
   let ghostTimer: ReturnType<typeof setTimeout> | undefined;
-  let unpauseSpeed = 1;
 
   // The service never changes, so these are made once.
   const hints = untrack(() => game.input.createHints());
@@ -268,18 +275,7 @@
   /** A point tool acts at the cursor, which the Meadow then draws and the status line names. */
   const pointing = $derived(view === 'meadow' && tool !== null && POINT_TOOLS.has(tool));
   const heading = $derived(chapter ? chapterHeading(chapter) : '');
-  const spotName = $derived.by(() => {
-    let best: BenchSpot | undefined;
-    let bestD = Infinity;
-    for (const s of stage?.benchSpots ?? []) {
-      const d = (s.x - cursor.x) ** 2 + (s.y - cursor.y) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = s;
-      }
-    }
-    return best ? best.id.replace(/-/g, ' ') : '';
-  });
+  const spotName = $derived(nearestSpot(stage?.benchSpots ?? [], cursor));
   /**
    * What the tool would act on, as text: the bench spot, the cursor's nearest spot and creature, or
    * the picked creature; then the thread mark and the view.
@@ -289,7 +285,7 @@
       tool === 'place' && placeKind === 'bench'
         ? `Bench spot: ${spotName}`
         : pointing
-          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${nameOf(nearby)}`}`
+          ? spotLine(spotName, nearby === null ? null : nameOf(nearby))
           : picked
             ? `Picked: ${nameOf(picked)}${pickedState ? `, ${pickedState}` : ''}`
             : '',
@@ -334,15 +330,10 @@
     game.speed(m);
     speedNow = m;
   }
+  const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
   function togglePause(): void {
     if (bet || betRunning || rewindAt !== null) return;
-    const now = game.currentSpeed();
-    if (now > 0) {
-      unpauseSpeed = now;
-      setSpeed(0);
-    } else {
-      setSpeed(unpauseSpeed);
-    }
+    pause();
   }
 
   /**
@@ -508,6 +499,7 @@
     used = [];
     placed = 0;
     next = null;
+    speedNow = game.currentSpeed();
     // The new run's first snapshot is not tweened from the last run's world.
     loop.stop();
     loop.start();
@@ -677,26 +669,13 @@
   }
 
   /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
-  function nearbyAt(p: { x: number; y: number }): string | null {
-    let best: string | null = null;
-    let bestD = NEAR;
-    for (const c of next?.creatures ?? []) {
-      const d = Math.hypot(c.x - p.x, c.y - p.y);
-      if (c.state !== 'away' && d <= bestD) {
-        bestD = d;
-        best = c.id;
-      }
-    }
-    return best;
-  }
+  const nearbyAt = (p: { x: number; y: number }): string | null =>
+    nearestCreature(next?.creatures ?? [], p, NEAR);
 
   /** Opens the whisper card for `target`, about every other named creature (spec 5.3) not gone, in id order. */
   function openWhisper(target: string): void {
     if (rewindAt !== null) return;
-    const others = (next?.creatures ?? [])
-      .filter((c) => !c.gone && c.id !== target && game.castIds.includes(c.id))
-      .map((c) => c.id);
-    whisperCard = { target, others: others.sort() };
+    whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
 
   function whisper(about: string, sign: 1 | -1): void {
@@ -749,8 +728,7 @@
       const ctx: InputContext = {
         // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
         tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
-        creatures: () =>
-          [...(next?.creatures ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+        creatures: () => [...(next?.creatures ?? [])].sort(byId),
         benchSpots: () => s.benchSpots,
         placeKind: () => placeKind,
         water: () => next?.water ?? [],
@@ -767,8 +745,7 @@
           if (view !== 'meadow') s.setView(view, id);
         },
         moveCursor: (p) => {
-          const { width, height } = s.sceneSize;
-          cursor = { x: Math.min(width, Math.max(0, p.x)), y: Math.min(height, Math.max(0, p.y)) };
+          cursor = clampToScene(p, s.sceneSize);
           nearby = nearbyAt(cursor);
         },
         view: () => view,
@@ -1199,13 +1176,5 @@
   }
   .activity :global(p) {
     margin: 0.25rem 0;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 </style>

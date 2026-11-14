@@ -7,6 +7,7 @@
   import { displayName } from '../../story/names.ts';
   import { KNOBS, SANDBOX_TOOLS, TOOL_PANEL } from '../../story/sandbox.ts';
   import type {
+    Knob,
     KnobId,
     Panel,
     SandboxRunner,
@@ -21,6 +22,15 @@
   import WhisperCard from '../components/WhisperCard.svelte';
   import { createFrameLoop } from '../frame-loop.ts';
   import type { GameService, Stage } from '../game-service.ts';
+  import {
+    byId,
+    clampToScene,
+    createPauseToggle,
+    nearestCreature,
+    spotLine,
+    spotName as nearestSpot,
+    whisperOthers,
+  } from '../scene-helpers.ts';
   import type { Settings } from '../settings.ts';
 
   let {
@@ -93,7 +103,8 @@
   let pathFrom: { x: number; y: number } | null = $state(null);
   let whisperCard: { target: string; others: string[] } | null = $state(null);
   let speedNow = $state(0);
-  let unpauseSpeed = 1;
+  /** Why the last start failed, shown in the status region in place of the status line; null when none. */
+  let notice: string | null = $state(null);
   /** Counts starts, so only the newest one plays. */
   let runs = 0;
   let gone = false;
@@ -114,7 +125,7 @@
     [
       `Tool: ${TOOL_LABELS[tool]}`,
       pointing
-        ? `Spot near: ${spotName(cursor)}${nearby === null ? '' : `, by ${displayName(nearby)}`}`
+        ? spotLine(spotName(cursor), nearby === null ? null : displayName(nearby))
         : picked
           ? `Picked: ${displayName(picked)}`
           : '',
@@ -124,13 +135,14 @@
       .filter((part) => part !== '')
       .join('. '),
   );
+  /** A knob's step index in the setup now: the one set, or the one nearest its value when unset. */
+  const stepOf = (k: Knob): number => setup?.knobs[k.id] ?? Math.round((k.unset * 100 - k.low) / k.step);
   /** Each panel's knobs for this valley, with their step index now and why one is off. */
   const knobsOf = (panel: Panel) =>
     KNOBS.filter((k) => k.panel === panel && (k.valley === null || k.valley === setup?.valley)).map((k) => {
-      const set = setup?.knobs[k.id];
       return {
         knob: k,
-        index: set ?? Math.round((k.unset * 100 - k.low) / k.step),
+        index: stepOf(k),
         max: k.steps === 'benchSpots' ? (stage?.benchSpots.length ?? 0) : k.steps,
         why:
           k.id === 'gossipThreshold' && setup?.switches.mixed !== false
@@ -145,29 +157,10 @@
 
   /** The nearest bench spot's name: the spot words a screen reader hears for the cursor. */
   function spotName(p: { x: number; y: number }): string {
-    let best = '';
-    let bestD = Infinity;
-    for (const s of stage?.benchSpots ?? []) {
-      const d = Math.hypot(s.x - p.x, s.y - p.y);
-      if (d < bestD) {
-        bestD = d;
-        best = s.id.replace(/-/g, ' ');
-      }
-    }
-    return best;
+    return nearestSpot(stage?.benchSpots ?? [], p);
   }
-  /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
   function nearbyAt(p: { x: number; y: number }): string | null {
-    let best: string | null = null;
-    let bestD = NEAR;
-    for (const c of next?.creatures ?? []) {
-      const d = Math.hypot(c.x - p.x, c.y - p.y);
-      if (c.state !== 'away' && d <= bestD) {
-        bestD = d;
-        best = c.id;
-      }
-    }
-    return best;
+    return nearestCreature(next?.creatures ?? [], p, NEAR);
   }
 
   const loop = createFrameLoop(
@@ -182,28 +175,36 @@
     game.speed(m);
     speedNow = m;
   }
-  function togglePause(): void {
-    const now = game.currentSpeed();
-    if (now > 0) {
-      unpauseSpeed = now;
-      setSpeed(0);
-    } else setSpeed(unpauseSpeed);
-  }
+  const togglePause = createPauseToggle(() => game.currentSpeed(), setSpeed);
 
-  /** Starts a run of `s` from day 0; the run before stops once it has started. */
-  async function run(s: SandboxSetup): Promise<void> {
+  /**
+   * Starts a run of `s` from day 0; the run before stops once it has started. When the start fails,
+   * `undo` puts the control back to the setup's value, and the status region says so.
+   */
+  async function run(s: SandboxSetup, undo?: () => void): Promise<void> {
     const token = (runs += 1);
     let r: SandboxRunner;
     try {
       r = await game.sandbox.start(s);
     } catch (e) {
-      // A setup the sim cannot start: the run before goes on. Ids only, for whoever reads the console.
+      // Ids only, for whoever reads the console.
       console.error(e);
+      if (token !== runs || gone) return;
+      undo?.();
+      if (game.sandbox.running()) notice = 'The valley could not start again. The rules did not change.';
+      else {
+        // The worker refused the run, so no run goes on: the title starts the worker again.
+        loop.stop();
+        runner = null;
+        notice =
+          'The valley could not start again. The rules did not change. Go back to the title to try again.';
+      }
       return;
     }
     if (token !== runs || gone) return;
     loop.stop();
     next = null;
+    notice = null;
     runner = r;
     setup = s;
     r.setPlaceKind(placeKind);
@@ -215,21 +216,40 @@
     loop.start();
   }
 
-  /** A knob or a switch changed: the run starts again from day 0, keeping what the player placed (ADR 0014 item 2). */
-  function restart(change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'>): void {
+  /**
+   * A knob or a switch changed: the run starts again from day 0, keeping what the player placed
+   * (ADR 0014 item 2). `undo` puts the control back when the start fails.
+   */
+  function restart(
+    change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'>,
+    undo: () => void,
+  ): void {
     if (!setup) return;
-    void run({
-      ...setup,
-      ...change,
-      structures: game.sandbox.placedStructures(),
-      bushes: game.sandbox.placedBushes(),
+    void run(
+      {
+        ...setup,
+        ...change,
+        structures: game.sandbox.placedStructures(),
+        bushes: game.sandbox.placedBushes(),
+      },
+      undo,
+    );
+  }
+  function setKnob(id: KnobId, index: number, input: HTMLInputElement): void {
+    if (!setup) return;
+    const knob = KNOBS.find((k) => k.id === id);
+    const before = knob ? stepOf(knob) : index;
+    restart({ knobs: { ...setup.knobs, [id]: index } }, () => {
+      // The range is bound one way to the setup's step, which did not change, so it is put back here.
+      input.value = String(before);
     });
   }
-  function setKnob(id: KnobId, index: number): void {
-    if (setup) restart({ knobs: { ...setup.knobs, [id]: index } });
-  }
-  function setSwitch(key: keyof Switches, on: boolean): void {
-    if (setup) restart({ switches: { ...setup.switches, [key]: on } });
+  function setSwitch(key: keyof Switches, input: HTMLInputElement): void {
+    if (!setup) return;
+    const before = setup.switches[key];
+    restart({ switches: { ...setup.switches, [key]: input.checked } }, () => {
+      input.checked = before;
+    });
   }
 
   /** Opens a valley from the start choice: its scene and the gate's lamp, then the run (the palette comes with its first snapshot). */
@@ -262,10 +282,7 @@
 
   /** Opens the whisper card for `target`, about every other named creature not gone, in id order. */
   function openWhisper(target: string): void {
-    const others = (next?.creatures ?? [])
-      .filter((c) => !c.gone && c.id !== target && game.castIds.includes(c.id))
-      .map((c) => c.id);
-    whisperCard = { target, others: others.sort() };
+    whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
   function whisper(about: string, sign: 1 | -1): void {
     const card = whisperCard;
@@ -282,6 +299,10 @@
   // The Meadow draws the cursor while a tool acts at it.
   $effect(() => {
     stage?.setCursor(setup && pointing ? { x: cursor.x, y: cursor.y } : null);
+  });
+  // A new status line takes the place of a failed start's notice, while a run goes on.
+  $effect(() => {
+    if (statusLine !== '' && untrack(() => notice) !== null && game.sandbox.running()) notice = null;
   });
 
   onMount(() => {
@@ -308,8 +329,7 @@
       stage = s;
       const ctx: InputContext = {
         tools: () => SANDBOX_TOOLS,
-        creatures: () =>
-          [...(next?.creatures ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+        creatures: () => [...(next?.creatures ?? [])].sort(byId),
         // A bench goes at the cursor in the sandbox, not at the nearest bench spot.
         benchSpots: () => [],
         placeKind: () => placeKind,
@@ -327,8 +347,7 @@
         picked: () => picked,
         select: (id) => (picked = id),
         moveCursor: (p) => {
-          const { width, height } = s.sceneSize;
-          cursor = { x: Math.min(width, Math.max(0, p.x)), y: Math.min(height, Math.max(0, p.y)) };
+          cursor = clampToScene(p, s.sceneSize);
           nearby = nearbyAt(cursor);
         },
         view: () => 'meadow',
@@ -402,7 +421,7 @@
             {tool}
             onTool={pickTool}
           >
-            <fieldset>
+            <fieldset class="choices">
               <legend>What to place</legend>
               {#each PLACE_KINDS as p (p.kind)}
                 <label class="choice-row">
@@ -455,7 +474,7 @@
                   type="checkbox"
                   checked={setup.switches[sw.key]}
                   onchange={(e) => {
-                    setSwitch(sw.key, e.currentTarget.checked);
+                    setSwitch(sw.key, e.currentTarget);
                   }}
                 />
                 {sw.label}
@@ -463,7 +482,7 @@
             {/each}
           </SandboxPanel>
         </div>
-        <p class="status" role="status">{statusLine}</p>
+        <p class="status" role="status">{notice ?? statusLine}</p>
         <div class="time">
           <TimeControls speed={speedNow} disabled={false} onPause={togglePause} onSpeed={setSpeed} />
         </div>
@@ -474,7 +493,7 @@
     <main class="choice">
       <h1>Sandbox</h1>
       <p>Choose a valley to start from.</p>
-      <div class="choices" role="group" aria-label="Start from">
+      <div class="start-from" role="group" aria-label="Start from">
         {#if status.kith}
           <button type="button" onclick={() => void choose('kith', true)}>Your Kith</button>
         {/if}
@@ -547,21 +566,6 @@
     gap: 0.5rem;
     overflow-y: auto;
   }
-  fieldset {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
-    margin: 0;
-    padding: 0.25rem 0.5rem 0.5rem;
-    border: 1px solid var(--muted);
-    border-radius: 0.4rem;
-  }
-  .choice-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 1.75rem;
-  }
   .line {
     margin: 0;
   }
@@ -586,18 +590,10 @@
     overflow-y: auto;
     background: var(--bg);
   }
-  .choices {
+  .start-from {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     margin-bottom: 1.5rem;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 </style>

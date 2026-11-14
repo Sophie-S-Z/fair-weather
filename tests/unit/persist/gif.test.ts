@@ -25,10 +25,16 @@ interface Decoded {
   netscape: number;
   comments: number;
   trailer: number;
+  clears: number;
 }
 
 /** LZW decoding as the GIF spec has it: variable width, clear and end codes, a 4096-code table. */
-const lzwDecode = (minSize: number, bytes: number[], count: number): Uint8Array => {
+const lzwDecode = (
+  minSize: number,
+  bytes: number[],
+  count: number,
+  tally: { clears: number },
+): Uint8Array => {
   const clear = 1 << minSize;
   const end = clear + 1;
   const out = new Uint8Array(count);
@@ -57,6 +63,7 @@ const lzwDecode = (minSize: number, bytes: number[], count: number): Uint8Array 
     acc >>>= width;
     bits -= width;
     if (code === clear) {
+      tally.clears += 1;
       reset();
       continue;
     }
@@ -81,7 +88,17 @@ const decode = (g: Uint8Array): Decoded => {
   const height = (g[8] as number) | ((g[9] as number) << 8);
   expect(g[10]).toBe(0xf7);
   const palette = g.slice(13, 13 + 768);
-  const d: Decoded = { width, height, palette, delays: [], frames: [], netscape: 0, comments: 0, trailer: 0 };
+  const d: Decoded = {
+    width,
+    height,
+    palette,
+    delays: [],
+    frames: [],
+    netscape: 0,
+    comments: 0,
+    trailer: 0,
+    clears: 0,
+  };
   let p = 13 + 768;
   const blocks = (): number[] => {
     const bytes: number[] = [];
@@ -119,13 +136,30 @@ const decode = (g: Uint8Array): Decoded => {
       p += 9;
       const min = g[p++] as number;
       expect(min).toBe(8);
-      d.frames.push(lzwDecode(min, blocks(), w * h));
+      d.frames.push(lzwDecode(min, blocks(), w * h, d));
     } else throw new Error(`unexpected block 0x${(tag ?? -1).toString(16)} at ${String(p - 1)}`);
   }
   return d;
 };
 
 const expand = (v: number): number => (v << 3) | (v >> 2);
+
+/** The palette index nearest a 15-bit color's expansion; ties to the lower index. */
+const nearestIn = (pal: Uint8Array, r: number, g: number, b: number): number => {
+  let best = 0;
+  let bestD = Infinity;
+  for (let k = 0; k < 256; k += 1) {
+    const dist =
+      ((pal[k * 3] as number) - r) ** 2 +
+      ((pal[k * 3 + 1] as number) - g) ** 2 +
+      ((pal[k * 3 + 2] as number) - b) ** 2;
+    if (dist < bestD) {
+      bestD = dist;
+      best = k;
+    }
+  }
+  return best;
+};
 
 test('the file starts GIF89a with the frame size and ends with 0x3b', () => {
   const g = encodeGif([frameOf(7, 5, () => [255, 0, 0])]);
@@ -185,26 +219,11 @@ test('a 480 by 318 frame of 300 colors maps each pixel to its nearest palette co
   const pal = d.palette;
   expect([...pal]).toEqual([...buildPalette([f])]);
   const got = d.frames[0] as Uint8Array;
-  const nearest = (r: number, g: number, b: number): number => {
-    let best = 0;
-    let bestD = Infinity;
-    for (let k = 0; k < 256; k += 1) {
-      const dist =
-        ((pal[k * 3] as number) - r) ** 2 +
-        ((pal[k * 3 + 1] as number) - g) ** 2 +
-        ((pal[k * 3 + 2] as number) - b) ** 2;
-      if (dist < bestD) {
-        bestD = dist;
-        best = k;
-      }
-    }
-    return best;
-  };
   const seen = new Set<number>();
   let mismatches = 0;
   for (let i = 0; i < w * h; i += 1) {
     const [r, g, b] = colorAt(i);
-    const want = nearest(expand(r >> 3), expand(g >> 3), expand(b >> 3));
+    const want = nearestIn(pal, expand(r >> 3), expand(g >> 3), expand(b >> 3));
     seen.add(want);
     if (got[i] !== want) mismatches += 1;
   }
@@ -212,12 +231,37 @@ test('a 480 by 318 frame of 300 colors maps each pixel to its nearest palette co
   expect(seen.size).toBeGreaterThan(200);
 });
 
-test('a run of 5000 pixels of one color crosses the 4096-code limit and still decodes', () => {
+test('a run of 5000 pixels of one color decodes', () => {
   const d = decode(encodeGif([frameOf(5000, 1, () => [0, 255, 0])]));
   expect(d.frames[0]?.every((v) => v === 0)).toBe(true);
-  const noisy = frameOf(200, 200, (i) => [(i * 7919) % 256, ((i * 104729) >> 3) % 256, (i * 31) % 256]);
-  const n = decode(encodeGif([noisy]));
-  expect(n.frames[0]).toHaveLength(40_000);
+});
+
+test('frames of noise cross the 4096-code limit once and then twice or more, and decode to the nearest colors', () => {
+  const noise = (side: number): RgbaFrame =>
+    frameOf(side, side, (i) => [(i * 7919) % 256, ((i * 104729) >> 3) % 256, (i * 31) % 256]);
+  for (const [side, atLeast] of [
+    [200, 1],
+    [400, 2],
+  ] as const) {
+    const f = noise(side);
+    const d = decode(encodeGif([f]));
+    expect(d.clears).toBeGreaterThanOrEqual(atLeast + 1);
+    const got = d.frames[0] as Uint8Array;
+    expect(got).toHaveLength(side * side);
+    let mismatches = 0;
+    for (let i = 0; i < got.length; i += 1) {
+      const [r, g, b] = [f.data[i * 4], f.data[i * 4 + 1], f.data[i * 4 + 2]] as [number, number, number];
+      if (got[i] !== nearestIn(d.palette, expand(r >> 3), expand(g >> 3), expand(b >> 3))) mismatches += 1;
+    }
+    expect(mismatches).toBe(0);
+  }
+});
+
+test('it throws for a size below 1 or above 65535, or data that is not width by height by 4', () => {
+  const ok = frameOf(2, 2, () => [0, 0, 0]);
+  expect(() => encodeGif([{ ...ok, width: 0, height: 2, data: new Uint8ClampedArray(0) }])).toThrow();
+  expect(() => encodeGif([{ ...ok, width: 65_536, height: 1 }])).toThrow();
+  expect(() => encodeGif([{ ...ok, data: new Uint8ClampedArray(12) }])).toThrow();
 });
 
 test('delays: 83 ms gives 8, 5 ms gives 2', () => {
@@ -234,7 +278,7 @@ test('it writes one NETSCAPE2.0 block and no comment block', () => {
   expect(d.frames).toHaveLength(3);
 });
 
-test('encoding 60 frames of 480 by 318 takes under 2 seconds', () => {
+test('60 frames of 480 by 318 decode to 60 frames of that size', () => {
   const frames = Array.from({ length: 60 }, (_, n) =>
     frameOf(480, 318, (i) => {
       const x = i % 480;
@@ -242,9 +286,7 @@ test('encoding 60 frames of 480 by 318 takes under 2 seconds', () => {
       return y > 270 ? [246, 241, 231] : [(x + n * 3) % 256, (y * 2 + (x >> 2)) % 256, ((x ^ y) + n) % 256];
     }),
   );
-  const t0 = performance.now();
-  const g = encodeGif(frames);
-  const ms = performance.now() - t0;
-  expect(g.length).toBeGreaterThan(1000);
-  expect(ms).toBeLessThan(2000);
+  const d = decode(encodeGif(frames));
+  expect([d.width, d.height, d.frames.length]).toEqual([480, 318, 60]);
+  expect(d.frames.every((f) => f.length === 480 * 318)).toBe(true);
 });

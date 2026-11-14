@@ -91,10 +91,15 @@ const lzw = (px: Uint8Array, out: number[]): void => {
   out.push(0);
 };
 
+/** A 16-bit value as two little-endian bytes. */
+const le16 = (v: number): number[] => [v & 255, (v >> 8) & 255];
+
 /**
- * Encodes the frames as one looping GIF. Each pixel takes the palette color nearest by squared
- * distance on the 8-bit expansion of its 15-bit color (ties to the lower index), through a table
- * filled on first use. Throws for no frames or frames of different sizes.
+ * Encodes the frames as one looping GIF. By design, each pixel takes the palette color nearest its
+ * 15-bit color, not its raw 8-bit color: nearest is by squared distance on the 8-bit expansion of
+ * the 15-bit color (ties to the lower index), found once per 15-bit color through a table filled
+ * on first use. Throws for no frames, frames of different sizes, a width or height outside 1 to
+ * 65535, or `data` that is not width x height x 4 bytes.
  */
 export const encodeGif = (frames: readonly RgbaFrame[]): Uint8Array => {
   const first = frames[0];
@@ -102,19 +107,14 @@ export const encodeGif = (frames: readonly RgbaFrame[]): Uint8Array => {
   const { width, height } = first;
   if (frames.some((f) => f.width !== width || f.height !== height))
     throw new Error('All frames must be the same size.');
+  if (width < 1 || height < 1 || width > 65_535 || height > 65_535)
+    throw new Error('A GIF is 1 to 65535 pixels each way.');
+  if (frames.some((f) => f.data.length !== width * height * 4))
+    throw new Error('Frame data must be width x height x 4 bytes.');
   const palette = buildPalette(frames);
-  const out: number[] = [
-    ...Array.from('GIF89a', (c) => c.charCodeAt(0)),
-    width & 255,
-    width >> 8,
-    height & 255,
-    height >> 8,
-    0xf7,
-    0,
-    0,
-  ];
-  for (const v of palette) out.push(v);
-  out.push(0x21, 0xff, 11, ...Array.from('NETSCAPE2.0', (c) => c.charCodeAt(0)), 3, 1, 0, 0, 0);
+  const text = (t: string): number[] => Array.from(t, (c) => c.charCodeAt(0));
+  const out: number[] = [...text('GIF89a'), ...le16(width), ...le16(height), 0xf7, 0, 0, ...palette];
+  out.push(0x21, 0xff, 11, ...text('NETSCAPE2.0'), 3, 1, 0, 0, 0);
   const lut = new Int16Array(32_768).fill(-1);
   const nearest = (k: number): number => {
     const r = expand(k >> 10);
@@ -133,27 +133,7 @@ export const encodeGif = (frames: readonly RgbaFrame[]): Uint8Array => {
   };
   for (const f of frames) {
     const delay = Math.max(2, Math.round(f.delayMs / 10));
-    out.push(
-      0x21,
-      0xf9,
-      4,
-      0,
-      delay & 255,
-      delay >> 8,
-      0,
-      0,
-      0x2c,
-      0,
-      0,
-      0,
-      0,
-      width & 255,
-      width >> 8,
-      height & 255,
-      height >> 8,
-      0,
-      8,
-    );
+    out.push(0x21, 0xf9, 4, 0, ...le16(delay), 0, 0, 0x2c, 0, 0, 0, 0, ...le16(width), ...le16(height), 0, 8);
     const px = new Uint8Array(width * height);
     for (let i = 0; i < px.length; i += 1) {
       const k = key15(f.data, i * 4);

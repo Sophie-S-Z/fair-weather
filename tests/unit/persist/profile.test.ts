@@ -179,15 +179,15 @@ test('a bad new field reads as its default and keeps the pages, feathers, and ot
         pages: [kept],
         feathers: 2,
         kith: { creatures: 'x' },
-        valleys: ['fen', 'nowhere'],
-        sandbox: { link: 'v1.abc', notes: [] },
+        valleys: 'fen',
+        sandbox: { link: 'no-prefix', notes: [] },
       },
     ],
   ]);
   const profile = await createProfile(factory);
   expect(await profile.kith()).toBeNull();
   expect(await profile.valleys()).toEqual([]);
-  expect(await profile.sandbox()).toEqual({ link: 'v1.abc', notes: [] });
+  expect(await profile.sandbox()).toBeNull();
   expect(await profile.pages()).toEqual([kept]);
   expect(await profile.feathers()).toBe(2);
 });
@@ -242,4 +242,55 @@ test('with blocked storage the new fields live for this visit', async () => {
   expect(await profile.valleys()).toEqual(['hollow']);
   expect(await profile.sandbox()).toEqual({ link: 'v1.xyz', notes: [{ tick: 1, text: 'hi' }] });
   expect(notice).toHaveBeenCalledTimes(1);
+});
+
+test('stored valleys drop unknown ids and repeats and keep the rest in order', async () => {
+  const factory = new IDBFactory();
+  await (
+    await openDb(factory)
+  ).putAll([['profile', { pages: [], feathers: 0, valleys: ['fen', 'nowhere', 'kith', 'fen', 'halcyon'] }]]);
+  expect(await (await createProfile(factory)).valleys()).toEqual(['fen', 'kith', 'halcyon']);
+});
+
+test('a stored note over 80 characters is cut on read; the link and other notes stay', async () => {
+  const factory = new IDBFactory();
+  await (
+    await openDb(factory)
+  ).putAll([
+    [
+      'profile',
+      { pages: [], feathers: 0, sandbox: { link: 'v1.abc', notes: [{ tick: 2, text: 'y'.repeat(90) }] } },
+    ],
+  ]);
+  expect(await (await createProfile(factory)).sandbox()).toEqual({
+    link: 'v1.abc',
+    notes: [{ tick: 2, text: 'y'.repeat(80) }],
+  });
+});
+
+test('the 80-character cut never splits an emoji cluster or a combining mark', async () => {
+  const profile = await createProfile(new IDBFactory());
+  const family = '👩‍👩‍👧';
+  const accent = 'e\u0301'; // one character, two code points
+  await profile.keepSandbox({
+    link: 'v1.abc',
+    notes: [
+      { tick: 1, text: `${'x'.repeat(79)}${family}${family}` },
+      { tick: 2, text: `${'x'.repeat(79)}${accent}${accent}` },
+    ],
+  });
+  const notes = (await profile.sandbox())?.notes ?? [];
+  expect(notes[0]?.text).toBe(`${'x'.repeat(79)}${family}`);
+  expect(notes[1]?.text).toBe(`${'x'.repeat(79)}${accent}`);
+});
+
+test('setKith and keepSandbox throw on a bad value and keep what was there', async () => {
+  const profile = await createProfile(new IDBFactory());
+  await profile.setKith(carry(0.2));
+  await profile.keepSandbox({ link: 'v1.abc', notes: [] });
+  await expect(profile.keepSandbox({ link: 'abc', notes: [] })).rejects.toThrow();
+  await expect(profile.keepSandbox({ link: 'v1.abc', notes: [{ tick: -1, text: 'a' }] })).rejects.toThrow();
+  await expect(profile.setKith({ creatures: 'x', ties: [] } as unknown as Carry)).rejects.toThrow();
+  expect(await profile.sandbox()).toEqual({ link: 'v1.abc', notes: [] });
+  expect(await profile.kith()).toEqual(carry(0.2));
 });

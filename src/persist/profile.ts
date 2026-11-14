@@ -7,6 +7,7 @@ import { CarrySchema } from '../story/carry.ts';
 import type { Carry } from '../story/carry.ts';
 import { characters } from '../story/journey.ts';
 import { SANDBOX_VALLEYS } from '../story/sandbox.ts';
+import type { SandboxValley } from '../story/sandbox.ts';
 import { openDb } from './db.ts';
 import type { Db } from './db.ts';
 import { MAX_LINK_TEXT } from './seed-link.ts';
@@ -55,6 +56,23 @@ const KEY = 'profile';
 /** A page holds the five Part 1 verses, then the sixth. */
 const SIXTH = 6;
 
+/** Unknown ids and repeats drop out; the rest keep their order. */
+const ValleysSchema = z
+  .array(z.string())
+  .transform((ids) =>
+    SANDBOX_VALLEYS.filter((v) => ids.includes(v)).sort((x, y) => ids.indexOf(x) - ids.indexOf(y)),
+  );
+/** A sandbox as stored or kept: a note over NOTE_LENGTH characters is cut, not refused. */
+const SandboxSchema = z.object({
+  link: z.string().max(MAX_LINK_TEXT).startsWith('v1.'),
+  notes: z.array(
+    z.object({
+      tick: z.number().int().nonnegative(),
+      text: z.string().transform((t) => characters(t).slice(0, NOTE_LENGTH).join('')),
+    }),
+  ),
+});
+
 const ProfileSchema = z.object({
   pages: z.array(
     z.object({
@@ -68,20 +86,15 @@ const ProfileSchema = z.object({
   // A profile from before these keys reads as the defaults, and a bad value in one of them falls
   // back to its default without losing the pages, the feathers, or the other new fields.
   kith: CarrySchema.nullable().catch(null),
-  valleys: z.array(z.enum(SANDBOX_VALLEYS)).catch([]),
-  sandbox: z
-    .object({
-      link: z.string().max(MAX_LINK_TEXT).startsWith('v1.'),
-      notes: z.array(
-        z.object({
-          tick: z.number().int().nonnegative(),
-          text: z.string().refine((t) => characters(t).length <= NOTE_LENGTH),
-        }),
-      ),
-    })
-    .nullable()
-    .catch(null),
-});
+  valleys: ValleysSchema.catch([]),
+  sandbox: SandboxSchema.nullable().catch(null),
+}) satisfies z.ZodType<{
+  pages: BookPage[];
+  feathers: number;
+  kith: Carry | null;
+  valleys: SandboxValley[];
+  sandbox: SandboxSave | null;
+}>;
 
 type Data = z.infer<typeof ProfileSchema>;
 const empty = (): Data => ({ pages: [], feathers: 0, kith: null, valleys: [], sandbox: null });
@@ -170,8 +183,9 @@ export async function createProfile(
     },
     kith: async () => (await read()).kith,
     async setKith(carry) {
+      const kept = CarrySchema.parse(carry); // a bad carry is a caller bug: throw, never store it
       await write((d) => {
-        d.kith = structuredClone(carry);
+        d.kith = kept;
       });
     },
     valleys: async () => (await read()).valleys,
@@ -184,14 +198,9 @@ export async function createProfile(
     },
     sandbox: async () => (await read()).sandbox,
     async keepSandbox(save) {
+      const kept = SandboxSchema.parse(save); // a bad link or tick is a caller bug: throw
       await write((d) => {
-        d.sandbox = {
-          link: save.link,
-          notes: save.notes.map((n) => ({
-            tick: n.tick,
-            text: characters(n.text).slice(0, NOTE_LENGTH).join(''),
-          })),
-        };
+        d.sandbox = kept;
       });
     },
   };

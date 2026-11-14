@@ -10,6 +10,7 @@ import type { Command, Scenario, Tuning } from '../../../src/sim/types.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import {
   DEFAULT_SWITCHES,
+  GUST_REACH,
   KNOBS,
   KNOB_IDS,
   SandboxSetupSchema,
@@ -193,7 +194,7 @@ test('the setup schema refuses a knob index out of range and a structure id with
   refused({ ...good, kith: { creatures: [{ ...creature, diary: ['Danced.'] }], ties: [] } });
 });
 
-test('the runner sends rain and path, and refuses wake and walk', () => {
+test('the runner sends rain, path, and a gust clamped to the link bound, and refuses wake and walk', () => {
   const sent: Command[] = [];
   const listeners = new Set<(m: FromWorker) => void>();
   const port: SimPort = {
@@ -215,12 +216,18 @@ test('the runner sends rain and path, and refuses wake and walk', () => {
   expect(runner.verb({ verb: 'place', x: 5, y: 6 })).toBe(true);
   expect(runner.verb({ verb: 'wake', who: 'pim' })).toBe(false);
   expect(runner.verb({ verb: 'walk', x: 1, y: 2 })).toBe(false);
+  // A drag past the link's bound is sent clamped to it, axis by axis; a short one as it is.
+  expect(runner.verb({ verb: 'blow', x: 5, y: 6, dx: 9000, dy: -9000 })).toBe(true);
+  expect(runner.verb({ verb: 'blow', x: 5, y: 6, dx: -300, dy: 40 })).toBe(true);
   expect(sent).toEqual([
     { t: 'rain', x: 1, y: 2 },
     { t: 'path', x: 1, y: 2, x2: 300, y2: 4 },
     { t: 'welcome', on: false },
     { t: 'place', kind: 'bush', x: 5, y: 6 },
+    { t: 'blow', x: 5, y: 6, dx: GUST_REACH.dx, dy: -GUST_REACH.dy },
+    { t: 'blow', x: 5, y: 6, dx: -300, dy: 40 },
   ]);
+  expect(GUST_REACH).toEqual({ dx: 3200, dy: 1800 });
   runner.dispose();
   expect(listeners.size).toBe(0);
   expect(runner.verb({ verb: 'rain', x: 1, y: 2 })).toBe(false);

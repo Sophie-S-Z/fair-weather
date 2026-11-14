@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Command } from '../sim/types.ts';
 import { CommandSchema } from '../story/action-log.ts';
 import { CHALLENGES } from '../story/challenges.ts';
-import { SandboxSetupSchema, bridgesIn, isCreatureId } from '../story/sandbox.ts';
+import { GUST_REACH, SandboxSetupSchema, bridgesIn, isCreatureId } from '../story/sandbox.ts';
 import type { SandboxSetup } from '../story/sandbox.ts';
 import { tuning } from '../story/tuning.ts';
 
@@ -43,8 +43,7 @@ const inScene = (x: number, y: number): boolean => x >= 0 && x <= width && y >= 
 /**
  * Why a command cannot be in a link, or null when it can: only what the sandbox runner sends, as it
  * sends it. Points lie in the scene; `paintFog` is the fog tool's brush; a gust's dx and dy are at
- * most twice the scene's width and height (a drag that starts in the scene and ends within one
- * scene size past it, and the keyboard's 300); creatures are ids from the closed set.
+ * most GUST_REACH, which the runner clamps to; creatures are ids from the closed set.
  */
 function commandIssue(c: Command): string | null {
   switch (c.t) {
@@ -59,7 +58,7 @@ function commandIssue(c: Command): string | null {
       return c.r === brushRadius && Math.abs(c.amount) === brushAmount ? null : 'is not the fog brush';
     case 'blow':
       if (!inScene(c.x, c.y)) return 'is off the scene';
-      return Math.abs(c.dx) <= 2 * width && Math.abs(c.dy) <= 2 * height ? null : 'is too long';
+      return Math.abs(c.dx) <= GUST_REACH.dx && Math.abs(c.dy) <= GUST_REACH.dy ? null : 'is too long';
     case 'thread':
       return isCreatureId(c.a) && isCreatureId(c.b) ? null : 'names an unknown creature';
     case 'whisper':

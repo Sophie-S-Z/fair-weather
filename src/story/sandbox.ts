@@ -227,6 +227,11 @@ const BASE_CREATURE_IDS: ReadonlySet<string> = new Set(
 /** A base creature, or a newcomer in the sim's own `newcomer-<n>` form: a closed set of ids. */
 export const isCreatureId = (id: string): boolean =>
   BASE_CREATURE_IDS.has(id) || /^newcomer-[0-9]{1,6}$/.test(id);
+/**
+ * The longest gust a sandbox link holds, and the runner sends: twice the scene's width and height,
+ * so a drag that starts in the scene may end up to one scene size past its far edge.
+ */
+export const GUST_REACH = { dx: 2 * tuning.scene.width, dy: 2 * tuning.scene.height } as const;
 const structureId = z.string().regex(STRUCTURE_ID);
 const creatureId = z.string().refine(isCreatureId);
 const signed = z.number().min(-1).max(1);
@@ -480,6 +485,11 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       if (!ready || !SANDBOX_VERBS.has(v.verb)) return false;
       const cmd = verbCommand(v, undefined, placeKind);
       if (!cmd) return false;
+      if (cmd.t === 'blow') {
+        // Clamped to the link's bound, so a player's valley always encodes.
+        cmd.dx = Math.min(Math.max(cmd.dx, -GUST_REACH.dx), GUST_REACH.dx);
+        cmd.dy = Math.min(Math.max(cmd.dy, -GUST_REACH.dy), GUST_REACH.dy);
+      }
       const bridge = cmd.t === 'place' && cmd.kind === 'bridge';
       if (bridge && !water.some((r) => inRect(r, cmd.x, cmd.y))) return false;
       if (bridge && bridgeLimit !== undefined && bridges >= bridgeLimit) return false;

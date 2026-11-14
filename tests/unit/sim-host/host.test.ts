@@ -411,4 +411,47 @@ test('onGiveUp fires once when the host gives up on a repeated fault', async () 
   play(host, 100);
   await expect(host.requestHash()).rejects.toThrow(/not restarting/);
   expect(reasons).toEqual([expect.stringMatching(/not restarting/)]);
+  // A second error from the worker it gave up on does not stop the host again.
+  s.spawned[1]?.port.dispatchEvent(new Event('error'));
+  expect(s.spawned).toHaveLength(2);
+  expect(reasons).toHaveLength(1);
+});
+
+test('a spawn that throws on the first connect is tried again after the wait, and the run plays on', async () => {
+  const s = loader({ 0: 'throw' });
+  const host = createSimHost(s.spawn, { loadWaitsMs: [1000], wait: () => Promise.resolve() });
+  const reasons: string[] = [];
+  host.onGiveUp((reason) => reasons.push(reason));
+  play(host, 30);
+  const plain = createSimHost(spawner(() => null).spawn);
+  play(plain, 30);
+  expect(await host.requestHash()).toEqual(await plain.requestHash());
+  expect(s.tries()).toBe(2);
+  expect(reasons).toEqual([]);
+});
+
+test('a wait that rejects gives up instead of leaving the host waiting', async () => {
+  const s = loader({ 0: 'error' });
+  const host = createSimHost(s.spawn, {
+    loadWaitsMs: [1000],
+    wait: () => Promise.reject(new Error('no timer')),
+  });
+  const gaveUp = new Promise<string>((resolve) => host.onGiveUp(resolve));
+  host.post(initGolden);
+  const hash = host.requestHash();
+  expect(await gaveUp).toMatch(/not restarting/);
+  await expect(hash).rejects.toThrow(/not restarting/);
+  expect(s.tries()).toBe(1);
+});
+
+test('a script entry whose tick is not a whole number is not logged, as the core does not run it', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const odd = { tick: 20.5, list: [{ t: 'shine', x: 100, y: 100 }] as Command[] };
+  await host.fastForward(200, [...script, odd]);
+  expect(host.log()).toEqual(scriptLog);
+  const want = await host.requestHash();
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  expect(await host.requestHash()).toEqual(want);
 });

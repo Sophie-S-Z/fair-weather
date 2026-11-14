@@ -63,13 +63,13 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
   let nextCheckpointId = 1;
   /**
    * Rewinds and fast-forwards waiting for their answer, by id, with the ticks each moves the run
-   * and a forward's script.
+   * and a forward's script (a copy only the waiter holds).
    */
   let liteWaiters = new Map<
     number,
     {
       ticks: number;
-      script: readonly { tick: number; list: Command[] }[];
+      script: { tick: number; list: Command[] }[] | undefined;
       resolve(r: { tick: number; lite: WorldLite }): void;
       reject(e: Error): void;
     }
@@ -144,9 +144,14 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
     }
     failedLoads += 1;
     const at = spawns;
-    void wait(ms).then(() => {
-      if (at === spawns) restart();
-    });
+    void wait(ms).then(
+      () => {
+        if (at === spawns) restart();
+      },
+      () => {
+        if (at === spawns) giveUp('the wait to load the worker again failed; not restarting');
+      },
+    );
   }
 
   function receive(m: FromWorker): void {
@@ -189,9 +194,11 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
         if (forward) {
           targetTick += forward.ticks;
           const from = m.tick - forward.ticks;
-          const ran = forward.script.filter((e) => e.tick >= from && e.tick < m.tick);
-          ran.sort((a, b) => a.tick - b.tick);
-          for (const e of ran) log.push({ tick: e.tick, list: [...e.list] });
+          // The core runs a list only at a whole tick it steps through.
+          const ran = (forward.script ?? []).filter(
+            (e) => Number.isInteger(e.tick) && e.tick >= from && e.tick < m.tick,
+          );
+          log.push(...ran.sort((a, b) => a.tick - b.tick));
         }
         for (const e of inFlight) e.tick = Math.max(e.tick, m.tick);
       }
@@ -272,7 +279,7 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
   function askLite(
     make: (id: number) => ToWorker,
     ticks = 0,
-    script: readonly { tick: number; list: Command[] }[] = [],
+    script?: { tick: number; list: Command[] }[],
   ): Promise<{ tick: number; lite: WorldLite }> {
     return new Promise((resolve, reject) => {
       if (gaveUp !== null) {

@@ -159,10 +159,20 @@ export function createWorkerCore(
       case 'rewind':
         post({ t: 'rewound', id: m.id, ...rewound(m.tick, world, tuning) });
         return;
-      case 'fastForward':
-        for (let i = 0; i < m.ticks; i++) if (!stepOnce(world, tuning, true)) return;
+      case 'fastForward': {
+        const script = Array.isArray(m.script) ? m.script : []; // it crosses the worker boundary
+        for (let i = 0; i < m.ticks; i++) {
+          const at = world.tick;
+          for (const e of script) {
+            if (e.tick !== at || !Array.isArray(e.list)) continue;
+            pending.push(...e.list);
+            accepted.push({ tick: at, list: e.list });
+          }
+          if (!stepOnce(world, tuning, true)) return;
+        }
         post({ t: 'forwarded', id: m.id, tick: world.tick, lite: toLite(world, tuning) });
         return;
+      }
     }
   }
 

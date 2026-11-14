@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'vitest';
 import { hashWorld } from '../../../src/sim/hash.ts';
 import { step } from '../../../src/sim/step.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
-import type { World } from '../../../src/sim/types.ts';
+import type { Command, World } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
 import type { FromWorker, ToWorker } from '../../../src/sim-host/protocol.ts';
 import { toLite } from '../../../src/sim-host/lite.ts';
@@ -310,4 +310,54 @@ test('fastForward 400 ticks posts one forwarded message whose lite equals 400 ad
   // The run goes on as usual after it.
   send({ t: 'advance', ticks: 1 });
   expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([401]);
+});
+
+/** Two lists on one tick and one earlier, out of tick order, as a caller may give them. */
+const script: { tick: number; list: Command[] }[] = [
+  { tick: 300, list: [{ t: 'blow', x: 200, y: 450, dx: 600, dy: 0 }] },
+  { tick: 50, list: [{ t: 'shine', x: 400, y: 300 }] },
+  { tick: 300, list: [{ t: 'paintFog', x: 1000, y: 500, r: 160, amount: 0.6 }] },
+];
+
+test('a scripted fastForward gives the hash of stepping with each list at its tick', () => {
+  const w = createWorld(golden.seed, tuning, scenario);
+  for (let i = 0; i < 500; i++) {
+    const at = w.tick;
+    step(
+      w,
+      script.filter((e) => e.tick === at).flatMap((e) => e.list),
+      tuning,
+    );
+  }
+  const { send, got } = directCore();
+  send(initGolden);
+  send({ t: 'fastForward', ticks: 500, id: 1, script });
+  send({ t: 'hash' });
+  // One forwarded and the hash: no accepted, events, or snapshot for the scripted ticks.
+  expect(got.map((m) => m.t)).toEqual(['forwarded', 'hash']);
+  expect(ofType(got, 'hash')[0]).toEqual({ t: 'hash', tick: 500, value: hashWorld(w) });
+});
+
+test('a rewind into the forwarded range replays the script', () => {
+  // The same lists sent live, each at its tick.
+  const paced = directCore();
+  paced.send(initGolden);
+  let at = 0;
+  for (const e of [...script].sort((a, b) => a.tick - b.tick)) {
+    if (e.tick > at) paced.send({ t: 'advance', ticks: e.tick - at });
+    at = e.tick;
+    paced.send({ t: 'commands', list: e.list });
+  }
+  paced.send({ t: 'advance', ticks: 500 - at });
+  const snapshots = ofType(paced.got, 'snapshot');
+
+  const { send, got } = directCore();
+  send(initGolden);
+  send({ t: 'fastForward', ticks: 500, id: 1, script });
+  // 350 lies after both scripted ticks and before the dusk copy at 400, so it replays from tick 0.
+  send({ t: 'rewind', tick: 350, id: 2 });
+  expect(ofType(got, 'rewound')).toEqual([
+    { t: 'rewound', id: 2, tick: 350, lite: snapshots.find((m) => m.tick === 350)?.lite },
+  ]);
+  expect(ofType(got, 'forwarded')[0]?.lite).toEqual(snapshots.at(-1)?.lite);
 });

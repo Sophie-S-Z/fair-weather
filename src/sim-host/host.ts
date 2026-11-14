@@ -16,12 +16,28 @@ export interface SimHost extends SimPort {
    */
   rewind(tick: number): Promise<{ tick: number; lite: WorldLite }>;
   /**
-   * Steps `ticks` ticks silently and gives the world after them (ADR 0013 item 10). Rejects, and
-   * the run stays where it was, when the worker fails or restarts first.
-   * Commands sent after a rejected forward replay at the tick before it.
+   * Steps `ticks` ticks silently and gives the world after them (ADR 0013 item 10), each `script`
+   * list run at its tick. Once it answers, `log()` holds the script's lists in tick order, so a
+   * restart replays them. Rejects, and the run and the log stay where they were, when the worker
+   * fails or restarts first. Commands sent after a rejected forward replay at the tick before it.
    */
-  fastForward(ticks: number): Promise<{ tick: number; lite: WorldLite }>;
+  fastForward(
+    ticks: number,
+    script?: readonly { tick: number; list: Command[] }[],
+  ): Promise<{ tick: number; lite: WorldLite }>;
   log(): readonly { tick: number; list: Command[] }[];
+  /** Calls `cb` each time the host stops restarting the worker; returns an unsubscribe. */
+  onGiveUp(cb: (reason: string) => void): () => void;
+}
+
+export interface HostOptions {
+  /**
+   * The waits before each new try after a worker fails to load (ADR 0014 item 11); after the
+   * last, the host gives up. Default `[]`: one try.
+   */
+  loadWaitsMs?: readonly number[];
+  /** Resolves after `ms`; default `setTimeout`. */
+  wait?: (ms: number) => Promise<void>;
 }
 
 type Endpoint = Worker | MessagePort;
@@ -29,10 +45,15 @@ type Init = Extract<ToWorker, { t: 'init' }>;
 
 /**
  * Wraps a worker. On an `error` message or a worker `error` event it restarts by itself, unless
- * the failed worker got no further than the one before it (a fault that replay repeats).
+ * the failed worker got no further than the one before it (a fault that replay repeats). A worker
+ * whose spawn throws, or that fires `error` before its first message, failed to load: the host
+ * spawns again after each of `loadWaitsMs`, then gives up.
  */
-export function createSimHost(spawn: () => Endpoint): SimHost {
+export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): SimHost {
+  const loadWaitsMs = opts.loadWaitsMs ?? [];
+  const wait = opts.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const listeners = new Set<(m: FromWorker) => void>();
+  const giveUpListeners = new Set<(reason: string) => void>();
   let hashWaiters: { resolve(h: { tick: number; value: string }): void; reject(e: Error): void }[] = [];
   let checkpointWaiters: {
     id: number;
@@ -40,10 +61,18 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     reject(e: Error): void;
   }[] = [];
   let nextCheckpointId = 1;
-  /** Rewinds and fast-forwards waiting for their answer, by id, with the ticks each moves the run. */
+  /**
+   * Rewinds and fast-forwards waiting for their answer, by id, with the ticks each moves the run
+   * and a forward's script.
+   */
   let liteWaiters = new Map<
     number,
-    { ticks: number; resolve(r: { tick: number; lite: WorldLite }): void; reject(e: Error): void }
+    {
+      ticks: number;
+      script: readonly { tick: number; list: Command[] }[];
+      resolve(r: { tick: number; lite: WorldLite }): void;
+      reject(e: Error): void;
+    }
   >();
   let nextLiteId = 1;
   let log: { tick: number; list: Command[] }[] = [];
@@ -62,6 +91,10 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
   /** Set once the host gives up restarting; new hash requests reject with it until init or restart. */
   let gaveUp: string | null = null;
   let worker: Endpoint | null = null;
+  /** Failed loads since the last worker that posted a message, or since init. */
+  let failedLoads = 0;
+  /** Counts spawns, so a wait to retry a load does nothing once another spawn replaced it. */
+  let spawns = 0;
 
   /** Rejects every pending hash request, so no caller waits on a worker that will not answer. */
   function rejectHashes(reason: string): void {
@@ -84,14 +117,36 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     for (const r of waiters.values()) r.reject(new Error(reason));
   }
 
+  /** Stops restarting: every pending and new request rejects with `reason` until init or restart. */
+  function giveUp(reason: string): void {
+    if (gaveUp !== null) return; // already stopped; nothing is waiting
+    gaveUp = reason;
+    rejectHashes(reason);
+    for (const cb of giveUpListeners) cb(reason);
+  }
+
   function onFailure(lastGoodTick: number): void {
     if (lastGoodTick <= lastFailure) {
-      gaveUp = `the worker failed again at tick ${String(lastGoodTick)}; not restarting`;
-      rejectHashes(gaveUp);
+      giveUp(`the worker failed again at tick ${String(lastGoodTick)}; not restarting`);
       return;
     }
     lastFailure = lastGoodTick;
     restart();
+  }
+
+  /** A worker that never posted a message: spawn again after the next wait, or give up. */
+  function onLoadFailure(): void {
+    disconnect();
+    const ms = loadWaitsMs[failedLoads];
+    if (ms === undefined) {
+      giveUp('the worker failed to load on every try; not restarting');
+      return;
+    }
+    failedLoads += 1;
+    const at = spawns;
+    void wait(ms).then(() => {
+      if (at === spawns) restart();
+    });
   }
 
   function receive(m: FromWorker): void {
@@ -124,13 +179,22 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       case 'hash':
         hashWaiters.shift()?.resolve({ tick: m.tick, value: m.value });
         return;
-      case 'forwarded':
+      case 'forwarded': {
         // Listeners never see the forwarded ticks, and a restart replays them silently. The lists
-        // still in flight were sent after the forward, so they run after it.
+        // still in flight were sent after the forward, so they run after it. The script's lists
+        // ran in the forwarded ticks, so the log holds them there, in tick order.
+        const forward = liteWaiters.get(m.id);
         seenTick = Math.max(seenTick, m.tick);
         seenEventsTick = Math.max(seenEventsTick, m.tick - 1);
-        targetTick += liteWaiters.get(m.id)?.ticks ?? 0;
+        if (forward) {
+          targetTick += forward.ticks;
+          const from = m.tick - forward.ticks;
+          const ran = forward.script.filter((e) => e.tick >= from && e.tick < m.tick);
+          ran.sort((a, b) => a.tick - b.tick);
+          for (const e of ran) log.push({ tick: e.tick, list: [...e.list] });
+        }
         for (const e of inFlight) e.tick = Math.max(e.tick, m.tick);
+      }
       // falls through
       case 'rewound':
         liteWaiters.get(m.id)?.resolve({ tick: m.tick, lite: m.lite });
@@ -144,13 +208,27 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     for (const cb of listeners) cb(m);
   }
 
-  function connect(): Endpoint {
-    const w = spawn();
+  /** Spawns a worker, or returns null after a spawn that throws (a failed load). */
+  function connect(): Endpoint | null {
+    spawns += 1;
+    let w: Endpoint;
+    try {
+      w = spawn();
+    } catch {
+      onLoadFailure();
+      return null;
+    }
+    let loaded = false;
     w.addEventListener('message', (e: Event) => {
-      if (w === worker) receive((e as MessageEvent<FromWorker>).data);
+      if (w !== worker) return;
+      loaded = true;
+      failedLoads = 0;
+      receive((e as MessageEvent<FromWorker>).data);
     });
     w.addEventListener('error', () => {
-      if (w === worker) onFailure(seenTick);
+      if (w !== worker) return;
+      if (loaded) onFailure(seenTick);
+      else onLoadFailure();
     });
     if ('start' in w) w.start();
     return w;
@@ -170,6 +248,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     disconnect();
     worker = connect();
     const w = worker;
+    if (!w) return;
     const from = checkpoint?.tick ?? 0;
     w.postMessage(checkpoint ? { ...init, checkpoint: checkpoint.world } : init);
     const replay = log.filter((e) => e.tick >= from);
@@ -186,15 +265,22 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     if (multiplier > 0) w.postMessage({ t: 'speed', multiplier } satisfies ToWorker);
   }
 
-  /** Sends a request answered by a world-lite, under a new id; `ticks` is how far it moves the run. */
-  function askLite(make: (id: number) => ToWorker, ticks = 0): Promise<{ tick: number; lite: WorldLite }> {
+  /**
+   * Sends a request answered by a world-lite, under a new id; `ticks` is how far it moves the run,
+   * and `script` the lists a forward runs.
+   */
+  function askLite(
+    make: (id: number) => ToWorker,
+    ticks = 0,
+    script: readonly { tick: number; list: Command[] }[] = [],
+  ): Promise<{ tick: number; lite: WorldLite }> {
     return new Promise((resolve, reject) => {
       if (gaveUp !== null) {
         reject(new Error(gaveUp));
         return;
       }
       const id = nextLiteId++;
-      liteWaiters.set(id, { ticks, resolve, reject });
+      liteWaiters.set(id, { ticks, script, resolve, reject });
       worker?.postMessage(make(id));
     });
   }
@@ -210,6 +296,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
         seenTick = targetTick = cp?.tick ?? 0;
         seenEventsTick = seenTick - 1;
         lastFailure = -Infinity;
+        failedLoads = 0;
         gaveUp = null;
         multiplier = 0;
         skipAccepted = 0;
@@ -272,10 +359,19 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     rewind(tick) {
       return askLite((id) => ({ t: 'rewind', tick, id }));
     },
-    fastForward(ticks) {
-      return askLite((id) => ({ t: 'fastForward', ticks, id }), ticks);
+    fastForward(ticks, script) {
+      const lists = script?.map((e) => ({ tick: e.tick, list: [...e.list] }));
+      return askLite(
+        (id) => ({ t: 'fastForward', ticks, id, ...(lists ? { script: lists } : {}) }),
+        ticks,
+        lists,
+      );
     },
     restart,
     log: () => log.map((e) => ({ tick: e.tick, list: [...e.list] })),
+    onGiveUp(cb) {
+      giveUpListeners.add(cb);
+      return () => giveUpListeners.delete(cb);
+    },
   };
 }

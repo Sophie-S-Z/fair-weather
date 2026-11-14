@@ -96,7 +96,9 @@ export interface WorldLite {
  * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
  * `rewind` asks for the world at an earlier tick without changing the run (ADR 0012 item 10).
  * `fastForward` steps `ticks` ticks silently, keeping the dusk copies for rewind, and answers
- * with one `forwarded` (Kith's run while the player is away, ADR 0013 item 10).
+ * with one `forwarded` (Kith's run while the player is away, ADR 0013 item 10). Each `script`
+ * list runs in the step at its tick, as a `commands` list sent then would, and rewind replays it;
+ * no `accepted` comes for it.
  */
 export type ToWorker =
   | { t: 'init'; seed: number; tuning: unknown; scenario: Scenario; checkpoint?: World }
@@ -106,7 +108,7 @@ export type ToWorker =
   | { t: 'checkpoint'; id?: number }
   | { t: 'advance'; ticks: number }
   | { t: 'rewind'; tick: number; id: number }
-  | { t: 'fastForward'; ticks: number; id: number };
+  | { t: 'fastForward'; ticks: number; id: number; script?: { tick: number; list: Command[] }[] };
 
 /**
  * Worker to main thread. `accepted.tick` and `events.tick` are the tick the step ran;

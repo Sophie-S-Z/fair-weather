@@ -42,6 +42,7 @@ const setup = (over: Partial<SandboxSetup> = {}): SandboxSetup => ({
   knobs: {},
   switches: { ...DEFAULT_SWITCHES },
   structures: [],
+  bushes: [],
   ...over,
 });
 const build = (over: Partial<SandboxSetup> = {}): Scenario => sandboxScenario(setup(over), bases, spots);
@@ -49,6 +50,15 @@ const build = (over: Partial<SandboxSetup> = {}): Scenario => sandboxScenario(se
 test('knobValue gives the decimal double: imitationRate index 6 is exactly 0.3', () => {
   expect(knobValue(imitation, 6)).toBe(0.3);
   expect(KNOBS.map((k) => k.id)).toEqual(KNOB_IDS);
+});
+
+test('every knob at every index gives the exact decimal double', () => {
+  for (const k of KNOBS) {
+    const steps = k.steps === 'benchSpots' ? spots.length : k.steps;
+    for (let i = 0; i <= steps; i++) {
+      expect(knobValue(k, i), `${k.id} ${String(i)}`).toBe(Number(((k.low + i * k.step) / 100).toFixed(2)));
+    }
+  }
 });
 
 test('giftValue index 4 sets gift.value 2 and gift.valueWinter 1; index 0 sets both to 0', () => {
@@ -70,9 +80,11 @@ test('flockHigh below flockLow gives thresholdSpan 0', () => {
   const below = sandboxTuning(setup({ valley: 'fen', knobs: { flockLow: 10, flockHigh: 4 } }), base);
   expect(below.fen).toEqual({ ...base.fen, thresholdMin: 0.5, thresholdSpan: 0 });
   // The span is exact in hundredths: 0.8 − 0.2 gives 0.6, not 0.6000000000000001.
-  expect(sandboxTuning(setup({ knobs: { flockLow: 4, flockHigh: 16 } }), base).fen.thresholdSpan).toBe(0.6);
-  // With the low knob unset, the span counts from the tuning's thresholdMin (0.2).
-  expect(sandboxTuning(setup({ knobs: { flockHigh: 18 } }), base).fen.thresholdSpan).toBe(0.7);
+  const fen = (knobs: SandboxSetup['knobs']) => sandboxTuning(setup({ valley: 'fen', knobs }), base).fen;
+  expect(fen({ flockLow: 4, flockHigh: 16 }).thresholdSpan).toBe(0.6);
+  // With one knob set, the other counts as its unset value (low 0.2, high 0.8).
+  expect(fen({ flockHigh: 18 }).thresholdSpan).toBe(0.7);
+  expect(fen({ flockLow: 10 })).toEqual({ ...base.fen, thresholdMin: 0.5, thresholdSpan: 0.3 });
 });
 
 test('a Kith setup with a carry starts in spring with the carry, sandbox true, seasonDays 7', () => {
@@ -161,7 +173,10 @@ test('the setup schema refuses a knob index out of range and a structure id with
   refused({ ...good, structures: [{ id: 'my bench', kind: 'bench', x: 10, y: 10 }] });
   refused({ ...good, structures: [{ id: 'b', kind: 'bench', x: 1601, y: 10 }] });
   refused({ ...good, seed: -1 });
-  refused({ ...good, seed: 2 ** 53 });
+  refused({ ...good, seed: 2 ** 32 });
+  expect(SandboxSetupSchema.safeParse({ ...good, seed: 2 ** 32 - 1 }).success).toBe(true);
+  refused({ ...good, bushes: [{ id: 'path-1', x: 50, y: 50 }] }); // an id twice
+  refused({ ...good, bushes: [{ id: 'bush-1', x: 50, y: -1 }] });
   refused({ ...good, note: 'hi' });
   const creature = {
     id: 'pim',
@@ -209,4 +224,38 @@ test('the runner sends rain and path, and refuses wake and walk', () => {
   runner.dispose();
   expect(listeners.size).toBe(0);
   expect(runner.verb({ verb: 'rain', x: 1, y: 2 })).toBe(false);
+});
+
+test('a Kith carry and a valley knob are refused outside their valley; a valley never takes the carry', () => {
+  const wisp = m0Json.creatures.find((c) => c.id === 'wisp');
+  if (!wisp) throw new Error('wisp');
+  const kith: Carry = {
+    creatures: [
+      {
+        id: 'wisp',
+        dials: { ...wisp.dials, opener: 0.25 },
+        shell: { tightness: 0, bristle: 0, color: 0, softness: 0 },
+        skyWarmth: 0,
+        away: true,
+        gone: true,
+        diary: [],
+      },
+    ],
+    ties: [],
+  };
+  const ok = (s: SandboxSetup) => SandboxSetupSchema.safeParse(s).success;
+  expect(ok(setup({ kith }))).toBe(true);
+  expect(ok(setup({ valley: 'halcyon', kith }))).toBe(false);
+  expect(ok(setup({ valley: 'fen', knobs: { flockLow: 2 } }))).toBe(true);
+  expect(ok(setup({ knobs: { flockLow: 2 } }))).toBe(false);
+  expect(ok(setup({ valley: 'fen', knobs: { giftWarmth: 2 } }))).toBe(false);
+  const halcyon = sandboxScenario(setup({ valley: 'halcyon', kith }), bases, spots);
+  expect(halcyon.creatures.find((c) => c.id === 'wisp')).toEqual(
+    halcyonJson.creatures.find((c) => c.id === 'wisp'),
+  );
+});
+
+test("the setup's bushes start empty, as a placed bush does", () => {
+  const s = build({ bushes: [{ id: 'bush-3', x: 700, y: 300 }] });
+  expect(s.bushes).toEqual([...m0Json.bushes, { id: 'bush-3', x: 700, y: 300, berries: 0 }]);
 });

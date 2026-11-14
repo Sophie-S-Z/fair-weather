@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import type { SimPort } from '../sim-host/protocol.ts';
 import type { Command, NetworkSwitches, Scenario, Structure, Tuning } from '../sim/types.ts';
-import { applyCarry } from './carry.ts';
+import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
 import type { Carry } from './carry.ts';
 import { verbCommand } from './chapter-runner.ts';
 import { chapterTicksPerDay, checkLand } from './scenario.ts';
@@ -205,12 +205,13 @@ export interface SandboxSetup {
   knobs: Partial<Record<KnobId, number>>;
   switches: Switches;
   structures: Structure[];
+  /** The bushes the player placed, which a rule change keeps; each starts empty. */
+  bushes: { id: string; x: number; y: number }[];
 }
 
 /** The most entries in any of a setup's arrays: Kith's 30 creatures have 435 ties. */
 const MAX_ENTRIES = 1000;
 const id = z.string().regex(/^[a-z0-9-]{1,40}$/);
-const unit = z.number().min(0).max(1);
 const signed = z.number().min(-1).max(1);
 const x = z.number().min(0).max(tuning.scene.width);
 const y = z.number().min(0).max(tuning.scene.height);
@@ -223,57 +224,70 @@ const knobIndex = (k: Knob) =>
 
 /**
  * The setup as a seed link holds it (ADR 0014 item 7): strict objects, ids only, and every number
- * bounded. The bench density's top is the scene's, which sandboxScenario checks.
+ * bounded. A link is canonical: only Kith keeps a carry, a valley's knobs are set only in that
+ * valley, and no id is both a structure's and a bush's or used twice. Passing the schema is not
+ * enough: sandboxScenario still throws on a bench density past the scene's spot count and on land
+ * that checkLand refuses, and a caller must treat that throw as a refused setup too.
  */
-export const SandboxSetupSchema = z.strictObject({
-  seed: z.number().int().nonnegative(),
-  valley: z.enum(SANDBOX_VALLEYS),
-  kith: z
-    .strictObject({
-      creatures: z
-        .array(
-          z.strictObject({
-            id,
-            dials: z.strictObject({
-              opener: unit,
-              forgiveness: unit,
-              memory: unit,
-              ear: unit,
-              wanderlust: unit,
+export const SandboxSetupSchema = z
+  .strictObject({
+    seed: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(2 ** 32 - 1),
+    valley: z.enum(SANDBOX_VALLEYS),
+    kith: z
+      .strictObject({
+        creatures: z
+          .array(
+            z.strictObject({
+              id,
+              dials: z.strictObject(DIALS_SHAPE),
+              shell: z.strictObject(SHELL_SHAPE),
+              skyWarmth: signed,
+              away: z.boolean(),
+              gone: z.boolean(),
+              diary: z.array(z.string()).max(0),
             }),
-            shell: z.strictObject({ tightness: unit, bristle: unit, color: unit, softness: unit }),
-            skyWarmth: signed,
-            away: z.boolean(),
-            gone: z.boolean(),
-            diary: z.array(z.string()).max(0),
-          }),
-        )
-        .max(MAX_ENTRIES),
-      ties: z.array(z.strictObject({ a: id, b: id, ab: signed, ba: signed })).max(MAX_ENTRIES),
-    })
-    .nullable(),
-  challenge: z.enum(CHALLENGE_IDS).nullable(),
-  knobs: z.strictObject(
-    Object.fromEntries(KNOBS.map((k) => [k.id, knobIndex(k).optional()])) as Record<
-      KnobId,
-      z.ZodOptional<z.ZodNumber>
-    >,
-  ),
-  switches: z.strictObject({
-    oneWay: z.boolean(),
-    weighted: z.boolean(),
-    mixed: z.boolean(),
-    drift: z.boolean(),
-  }),
-  structures: z
-    .array(
-      z.discriminatedUnion('kind', [
-        z.strictObject({ id, kind: z.enum(['bench', 'bridge', 'lantern']), x, y }),
-        z.strictObject({ id, kind: z.literal('path'), x, y, x2: x, y2: y }),
-      ]),
-    )
-    .max(MAX_ENTRIES),
-});
+          )
+          .max(MAX_ENTRIES),
+        ties: z.array(z.strictObject({ a: id, b: id, ab: signed, ba: signed })).max(MAX_ENTRIES),
+      })
+      .nullable(),
+    challenge: z.enum(CHALLENGE_IDS).nullable(),
+    knobs: z.strictObject(
+      Object.fromEntries(KNOBS.map((k) => [k.id, knobIndex(k).exactOptional()])) as Record<
+        KnobId,
+        z.ZodExactOptional<z.ZodNumber>
+      >,
+    ),
+    switches: z.strictObject({
+      oneWay: z.boolean(),
+      weighted: z.boolean(),
+      mixed: z.boolean(),
+      drift: z.boolean(),
+    }),
+    structures: z
+      .array(
+        z.discriminatedUnion('kind', [
+          z.strictObject({ id, kind: z.enum(['bench', 'bridge', 'lantern']), x, y }),
+          z.strictObject({ id, kind: z.literal('path'), x, y, x2: x, y2: y }),
+        ]),
+      )
+      .max(MAX_ENTRIES),
+    bushes: z.array(z.strictObject({ id, x, y })).max(MAX_ENTRIES),
+  })
+  .superRefine((s, ctx) => {
+    if (s.kith !== null && s.valley !== 'kith')
+      ctx.addIssue({ code: 'custom', message: 'Only Kith keeps a carry' });
+    for (const k of KNOBS) {
+      if (s.knobs[k.id] !== undefined && k.valley !== null && k.valley !== s.valley)
+        ctx.addIssue({ code: 'custom', message: `${k.id} is a ${k.valley} knob` });
+    }
+    const ids = [...s.structures, ...s.bushes].map((x) => x.id);
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'An id is used twice' });
+  }) satisfies z.ZodType<SandboxSetup>;
 
 /** A set knob's value, or undefined while it is unset. */
 function setValue(setup: SandboxSetup, id: KnobId): number | undefined {
@@ -292,11 +306,15 @@ export function sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning {
   }
   t.imitation.rate = value('imitationRate') ?? t.imitation.rate;
   t.wind.dialShiftChance = value('windStrength') ?? t.wind.dialShiftChance;
-  t.fen.thresholdMin = value('flockLow') ?? t.fen.thresholdMin;
+  const low = value('flockLow');
   const high = value('flockHigh');
-  // Rounded to hundredths, so 0.8 − 0.2 gives 0.6 and not 0.6000000000000001.
-  if (high !== undefined)
-    t.fen.thresholdSpan = Math.max(0, Math.round((high - t.fen.thresholdMin) * 100) / 100);
+  if (low !== undefined || high !== undefined) {
+    // With one set, the other is its unset value; both unset leave the tuning as it is.
+    const lo = low ?? KNOB.flockLow.unset;
+    t.fen.thresholdMin = lo;
+    // Rounded to hundredths, so 0.8 − 0.2 gives 0.6 and not 0.6000000000000001.
+    t.fen.thresholdSpan = Math.max(0, Math.round(((high ?? KNOB.flockHigh.unset) - lo) * 100) / 100);
+  }
   t.hollow.drama.against = value('skyAgainst') ?? t.hollow.drama.against;
   t.hollow.drama.keep = value('skyKeep') ?? t.hollow.drama.keep;
   t.hollow.drama.away = value('skyAway') ?? t.hollow.drama.away;
@@ -319,7 +337,7 @@ export function sandboxScenario(
 ): Scenario {
   const s = structuredClone(bases[setup.valley]);
   const value = (id: KnobId) => setValue(setup, id) ?? KNOB[id].unset;
-  if (setup.kith) applyCarry(s, setup.kith);
+  if (setup.kith && setup.valley === 'kith') applyCarry(s, setup.kith);
   if (setup.valley === 'kith') s.season = 'spring';
   s.ticksPerDay = chapterTicksPerDay(tuning.story);
   s.sandbox = true;
@@ -341,6 +359,8 @@ export function sandboxScenario(
   for (const p of benchSpots.slice(0, benches))
     s.structures.push({ id: `sandbox-bench-${p.id}`, kind: 'bench', x: p.x, y: p.y });
   s.structures.push(...setup.structures.map((st) => ({ ...st })));
+  // Empty, as the sim's `place` command sets a new bush.
+  s.bushes.push(...setup.bushes.map((b) => ({ ...b, berries: 0 })));
   delete s.hero;
   if (s.pack?.id === 'halcyon') s.pack.kithWarmth = 0;
   checkLand(s);

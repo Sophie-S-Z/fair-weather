@@ -20,13 +20,16 @@ export interface Carry {
 }
 
 const unit = z.number().min(0).max(1);
+/** A carried creature's dials and shell fields, each 0 to 1; the sandbox's link schema shares them. */
+export const DIALS_SHAPE = { opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit };
+export const SHELL_SHAPE = { tightness: unit, bristle: unit, color: unit, softness: unit };
 /** A carry as a save holds it (spec 15.1). */
 export const CarrySchema = z.object({
   creatures: z.array(
     z.object({
       id: z.string(),
-      dials: z.object({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
-      shell: z.object({ tightness: unit, bristle: unit, color: unit, softness: unit }),
+      dials: z.object(DIALS_SHAPE),
+      shell: z.object(SHELL_SHAPE),
       skyWarmth: z.number(),
       away: z.boolean(),
       gone: z.boolean(),

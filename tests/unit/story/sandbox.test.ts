@@ -6,6 +6,7 @@ import m0Json from '../../../content/scenarios/m0.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
 import tuningJson from '../../../content/tuning.json';
 import type { FromWorker, SimPort, WorldLite } from '../../../src/sim-host/protocol.ts';
+import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Command, Scenario, Tuning } from '../../../src/sim/types.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import {
@@ -58,6 +59,16 @@ test('every knob at every index gives the exact decimal double', () => {
     const steps = k.steps === 'benchSpots' ? spots.length : k.steps;
     for (let i = 0; i <= steps; i++) {
       expect(knobValue(k, i), `${k.id} ${String(i)}`).toBe(Number(((k.low + i * k.step) / 100).toFixed(2)));
+    }
+  }
+});
+
+test("every tuning knob at every index gives a tuning the worker's schema takes", () => {
+  for (const k of KNOBS) {
+    if (k.steps === 'benchSpots') continue; // a scenario knob
+    for (let i = 0; i <= k.steps; i++) {
+      const t = sandboxTuning(setup({ valley: k.valley ?? 'kith', knobs: { [k.id]: i } }), base);
+      expect(() => parseTuning(t), `${k.id} ${String(i)}`).not.toThrow();
     }
   }
 });

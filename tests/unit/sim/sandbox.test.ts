@@ -74,6 +74,22 @@ test("a path's ends are clamped to the scene and its id is path-<nextId>", () =>
   expect(w.nextId).toBe(2);
 });
 
+test("a sandbox world's ids start past the scenario's largest <kind>-<n>; a story world's start at 1", () => {
+  const items = {
+    structures: [
+      { id: 'bench-12', kind: 'bench' as const, x: 100, y: 100 },
+      { id: 'sandbox-bench-oak', kind: 'bench' as const, x: 200, y: 100 },
+    ],
+    bushes: [{ id: 'bush-30', x: 300, y: 300, berries: 0 }],
+  };
+  const w = sandbox([], items);
+  expect(w.nextId).toBe(31);
+  apply(w, { t: 'place', kind: 'bench', x: 400, y: 400 });
+  expect(w.structures.at(-1)?.id).toBe('bench-31');
+  expect(makeWorld([], items).nextId).toBe(1);
+  expect(sandbox([]).nextId).toBe(1);
+});
+
 test('a creature within 40 units of a path end walks to its other end when its draw is below 0.5', () => {
   // Two paths; the creature stands 30 from the second's start and 35 from the first's end.
   const w = sandbox([{ id: 'a', x: 830, y: 450 }]);

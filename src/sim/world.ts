@@ -50,6 +50,20 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
 }
 
 /**
+ * One past the largest n in any `<kind>-<n>` id of the scenario's structures and bushes, so a
+ * sandbox world's new ids never take one that a kept or base item has (`bush-1` in m0, a kept
+ * `bench-1` after a rule change). A story world starts at 1, as before.
+ */
+function firstFreeId(scenario: Scenario): number {
+  let largest = 0;
+  for (const { id } of [...scenario.structures, ...scenario.bushes]) {
+    const n = /^[a-z]+-([0-9]+)$/.exec(id)?.[1];
+    if (n !== undefined) largest = Math.max(largest, Number(n));
+  }
+  return largest + 1;
+}
+
+/**
  * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, and the scenario's
  * shell, or no shell, as its shell and resting shell. Each other
  * creature with Ear at or below the rumor's strength starts with the rumor's value as its opinion
@@ -97,7 +111,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     ticksPerDay: scenario.ticksPerDay ?? ticksPerDay(tuning),
     season: scenario.season,
     valleyId: scenario.valleyId,
-    nextId: 1,
+    nextId: scenario.sandbox ? firstFreeId(scenario) : 1,
     artStreak: 0,
     creatures,
     ties,

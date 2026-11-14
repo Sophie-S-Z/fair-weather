@@ -65,7 +65,8 @@ export const TuningSchema = obj({
     newcomerDial: prob,
   }),
   bid: obj({ gain: pos, openerWeight: prob, hungerWeight: prob, againstBelowWarmth: signed }),
-  gift: obj({ cost: count, value: count, valueWinter: count, maxSlightsPerForgiveness: count }),
+  // The sandbox's Gift value knob sets 0 to 6 in halves (ADR 0014 item 2), so a gift's berries are a number, not a count.
+  gift: obj({ cost: count, value: nonNeg, valueWinter: nonNeg, maxSlightsPerForgiveness: count }),
   memory: obj({ halfLifeMinDays: pos, halfLifeSpanDays: pos }),
   warmth: obj({
     toward: signed,

@@ -155,9 +155,17 @@
   let threadFrom: string | null = $state(null);
   /** The open whisper card: the creature it whispers to, and those it can be about. */
   let whisperCard: { target: string; others: string[] } | null = $state(null);
-  /** The newest live snapshot and its tick, and this run's Cosmos timeline. */
+  /** The newest live snapshot and its tick. */
   let live: WorldLite | null = $state.raw(null);
-  let liveTick = $state(0);
+  let liveTick = 0;
+  /**
+   * The live snapshot the last frame drew, its tick, and this run's Cosmos timeline then. The Cosmos
+   * panel and the drawer read these, so their text changes as often as the scene is drawn, not at
+   * every step: at a bet's reveal speed the sim steps hundreds of times a second, and rewriting the
+   * panel for each step costs the page more than the steps come in, so it falls behind the sim.
+   */
+  let drawn: WorldLite | null = $state.raw(null);
+  let drawnTick = $state(0);
   let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
   /**
    * The tick the rewind range asks for, or null for now; the rewound world once it arrives. While
@@ -229,17 +237,19 @@
   const wait = untrack(() => game.input.createWait());
 
   const chapter = $derived(game.chapters[index]);
-  /** The world drawn now, and what the Cosmos panel and the drawer say about it. */
+  /** The world now, live or rewound: what the valley line says. */
   // In closures, so TypeScript does not narrow the state to its first value.
   const shown = $derived.by(() => rewound ?? live);
+  /** The same, as the last frame drew it: what the Cosmos panel and the drawer say about it. */
+  const seen = $derived.by(() => rewound ?? drawn);
   /** A creature's name in the scene's text: the player's name for the hero. */
   const nameOf = (id: string): string => (id === 'hero' && live?.hero ? live.hero.name : displayName(id));
-  const ties = $derived.by(() => (shown && (view === 'cosmos' || picked !== null) ? game.ties(shown) : null));
+  const ties = $derived.by(() => (seen && (view === 'cosmos' || picked !== null) ? game.ties(seen) : null));
   const diary = $derived.by(() => {
-    const c = shown?.creatures.find((x) => x.id === picked);
+    const c = seen?.creatures.find((x) => x.id === picked);
     if (!c || !chapter) return null;
     const mine = ties?.get(c.id);
-    const away = new Set(shown?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
+    const away = new Set(seen?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
     // The Cosmos panel's rule too: away ones count, marked away.
     const named = (id: string): string => `${nameOf(id)}${away.has(id) ? ' (away)' : ''}`;
     return {
@@ -514,6 +524,7 @@
     // (host.ts connect), and only a microtask passes between that post and here, so no old world
     // comes back.
     live = null;
+    drawn = null;
     flagsNow = flags;
     myth = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
@@ -602,6 +613,11 @@
       return;
     }
     if (!stage || !prev || !next) return;
+    if (drawn !== next) {
+      drawn = next;
+      drawnTick = liveTick;
+      timeline = stage.timeline();
+    }
     const span = nextAt - prevAt;
     const alpha = span > 0 ? Math.min(1, Math.max(0, (now - nextAt) / span)) : 1;
     stage.draw(prev, next, alpha, $settings);
@@ -716,7 +732,6 @@
       game.onSnapshot((lite, at) => {
         if (!runner) return;
         stage?.snapshot(at, lite);
-        if (stage) timeline = stage.timeline();
         live = lite;
         liveTick = at;
         if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
@@ -903,16 +918,16 @@
             <div class="strip" bind:this={stripEl}></div>
           </div>
         {/if}
-        {#if view === 'cosmos' && shown && ties && chapter}
+        {#if view === 'cosmos' && seen && ties && chapter}
           <div class="cosmos">
             <CosmosPanel
-              lite={shown}
+              lite={seen}
               {ties}
               {timeline}
               label={nameOf}
               rewind={chapter.verbs.includes('rewind')
                 ? {
-                    now: liveTick,
+                    now: drawnTick,
                     at: rewindAt,
                     ticksPerDay: chapterTicksPerDay(chapter),
                     disabled: bet !== null || betRunning,

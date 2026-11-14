@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
-import { carriedDiaries, carryFrom, restoreDials } from '../../../src/story/carry.ts';
+import { carriedDiaries, carryFrom, quantizeCarry, restoreDials } from '../../../src/story/carry.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 
@@ -94,4 +94,36 @@ test('restoreDials puts back the overridden dials only, from the received carry 
   const received: Carry = { creatures: [{ ...entry('pim'), dials: { ...dials, opener: 0.4 } }], ties: [] };
   restoreDials(carry, received, base, [{ dials: { pim: { opener: 1 } } }]);
   expect(carry.creatures[0]?.dials.opener).toBe(0.4);
+});
+
+test('quantizeCarry keeps only the given ids, rounds to thousandths, and drops diaries and hero ties', () => {
+  const entry = (id: string): Carry['creatures'][number] => ({
+    id,
+    dials: { opener: 0.12345, forgiveness: 0.5, memory: 0.6, ear: 0.7, wanderlust: 0.9996 },
+    shell: { tightness: 0.1, bristle: 0.2004, color: 0.3, softness: 0.4 },
+    skyWarmth: -0.33333,
+    away: true,
+    gone: false,
+    diary: ['Danced.'],
+  });
+  const carry: Carry = {
+    creatures: [entry('pim'), entry('hero'), entry('krit')],
+    ties: [
+      { a: 'krit', b: 'pim', ab: 0.1234567, ba: -0.0006 },
+      { a: 'hero', b: 'pim', ab: 0.5, ba: 0.5 },
+    ],
+  };
+  expect(quantizeCarry(carry, new Set(['pim', 'krit']))).toEqual({
+    creatures: ['pim', 'krit'].map((id) => ({
+      id,
+      dials: { opener: 0.123, forgiveness: 0.5, memory: 0.6, ear: 0.7, wanderlust: 1 },
+      shell: { tightness: 0.1, bristle: 0.2, color: 0.3, softness: 0.4 },
+      skyWarmth: -0.333,
+      away: true,
+      gone: false,
+      diary: [],
+    })),
+    ties: [{ a: 'krit', b: 'pim', ab: 0.123, ba: -0.001 }],
+  });
+  expect(carry.creatures[0]?.diary).toEqual(['Danced.']); // the input is not changed
 });

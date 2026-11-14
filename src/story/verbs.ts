@@ -3,7 +3,7 @@ import type { BidReply, GiftMove } from '../sim/types.ts';
 
 /**
  * Verbs that act on the world: the only tray tools (ADR 0012 item 8). Part 2 adds the hero's
- * (ADR 0013 items 2 to 7).
+ * (ADR 0013 items 2 to 7), and the sandbox rain, paths, and the gate (ADR 0014 item 5).
  */
 export const WORLD_VERBS = [
   'wake',
@@ -19,6 +19,9 @@ export const WORLD_VERBS = [
   'join',
   'pose',
   'keepsake',
+  'rain',
+  'path',
+  'welcome',
 ] as const;
 /** Verbs that only read the world; never tray tools. */
 export const MIND_VERBS = ['peek', 'zoom', 'rewind'] as const;
@@ -46,7 +49,10 @@ export type VerbInput =
   | { verb: 'plant' }
   | { verb: 'join'; on: boolean }
   | { verb: 'pose' }
-  | { verb: 'keepsake'; to: string; item: string };
+  | { verb: 'keepsake'; to: string; item: string }
+  | { verb: 'rain'; x: number; y: number }
+  | { verb: 'path'; x: number; y: number; x2: number; y2: number }
+  | { verb: 'welcome'; on: boolean };
 
 /** The verb that unlocks an input: `manner` for `plant`, else its own. */
 export const unlockingVerb = (v: VerbInput): Verb => (v.verb === 'plant' ? 'manner' : v.verb);

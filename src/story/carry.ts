@@ -113,3 +113,27 @@ export function carriedDiaries(carry: Carry, s: Scenario): Map<string, string[]>
   const ids = new Set(s.creatures.map((c) => c.id));
   return new Map(carry.creatures.filter((c) => ids.has(c.id)).map((c) => [c.id, [...c.diary]]));
 }
+
+/**
+ * The carry the sandbox keeps of Kith (ADR 0014 item 1): only the creatures in `ids` and the ties
+ * between them, every number rounded to thousandths, and no diaries.
+ */
+export function quantizeCarry(carry: Carry, ids: ReadonlySet<string>): Carry {
+  const q = (v: number): number => Math.round(v * 1000) / 1000;
+  const each = <T extends object>(o: T): T =>
+    Object.fromEntries(Object.entries(o).map(([k, v]) => [k, q(v as number)])) as T;
+  return {
+    creatures: carry.creatures
+      .filter((c) => ids.has(c.id))
+      .map((c) => ({
+        ...c,
+        dials: each(c.dials),
+        shell: each(c.shell),
+        skyWarmth: q(c.skyWarmth),
+        diary: [],
+      })),
+    ties: carry.ties
+      .filter((t) => ids.has(t.a) && ids.has(t.b))
+      .map((t) => ({ ...t, ab: q(t.ab), ba: q(t.ba) })),
+  };
+}

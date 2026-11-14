@@ -69,6 +69,9 @@
     join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
     pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
     keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
+    rain: '[PLACEHOLDER] Press Enter to rain on the bushes near the spot.',
+    path: '[PLACEHOLDER] Press Enter at one end of a path, then at the other.',
+    welcome: '[PLACEHOLDER] Light the gate for newcomers, or darken it.',
     zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
     peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:

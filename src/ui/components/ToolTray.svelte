@@ -62,6 +62,9 @@
     join: 'Join',
     pose: 'Pose',
     keepsake: 'Keepsake',
+    rain: 'Rain',
+    path: 'Paths',
+    welcome: 'Gate',
   };
   const PLACE_LABELS: Record<Exclude<Structure['kind'], 'path'>, string> = {
     bench: 'Bench',

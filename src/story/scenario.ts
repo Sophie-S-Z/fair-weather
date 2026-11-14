@@ -86,7 +86,7 @@ function apply(s: Scenario, o: Overrides): void {
  * Throws when a creature still in the valley, a bush, a bench, or the gate is in water or at or
  * past the ridge, or a bridge is outside every water rectangle (ADR 0012 item 3).
  */
-function checkLand(s: Scenario): void {
+export function checkLand(s: Scenario): void {
   const wet = (r: Rect, x: number, y: number): boolean =>
     x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   const { gateX, gateY } = tuning.scene;

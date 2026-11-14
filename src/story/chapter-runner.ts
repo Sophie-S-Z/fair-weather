@@ -98,13 +98,17 @@ const DIARY_LENGTH = 20;
 const YEAR_EVENT_SET: ReadonlySet<SimEvent['t']> = new Set(YEAR_EVENTS);
 const isYearEvent = (e: SimEvent): e is YearEvent => YEAR_EVENT_SET.has(e.t);
 
-type PlaceKind = NonNullable<Chapter['place']>['kind'];
+type PlaceKind = Extract<Command, { t: 'place' }>['kind'];
 
 /**
  * The command a player verb sends; `respond` answers `skyBidder`, the oldest unanswered sky bid,
  * and `place` sets `placeKind`.
  */
-function verbCommand(v: VerbInput, skyBidder: string | undefined, placeKind: PlaceKind): Command | null {
+export function verbCommand(
+  v: VerbInput,
+  skyBidder: string | undefined,
+  placeKind: PlaceKind,
+): Command | null {
   switch (v.verb) {
     case 'wake':
       return { t: 'wake', who: v.who };
@@ -134,6 +138,12 @@ function verbCommand(v: VerbInput, skyBidder: string | undefined, placeKind: Pla
     case 'pose':
     case 'keepsake':
       return { t: 'local', verb: v };
+    case 'rain':
+      return { t: 'rain', x: v.x, y: v.y };
+    case 'path':
+      return { t: 'path', x: v.x, y: v.y, x2: v.x2, y2: v.y2 };
+    case 'welcome':
+      return { t: 'welcome', on: v.on };
   }
 }
 

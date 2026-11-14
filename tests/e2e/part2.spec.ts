@@ -103,8 +103,11 @@ interface Hands {
   begin(): Promise<void>;
   /** The first hero, named Rain. */
   chooseHero(): Promise<void>;
-  /** Waves at `who` with the Walk tool, which the hero then follows; false when a card opened. */
-  wave(who: string): Promise<boolean>;
+  /**
+   * Waves at `who` with the Walk tool, which the hero then follows; false when a card opened. With
+   * `last`, `who` is last in Tab order (creatures in id order), so Shift+Tab picks it at once.
+   */
+  wave(who: string, last?: boolean): Promise<boolean>;
   /** Walks to scene point `to`, the cursor starting at `from`; false when a card opened. */
   walkTo(to: Point, from: Point): Promise<boolean>;
   /** Uses Join (it toggles flying) or Pose once, then goes back to the Walk tool; false when it could not. */
@@ -149,13 +152,17 @@ function keyboardHands(page: Page): Hands {
     const now = await look(page);
     return ok(now) && now.tools[i]?.pressed === true && toolName(now.tools[i].text) === tool;
   };
-  /** Presses Tab until the status line names `who` as picked; false when a card opened. */
-  const tabTo = async (who: string) => {
+  /**
+   * Presses Tab (Shift+Tab with `last`) until the status line names `who` as picked; false when a
+   * card opened. Each press waits for a frame, so a pick far along the order costs real time while
+   * the sim runs on.
+   */
+  const tabTo = async (who: string, last = false) => {
     for (let i = 0; i < 80; i++) {
       const now = await look(page);
       if (!ok(now)) return false;
       if (pickedIn(now.status) === who) return true;
-      await page.keyboard.press('Tab');
+      await page.keyboard.press(last ? 'Shift+Tab' : 'Tab');
     }
     throw new Error(`Tab never picked ${who}`);
   };
@@ -185,10 +192,10 @@ function keyboardHands(page: Page): Hands {
       await expect(page.getByRole('button', { name: 'Wake as Rain' })).toBeFocused();
       await page.keyboard.press('Enter');
     },
-    async wave(who) {
+    async wave(who, last = false) {
       if (!(await keyTool('Walk'))) return false;
       await expect(page.getByRole('application')).toBeFocused();
-      return (await tabTo(who)) && press('w');
+      return (await tabTo(who, last)) && press('w');
     },
     async walkTo(to, from) {
       if (!(await keyTool('Walk'))) return false;
@@ -208,9 +215,15 @@ function keyboardHands(page: Page): Hands {
     },
     async giveFeather() {
       if (!(await keyTool('Keepsake'))) return true;
+      const feather = (now: Look) => now.keepsakes.some((k) => k.includes('starling feather'));
       // Enter gives the first keepsake the hero holds, which is the feather while it has it.
-      const held = (await look(page)).keepsakes[0]?.includes('starling feather') ?? false;
-      if (held) await press('Enter');
+      if (feather(await look(page)) && (await press('Enter'))) {
+        // The give lands at the next step, or not at all out of reach; the tray shows which two
+        // snapshots on. Read it now: Wisp may choose at this dusk, and its card ends the turns.
+        const pressed = (await look(page)).ticks;
+        await expect.poll(async () => (await look(page)).ticks).toBeGreaterThanOrEqual(pressed + 2);
+      }
+      const held = feather(await look(page));
       await keyTool('Walk');
       return held;
     },
@@ -315,9 +328,9 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
   const move = (m: string) => {
     if (!played.moves.includes(m)) played.moves.push(m);
   };
-  /** Waves at `who` every EVERY ticks; with `diary`, the drawer then shows its diary. */
-  const wave = async (who: string, diary = false) => {
-    if (t - v.lastWave < EVERY || !(await hands.wave(who))) return;
+  /** Waves at `who` (last in Tab order with `last`) every EVERY ticks; with `diary`, the drawer then shows its diary. */
+  const wave = async (who: string, { diary = false, last = false } = {}) => {
+    if (t - v.lastWave < EVERY || !(await hands.wave(who, last))) return;
     v.lastWave = t;
     move(`Walk to ${who}`);
     if (diary && !seen.drawerOpen) await hands.openDiary(who);
@@ -326,7 +339,10 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
   switch (seen.heading) {
     case 'Murmuration Fen': {
       // walksToTove(true): Tove every 20 ticks; the flock from fen.duskAt of each day to dawn.
-      await wave('Tove');
+      // The hero must stand beside Tove by dusk, as the T3 player does from tick 0: without it,
+      // three restless starlings are among her 7 nearest, and they lift her alone at dusk (ADR 0013
+      // item 16, step 5e) before the turn can join. Tab would pass 40 starlings to reach her.
+      await wave('Tove', { last: true });
       const dusk = t % DAY.fen >= FEN_DUSK;
       if (dusk !== v.joined && (await hands.use('Join'))) {
         v.joined = dusk;
@@ -351,7 +367,7 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
       // The hero's gifts are read in Wisp's diary, which the drawer shows while Wisp is picked.
       v.gifts += newLines(seen, v, 'Wisp').filter((l) => HERO_GAVE.test(l)).length;
       played.gifts = v.gifts;
-      await wave('Wisp', true);
+      await wave('Wisp', { diary: true, last: true });
       // The hero follows Wisp, so a try soon comes within reach; the tray shows when it is given.
       if (v.gifts >= 3 && v.feather) {
         v.feather = await hands.giveFeather();
@@ -363,7 +379,7 @@ async function turn(hands: Hands, seen: Look, v: Valley, played: Played): Promis
       // walksToPimThenBench: Pim every 20 ticks until they have met (a line about the hero in
       // Pim's diary, by the player's name), then the first bench.
       v.met ||= newLines(seen, v, 'Pim').some((l) => l.includes('Rain'));
-      if (!v.met) await wave('Pim', true);
+      if (!v.met) await wave('Pim', { diary: true });
       else if (!v.seated) {
         v.seated = await hands.walkTo(BENCH, BENCH);
         if (v.seated) move('Bench after meeting Pim');

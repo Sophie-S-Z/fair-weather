@@ -30,7 +30,7 @@ import {
 import { PaletteSchema } from '../../../src/render/palette.ts';
 import { depthAt, SceneSchema } from '../../../src/render/scene.ts';
 import { PERCHED_HEIGHT } from '../../../src/render/starling.ts';
-import { skyOf } from '../../../src/render/valley.ts';
+import { groundLane, skyOf } from '../../../src/render/valley.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
@@ -966,6 +966,42 @@ test('the Fen draws its reed beds and pools, and the Hollow its lanes and square
   expect(strokes(fenScene)).toBeGreaterThan(strokes({ ...fenScene, beds: [] }));
   expect(strokes(fenScene)).toBeGreaterThan(strokes({ ...fenScene, pools: [] }));
   expect(strokes(hollowScene)).toBeGreaterThan(strokes({ ...hollowScene, lanes: [], squares: [] }));
+});
+
+test("the Hollow's lanes lie flat on the ground: wider toward the foot, never pinched, and paved without outlines", () => {
+  // Along each lane, its width across grows steadily with y: narrow near the horizon, wide near.
+  const widest: number[] = [];
+  for (const points of hollowScene.lanes) {
+    const lane = groundLane(hollowScene, points);
+    const samples = Array.from({ length: 41 }, (_, i) => {
+      const s = (lane.length * i) / 40;
+      const [[ax, ay], [bx, by]] = [lane.at(s, -1), lane.at(s, 1)];
+      return { y: lane.at(s, 0)[1], width: Math.hypot(bx - ax, by - ay) };
+    }).sort((p, q) => p.y - q.y);
+    for (let i = 1; i < samples.length; i++)
+      expect(samples[i]?.width ?? 0).toBeGreaterThanOrEqual((samples[i - 1]?.width ?? 0) - 1e-6);
+    const [far, near] = [samples[0], samples.at(-1)];
+    expect(near?.width ?? 0).toBeGreaterThan(1.5 * (far?.width ?? 0));
+    widest.push(near?.width ?? 0);
+  }
+  // The south lane runs off the foot of the scene at its widest.
+  const south = groundLane(hollowScene, hollowScene.lanes[2] ?? []);
+  expect(south.at(south.length, 0)[1]).toBeCloseTo(hollowScene.height, 6);
+  expect(widest[2]).toBe(Math.max(...widest));
+
+  // The paving is stones, mortar, and a soft verge: many fills, and not one stroke (no ink tube).
+  const ground = (s: typeof hollowScene): Graphics => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, hollowPalette, options);
+    const world: WorldLite = { ...snapshot([]), structures: [] };
+    view.update(world, world, 1, settings);
+    return graphicsIn(app, 'ground');
+  };
+  const bare = { ...hollowScene, lanes: [], squares: [] };
+  const count = (g: Graphics, action: 'fill' | 'stroke'): number =>
+    g.context.instructions.filter((i) => i.action === action).length;
+  expect(count(ground(hollowScene), 'stroke')).toBe(count(ground(bare), 'stroke'));
+  expect(count(ground(hollowScene), 'fill') - count(ground(bare), 'fill')).toBeGreaterThan(300);
 });
 
 test("a reed bed's front stems stand in the shared layer, before the birds in it and behind a nearer body", () => {

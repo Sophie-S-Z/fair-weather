@@ -219,95 +219,6 @@ function drawPool(g: Graphics, [x, y, rx, ry]: readonly number[], palette: Palet
     .stroke({ color: water.glint, width: w * 0.3, alpha: 0.85, cap: 'round' });
 }
 
-/** Paving: the page this far toward the warm tint, and darker by this much toward ink. */
-const STONE_WARM = 0.75;
-const STONE_SHADE = 0.08;
-/** A lane is this wide at the depth reference. */
-const PAVED_WIDTH = 46;
-/** Cobble rows lie this far apart along a lane at the reference. */
-const COBBLE_STEP = 22;
-
-/**
- * A lane narrows toward the horizon more steeply than a body shrinks (the square of the depth),
- * as a road on the ground runs away from the eye.
- */
-const laneDepth = (scene: SceneData, y: number): number => depthAt(scene, y) ** 2;
-
-const stoneOf = (palette: Palette): number =>
-  mix(mix(palette.background, palette.warmth, STONE_WARM), palette.ink, STONE_SHADE);
-
-/** A paved lane: a stone strip, much narrower toward the horizon, with ink edges and rows of cobbles. */
-function drawLane(g: Graphics, lane: readonly number[], scene: SceneData, palette: Palette, w: number): void {
-  const n = lane.length / 2;
-  const left: number[] = [];
-  const right: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const a = Math.max(0, i - 1);
-    const b = Math.min(n - 1, i + 1);
-    const dx = (lane[b * 2] ?? 0) - (lane[a * 2] ?? 0);
-    const dy = (lane[b * 2 + 1] ?? 0) - (lane[a * 2 + 1] ?? 0);
-    const len = Math.hypot(dx, dy) || 1;
-    const [cx, cy] = [lane[i * 2] ?? 0, lane[i * 2 + 1] ?? 0];
-    const half = (PAVED_WIDTH * laneDepth(scene, cy)) / 2;
-    left.push(cx - (dy / len) * half, cy + (dx / len) * half);
-    right.unshift(cx + (dy / len) * half, cy - (dx / len) * half);
-  }
-  const stone = stoneOf(palette);
-  const outline = [...left, ...right];
-  smoothClosed(g, outline).fill(stone);
-  // Cobbles: short arcs across the lane, a row every step along it, smaller toward the horizon.
-  const cobble = inkStroke(palette, w * 0.22, 0.28);
-  let carry = 0;
-  for (let i = 0; i + 1 < n; i++) {
-    const [x0, y0, x1, y1] = [
-      lane[i * 2] ?? 0,
-      lane[i * 2 + 1] ?? 0,
-      lane[i * 2 + 2] ?? 0,
-      lane[i * 2 + 3] ?? 0,
-    ];
-    const len = Math.hypot(x1 - x0, y1 - y0) || 1;
-    const [ux, uy] = [(x1 - x0) / len, (y1 - y0) / len];
-    let d = carry;
-    while (d < len) {
-      const [cx, cy] = [x0 + ux * d, y0 + uy * d];
-      const s = laneDepth(scene, cy);
-      const half = (PAVED_WIDTH * s) / 2;
-      for (const t of [-0.6, 0, 0.6]) {
-        const [bx, by] = [cx - uy * half * t, cy + ux * half * t];
-        const r = 6 * s;
-        g.moveTo(bx - uy * r - ux * r * 0.4, by + ux * r - uy * r * 0.4).quadraticCurveTo(
-          bx + ux * r * 0.6,
-          by + uy * r * 0.6,
-          bx + uy * r - ux * r * 0.4,
-          by - ux * r - uy * r * 0.4,
-        );
-      }
-      d += COBBLE_STEP * s;
-    }
-    carry = d - len;
-  }
-  g.stroke(cobble);
-  smoothClosed(g, outline).stroke(inkStroke(palette, w * 0.4, 0.5));
-}
-
-/** A paved square: a stone oval with an ink rim and rings of setts. */
-function drawSquare(g: Graphics, [x, y, rx, ry]: readonly number[], palette: Palette, w: number): void {
-  const [sx, sy, srx, sry] = [x ?? 0, y ?? 0, rx ?? 1, ry ?? 1];
-  g.ellipse(sx, sy, srx, sry)
-    .fill(stoneOf(palette))
-    .stroke(inkStroke(palette, w * 0.4, 0.5));
-  for (const k of [0.78, 0.55, 0.32]) g.ellipse(sx, sy, srx * k, sry * k);
-  g.stroke(inkStroke(palette, w * 0.22, 0.25));
-  for (let i = 0; i < 16; i++) {
-    const a = (2 * Math.PI * i) / 16;
-    g.moveTo(sx + srx * 0.32 * Math.cos(a), sy + sry * 0.32 * Math.sin(a)).lineTo(
-      sx + srx * Math.cos(a),
-      sy + sry * Math.sin(a),
-    );
-  }
-  g.stroke(inkStroke(palette, w * 0.18, 0.18));
-}
-
 /** A tuft of grass, sized to its depth. */
 function drawTuft(g: Graphics, x: number, y: number, s: number): void {
   g.moveTo(x - 6 * s, y)
@@ -397,6 +308,301 @@ function drawGrass(g: Graphics, scene: SceneData, top: number, palette: Palette,
       join: 'round',
     });
   });
+}
+
+/**
+ * Paving lies flat on the ground plane, seen by an eye whose vanishing line stands this far above
+ * the horizon (so a lane narrows toward the horizon but never closes to a point), looking down so
+ * that at the scene's foot a stone shows this tall for its width.
+ */
+const PAVE_LEAD = 60;
+const PAVE_TILT = 0.6;
+/** A lane is this wide on the ground (scene units at the foot), and its stones lie in rows this long. */
+const LANE_WIDTH = 140;
+const STONE_LENGTH = 44;
+/** A row shows at least this long, so the far stones become a fine texture, not a crowd of specks. */
+const ROW_MIN = 4;
+/** A stone's mortar gap, as a share of a stone's length, per unit of line width (high contrast widens it). */
+const MORTAR_GAP = 0.012;
+/**
+ * Stone is the warm tint this far toward the near ground (the valley's own earth), then this far
+ * toward ink; mortar and the worn verge are darker by these.
+ */
+const STONE_EARTH = 0.35;
+const STONE_SHADE = 0.16;
+const MORTAR_SHADE = 0.16;
+const VERGE_SHADE = 0.3;
+/** The verge reaches this far past a lane's edge, as a share of its half-width. */
+const VERGE = 0.14;
+/** Stone hazes this far toward the far ground at the horizon. */
+const STONE_HAZE = 0.5;
+/** A lane's mortar is laid in runs of this many stations, each hazed for its depth. */
+const MORTAR_RUN = 6;
+/** A square is paved in this many rings. */
+const SQUARE_RINGS = 6;
+
+/** How much smaller a thing on the ground shows at scene y than at the scene's foot. */
+function planeScale(scene: SceneData, y: number): number {
+  const vy = (scene.depth?.horizon ?? 0) - PAVE_LEAD;
+  return Math.max(1e-3, (y - vy) / (scene.height - vy));
+}
+
+/** Ground-plane coordinates: x across and z away from the eye, in scene units at the foot. */
+function planeOf(scene: SceneData): {
+  toGround: (x: number, y: number) => [number, number];
+  toScreen: (gx: number, gz: number) => [number, number];
+} {
+  const vy = (scene.depth?.horizon ?? 0) - PAVE_LEAD;
+  const foot = scene.height - vy;
+  const cx = scene.width / 2;
+  return {
+    toGround: (x, y) => {
+      const k = planeScale(scene, y);
+      return [(x - cx) / k, foot / (PAVE_TILT * k)];
+    },
+    toScreen: (gx, gz) => {
+      const k = foot / (PAVE_TILT * gz);
+      return [cx + gx * k, vy + foot * k];
+    },
+  };
+}
+
+/** Points along smoothLine's curve through p, `n` per bend. */
+function smoothPoints(p: readonly number[], n: number): number[] {
+  const at = (i: number): number => p[i] ?? 0;
+  const out = [at(0), at(1)];
+  let [x0, y0] = [at(0), at(1)];
+  for (let k = 2; k + 3 < p.length; k += 2) {
+    const [cx, cy, x1, y1] = [at(k), at(k + 1), (at(k) + at(k + 2)) / 2, (at(k + 1) + at(k + 3)) / 2];
+    for (let i = 1; i <= n; i++) {
+      const [t, u] = [i / n, 1 - i / n];
+      out.push(u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1);
+    }
+    [x0, y0] = [x1, y1];
+  }
+  out.push(at(p.length - 2), at(p.length - 1));
+  return out;
+}
+
+/**
+ * A lane laid flat on the ground: `at(s, t)` is the scene point `s` along it on the ground (from
+ * its first point) and `t` across it (-1 at one edge, 1 at the other); `stations` are the
+ * distances along it of its centerline's points.
+ */
+export type GroundLane = {
+  length: number;
+  stations: number[];
+  at: (s: number, t: number) => [number, number];
+};
+
+const ORIGIN = [0, 0] as const;
+
+export function groundLane(scene: SceneData, lane: readonly number[]): GroundLane {
+  const plane = planeOf(scene);
+  const pts = smoothPoints(lane, 8);
+  const c: [number, number][] = [];
+  const stations: number[] = [];
+  for (let i = 0; i + 1 < pts.length; i += 2) {
+    const q = plane.toGround(pts[i] ?? 0, pts[i + 1] ?? 0);
+    const last = c.at(-1);
+    stations.push(last ? (stations.at(-1) ?? 0) + Math.hypot(q[0] - last[0], q[1] - last[1]) : 0);
+    c.push(q);
+  }
+  const n = c.length;
+  // Each point's normal on the ground, from its neighbors.
+  const normals = c.map((_, i) => {
+    const [a, b] = [c[Math.max(0, i - 1)] ?? ORIGIN, c[Math.min(n - 1, i + 1)] ?? ORIGIN];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [-(b[1] - a[1]) / len, (b[0] - a[0]) / len] as const;
+  });
+  const length = stations.at(-1) ?? 0;
+  const half = LANE_WIDTH / 2;
+  return {
+    length,
+    stations,
+    at: (s, t) => {
+      const d = Math.min(length, Math.max(0, s));
+      let i = 0;
+      while (i < n - 2 && (stations[i + 1] ?? 0) < d) i++;
+      const [s0, s1] = [stations[i] ?? 0, stations[i + 1] ?? 1];
+      const f = s1 > s0 ? (d - s0) / (s1 - s0) : 0;
+      const [p, q] = [c[i] ?? ORIGIN, c[i + 1] ?? ORIGIN];
+      const [m, o] = [normals[i] ?? ORIGIN, normals[i + 1] ?? ORIGIN];
+      const [nx, nz] = [m[0] + (o[0] - m[0]) * f, m[1] + (o[1] - m[1]) * f];
+      const nl = Math.hypot(nx, nz) || 1;
+      return plane.toScreen(
+        p[0] + (q[0] - p[0]) * f + (nx / nl) * t * half,
+        p[1] + (q[1] - p[1]) * f + (nz / nl) * t * half,
+      );
+    },
+  };
+}
+
+const stoneOf = (palette: Palette): number =>
+  mix(mix(palette.warmth, groundOf(palette).near, STONE_EARTH), palette.ink, STONE_SHADE);
+
+/**
+ * One flat stone over [u0, u1] x [v0, v1] in a paving's own coordinates, through `map` to the
+ * scene: a four-sided slab with slightly rounded corners, each corner pulled in a little at random
+ * (by up to du, dv) so the mortar gaps run uneven.
+ */
+function drawStone(
+  g: Graphics,
+  map: (u: number, v: number) => [number, number],
+  [u0, u1, v0, v1]: readonly [number, number, number, number],
+  [du, dv]: readonly [number, number],
+  rnd: () => number,
+): Graphics {
+  const corners = [
+    [u0 + du * rnd(), v0 + dv * rnd()],
+    [u1 - du * rnd(), v0 + dv * rnd()],
+    [u1 - du * rnd(), v1 - dv * rnd()],
+    [u0 + du * rnd(), v1 - dv * rnd()],
+  ] as const;
+  const p: number[] = [];
+  corners.forEach(([pu, pv], i) => {
+    const [qu, qv] = corners[(i + 1) % 4] ?? [pu, pv];
+    for (const f of [0, 1 / 3, 2 / 3]) p.push(...map(pu + (qu - pu) * f, pv + (qv - pv) * f));
+  });
+  return smoothClosed(g, p);
+}
+
+/** A color at scene y hazed toward the far ground, more the nearer the horizon. */
+function hazeAt(color: number, far: number, scene: SceneData, y: number): number {
+  const horizon = scene.depth?.horizon ?? 0;
+  const u = Math.min(1, Math.max(0, (y - horizon) / (scene.height - horizon)));
+  return mix(color, far, STONE_HAZE * (1 - u) ** 2);
+}
+
+/** A few blades of grass leaning over an edge at (x, y), `s` the scale there. */
+function drawEdgeTuft(g: Graphics, x: number, y: number, s: number, color: number, rnd: () => number): void {
+  for (const [dx, h] of BLADES) {
+    const tip = h * s * (0.7 + 0.5 * rnd());
+    g.moveTo(x - 1.2 * s, y)
+      .quadraticCurveTo(x + dx * s * 0.3, y - tip * 0.6, x + dx * s, y - tip)
+      .lineTo(x + 1.2 * s, y)
+      .closePath();
+  }
+  g.fill({ color, alpha: 0.8 });
+}
+
+/**
+ * The valley's lanes and squares as one paved surface lying flat on the ground: under it a soft,
+ * darker worn verge; then mortar, and on it flat stones in rows across each lane (rows closer
+ * together and stones smaller toward the horizon, as the ground runs away) and in rings round each
+ * square; a faint lighter line of wear down each lane; and grass leaning over the lanes' edges.
+ * Nothing on it is outlined.
+ */
+function drawPaving(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
+  const lanes = scene.lanes.map((l) => groundLane(scene, l));
+  const stone = stoneOf(palette);
+  const mortar = mix(stone, palette.ink, MORTAR_SHADE);
+  const verge = mix(stone, palette.ink, VERGE_SHADE);
+  const c = groundOf(palette);
+  const rnd = stream(scene.width * 13 + scene.height * 17 + lanes.length);
+  /** A stone's color at y: a little lighter or darker at random, and hazed far off. */
+  const tone = (y: number): number => {
+    const v = 2 * rnd() - 1;
+    return hazeAt(
+      v > 0 ? mix(stone, palette.paper, 0.3 * v) : mix(stone, palette.ink, -0.08 * v),
+      c.far,
+      scene,
+      y,
+    );
+  };
+  /** The lane between stations i and j, from t0 to t1 across, its edges a little ragged. */
+  const band = (
+    lane: GroundLane,
+    [i, j]: readonly [number, number],
+    t0: number,
+    t1: number,
+    ragged: number,
+  ) => {
+    const st = lane.stations.slice(i, j + 1);
+    return g.poly([
+      ...st.flatMap((s) => lane.at(s, t0 - ragged * rnd())),
+      ...st.toReversed().flatMap((s) => lane.at(s, t1 + ragged * rnd())),
+    ]);
+  };
+  const whole = (lane: GroundLane): [number, number] => [0, lane.stations.length - 1];
+  for (const lane of lanes)
+    for (const k of [1, 0.5])
+      band(lane, whole(lane), -1 - VERGE * k, 1 + VERGE * k, 0.05).fill({ color: verge, alpha: 0.3 });
+  for (const [x, y, rx, ry] of scene.squares)
+    for (const k of [1, 0.5])
+      g.ellipse(x, y, rx * (1 + VERGE * k * 0.3), ry * (1 + VERGE * k * 0.4)).fill({
+        color: verge,
+        alpha: 0.3,
+      });
+  // Each stone stands this far (on the ground, at the foot) inside its share of the paving.
+  const seam = (MORTAR_GAP * w * STONE_LENGTH) / 2;
+  for (const lane of lanes) {
+    // Mortar in short runs, each hazed for its depth; each run overlaps the next by a station.
+    for (let i = 0; i + 1 < lane.stations.length; i += MORTAR_RUN) {
+      const run = [i, Math.min(lane.stations.length - 1, i + MORTAR_RUN + 1)] as const;
+      band(lane, run, -1, 1, 0).fill(hazeAt(mortar, c.far, scene, lane.at(lane.stations[i] ?? 0, 0)[1]));
+    }
+    for (let s = 0, row = 0; s < lane.length - 1; row++) {
+      const [x0, y0] = lane.at(s, 0);
+      const [x1, y1] = lane.at(s + STONE_LENGTH, 0);
+      const step = Math.min(
+        lane.length - s,
+        STONE_LENGTH * Math.max(1, ROW_MIN / (Math.hypot(x1 - x0, y1 - y0) || 1)),
+      );
+      const [ds, dt] = [(seam * step) / STONE_LENGTH, (seam * 2) / LANE_WIDTH];
+      // Rows in a running bond: three stones across, then two with a half stone at each edge.
+      const joints = row % 2 ? [-1, -0.66, 0, 0.66, 1] : [-1, -0.33, 0.33, 1];
+      const across = joints.map((j, i) =>
+        i === 0 || i === joints.length - 1 ? j : j + 0.12 * (rnd() - 0.5),
+      );
+      for (let i = 0; i + 1 < across.length; i++) {
+        const [v0, v1] = [(across[i] ?? 0) + dt, (across[i + 1] ?? 0) - dt];
+        const y = lane.at(s + step / 2, (v0 + v1) / 2)[1];
+        drawStone(g, lane.at, [s + ds, s + step - ds, v0, v1], [ds * 1.5, dt * 1.5], rnd).fill(tone(y));
+      }
+      s += step;
+    }
+    for (const t of [0.3, 0.15])
+      band(lane, whole(lane), -t, t, 0.05).fill({ color: palette.paper, alpha: 0.07 });
+  }
+  for (const [x, y, rx, ry] of scene.squares) {
+    g.ellipse(x, y, rx, ry).fill(hazeAt(mortar, c.far, scene, y));
+    const map = (r: number, a: number): [number, number] => [
+      x + rx * r * Math.cos(a),
+      y + ry * r * Math.sin(a),
+    ];
+    // Rings of stones round a middle stone, more to a ring the farther out it lies.
+    const dr = (seam * planeScale(scene, y)) / rx;
+    for (let k = 0; k < SQUARE_RINGS; k++) {
+      const [r0, r1] = [k / SQUARE_RINGS, (k + 1) / SQUARE_RINGS];
+      const mid = (r0 + r1) / 2;
+      const n = k === 0 ? 1 : Math.round(2 * Math.PI * mid * SQUARE_RINGS * 0.7);
+      const turn = rnd() * 2 * Math.PI;
+      const da = (2 * Math.PI) / n;
+      for (let i = 0; i < n; i++) {
+        const a0 = turn + i * da;
+        const box = [k === 0 ? 0 : r0 + dr, r1 - dr, a0 + dr / mid, a0 + da - dr / mid] as const;
+        drawStone(g, map, box, [dr * 1.5, (dr * 1.5) / mid], rnd).fill(tone(map(mid, a0 + da / 2)[1]));
+      }
+    }
+  }
+  // Grass leaning over the lanes' edges here and there, but not where a lane runs into a square.
+  const horizon = scene.depth?.horizon ?? 0;
+  for (const lane of lanes)
+    for (let s = rnd() * STONE_LENGTH; s < lane.length; s += STONE_LENGTH * (0.6 + 1.4 * rnd())) {
+      const [x, y] = lane.at(s, (rnd() < 0.5 ? -1 : 1) * (1 + 0.04 * rnd()));
+      const inSquare = scene.squares.some(
+        ([qx, qy, qrx, qry]) => ((x - qx) / qrx) ** 2 + ((y - qy) / qry) ** 2 < 1.3,
+      );
+      const u = Math.max(0, (y - horizon) / (scene.height - horizon));
+      if (inSquare || u < 0.12) continue;
+      const grass = mix(
+        mix(groundAt(c, Math.sqrt(u)), palette.leaf, GRASS_LEAF),
+        palette.ink,
+        0.3 + 0.25 * u,
+      );
+      drawEdgeTuft(g, x, y, 0.3 + 0.9 * u, grass, rnd);
+    }
 }
 
 /** The sun's glow: this many rings out to this radius, each this faint, about a disc this wide. */
@@ -521,7 +727,7 @@ const NEAR_RIPPLES = 5;
 /** The sun's path is this wide at the sea's horizon and at its shore, and across the near water. */
 const PATH_FAR: readonly [number, number] = [50, 190];
 const PATH_NEAR: readonly [number, number] = [300, 380];
-/** The sand narrows toward the horizon with the square of the depth, as a lane does. */
+/** The sand narrows toward the horizon with the square of the depth. */
 const shoreAt = (scene: SceneData, sea: NonNullable<SceneData['sea']>, y: number): number =>
   sea.shore * depthAt(scene, y) ** 2;
 
@@ -592,8 +798,7 @@ export function drawValleyGround(g: Graphics, scene: SceneData, palette: Palette
   if (sea) drawShore(g, 0, width, horizon, shore, 1, palette);
   drawGrass(g, scene, horizon + shore, palette, w);
   for (const pool of scene.pools) drawPool(g, pool, palette, w);
-  for (const lane of scene.lanes) drawLane(g, lane, scene, palette, w);
-  for (const square of scene.squares) drawSquare(g, square, palette, w);
+  drawPaving(g, scene, palette, w);
   for (const [x, y] of scene.tufts) drawTuft(g, x, y, depthAt(scene, y));
   g.stroke(inkStroke(palette, w * 0.7, TUFT_ALPHA));
   for (const bed of scene.beds) {

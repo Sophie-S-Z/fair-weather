@@ -1,6 +1,6 @@
 // Keyboard play (spec 12.5). The Game screen supplies the InputContext.
 import type { ViewName } from './zoom.ts';
-import type { BidReply, GiftMove, HeroKind, Rect, Structure } from '../sim/types.ts';
+import type { BidReply, Command, GiftMove, HeroKind, Rect } from '../sim/types.ts';
 import { tuning } from '../story/tuning.ts';
 import type { Verb, VerbInput, WorldVerb } from '../story/verbs.ts';
 import { keyboardTools, snapToBench, snapToWater, type BenchSpot, type Point } from './verbs.ts';
@@ -11,8 +11,8 @@ export type InputContext = {
   /** Creatures in id order. `away` ones are skipped by Tab. */
   creatures: () => readonly { id: string; state: string }[];
   benchSpots: () => readonly BenchSpot[];
-  /** What the place tool sets in this chapter. */
-  placeKind: () => Exclude<Structure['kind'], 'path'>;
+  /** What the place tool sets in this chapter, or the one the sandbox's Population panel picked. */
+  placeKind: () => Extract<Command, { t: 'place' }>['kind'];
   /** The water rectangles a bridge snaps into. */
   water: () => readonly Rect[];
   cursor: () => Point;
@@ -36,6 +36,9 @@ export type InputContext = {
   /** The creature the thread tool marked, which the next thread starts from. Owned by the caller, so the HUD shows it. */
   threadFrom: () => string | null;
   setThreadFrom: (id: string | null) => void;
+  /** Where the path tool's next path starts, once Enter set it. Owned by the caller, so the HUD shows it. */
+  pathFrom: () => Point | null;
+  setPathFrom: (p: Point | null) => void;
   /** Opens the whisper card for `target`, which sends the whisper. */
   openWhisper: (target: string) => void;
   /** The hero's standing manner (ADR 0013 item 2) that the manner keys change one half of. */
@@ -141,6 +144,18 @@ export function useTool(ctx: InputContext, at: Point, clear: boolean, dir: Point
     case 'walk':
       ctx.act({ verb: 'walk', x, y });
       break;
+    case 'rain':
+      ctx.act({ verb: 'rain', x, y });
+      break;
+    case 'path': {
+      const from = ctx.pathFrom();
+      if (from === null) ctx.setPathFrom({ x, y });
+      else {
+        ctx.act({ verb: 'path', x: from.x, y: from.y, x2: x, y2: y });
+        ctx.setPathFrom(null);
+      }
+      break;
+    }
     case 'join':
       ctx.act({ verb: 'join', on: !ctx.heroFlying() });
       break;
@@ -175,7 +190,8 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
     const lower = key.toLowerCase();
     // Native activation of buttons and links must fire once, not also act here.
     if ((key === 'Enter' || key === ' ') && (tag === 'BUTTON' || tag === 'A')) return;
-    if (key >= '1' && key <= '3') {
+    // A chapter has at most three tools (ADR 0012 item 8); the sandbox has eight (ADR 0014 item 5).
+    if (key >= '1' && key <= '8') {
       const t2 = keyboardTools(ctx.tools())[Number(key) - 1];
       if (t2 !== undefined) ctx.setTool(t2);
     } else if (key in ARROWS) {
@@ -201,8 +217,9 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
       useTool(ctx, ctx.cursor(), k.shiftKey, dir);
     } else if (key === 'Escape') {
       // Claimed only to clear a mark, so the screen's own Escape (to the tools) waits for the next.
-      if (ctx.threadFrom() === null) return;
+      if (ctx.threadFrom() === null && ctx.pathFrom() === null) return;
       ctx.setThreadFrom(null);
+      ctx.setPathFrom(null);
       k.preventDefault();
     } else if (key === ' ') {
       ctx.togglePause();

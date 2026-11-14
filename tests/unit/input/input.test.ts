@@ -5,6 +5,7 @@ import { createOverPoke } from '../../../src/input/over-poke.ts';
 import { createPointer } from '../../../src/input/pointer.ts';
 import { keyboardTools, snapToWater } from '../../../src/input/verbs.ts';
 import type { BidReply } from '../../../src/sim/types.ts';
+import { SANDBOX_TOOLS } from '../../../src/story/sandbox.ts';
 import type { Verb, VerbInput } from '../../../src/story/verbs.ts';
 
 /** A context whose writes land in the returned logs. */
@@ -19,6 +20,7 @@ function context(over: Partial<InputContext> = {}) {
   let reply: BidReply = 'toward';
   let picked: string | null = null;
   let threadFrom: string | null = null;
+  let pathFrom: { x: number; y: number } | null = null;
   const ctx: InputContext = {
     tools: () => ['wake', 'respond', 'place'],
     creatures: () => [
@@ -54,6 +56,8 @@ function context(over: Partial<InputContext> = {}) {
     isFriend: (a, b) => (a === 'a' && b === 'c') || (a === 'c' && b === 'a'),
     threadFrom: () => threadFrom,
     setThreadFrom: (id) => (threadFrom = id),
+    pathFrom: () => pathFrom,
+    setPathFrom: (p) => (pathFrom = p),
     openWhisper: (target) => whispers.push(target),
     manner: () => ({ reply: 'toward', gift: 'give' }),
     heroKind: () => 'lantern',
@@ -72,6 +76,7 @@ function context(over: Partial<InputContext> = {}) {
     paused: () => paused,
     reply: () => reply,
     threadFrom: () => threadFrom,
+    pathFrom: () => pathFrom,
   };
 }
 
@@ -677,6 +682,73 @@ describe('Part 2 tools', () => {
     none.press('Tab');
     none.press('Enter');
     expect([...s.acts, ...none.acts]).toEqual([{ verb: 'keepsake', to: 'a', item: 'starling-feather' }]);
+  });
+});
+
+describe('sandbox tools', () => {
+  const sandbox = { tools: () => SANDBOX_TOOLS };
+
+  it('keys 1 to 8 pick the eight tools in panel order', () => {
+    const s = setup(sandbox);
+    const picked: (Verb | null)[] = [];
+    for (const key of ['1', '2', '3', '4', '5', '6', '7', '8', '9']) {
+      s.press(key);
+      picked.push(s.ctx.tool());
+    }
+    expect(picked).toEqual([...SANDBOX_TOOLS, 'whisper']);
+  });
+  it('Path: Enter sets the start at the cursor and Enter again sends the path; Escape lets go of a start', () => {
+    const s = setup(sandbox);
+    s.press('2');
+    s.press('Enter');
+    expect(s.pathFrom()).toEqual({ x: 100, y: 100 });
+    s.press('ArrowRight');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'path', x: 100, y: 100, x2: 120, y2: 100 }]);
+    expect(s.pathFrom()).toBeNull();
+    s.press('Enter');
+    expect(s.press('Escape').defaultPrevented).toBe(true);
+    expect(s.pathFrom()).toBeNull();
+    expect(s.press('Escape').defaultPrevented).toBe(false);
+  });
+  it('Rain: Enter rains at the cursor', () => {
+    const s = setup(sandbox);
+    s.press('6');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'rain', x: 100, y: 100 }]);
+  });
+  it('place sets a bush at the cursor', () => {
+    const s = setup({ ...sandbox, placeKind: () => 'bush' });
+    s.press('1');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'place', x: 100, y: 100 }]);
+  });
+  it('with Paths a drag of 40 pixels or more draws a path; with Rain a click rains', () => {
+    const t = new EventTarget();
+    const c = context(sandbox);
+    createPointer(
+      t,
+      () => ({ creature: null }),
+      (x, y) => ({ x: x * 2, y: y * 2 }),
+      c.ctx,
+    );
+    const fire = (type: string, x: number, y: number) => {
+      t.dispatchEvent(
+        Object.assign(new Event(type), { button: 0, pointerId: 1, isPrimary: true, clientX: x, clientY: y }),
+      );
+    };
+    c.ctx.setTool('path');
+    fire('pointerdown', 10, 50);
+    fire('pointermove', 34, 82);
+    fire('pointerup', 34, 82);
+    c.ctx.setTool('rain');
+    fire('pointerdown', 30, 40);
+    fire('pointerup', 30, 40);
+    expect(c.acts).toEqual([
+      { verb: 'path', x: 20, y: 100, x2: 68, y2: 164 },
+      { verb: 'rain', x: 60, y: 80 },
+    ]);
+    expect(c.cursor()).toEqual({ x: 60, y: 80 });
   });
 });
 

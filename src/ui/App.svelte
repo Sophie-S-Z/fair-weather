@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { Writable } from 'svelte/store';
   import type { BookPage } from '../persist/profile.ts';
   import type { GameService } from './game-service.ts';
@@ -8,14 +8,33 @@
   import SettingsScreen from './screens/Settings.svelte';
   import Game from './screens/Game.svelte';
   import BookOfSkies from './screens/BookOfSkies.svelte';
+  import Sandbox from './screens/Sandbox.svelte';
+  import type { SandboxValley } from '../story/sandbox.ts';
 
   let { settings, hasSave, game }: { settings: Writable<Settings>; hasSave: boolean; game: GameService } =
     $props();
 
-  let screen: 'title' | 'settings' | 'game' | 'book' = $state('title');
+  /** A dev build's ?sandbox=new opens the sandbox on a new Kith valley, once. */
+  let sandboxNew = $state(untrack(() => game.sandbox.devOpen));
+  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' = $state(
+    untrack(() => game.sandbox.devOpen) ? 'sandbox' : 'title',
+  );
   let saved = $state(false);
   let resume = $state(false);
   let book: { pages: BookPage[]; feathers: number } = $state.raw({ pages: [], feathers: 0 });
+  let sandbox: { unlocked: boolean; kith: boolean; valleys: SandboxValley[] } = $state.raw({
+    unlocked: false,
+    kith: false,
+    valleys: [],
+  });
+  /** Why the title's Sandbox button is disabled (ADR 0014 item 1), or null while it opens. */
+  const sandboxClosed = $derived(
+    !game.webgl
+      ? 'The sandbox needs WebGL. This browser does not have it.'
+      : sandbox.unlocked
+        ? null
+        : 'The sandbox opens when you finish Part 1.',
+  );
 
   /** Reads the saves and the Book of Skies, for Continue and the Book of Skies buttons. */
   function readStore(): void {
@@ -24,6 +43,9 @@
     });
     void Promise.all([game.book(), game.feathers()]).then(([pages, feathers]) => {
       book = { pages, feathers };
+    });
+    void game.sandbox.status().then((s) => {
+      sandbox = s;
     });
   }
 
@@ -41,6 +63,13 @@
     screen = 'title';
     readStore();
   }
+  /** Back to the title, with focus on the Sandbox button that opened the sandbox. */
+  function leaveSandbox(): void {
+    sandboxNew = false;
+    screen = 'title';
+    readStore();
+    void tick().then(() => document.getElementById('title-sandbox')?.focus());
+  }
 
   $effect(() => {
     const root = document.documentElement;
@@ -52,6 +81,8 @@
 
 {#if screen === 'game'}
   <Game {game} {settings} {resume} onExit={leaveGame} />
+{:else if screen === 'sandbox'}
+  <Sandbox {game} {settings} status={sandbox} openNew={sandboxNew} onExit={leaveSandbox} />
 {:else}
   <main>
     {#if screen === 'title'}
@@ -65,6 +96,8 @@
         onContinue={() => {
           play(true);
         }}
+        {sandboxClosed}
+        onSandbox={() => (screen = 'sandbox')}
         onSettings={() => (screen = 'settings')}
       />
     {:else if screen === 'book'}

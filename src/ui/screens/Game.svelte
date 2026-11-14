@@ -19,6 +19,7 @@
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
   import { chapterHeading } from '../chapter-label.ts';
+  import { createFrameLoop } from '../frame-loop.ts';
   import BeatLine from '../components/BeatLine.svelte';
   import BetCard from '../components/BetCard.svelte';
   import ChapterRibbon from '../components/ChapterRibbon.svelte';
@@ -225,11 +226,8 @@
 
   let stage: Stage | null = $state.raw(null);
   let runner: ChapterRunner | null = null;
-  let prev: WorldLite | null = null;
+  /** The newest live snapshot, which the tools act on. */
   let next: WorldLite | null = null;
-  let prevAt = 0;
-  let nextAt = 0;
-  let raf: number | null = null;
   let hidden = $state(document.visibilityState === 'hidden');
   let ghostTimer: ReturnType<typeof setTimeout> | undefined;
   let unpauseSpeed = 1;
@@ -509,7 +507,10 @@
     rewindRequest += 1;
     used = [];
     placed = 0;
-    prev = next = null;
+    next = null;
+    // The new run's first snapshot is not tweened from the last run's world.
+    loop.stop();
+    loop.start();
     // Each chapter is a new scene, with its own three-minute wait.
     endVisit();
     visited = false;
@@ -602,39 +603,32 @@
     endVisit();
     runner = null;
     setSpeed(0);
-    if (raf !== null) cancelAnimationFrame(raf);
-    raf = null;
+    loop.stop();
     ended = how;
     void tick().then(() => document.getElementById('end-title')?.focus());
   }
 
-  function frame(now: number): void {
-    raf = requestAnimationFrame(frame);
-    speedNow = game.currentSpeed();
-    if (stage && rewound) {
-      stage.draw(rewound, rewound, 1, $settings);
-      return;
-    }
-    if (!stage || !prev || !next) return;
-    if (drawn !== next) {
-      drawn = next;
-      drawnTick = liveTick;
-      timeline = stage.timeline();
-    }
-    const span = nextAt - prevAt;
-    const alpha = span > 0 ? Math.min(1, Math.max(0, (now - nextAt) / span)) : 1;
-    stage.draw(prev, next, alpha, $settings);
-  }
+  const loop = createFrameLoop(
+    (from, to, alpha) => {
+      speedNow = game.currentSpeed();
+      if (!stage) return;
+      if (rewound) {
+        stage.draw(rewound, rewound, 1, $settings);
+        return;
+      }
+      if (drawn !== to) {
+        drawn = to;
+        drawnTick = liveTick;
+        timeline = stage.timeline();
+      }
+      stage.draw(from, to, alpha, $settings);
+    },
+    () => performance.now(),
+  );
 
-  /** The frame loop stops while the tab is hidden; main.ts holds the sim at speed 0 meanwhile. */
+  /** The frame loop stops by itself while the tab is hidden; the Quiet Visitor waits too. */
   function onVisibility(): void {
     hidden = document.visibilityState === 'hidden';
-    if (hidden) {
-      if (raf !== null) cancelAnimationFrame(raf);
-      raf = null;
-    } else if (stage && !ended && raf === null) {
-      raf = requestAnimationFrame(frame);
-    }
   }
 
   // The Soul view, and the HUD at the bottom while the drawer is open, keep clear of the drawer.
@@ -738,10 +732,8 @@
         live = lite;
         liveTick = at;
         if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
-        prev = next ?? lite;
         next = lite;
-        prevAt = nextAt;
-        nextAt = performance.now();
+        loop.push(lite);
         nearby = nearbyAt(cursor);
         if (picked !== null)
           pickedState = STATES[lite.creatures.find((c) => c.id === picked)?.state ?? ''] ?? '';
@@ -791,6 +783,9 @@
         isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
         threadFrom: () => threadFrom,
         setThreadFrom: (id) => (threadFrom = id),
+        // Paths are a sandbox tool (ADR 0014 item 5); no chapter has them.
+        pathFrom: () => null,
+        setPathFrom: () => undefined,
         openWhisper,
         manner: () => mannerOf(next),
         heroKind: () => next?.hero?.kind ?? null,
@@ -813,14 +808,14 @@
       if (saved) void begin(saved.index, saved.flags);
       else void begin(game.firstChapter, game.defaultFlags);
       sceneEl.focus();
-      if (!hidden) raf = requestAnimationFrame(frame);
+      loop.start();
     });
 
     return () => {
       gone = true;
       starting += 1;
       runner = null;
-      if (raf !== null) cancelAnimationFrame(raf);
+      loop.stop();
       clearTimeout(ghostTimer);
       clearTimeout(revealTimer);
       for (const off of offs) off();

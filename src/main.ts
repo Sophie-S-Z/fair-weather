@@ -59,7 +59,7 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carriedDiaries, receivedDials } from './story/carry.ts';
+import { carriedDiaries, carryFrom, quantizeCarry, receivedDials } from './story/carry.ts';
 import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
@@ -81,6 +81,14 @@ import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
+import {
+  createSandboxRunner,
+  DEFAULT_SWITCHES,
+  SANDBOX_VALLEYS,
+  sandboxScenario,
+  sandboxTuning,
+} from './story/sandbox.ts';
+import type { SandboxRunner, SandboxValley } from './story/sandbox.ts';
 import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
 import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
@@ -94,8 +102,6 @@ import { createSpeedControl } from './ui/speed.ts';
 const KEY = 'fair-weather.settings';
 /** The Cosmos timeline takes one point per this many ticks: one a second at 1x. */
 const TIMELINE_EVERY = 10;
-/** Every player gets the same valley in M1; seed links come in M4. */
-const SEED = 1;
 /** Three minutes of real time with no input bring the Quiet Visitor (spec 6.4). */
 const QUIET_VISIT_MS = 180_000;
 const tuning = parseTuning(tuningJson);
@@ -208,11 +214,42 @@ const scenarioFiles = import.meta.glob<Scenario>('../content/scenarios/*.json', 
   eager: true,
   import: 'default',
 });
+/** The base scenario content/scenarios/<id>.json. */
+function scenarioNamed(id: string): Scenario {
+  const s = scenarioFiles[`../content/scenarios/${id}.json`];
+  if (!s) throw new Error(`No scenario ${id}`);
+  return s;
+}
 /** The base scenario a chapter names: content/scenarios/<chapter.scenario>.json. */
 function baseOf(chapter: Chapter): Scenario {
-  const s = scenarioFiles[`../content/scenarios/${chapter.scenario}.json`];
-  if (!s) throw new Error(`${chapter.id} names scenario ${chapter.scenario}, which has no file`);
-  return s;
+  return scenarioNamed(chapter.scenario);
+}
+/** Each sandbox valley's base scenario (Kith's is m0) and scene (ADR 0014 item 1). */
+const SANDBOX_BASES: Record<SandboxValley, Scenario> = {
+  kith: scenarioNamed('m0'),
+  fen: scenarioNamed('fen'),
+  hollow: scenarioNamed('hollow'),
+  halcyon: scenarioNamed('halcyon'),
+};
+const SANDBOX_SCENES: Record<SandboxValley, string> = {
+  kith: firstScene.id,
+  fen: 'fen',
+  hollow: 'hollow',
+  halcyon: 'halcyon',
+};
+/** The creatures of m0, the only ones the Kith the profile keeps holds (ADR 0014 item 1). */
+const KITH_IDS: ReadonlySet<string> = new Set(SANDBOX_BASES.kith.creatures.map((c) => c.id));
+/** Asked once at load: a `webgl2` or `webgl` context on a scratch canvas (ADR 0014 item 10). */
+function hasWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    // Gives the context back at once, so it does not count against the browser's limit.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return gl !== null;
+  } catch {
+    return false;
+  }
 }
 /** The journal's drawings by path (ADR 0010: placeholders, which the production build refuses). */
 const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHOLDER-journal-*.svg', {
@@ -241,6 +278,8 @@ const dev = {
   snapshots: 0,
   /** The journey now (undefined outside Part 2), so e2e can write pages without playing whole valleys. */
   journey: (): Journey | null => journeyNow,
+  /** The sandbox run's newest snapshot and its tick, or null outside a run or before its first. */
+  sandbox: () => (sandboxRun?.lite ? { tick: sandboxRun.tick, lite: sandboxRun.lite } : null),
 };
 if (import.meta.env.DEV) {
   (window as unknown as { fairWeather: unknown }).fairWeather = dev;
@@ -252,6 +291,16 @@ const params = new URLSearchParams(location.search);
 /** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
 const devFast = Number(params.get('fast'));
 const fast = import.meta.env.DEV && devFast > 0 ? devFast : 1;
+/** Dev only: ?seed=N is the seed of Begin and of a new sandbox valley; without it, 1 (ADR 0014 item 18). */
+const devSeed = params.has('seed') ? Number(params.get('seed')) : 1;
+/** A new year's or a new sandbox valley's seed: one random uint32, or the dev seed in a dev build. */
+function newSeed(): number {
+  if (import.meta.env.DEV)
+    return Number.isInteger(devSeed) && devSeed >= 0 && devSeed < 2 ** 32 ? devSeed : 1;
+  return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+}
+/** The year's seed (ADR 0014 item 18): Begin draws it, and Continue reads it from the save. */
+let yearSeed = newSeed();
 function send(multiplier: number): void {
   if (import.meta.env.DEV) dev.speeds.push(multiplier);
   host.speed(multiplier * fast);
@@ -341,9 +390,28 @@ let lastLite: WorldLite | null = null;
 let lastRunner: ChapterRunner | null = null;
 /** What the last chapter started from and its dial overrides, which the carry puts back. */
 let lastStart: ChapterStart | null = null;
+/**
+ * The sandbox run now: its runner, the ids of the structures and bushes that the player did not
+ * place (the base scenario's and the bench density's), and its newest snapshot and tick.
+ */
+let sandboxRun: {
+  runner: SandboxRunner;
+  made: ReadonlySet<string>;
+  lite: WorldLite | null;
+  tick: number;
+} | null = null;
 host.onMessage((m) => {
-  if (m.t === 'snapshot') lastLite = m.lite;
+  if (m.t !== 'snapshot') return;
+  // A sandbox run is no chapter: the story's carry stays the last chapter's.
+  if (sandboxRun) {
+    sandboxRun.lite = m.lite;
+    sandboxRun.tick = m.tick;
+  } else lastLite = m.lite;
 });
+/** Keeps Kith from the last snapshot for the sandbox (ADR 0014 item 1). */
+async function keepKith(): Promise<void> {
+  if (lastLite) await (await profileReady).setKith(quantizeCarry(carryFrom(lastLite, new Map()), KITH_IDS));
+}
 /** The scenario the current chapter was built from, variants included; peek reads its rules. */
 let scenarioNow: Scenario | null = null;
 /** Every chapter's log this year, in play order (spec 10.4); the myth reads it, and a Continue restores it. */
@@ -382,7 +450,7 @@ function startKith(from: Carry | null): SimHost {
   kith ??= createSimHost(spawnWorker);
   kith.post({
     t: 'init',
-    seed: SEED,
+    seed: yearSeed,
     tuning: tuningJson,
     scenario: kithScenario(bridgeChapter, homecoming, baseOf(bridgeChapter), kithStart),
   });
@@ -407,6 +475,72 @@ async function continueJourney(journey: Journey, chapterId: string): Promise<voi
 
 const game: GameService = {
   chapters,
+  webgl: hasWebGL(),
+  sandbox: {
+    async status() {
+      const p = await profileReady;
+      const [pages, kith, valleys] = await Promise.all([p.pages(), p.kith(), p.valleys()]);
+      const finished = SANDBOX_VALLEYS.filter((v) => v !== 'kith' && valleys.includes(v));
+      return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished };
+    },
+    devOpen: import.meta.env.DEV && params.get('sandbox') === 'new',
+    scene: (valley) => SANDBOX_SCENES[valley],
+    async newSetup(valley, fromKith) {
+      const kith = fromKith && valley === 'kith' ? await (await profileReady).kith() : null;
+      return {
+        seed: newSeed(),
+        valley,
+        kith,
+        challenge: null,
+        knobs: {},
+        switches: { ...DEFAULT_SWITCHES },
+        structures: [],
+        bushes: [],
+      };
+    },
+    start: (setup) =>
+      new Promise((resolve) => {
+        // Built first, so a setup that throws (and rejects) leaves the run before going on.
+        const scenario = sandboxScenario(
+          setup,
+          SANDBOX_BASES,
+          sceneOf(SANDBOX_SCENES[setup.valley]).benchSpots,
+        );
+        const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
+        const made = new Set(
+          [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
+        );
+        sandboxRun?.runner.dispose();
+        // Before the init, so the runner sees the run's first snapshot.
+        const runner = createSandboxRunner(port, setup);
+        sandboxRun = { runner, made, lite: null, tick: 0 };
+        season = scenario.season;
+        greeting = undefined;
+        host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
+        // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
+        speedControl.runner(1);
+        speedControl.player(1);
+        resolve(runner);
+      }),
+    placedStructures() {
+      const run = sandboxRun;
+      if (!run) return [];
+      // Before the run's first snapshot, its world holds what its setup placed.
+      const now = run.lite?.structures ?? run.runner.setup.structures;
+      return now.filter((x) => !run.made.has(x.id)).map((x) => ({ ...x }));
+    },
+    placedBushes() {
+      const run = sandboxRun;
+      if (!run) return [];
+      const now = run.lite?.bushes ?? run.runner.setup.bushes;
+      return now.filter((b) => !run.made.has(b.id)).map(({ id, x, y }) => ({ id, x, y }));
+    },
+    stop() {
+      sandboxRun?.runner.dispose();
+      sandboxRun = null;
+      speedControl.runner(0);
+    },
+  },
   defaultFlags: DEFAULT_FLAGS,
   castIds: [...cast.keys()].sort(),
   isFriend(lite, a, b) {
@@ -544,6 +678,9 @@ const game: GameService = {
       setCursor: (p) => {
         view.setCursor(p);
       },
+      setGateLamp: (on) => {
+        view.setGateLamp(on);
+      },
       visitor: () => view.visitor(),
       endVisit: () => {
         view.endVisit();
@@ -573,6 +710,7 @@ const game: GameService = {
       return null;
     }
     resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
+    yearSeed = save.seed;
     if (valley && save.journey) await continueJourney(save.journey, save.chapterId);
     // The bridge comes right after the fire's page is kept, so that year's page is the newest.
     else if (save.chapterId === bridgeChapter.id)
@@ -593,6 +731,9 @@ const game: GameService = {
     if (import.meta.env.DEV) dev.snapshots = 0;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
+    const at = chapters.indexOf(chapter);
+    // Begin starts a new year at the first chapter, with a new seed; play only moves on from there.
+    if (!resumed && at === firstChapter) yearSeed = newSeed();
     // Continue: the carry and the year so far come from the save (spec 15.1).
     if (resumed) yearLog.splice(0, yearLog.length, ...resumed.year);
     const base = baseOf(chapter);
@@ -627,7 +768,6 @@ const game: GameService = {
     season = scenario.season;
     // A year that starts again at this chapter (Begin after an earlier year this visit) forgets
     // what the earlier year logged from here on, so the myth tells only the year it ends.
-    const at = chapters.indexOf(chapter);
     for (let i = yearLog.length - 1; i >= 0; i--) {
       if (chapters.findIndex((c) => c.id === yearLog[i]?.chapterId) >= at) yearLog.splice(i, 1);
     }
@@ -635,7 +775,7 @@ const game: GameService = {
     scenarioNow = scenario;
     host.post({
       t: 'init',
-      seed: SEED,
+      seed: yearSeed,
       tuning: tuningJson,
       scenario,
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
@@ -651,7 +791,7 @@ const game: GameService = {
         async ({ world }) =>
           (await slotsReady).save('auto', {
             version: 3,
-            seed: SEED,
+            seed: yearSeed,
             tuningHash,
             ink: inkState,
             flags,
@@ -719,8 +859,12 @@ const game: GameService = {
         const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
         // Kith's leg first, with the postcard sent here; Continue replays it from the journal page.
         if (leg >= 0 && kith) runKithLeg(kith, kithLeg(leg, sent.at(-1) ?? null, homecoming));
-        if ((!skipped || sent.length > 0) && journeyNow && lastLite)
+        if ((!skipped || sent.length > 0) && journeyNow && lastLite) {
           journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
+          // A valley with a journal page is a finished valley, which the sandbox offers (ADR 0014 item 1).
+          if (journeyNow.pages.some((p) => p.valley === chapter.id))
+            void profileReady.then((p) => p.addValley(chapter.id));
+        }
       });
     }
     return runner;
@@ -740,7 +884,8 @@ const game: GameService = {
     return (await profileReady).pages();
   },
   async keepMyth(page) {
-    keptPage = await (await profileReady).keepMyth(page, SEED);
+    keptPage = await (await profileReady).keepMyth(page, yearSeed);
+    await keepKith();
     // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
     await (await slotsReady).keepYear();
   },
@@ -761,6 +906,7 @@ const game: GameService = {
     // The verse joins the year's page, when this journey's year kept one.
     const year = journeyNow?.bookYear ?? null;
     if (year !== null) await (await profileReady).addVerse(year, verse);
+    await keepKith();
     await (await slotsReady).keepYear();
   },
   async feathers() {

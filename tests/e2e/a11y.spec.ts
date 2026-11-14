@@ -30,6 +30,10 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Book of Skies' })).toBeDisabled();
+  // A fresh profile has no Book of Skies page, so the sandbox is closed and says why (ADR 0014 item 1).
+  const sandbox = page.getByRole('button', { name: 'Sandbox' });
+  await expect(sandbox).toBeDisabled();
+  await expect(sandbox).toHaveAccessibleDescription('The sandbox opens when you finish Part 1.');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Begin' })).toBeFocused();
   await page.keyboard.press('Tab');

@@ -12,11 +12,12 @@ import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
 import type { TimelinePoint } from '../render/timeline.ts';
 import type { WorldLite } from '../sim-host/protocol.ts';
-import type { Dials } from '../sim/types.ts';
+import type { Dials, Structure } from '../sim/types.ts';
 import type { ChapterRunner } from '../story/chapter-runner.ts';
 import type { Flags } from '../story/flags.ts';
 import type { Journey } from '../story/journey.ts';
 import type { peekRule } from '../story/peek.ts';
+import type { SandboxRunner, SandboxSetup, SandboxValley } from '../story/sandbox.ts';
 import type { Chapter } from '../story/schema.ts';
 import type { Settings } from './settings.ts';
 
@@ -26,7 +27,7 @@ import type { Settings } from './settings.ts';
  */
 export interface Stage extends Pick<
   MeadowView,
-  'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor' | 'endVisit'
+  'setFocus' | 'setShot' | 'showHeatmap' | 'setCursor' | 'visitor' | 'endVisit' | 'setGateLamp'
 > {
   /**
    * Draws the Meadow over the scene `content/scenes/<id>.json` (its ground, trees, bench spots, and
@@ -67,8 +68,40 @@ export interface Stage extends Pick<
   destroy(): void;
 }
 
+/** The sandbox (ADR 0014 items 1 to 5) on the game's worker. */
+export interface SandboxService {
+  /**
+   * Whether the title's Sandbox button opens (the Book of Skies has a page), whether the profile
+   * keeps a Kith, and the finished valleys in first-played order.
+   */
+  status(): Promise<{ unlocked: boolean; kith: boolean; valleys: SandboxValley[] }>;
+  /** Dev only: ?sandbox=new opens the sandbox on a new Kith valley instead of the title. */
+  readonly devOpen: boolean;
+  /** The scene a valley's sandbox shows, whose bench spots `start` uses. */
+  scene(valley: SandboxValley): string;
+  /**
+   * A new setup of `valley`: a new seed, the default knobs and switches, and nothing placed;
+   * with `fromKith`, Kith with the carry the profile keeps.
+   */
+  newSetup(valley: SandboxValley, fromKith: boolean): Promise<SandboxSetup>;
+  /**
+   * Starts a new run of `setup` at day 0 and 1x, and returns its runner; the run before it stops.
+   * Rejects, and the run before goes on, when the setup cannot start.
+   */
+  start(setup: SandboxSetup): Promise<SandboxRunner>;
+  /** The structures in the run now that the player placed: neither the base scenario nor bench density made them. */
+  placedStructures(): Structure[];
+  /** The bushes in the run now that the player placed. */
+  placedBushes(): SandboxSetup['bushes'];
+  /** Stops the run. */
+  stop(): void;
+}
+
 export interface GameService {
   chapters: readonly Chapter[];
+  /** Whether this browser gave a WebGL context at load (ADR 0014 item 10). */
+  webgl: boolean;
+  sandbox: SandboxService;
   defaultFlags: Flags;
   /** The named cast (spec 5.3), in id order. */
   castIds: readonly string[];

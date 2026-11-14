@@ -60,7 +60,7 @@ const SIXTH = 6;
 const ValleysSchema = z
   .array(z.string())
   .transform((ids) =>
-    SANDBOX_VALLEYS.filter((v) => ids.includes(v)).sort((x, y) => ids.indexOf(x) - ids.indexOf(y)),
+    [...new Set(ids)].filter((v): v is SandboxValley => (SANDBOX_VALLEYS as readonly string[]).includes(v)),
   );
 /** A sandbox as stored or kept: a note over NOTE_LENGTH characters is cut, not refused. */
 const SandboxSchema = z.object({

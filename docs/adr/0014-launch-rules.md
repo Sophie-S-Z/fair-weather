@@ -17,7 +17,7 @@ Milestone M4 builds the sandbox, seed links, the postcard GIF, the page exports,
 
    | Knob (label) | Panel | Valley | What it sets | low, step, steps (hundredths) | Unset |
    | --- | --- | --- | --- | --- | --- |
-   | Gift value | Rules | all | `gift.value`, and `gift.valueWinter` = max(0, value − 1) | 0, 50, 12 (0 to 6) | 3 |
+   | Gift value | Rules | all | `gift.value`, and `gift.valueWinter` = max(0, value − 1), in whole berries | 0, 100, 6 (0 to 6) | 3 |
    | Fog level | Weather | all | scenario `baseFog`: every fog cell starts at it | 0, 10, 10 (0 to 1) | 0 |
    | Bench density | Population | all | a bench at each of the scene's first n bench spots, id `sandbox-bench-<spot id>` | 0, 100, the scene's spot count | 0 |
    | Gossip threshold | Network | all | every creature's Ear; only while Mixed thresholds is off | 0, 5, 20 (0 to 1) | 0.5 |

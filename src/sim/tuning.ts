@@ -7,6 +7,7 @@ const signed = z.number().min(-1).max(1); // signed deltas and warmth thresholds
 const count = z.number().int().positive();
 const pos = z.number().positive();
 const nonNeg = z.number().nonnegative();
+const whole = z.number().int().nonnegative();
 
 const obj = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
@@ -65,8 +66,8 @@ export const TuningSchema = obj({
     newcomerDial: prob,
   }),
   bid: obj({ gain: pos, openerWeight: prob, hungerWeight: prob, againstBelowWarmth: signed }),
-  // The sandbox's Gift value knob sets 0 to 6 in halves (ADR 0014 item 2), so a gift's berries are a number, not a count.
-  gift: obj({ cost: count, value: nonNeg, valueWinter: nonNeg, maxSlightsPerForgiveness: count }),
+  // Whole berries; the sandbox's Gift value knob sets 0 to 6, and winter one less (ADR 0014 item 2).
+  gift: obj({ cost: count, value: whole, valueWinter: whole, maxSlightsPerForgiveness: count }),
   memory: obj({ halfLifeMinDays: pos, halfLifeSpanDays: pos }),
   warmth: obj({
     toward: signed,

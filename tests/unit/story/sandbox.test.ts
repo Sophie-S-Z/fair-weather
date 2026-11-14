@@ -14,6 +14,7 @@ import {
   GUST_REACH,
   KNOBS,
   KNOB_IDS,
+  MAX_ENTRIES,
   SandboxSetupSchema,
   createSandboxRunner,
   knobValue,
@@ -73,9 +74,9 @@ test("every tuning knob at every index gives a tuning the worker's schema takes"
   }
 });
 
-test('giftValue index 4 sets gift.value 2 and gift.valueWinter 1; index 0 sets both to 0', () => {
-  const four = sandboxTuning(setup({ knobs: { giftValue: 4 } }), base);
-  expect(four.gift).toEqual({ ...base.gift, value: 2, valueWinter: 1 });
+test('giftValue index 2 sets gift.value 2 and gift.valueWinter 1; index 0 sets both to 0', () => {
+  const two = sandboxTuning(setup({ knobs: { giftValue: 2 } }), base);
+  expect(two.gift).toEqual({ ...base.gift, value: 2, valueWinter: 1 });
   const zero = sandboxTuning(setup({ knobs: { giftValue: 0 } }), base);
   expect([zero.gift.value, zero.gift.valueWinter]).toEqual([0, 0]);
   expect(base.gift.value).toBe(3); // the base is never changed
@@ -172,14 +173,14 @@ test('a fen setup keeps the fen pack and has no hero; halcyon gets kithWarmth 0'
 
 test('the setup schema refuses a knob index out of range and a structure id with a space', () => {
   const good = setup({
-    knobs: { giftValue: 12, seasonLength: 0 },
+    knobs: { giftValue: 6, seasonLength: 0 },
     structures: [{ id: 'path-1', kind: 'path', x: 10, y: 20, x2: 300, y2: 400 }],
   });
   expect(SandboxSetupSchema.parse(good)).toEqual(good);
   const refused = (s: unknown) => {
     expect(SandboxSetupSchema.safeParse(s).success).toBe(false);
   };
-  refused({ ...good, knobs: { giftValue: 13 } });
+  refused({ ...good, knobs: { giftValue: 7 } });
   refused({ ...good, knobs: { imitationRate: 2.5 } });
   refused({ ...good, knobs: { noSuchKnob: 1 } });
   refused({ ...good, structures: [{ id: 'my bench', kind: 'bench', x: 10, y: 10 }] });
@@ -219,7 +220,7 @@ test('the runner sends rain, path, and a gust clamped to the link bound, and ref
   };
   const runner = createSandboxRunner(port, setup());
   expect(runner.verb({ verb: 'rain', x: 1, y: 2 })).toBe(false); // before the first snapshot
-  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: {} as WorldLite });
+  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: { water: [] } as unknown as WorldLite });
   expect(runner.verb({ verb: 'rain', x: 1, y: 2 })).toBe(true);
   expect(runner.verb({ verb: 'path', x: 1, y: 2, x2: 300, y2: 4 })).toBe(true);
   expect(runner.verb({ verb: 'welcome', on: false })).toBe(true);
@@ -242,6 +243,76 @@ test('the runner sends rain, path, and a gust clamped to the link bound, and ref
   runner.dispose();
   expect(listeners.size).toBe(0);
   expect(runner.verb({ verb: 'rain', x: 1, y: 2 })).toBe(false);
+});
+
+/** A runner on a port that keeps what it sends, after one snapshot with `water`. */
+function runnerWith(s: SandboxSetup, water: WorldLite['water']) {
+  const sent: Command[] = [];
+  const listeners = new Set<(m: FromWorker) => void>();
+  const port: SimPort = {
+    send: (list) => sent.push(...list),
+    onMessage(cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    speed: () => undefined,
+    requestHash: () => Promise.reject(new Error('no hash')),
+  };
+  const runner = createSandboxRunner(port, s);
+  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: { water } as unknown as WorldLite });
+  return { runner, sent };
+}
+
+test("the runner refuses a bench or bush in Halcyon's water, so the setup a rule change builds still starts", () => {
+  const { runner, sent } = runnerWith(setup({ valley: 'halcyon' }), halcyonJson.water);
+  const wet = { verb: 'place', x: 800, y: 850 } as const;
+  const dry = { verb: 'place', x: 800, y: 500 } as const;
+  expect(runner.verb(wet)).toBe(false);
+  expect(runner.verb(dry)).toBe(true);
+  runner.setPlaceKind('bush');
+  expect(runner.verb(wet)).toBe(false);
+  expect(runner.verb({ verb: 'place', x: 800, y: 800 })).toBe(false); // the water's edge is water
+  expect(runner.verb(dry)).toBe(true);
+  runner.setPlaceKind('lantern'); // checkLand lets a lantern stand anywhere
+  expect(runner.verb(wet)).toBe(true);
+  // What the sim placed, as a rule change keeps it.
+  const placed = sent.flatMap((c, i) =>
+    c.t === 'place' ? [{ ...c, id: `${c.kind}-${String(i + 9)}` }] : [],
+  );
+  const restarted = setup({
+    valley: 'halcyon',
+    structures: placed.flatMap(({ id, kind, x, y }) => (kind === 'bush' ? [] : [{ id, kind, x, y }])),
+    bushes: placed.flatMap(({ id, kind, x, y }) => (kind === 'bush' ? [{ id, x, y }] : [])),
+  });
+  expect(() => sandboxScenario(restarted, bases, spots)).not.toThrow();
+});
+
+test('the runner refuses a place or a path past MAX_ENTRIES placed structures or bushes', () => {
+  const many = Array.from({ length: MAX_ENTRIES }, (_, i) => ({
+    id: `bench-${String(i + 1)}`,
+    x: 10,
+    y: 10,
+  }));
+  const full = runnerWith(setup({ structures: many.map((b) => ({ ...b, kind: 'bench' as const })) }), []);
+  expect(full.runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+  expect(full.runner.verb({ verb: 'path', x: 50, y: 50, x2: 500, y2: 50 })).toBe(false);
+  full.runner.setPlaceKind('bush');
+  expect(full.runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(true);
+  const bushes = runnerWith(
+    setup({ bushes: many.map((b) => ({ ...b, id: b.id.replace('bench', 'bush') })) }),
+    [],
+  );
+  bushes.runner.setPlaceKind('bush');
+  expect(bushes.runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+  bushes.runner.setPlaceKind('bench');
+  expect(bushes.runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(true);
+  // One short of the limit takes one more, then no more.
+  const almost = runnerWith(
+    setup({ structures: many.slice(1).map((b) => ({ ...b, kind: 'bench' as const })) }),
+    [],
+  );
+  expect(almost.runner.verb({ verb: 'path', x: 50, y: 50, x2: 500, y2: 50 })).toBe(true);
+  expect(almost.runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
 });
 
 test('a Kith carry and a valley knob are refused outside their valley; a valley never takes the carry', () => {

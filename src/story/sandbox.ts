@@ -13,7 +13,7 @@ import { CHALLENGES, CHALLENGE_IDS, applyStart, createChallengeCheck } from './c
 import type { ChallengeId, ChallengeState } from './challenges.ts';
 import type { Carry } from './carry.ts';
 import { verbCommand } from './chapter-runner.ts';
-import { chapterTicksPerDay, checkLand } from './scenario.ts';
+import { chapterTicksPerDay, checkLand, inRect, offLand } from './scenario.ts';
 import { tuning } from './tuning.ts';
 import type { VerbInput } from './verbs.ts';
 
@@ -64,8 +64,8 @@ export const KNOBS: readonly Knob[] = [
     panel: 'rules',
     valley: null,
     low: 0,
-    step: 50,
-    steps: 12,
+    step: 100,
+    steps: 6,
     unset: 3,
   },
   {
@@ -217,7 +217,7 @@ export interface SandboxSetup {
 }
 
 /** The most entries in any of a setup's arrays: Kith's 30 creatures have 435 ties. */
-const MAX_ENTRIES = 1000;
+export const MAX_ENTRIES = 1000;
 /** A placed structure's or bush's id, in the sim's own `<kind>-<n>` form. */
 const STRUCTURE_ID = /^(bench|bush|bridge|lantern|path)-[0-9]{1,6}$/;
 /** The creatures of the four sandbox valleys' bases (Kith's is m0). */
@@ -324,10 +324,6 @@ export const SandboxSetupSchema = z
         });
     }
   }) satisfies z.ZodType<SandboxSetup>;
-
-/** Edges included, as the sim's water test (story may not import sim values). */
-const inRect = (r: Rect, px: number, py: number): boolean =>
-  px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
 /** Inside the scene, edges included, as the sim's `onScene` (NaN is outside). */
 export const inScene = (px: number, py: number): boolean =>
@@ -469,6 +465,9 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
   const check = setup.challenge && createChallengeCheck(setup.challenge);
   const bridgeLimit = setup.challenge ? CHALLENGES[setup.challenge].start.bridgeLimit : undefined;
   let bridges = bridgesIn(setup.structures);
+  // What the player placed so far, so a rule change's setup stays within the schema's MAX_ENTRIES.
+  let structures = setup.structures.length;
+  let bushes = setup.bushes.length;
   let danced = false;
   let state: ChallengeState | null = check ? 'open' : null;
   let water: readonly Rect[] = [];
@@ -509,8 +508,21 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       const bridge = cmd.t === 'place' && cmd.kind === 'bridge';
       if (bridge && !water.some((r) => inRect(r, cmd.x, cmd.y))) return false;
       if (bridge && bridgeLimit !== undefined && bridges >= bridgeLimit) return false;
+      // checkLand's rule: a bench or bush off dry land would make the next rule change's setup fail.
+      // No sandbox base has a ridge, so the water is the whole test.
+      if (
+        cmd.t === 'place' &&
+        (cmd.kind === 'bench' || cmd.kind === 'bush') &&
+        offLand({ water }, cmd.x, cmd.y) !== null
+      )
+        return false;
+      const bush = cmd.t === 'place' && cmd.kind === 'bush';
+      const structure = cmd.t === 'path' || (cmd.t === 'place' && !bush);
+      if ((bush && bushes >= MAX_ENTRIES) || (structure && structures >= MAX_ENTRIES)) return false;
       port.send([cmd]);
       if (bridge) bridges += 1;
+      if (bush) bushes += 1;
+      if (structure) structures += 1;
       return true;
     },
     setPlaceKind(kind) {

@@ -1,9 +1,12 @@
-// World setup and tie helpers (ADRs 0002, 0004, 0005).
+// World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4 to 6, and 8).
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
+import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
 import { byCodeUnit, clamp } from './math.ts';
 import { clearOfBanks, landOf } from './land.ts';
+import { PACKS } from './packs/index.ts';
+import { createRng } from './rng.ts';
 
 const VISIT_CELLS = 32; // 8 columns by 4 rows (ADR 0005)
 
@@ -45,10 +48,39 @@ export function newCreature(s: Scenario['creatures'][number]): Creature {
   return c;
 }
 
+/**
+ * The hero as a creature (ADR 0013 item 1): its kind as species, dials 0.5, and the scenario's
+ * shell, or no shell, as its shell and resting shell. Each other
+ * creature with Ear at or below the rumor's strength starts with the rumor's value as its opinion
+ * of the hero (ADR 0013 item 8). Throws when a scenario creature already uses the hero's id.
+ */
+function addHero(creatures: Creature[], hero: NonNullable<Scenario['hero']>): void {
+  if (creatures.some((c) => c.id === HERO))
+    throw new Error(`a scenario creature uses the hero's id "${HERO}"`);
+  const { rumor } = hero;
+  for (const c of creatures) {
+    if (rumor && c.dials.ear <= rumor.strength) c.opinions[HERO] = clamp(rumor.value, -1, 1);
+  }
+  const dial = 0.5;
+  creatures.push(
+    newCreature({
+      id: HERO,
+      speciesId: hero.kind,
+      name: hero.name,
+      x: hero.x,
+      y: hero.y,
+      berries: hero.berries,
+      dials: { opener: dial, forgiveness: dial, memory: dial, ear: dial, wanderlust: dial },
+      ...(hero.shell ? { shell: hero.shell } : {}),
+    }),
+  );
+}
+
 export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): World {
   const fogW = Math.ceil(tuning.scene.width / tuning.fog.cellSize);
   const fogH = Math.ceil(tuning.scene.height / tuning.fog.cellSize);
   const creatures = scenario.creatures.map(newCreature);
+  if (scenario.hero) addHero(creatures, scenario.hero);
   const ids = new Set(creatures.map((c) => c.id));
   const ties = new Map<string, Tie>();
   const clampSide = (s: Side): Side => ({ warmth: clamp(s.warmth, -1, 1), slights: s.slights });
@@ -74,7 +106,11 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
     rumors: [],
     boosts: [],
   };
-  // Only when set, so a world without land keeps the same keys (and hash).
+  // Only when set, so a world without land or a hero keeps the same keys (and hash).
+  if (scenario.hero) {
+    const { kind, keepsakes } = scenario.hero;
+    world.hero = { kind, reply: 'toward', gift: 'give', waveTo: null, keepsakes: [...keepsakes] };
+  }
   if (scenario.water) {
     world.water = scenario.water.map((r) => ({ ...r }));
     // No body starts over water: feet in a bank, off a deck and an islet, move just past it.
@@ -92,6 +128,26 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   if (scenario.ambientSkyBids) world.ambientSkyBids = true;
   if (scenario.rumorFirst) world.rumorFirst = true;
   if (scenario.friendsForgive) world.friendsForgive = true;
+  if (scenario.pack) {
+    // The pack's setup draws from the world's PRNG, so a scenario without `pack` takes no draw
+    // (ADR 0013 item 4). The Hollow's drama sky starts at the scene center (item 6).
+    const p = scenario.pack;
+    world.pack =
+      p.id === 'fen'
+        ? { id: 'fen', thresholds: { ...p.fixed }, flying: [], restless: [...p.restless], heroFlying: false }
+        : p.id === 'hollow'
+          ? {
+              id: 'hollow',
+              sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
+              drama: [],
+              fame: {},
+              front: null,
+            }
+          : { id: 'halcyon', kithWarmth: p.kithWarmth, seeker: p.seeker, given: false, chose: null };
+    const rng = createRng(world.rngState);
+    PACKS[world.pack.id].setup(world, tuning, rng);
+    world.rngState = rng.state();
+  }
   return world;
 }
 

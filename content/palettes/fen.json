@@ -1,0 +1,24 @@
+{
+  "id": "fen",
+  "ink": "#2b2a2e",
+  "paper": "#fffbfa",
+  "accent": "#d1557a",
+  "warmth": "#e9d4d4",
+  "leaf": "#b9bb93",
+  "background": "#e2d4db",
+  "light": {
+    "color": "#ffcfae",
+    "alpha": 0.45
+  },
+  "fog": {
+    "color": "#dcdbe4",
+    "alpha": 0.85
+  },
+  "water": "#c3c9da",
+  "full": ["#e8604c", "#f08a3c", "#f2c84b", "#7bb661", "#4f8fc0", "#8a63b8"],
+  "land": "#cdc8b6",
+  "sky": { "top": "#7f86b2", "horizon": "#f0c3b0" },
+  "reeds": { "back": "#5f6b4f", "front": "#b9a466", "head": "#6a4630" },
+  "plumage": { "body": "#2a2635", "sheen": "#6f8f7c" },
+  "ground": { "far": "#d9c4c3", "near": "#a49871" }
+}

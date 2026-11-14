@@ -83,6 +83,25 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('myth/verses.json:'))).toBe(true);
   });
+  test('reports a bad sixth verse file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'myth'), { recursive: true });
+    writeFileSync(join(root, 'content', 'myth', 'sixth.json'), JSON.stringify({ templates: [] }));
+    const { errors } = validateContent(root);
+    expect(errors.some((e) => e.startsWith('myth/sixth.json:'))).toBe(true);
+  });
+  test('reports heroes out of HERO_KINDS order and a bad journal file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content'), { recursive: true });
+    const heroes = JSON.parse(readFileSync(join(repoRoot, 'content', 'heroes.json'), 'utf8')) as unknown[];
+    writeFileSync(join(root, 'content', 'heroes.json'), JSON.stringify(heroes.reverse()));
+    writeFileSync(join(root, 'content', 'journal.json'), JSON.stringify({ saying: {}, stamp: {} }));
+    const { errors } = validateContent(root);
+    expect(errors.filter((e) => e.startsWith('heroes.json:'))).toEqual([
+      'heroes.json: lists bellchime, seedcarrier, glassling, mosscoat, kite, lantern, not lantern, kite, mosscoat, glassling, seedcarrier, bellchime',
+    ]);
+    expect(errors.some((e) => e.startsWith('journal.json:'))).toBe(true);
+  });
   test("compiles an INCLUDEd Ink file inside its includer, so it may use the includer's VARs", () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'ink'), { recursive: true });
@@ -156,6 +175,52 @@ describe('validateContent', () => {
     expect(errorsFor(bet({ kind: 'warmth', from: 'echo', to: 'krut' }, ['no', 'yes'], [0]))).toEqual([
       'ch1.json: names creature krut, which scenario m0 lacks',
     ]);
+  });
+  test("checks a valley's creature ids and guide against its own scenario, allows the hero, and refuses shine in the Hollow", () => {
+    const root = chapterRoot(() => undefined);
+    const ch1 = JSON.parse(readFileSync(join(root, 'content', 'chapters', 'ch1.json'), 'utf8')) as {
+      beats: { actions: object[] }[];
+    };
+    ch1.beats[0]?.actions.push({ focus: 'hero' }, { focus: 'pim' }, { postcard: true });
+    const valley = {
+      ...ch1,
+      id: 'hollow',
+      kind: 'valley',
+      scenario: 'hollow',
+      verbs: ['walk', 'shine'],
+      valley: {
+        pack: 'hollow',
+        guide: 'tove',
+        postcards: ['patience', 'listening'],
+        keepsake: null,
+        locals: [],
+      },
+    };
+    mkdirSync(join(root, 'content', 'valleys'), { recursive: true });
+    mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+    writeFileSync(join(root, 'content', 'valleys', 'hollow.json'), JSON.stringify(valley));
+    const scenario = { creatures: [{ id: 'quill' }] };
+    writeFileSync(join(root, 'content', 'scenarios', 'hollow.json'), JSON.stringify(scenario));
+    expect(validateContent(root).errors.filter((e) => e.startsWith('hollow.json'))).toEqual([
+      'hollow.json: names creature pim, which scenario hollow lacks',
+      'hollow.json: names creature tove, which scenario hollow lacks',
+      'hollow.json: a Hollow valley may not list shine',
+    ]);
+  });
+  test('a Part 1 chapter may not name the hero', () => {
+    const root = chapterRoot((c) => c.beats[0]?.actions.push({ focus: 'hero' }));
+    mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+    writeFileSync(
+      join(root, 'content', 'scenarios', 'm0.json'),
+      readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
+    );
+    expect(validateContent(root).errors.filter((e) => e.startsWith('ch1.json'))).toEqual([
+      'ch1.json: names creature hero, which scenario m0 lacks',
+    ]);
+  });
+  test('reports a scenario a config names that has no file', () => {
+    const { errors } = validateContent(chapterRoot((c) => Object.assign(c, { scenario: 'fenn' })));
+    expect(errors).toContain('ch1.json: scenario fenn has no file content/scenarios/fenn.json');
   });
   test('reports a chapter that names a missing scene', () => {
     const { errors } = validateContent(chapterRoot((c) => (c.scene = 'no-such-scene')));

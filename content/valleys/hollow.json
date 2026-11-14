@@ -1,0 +1,119 @@
+{
+  "id": "hollow",
+  "kind": "valley",
+  "scenario": "hollow",
+  "palette": "hollow",
+  "valley": {
+    "pack": "hollow",
+    "guide": "quill",
+    "postcards": ["patience", "remembering", "listening"],
+    "keepsake": {
+      "id": "clipping",
+      "label": "A clipping with the hero's face"
+    },
+    "drawingAlt": "[PLACEHOLDER] A printing press under a big lens. The page it prints shows your face.",
+    "locals": [
+      "[PLACEHOLDER] The gazette only prints a quarrel.",
+      "[PLACEHOLDER] Nobody reads about a kind day.",
+      "[PLACEHOLDER] Quill is tired of the press."
+    ]
+  },
+  "title": "Hearsay Hollow",
+  "season": "spring",
+  "scene": "hollow",
+  "dayLengthSeconds": 70,
+  "carry": false,
+  "verbs": ["walk", "pose", "manner", "zoom", "peek"],
+  "newVerb": "pose",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "hollow_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "ink": "hollow_intro"
+        }
+      ]
+    },
+    {
+      "id": "hollow_famous",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "ink": "hollow_famous"
+        },
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "hollow_card",
+      "trigger": {
+        "closeCall": true
+      },
+      "actions": [
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "hollow_sent",
+      "trigger": {
+        "postcard": true
+      },
+      "actions": [
+        {
+          "ink": "hollow_sent"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "heroFamous",
+    "withinDays": 8,
+    "retryArrange": ["quill", "townsfolk-1"],
+    "retries": 0
+  },
+  "reads": [],
+  "writes": ["heroFamous"],
+  "variants": [],
+  "exit": {
+    "onBeat": "hollow_sent"
+  },
+  "feeling": "[PLACEHOLDER] Exposure, temptation",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] You were this sky",
+      "science": "[PLACEHOLDER] In Part 1 your light was the attention, and what you lit grew.",
+      "limits": "[PLACEHOLDER] Here the sky looks only for drama, and it prints one story a day.",
+      "counter": "[PLACEHOLDER] Attention can also lift a kind act.",
+      "question": "[PLACEHOLDER] What did you shine on in Kith?",
+      "sources": [
+        {
+          "label": "We Become What We Behold, announcement",
+          "url": "https://www.patreon.com/ncase/posts/new-game-we-what-7030991"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] What the gazette prints",
+      "science": "[PLACEHOLDER] A sky that lights only quarrels makes quarrels look common.",
+      "limits": "[PLACEHOLDER] Real news has many reasons for what it covers.",
+      "counter": "[PLACEHOLDER] Some papers print the quiet stories too.",
+      "question": "[PLACEHOLDER] What never makes the front page?",
+      "sources": [
+        {
+          "label": "We Become What We Behold, announcement",
+          "url": "https://www.patreon.com/ncase/posts/new-game-we-what-7030991"
+        }
+      ]
+    }
+  ]
+}

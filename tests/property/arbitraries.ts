@@ -5,6 +5,7 @@ import { parseTuning } from '../../src/sim/tuning.ts';
 import { inRect } from '../../src/sim/land.ts';
 import { step } from '../../src/sim/step.ts';
 import type { Command, Rect, Scenario, Season, World } from '../../src/sim/types.ts';
+import { DIAL_KEYS, HERO, HERO_KINDS } from '../../src/sim/types.ts';
 import { createWorld } from '../../src/sim/world.ts';
 
 export const tuning = parseTuning(tuningJson);
@@ -21,9 +22,27 @@ export const T2_MAX_TICKS = 8 * T2_TICKS_PER_DAY;
 
 const sideArb = fc.record({ warmth: fc.double({ min: -2, max: 2, noNaN: true }), slights: fc.nat(3) });
 
+/** A hero of any kind, half the time with a rumor of any value and strength. */
+const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
+  kind: fc.constantFrom(...HERO_KINDS),
+  name: fc.constant('Wren'),
+  x: sx,
+  y: sy,
+  berries: fc.integer({ min: 0, max: 5 }),
+  keepsakes: fc.constant([]),
+  rumor: fc.option(fc.record({ value: fc.double({ min: -1, max: 1, noNaN: true }), strength: unit }), {
+    freq: 2,
+    nil: null,
+  }),
+});
+
 /**
  * 2 to 12 creatures and T2_TICKS_PER_DAY, so every daily rule can fire inside a short run. Sky
  * warmth runs past [-1, 1] and some scenario ties name an unknown id, to test the clamp and drop.
+ * Half the scenarios have a hero. Two fifths have no pack. A fifth are in Murmuration Fen: some
+ * creatures are starlings, some of the ids (and an unknown one) are restless, and some have a fixed
+ * threshold. A fifth are in Hearsay Hollow, and a fifth in Halcyon, where the seeker is any id (or
+ * an unknown one), Kith's warmth is any, and the hero holds two keepsakes.
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -57,9 +76,43 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
       { weight: 9, arbitrary: fc.constantFrom(...scenario.creatures.map((c) => c.id)) },
       { weight: 1, arbitrary: fc.constant('nobody') },
     );
+    const ids = [...scenario.creatures.map((c) => c.id), 'nobody'];
+    const fen = fc.record({
+      starlings: fc.subarray(ids),
+      restless: fc.subarray(ids),
+      fixed: fc.dictionary(fc.constantFrom(...ids), unit, { maxKeys: 3 }),
+    });
     return fc
-      .array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 })
-      .map((ties) => ({ ...scenario, ties }));
+      .record({
+        ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
+        hero: fc.option(heroArb, { freq: 2, nil: undefined }),
+        pack: fc.oneof(
+          { weight: 2, arbitrary: fc.constant(undefined) },
+          { weight: 1, arbitrary: fen },
+          { weight: 1, arbitrary: fc.constant('hollow' as const) },
+          {
+            weight: 1,
+            arbitrary: fc.record({ seeker: id, kithWarmth: fc.double({ min: -1, max: 1, noNaN: true }) }),
+          },
+        ),
+      })
+      .map(({ ties, hero, pack }): Scenario => {
+        const out: Scenario = hero ? { ...scenario, ties, hero } : { ...scenario, ties };
+        if (!pack) return out;
+        if (pack === 'hollow') return { ...out, pack: { id: 'hollow' } };
+        if ('seeker' in pack) {
+          const keepsakes = ['feather', 'acorn'];
+          return {
+            ...out,
+            ...(hero ? { hero: { ...hero, keepsakes } } : {}),
+            pack: { id: 'halcyon', ...pack },
+          };
+        }
+        const creatures = out.creatures.map((c) =>
+          pack.starlings.includes(c.id) ? { ...c, speciesId: 'starling' } : c,
+        );
+        return { ...out, creatures, pack: { id: 'fen', restless: pack.restless, fixed: pack.fixed } };
+      });
   });
 
 /** A coordinate-sized number, NaN 5% of the time. */
@@ -107,6 +160,23 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
     fc.record({ t: fc.constant('promptSkyBid' as const), who: id }),
     fc.record({ t: fc.constant('overPoke' as const) }),
     fc.record({ t: fc.constant('dance' as const), who: id }),
+    fc.record({ t: fc.constant('walk' as const), x, y }),
+    fc.record({ t: fc.constant('walk' as const), to: id }),
+    fc.record({
+      t: fc.constant('manner' as const),
+      reply: fc.constantFrom('toward' as const, 'away' as const, 'against' as const),
+      gift: fc.constantFrom('give' as const, 'keep' as const),
+    }),
+    fc.record({ t: fc.constant('plant' as const) }),
+    fc.record({
+      t: fc.constant('local' as const),
+      verb: fc.oneof(
+        fc.record({ verb: fc.constant('join' as const), on: fc.boolean() }),
+        fc.record({ verb: fc.constant('pose' as const) }),
+        fc.record({ verb: fc.constant('keepsake' as const), to: id, item: fc.constant('feather') }),
+      ),
+    }),
+    fc.record({ t: fc.constant('nudge' as const), dial: fc.constantFrom(...DIAL_KEYS), amount: num(-1, 1) }),
   );
 }
 
@@ -129,7 +199,7 @@ export const runArb: fc.Arbitrary<Run> = fc
       .array(
         fc.record({
           tick: fc.integer({ min: 0, max: ticks - 1 }),
-          cmd: commandArb(scenario.creatures.map((c) => c.id)),
+          cmd: commandArb([...scenario.creatures.map((c) => c.id), ...(scenario.hero ? [HERO] : [])]),
         }),
         { maxLength: 15 },
       )
@@ -160,7 +230,7 @@ const rectArb: fc.Arbitrary<Rect> = fc
 /**
  * `runArb` with 0 to 2 water rectangles, 0 to 2 bridges in them, 0 to 2 lanterns, and sometimes
  * a ridge, a mushroom, ambient sky bids, and a dance threshold of 1 to 3 on the first creature.
- * Creatures that would start in water are dropped.
+ * Creatures, the hero among them, that would start in water are dropped.
  */
 export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
   fc.array(rectArb, { maxLength: 2 }).chain((water) =>
@@ -186,6 +256,8 @@ export const landRunArb: fc.Arbitrary<Run> = runArb.chain((run) =>
             ...lanterns.map((p, i) => ({ ...p, id: `lantern-s${String(i)}`, kind: 'lantern' as const })),
           ],
         };
+        const hero = scenario.hero;
+        if (hero && water.some((r) => inRect(r, hero.x, hero.y))) delete scenario.hero;
         if (water.length > 0) scenario.water = water;
         if (ridgeX !== undefined) scenario.ridgeX = ridgeX;
         if (mushroom) scenario.mushroom = mushroom;

@@ -15,6 +15,12 @@ export interface SimHost extends SimPort {
    * when the worker fails or restarts first.
    */
   rewind(tick: number): Promise<{ tick: number; lite: WorldLite }>;
+  /**
+   * Steps `ticks` ticks silently and gives the world after them (ADR 0013 item 10). Rejects, and
+   * the run stays where it was, when the worker fails or restarts first.
+   * Commands sent after a rejected forward replay at the tick before it.
+   */
+  fastForward(ticks: number): Promise<{ tick: number; lite: WorldLite }>;
   log(): readonly { tick: number; list: Command[] }[];
 }
 
@@ -34,11 +40,12 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     reject(e: Error): void;
   }[] = [];
   let nextCheckpointId = 1;
-  let rewindWaiters = new Map<
+  /** Rewinds and fast-forwards waiting for their answer, by id, with the ticks each moves the run. */
+  let liteWaiters = new Map<
     number,
-    { resolve(r: { tick: number; lite: WorldLite }): void; reject(e: Error): void }
+    { ticks: number; resolve(r: { tick: number; lite: WorldLite }): void; reject(e: Error): void }
   >();
-  let nextRewindId = 1;
+  let nextLiteId = 1;
   let log: { tick: number; list: Command[] }[] = [];
   /** Lists sent but not yet accepted, with the tick they are expected to run at. */
   let inFlight: { tick: number; list: Command[] }[] = [];
@@ -64,13 +71,16 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     const cps = checkpointWaiters;
     checkpointWaiters = [];
     for (const c of cps) c.reject(new Error(reason));
-    rejectRewinds(reason);
+    rejectLites(reason);
   }
 
-  /** A restarted worker does not know the old requests, so rewinds reject instead of resending. */
-  function rejectRewinds(reason: string): void {
-    const waiters = rewindWaiters;
-    rewindWaiters = new Map();
+  /**
+   * A restarted worker does not know the old requests, so rewinds and fast-forwards reject instead
+   * of resending.
+   */
+  function rejectLites(reason: string): void {
+    const waiters = liteWaiters;
+    liteWaiters = new Map();
     for (const r of waiters.values()) r.reject(new Error(reason));
   }
 
@@ -114,9 +124,17 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       case 'hash':
         hashWaiters.shift()?.resolve({ tick: m.tick, value: m.value });
         return;
+      case 'forwarded':
+        // Listeners never see the forwarded ticks, and a restart replays them silently. The lists
+        // still in flight were sent after the forward, so they run after it.
+        seenTick = Math.max(seenTick, m.tick);
+        seenEventsTick = Math.max(seenEventsTick, m.tick - 1);
+        targetTick += liteWaiters.get(m.id)?.ticks ?? 0;
+        for (const e of inFlight) e.tick = Math.max(e.tick, m.tick);
+      // falls through
       case 'rewound':
-        rewindWaiters.get(m.id)?.resolve({ tick: m.tick, lite: m.lite });
-        rewindWaiters.delete(m.id);
+        liteWaiters.get(m.id)?.resolve({ tick: m.tick, lite: m.lite });
+        liteWaiters.delete(m.id);
         return;
       case 'error':
         for (const cb of listeners) cb(m);
@@ -148,7 +166,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
   function restart(): void {
     if (!init) return;
     gaveUp = null;
-    rejectRewinds('the worker restarted before answering the rewind');
+    rejectLites('the worker restarted before answering');
     disconnect();
     worker = connect();
     const w = worker;
@@ -166,6 +184,19 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
     for (let i = 0; i < hashWaiters.length; i++) w.postMessage({ t: 'hash' } satisfies ToWorker);
     for (const c of checkpointWaiters) w.postMessage({ t: 'checkpoint', id: c.id } satisfies ToWorker);
     if (multiplier > 0) w.postMessage({ t: 'speed', multiplier } satisfies ToWorker);
+  }
+
+  /** Sends a request answered by a world-lite, under a new id; `ticks` is how far it moves the run. */
+  function askLite(make: (id: number) => ToWorker, ticks = 0): Promise<{ tick: number; lite: WorldLite }> {
+    return new Promise((resolve, reject) => {
+      if (gaveUp !== null) {
+        reject(new Error(gaveUp));
+        return;
+      }
+      const id = nextLiteId++;
+      liteWaiters.set(id, { ticks, resolve, reject });
+      worker?.postMessage(make(id));
+    });
   }
 
   function post(m: ToWorker): void {
@@ -199,6 +230,7 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       case 'hash':
       case 'checkpoint':
       case 'rewind':
+      case 'fastForward':
         break;
     }
     worker?.postMessage(m);
@@ -238,15 +270,10 @@ export function createSimHost(spawn: () => Endpoint): SimHost {
       });
     },
     rewind(tick) {
-      return new Promise((resolve, reject) => {
-        if (gaveUp !== null) {
-          reject(new Error(gaveUp));
-          return;
-        }
-        const id = nextRewindId++;
-        rewindWaiters.set(id, { resolve, reject });
-        worker?.postMessage({ t: 'rewind', tick, id } satisfies ToWorker);
-      });
+      return askLite((id) => ({ t: 'rewind', tick, id }));
+    },
+    fastForward(ticks) {
+      return askLite((id) => ({ t: 'fastForward', ticks, id }), ticks);
     },
     restart,
     log: () => log.map((e) => ({ tick: e.tick, list: [...e.list] })),

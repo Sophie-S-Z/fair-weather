@@ -55,6 +55,11 @@ function context(over: Partial<InputContext> = {}) {
     threadFrom: () => threadFrom,
     setThreadFrom: (id) => (threadFrom = id),
     openWhisper: (target) => whispers.push(target),
+    manner: () => ({ reply: 'toward', gift: 'give' }),
+    heroKind: () => 'lantern',
+    heroBerries: () => 3,
+    heroFlying: () => false,
+    keepsakes: () => ['starling-feather', 'clipping'],
     ...over,
   };
   return {
@@ -586,5 +591,144 @@ describe('hints', () => {
     f.advance(60000);
     expect(got).toEqual(['respond']);
     h.dispose();
+  });
+});
+
+describe('Part 2 tools', () => {
+  const PART2: Verb[] = ['walk', 'manner', 'join'];
+  it('Walk: Enter walks to the cursor; W waves at the picked creature, and sends nothing with no pick', () => {
+    const s = setup({ tools: () => PART2 });
+    s.press('w');
+    s.press('Enter');
+    s.press('Tab');
+    s.press('w');
+    expect(s.acts).toEqual([
+      { verb: 'walk', x: 100, y: 100 },
+      { verb: 'walk', to: 'a' },
+    ]);
+  });
+  it('Walk: W never waves at the hero itself', () => {
+    const s = setup({ tools: () => PART2, picked: () => 'hero' });
+    s.press('w');
+    expect(s.acts).toEqual([]);
+  });
+  it('Manner: G, H, R set the reply and O, K set Give or Keep, each keeping the other half', () => {
+    const s = setup({ tools: () => PART2, manner: () => ({ reply: 'away', gift: 'keep' }) });
+    s.press('2');
+    for (const k of ['g', 'h', 'r', 'o', 'k']) s.press(k);
+    expect(s.acts).toEqual([
+      { verb: 'manner', reply: 'toward', gift: 'keep' },
+      { verb: 'manner', reply: 'away', gift: 'keep' },
+      { verb: 'manner', reply: 'against', gift: 'keep' },
+      { verb: 'manner', reply: 'away', gift: 'give' },
+      { verb: 'manner', reply: 'away', gift: 'keep' },
+    ]);
+  });
+  it('the manner keys do nothing with another tool', () => {
+    const s = setup({ tools: () => PART2 });
+    for (const k of ['g', 'o', 'k', 'l']) s.press(k);
+    expect(s.acts).toEqual([]);
+  });
+  it('Manner: L plants for a Seedcarrier, and sends nothing for another kind or below knack.seedCost berries', () => {
+    const seed = setup({ tools: () => PART2, heroKind: () => 'seedcarrier' });
+    seed.press('2');
+    seed.press('l');
+    const lantern = setup({ tools: () => PART2 });
+    lantern.press('2');
+    lantern.press('l');
+    const poor = setup({ tools: () => PART2, heroKind: () => 'seedcarrier', heroBerries: () => 0 });
+    poor.press('2');
+    poor.press('l');
+    expect(seed.acts).toEqual([{ verb: 'plant' }]);
+    expect([...lantern.acts, ...poor.acts]).toEqual([]);
+  });
+  it('Keepsake: Enter gives nothing to the hero itself', () => {
+    const s = setup({ tools: () => ['walk', 'keepsake', 'manner'], picked: () => 'hero' });
+    s.press('2');
+    s.press('Enter');
+    expect(s.acts).toEqual([]);
+  });
+  it('Join: Enter flies, or lands while flying', () => {
+    const up = setup({ tools: () => PART2 });
+    up.press('3');
+    up.press('Enter');
+    const down = setup({ tools: () => PART2, heroFlying: () => true });
+    down.press('3');
+    down.press('Enter');
+    expect([...up.acts, ...down.acts]).toEqual([
+      { verb: 'join', on: true },
+      { verb: 'join', on: false },
+    ]);
+  });
+  it('Pose: Enter poses', () => {
+    const s = setup({ tools: () => ['walk', 'pose', 'manner'] });
+    s.press('2');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'pose' }]);
+  });
+  it('Keepsake: Enter gives the first keepsake held to the picked creature; nothing with no pick or none held', () => {
+    const s = setup({ tools: () => ['walk', 'keepsake', 'manner'] });
+    s.press('2');
+    s.press('Enter');
+    s.press('Tab');
+    s.press('Enter');
+    const none = setup({ tools: () => ['walk', 'keepsake', 'manner'], keepsakes: () => [] });
+    none.press('2');
+    none.press('Tab');
+    none.press('Enter');
+    expect([...s.acts, ...none.acts]).toEqual([{ verb: 'keepsake', to: 'a', item: 'starling-feather' }]);
+  });
+});
+
+describe('Part 2 pointer', () => {
+  function mk(tool: Verb, over: Partial<InputContext> = {}) {
+    const t = new EventTarget();
+    const c = context({ tools: () => [tool], ...over });
+    c.ctx.setTool(tool);
+    const pick = (x: number, y: number) => ({
+      creature: x === 10 && y === 10 ? 'a' : x === 50 && y === 50 ? 'hero' : null,
+    });
+    createPointer(t, pick, (x, y) => ({ x: x * 2, y: y * 2 }), c.ctx);
+    const click = (x: number, y: number) => {
+      for (const type of ['pointerdown', 'pointerup'])
+        t.dispatchEvent(
+          Object.assign(new Event(type), {
+            button: 0,
+            pointerId: 1,
+            isPrimary: true,
+            clientX: x,
+            clientY: y,
+          }),
+        );
+    };
+    return { ...c, click };
+  }
+  it('with Walk, a click on ground walks there and moves the cursor; a click on a creature waves at it', () => {
+    const m = mk('walk');
+    m.click(30, 40);
+    m.click(10, 10);
+    m.click(50, 50); // the hero itself is ground
+    expect(m.acts).toEqual([
+      { verb: 'walk', x: 60, y: 80 },
+      { verb: 'walk', to: 'a' },
+      { verb: 'walk', x: 100, y: 100 },
+    ]);
+    expect(m.sel).toEqual(['a']);
+    expect(m.cursor()).toEqual({ x: 100, y: 100 });
+  });
+  it('with Manner or Keepsake, a click only picks: their buttons act', () => {
+    const manner = mk('manner');
+    manner.click(10, 10);
+    const keep = mk('keepsake');
+    keep.click(10, 10);
+    expect([...manner.sel, ...keep.sel]).toEqual(['a', 'a']);
+    expect([...manner.acts, ...keep.acts]).toEqual([]);
+  });
+  it('with Join or Pose, a click acts as Enter', () => {
+    const join = mk('join');
+    join.click(30, 40);
+    const pose = mk('pose');
+    pose.click(30, 40);
+    expect([...join.acts, ...pose.acts]).toEqual([{ verb: 'join', on: true }, { verb: 'pose' }]);
   });
 });

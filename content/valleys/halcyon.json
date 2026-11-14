@@ -1,0 +1,73 @@
+{
+  "id": "halcyon",
+  "kind": "valley",
+  "scenario": "halcyon",
+  "palette": "halcyon",
+  "valley": {
+    "pack": "halcyon",
+    "guide": "wisp",
+    "postcards": ["generosity", "patience", "remembering"],
+    "keepsake": null,
+    "drawingAlt": "[PLACEHOLDER] A wide meadow above a still sea. A small seed lies in the grass.",
+    "locals": [
+      "[PLACEHOLDER] Here nobody runs out of berries.",
+      "[PLACEHOLDER] A gift here costs nothing.",
+      "[PLACEHOLDER] Wisp sits apart from us."
+    ]
+  },
+  "title": "Halcyon",
+  "season": "summer",
+  "scene": "halcyon",
+  "dayLengthSeconds": 140,
+  "carry": false,
+  "verbs": ["walk", "keepsake", "manner", "zoom", "peek"],
+  "newVerb": "keepsake",
+  "overrides": {},
+  "beats": [
+    { "id": "halcyon_start", "trigger": { "at": 0 }, "actions": [{ "ink": "halcyon_intro" }] },
+    {
+      "id": "halcyon_home",
+      "trigger": { "event": "goHome", "who": "wisp" },
+      "actions": [{ "ink": "halcyon_home" }, { "postcard": true }]
+    },
+    {
+      "id": "halcyon_stay",
+      "trigger": { "event": "stay", "who": "wisp" },
+      "actions": [{ "ink": "halcyon_stay" }, { "postcard": true }]
+    },
+    { "id": "halcyon_sent", "trigger": { "postcard": true }, "actions": [{ "ink": "halcyon_sent" }] }
+  ],
+  "reads": [],
+  "writes": ["wispHome"],
+  "variants": [],
+  "exit": { "onBeat": "halcyon_sent" },
+  "feeling": "[PLACEHOLDER] Bittersweet freedom",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Costly signals",
+      "science": "[PLACEHOLDER] A gift that costs the giver something says more than a free one.",
+      "limits": "[PLACEHOLDER] Here a free gift warms by a fifth, and a keepsake by a fixed amount.",
+      "counter": "[PLACEHOLDER] A small free kindness, given often, can still mean a lot.",
+      "question": "[PLACEHOLDER] What did you give up to show you cared?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Wisp can stay",
+      "science": "[PLACEHOLDER] Wisp comes home only if it is warm to you and Kith is warm too.",
+      "limits": "[PLACEHOLDER] Wisp weighs only two numbers, once, at a dusk.",
+      "counter": "[PLACEHOLDER] Some friends come back for reasons no one can see.",
+      "question": "[PLACEHOLDER] Was Kith a place worth coming back to?",
+      "sources": [
+        {
+          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
+    }
+  ]
+}

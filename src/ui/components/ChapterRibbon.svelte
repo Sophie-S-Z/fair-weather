@@ -6,12 +6,14 @@
     $props();
 </script>
 
-<!-- Short marks on screen (a chapter's number, a dot for an interlude); the full name is read out. -->
+<!-- Short marks on screen (a chapter's number, a dot for an interlude, a valley's title); the full name is read out. -->
 <nav class="ribbon" aria-label="Chapters">
   <ol>
     {#each chapters as c, i (i)}
       <li aria-current={i === current ? 'step' : undefined}>
-        <span aria-hidden="true">{c.kind === 'interlude' ? '•' : c.id.replace(/^ch/, '')}</span>
+        <span aria-hidden="true"
+          >{c.kind === 'interlude' ? '•' : c.kind === 'valley' ? c.title : c.id.replace(/^ch/, '')}</span
+        >
         <span class="sr-only">{chapterHeading(c)}</span>
       </li>
     {/each}

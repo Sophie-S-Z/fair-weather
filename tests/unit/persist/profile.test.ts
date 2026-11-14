@@ -106,3 +106,34 @@ test('two profiles on one database keep both pages and both feathers', async () 
     expect(await p.feathers()).toBe(4);
   }
 });
+
+// ADR 0013 item 13: at the journey's end the sixth verse joins the year's page, once.
+test('addVerse adds the sixth verse once', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  const five: MythPage = {
+    narrator: 'pim',
+    verses: ['The Waking', "The Sky's Eye", 'The Bench', 'The Thread', 'The Fire'].map((title) => ({
+      title,
+      text: `${title}.`,
+      note: null,
+    })),
+  };
+  await profile.keepMyth(page('krit'), 1);
+  await profile.keepMyth(five, 1);
+  const sixth = {
+    title: 'The Sky Came Down',
+    text: 'The sky came down once, and walked with us.',
+    note: null,
+  };
+  await profile.addVerse(2, sixth);
+  await profile.addVerse(2, { ...sixth, text: 'A second telling.' });
+  // A year with no page changes nothing.
+  await profile.addVerse(3, sixth);
+  for (const p of [profile, await createProfile(factory)]) {
+    const pages = await p.pages();
+    expect(pages).toHaveLength(2);
+    expect(pages[0]).toEqual({ ...page('krit'), year: 1, seed: 1 });
+    expect(pages[1]?.verses).toEqual([...five.verses, sixth]);
+  }
+});

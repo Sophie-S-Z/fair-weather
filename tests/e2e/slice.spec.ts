@@ -166,7 +166,17 @@ test('the bet card takes focus, keeps it, ignores Escape, and gives it back', as
   await expect(live(page)).toContainText(/Your guess: Pim\. The answer: (Pim|Krit|Echo|Moss|Bell|Wisp)\./, {
     timeout: 90_000,
   });
-  // The answer can end the chapter; it stays a short time into the next one, and then goes.
+  // The answer ends the chapter when Krit took Pim's berries in the bet's week. The arrangement that
+  // brings them together runs on the tick the worker is at when it arrives (ADR 0009 item 1), so on a
+  // page that runs behind the sim it can land too late for that week; then Skip ends the chapter here.
+  // The skip checks the heading in the same task, since the answer may already have ended it.
+  await page.evaluate(() => {
+    if (!document.querySelector('h1')?.textContent.startsWith('Chapter 2')) return;
+    const skip = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Skip chapter');
+    skip?.click();
+  });
+  await expect(page.getByRole('heading', { name: 'Chapter 3' })).toBeVisible();
+  // The answer stays a short time into the next chapter, and then goes.
   await expect(live(page)).not.toContainText('Your guess', { timeout: 15_000 });
 });
 
@@ -438,19 +448,40 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
 });
 
-test('the end screen takes focus, and its button returns to the title', async ({ page }) => {
-  // Chapter 10 is the last in play order (index 15); skipping it ends the year so far.
-  await page.goto('/?chapter=15');
+test('after the bridge, where a hero is chosen, the Fen begins', async ({ page }) => {
+  // The bridge is index 16 in play order.
+  await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
-  await expect(chapter(page, 10)).toBeVisible();
-  await page.getByRole('button', { name: 'Skip chapter' }).click();
-  const endTitle = page.getByRole('heading', { name: 'End of Part 1' });
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
+  const choice = page.getByRole('region', { name: 'Choose your hero' });
+  await expect(choice.getByRole('radio').first()).toBeFocused();
+  await choice.getByRole('button', { name: 'Wake as Lantern-bearer' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+});
+
+test('the end screen tells the sixth verse, takes focus, and its button returns to the title', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // From the bridge (index 16), each skip moves on: the Fen, the Hollow, Halcyon, home, the end.
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const h1 = page.getByRole('heading', { level: 1 });
+  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+    await expect(h1).toHaveText(name);
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+  }
+  const endTitle = page.getByRole('heading', { name: 'The End' });
   await expect(endTitle).toBeFocused();
+  await expect(page.getByRole('heading', { level: 2, name: 'The Sky Came Down' })).toBeVisible();
+  await expect(page.getByText(/^The sky came down once, and walked with us\. /)).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Open the Book of Skies' })).toBeFocused();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test.describe('on a phone', () => {
@@ -526,9 +557,12 @@ async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
   await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
   await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
   const canvas = page.locator('canvas');
-  const a = await canvas.screenshot();
+  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
+  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
+  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
+  const a = await canvas.screenshot({ style });
   await page.waitForTimeout(500);
-  return [a, await canvas.screenshot()];
+  return [a, await canvas.screenshot({ style })];
 }
 
 test.describe('with reduced motion', () => {

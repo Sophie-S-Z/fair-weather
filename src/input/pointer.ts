@@ -1,6 +1,6 @@
 // Pointer play: a click takes the same path as Enter; drags blow and thread; the wheel and a pinch
 // zoom. `pick` is render's hit test, in the current view.
-import { activeTool, EAST, threadTo, useTool, type InputContext } from './keyboard.ts';
+import { activeTool, EAST, HERO, threadTo, useTool, waveAt, type InputContext } from './keyboard.ts';
 import type { Point } from './verbs.ts';
 
 export type PickFn = (x: number, y: number) => { creature: string | null };
@@ -37,12 +37,21 @@ export function createPointer(
   const click = (at: Point, shift: boolean): void => {
     const scene = toScene(at.x, at.y);
     const tool = activeTool(ctx);
-    if (tool === 'place' || tool === 'shine' || tool === 'fog' || tool === 'blow') {
+    if (tool === 'walk') {
+      // A click on a creature waves at it; a click on the ground, or on the hero, walks there.
+      const who = pick(at.x, at.y).creature;
+      if (who !== null && who !== HERO) {
+        ctx.select(who);
+        waveAt(ctx, who);
+        return;
+      }
+      ctx.moveCursor(scene);
+    } else if (tool === 'place' || tool === 'shine' || tool === 'fog' || tool === 'blow') {
       ctx.moveCursor(scene);
     } else {
       ctx.select(pick(at.x, at.y).creature);
-      // A reply goes with its button; a click on the scene only picks.
-      if (tool === 'respond') return;
+      // A reply, a manner, or a keepsake goes with its buttons; a click on the scene only picks.
+      if (tool === 'respond' || tool === 'manner' || tool === 'keepsake') return;
     }
     useTool(ctx, scene, shift, EAST);
   };

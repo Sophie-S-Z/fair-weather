@@ -1,8 +1,15 @@
 // Scripted players for the T3 runs and the year run, by chapter id. Make a new one per run: a
 // player may keep state.
 import sceneJson from '../../content/scenes/kith-meadow.json';
+import fenJson from '../../content/valleys/fen.json';
+import hollowScenario from '../../content/scenarios/hollow.json';
+import hollowJson from '../../content/valleys/hollow.json';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
+import type { ActionLog } from '../../src/story/action-log.ts';
 import { creature } from '../../src/story/bets.ts';
+import { heroResult } from '../../src/story/journey.ts';
+import { chapterTicksPerDay } from '../../src/story/scenario.ts';
+import { tuning } from '../../src/story/tuning.ts';
 import type { ScriptedPlayer } from './run-chapter.ts';
 
 const spot = sceneJson.benchSpots.find((s) => s.id === 'under-crooked-tree');
@@ -12,6 +19,119 @@ const bench = spot;
 /** Answers a bet with its first option; leaves sky bids to the runner's automatic 'away'. */
 export const firstOption: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
   if (p.kind === 'bet' && p.options[0] !== undefined) runner.answerBet(p.options[0]);
+};
+
+/** Sends the first postcard the card lists, as soon as it opens. */
+const firstPostcard: NonNullable<ScriptedPlayer['onPrompt']> = (p, runner) => {
+  if (p.kind === 'postcard' && p.options[0] !== undefined) runner.sendPostcard(p.options[0]);
+};
+
+const fenDay = chapterTicksPerDay(fenJson);
+
+/**
+ * The Fen's player: walks to Tove every 20 ticks and sends the first postcard. With `joins`, it
+ * joins the flock from fen.duskAt of each day and lands at dawn, as the starlings do.
+ */
+export const walksToTove = (joins: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  let joined = false;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner) {
+      if (tick >= next && runner.verb({ verb: 'walk', to: 'tove' })) next = tick + 20;
+      const dusk = tick % fenDay >= tuning.fen.duskAt * fenDay;
+      if (joins && dusk !== joined && runner.verb({ verb: 'join', on: dusk })) joined = dusk;
+    },
+  };
+};
+
+const hollowDay = chapterTicksPerDay(hollowJson);
+// The press is a bench on the square (ADR 0013 item 17); the hero stands at it.
+const square = hollowScenario.structures.find((s) => s.id === 'press');
+if (!square) throw new Error('the hollow scenario has no press');
+
+/**
+ * The Hollow's player: walks to the press on the square and sends the first postcard. With
+ * `poses`, it poses once a day while the drama sky is within light.lensRadius of the hero; without,
+ * it sets the manner toward and give, and never poses.
+ */
+export const walksToSquare = (poses: boolean) => (): ScriptedPlayer => {
+  let walked = false;
+  let mannerSet = poses; // only the control sets the manner
+  let posedOn = -1;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      if (!walked) walked = runner.verb({ verb: 'walk', x: square.x, y: square.y });
+      if (!mannerSet) mannerSet = runner.verb({ verb: 'manner', reply: 'toward', gift: 'give' });
+      const day = Math.floor(tick / hollowDay);
+      const hero = creature(lite, 'hero');
+      const sky = lite.light;
+      if (!poses || day === posedOn || !hero || !sky) return;
+      const r = tuning.light.lensRadius;
+      if ((hero.x - sky.x) ** 2 + (hero.y - sky.y) ** 2 <= r * r && runner.verb({ verb: 'pose' }))
+        posedOn = day;
+    },
+  };
+};
+
+/** How many hero entries of `log`, from index `from` on, name `id`; with `gift`, only the hero's gifts to `id`. */
+function heroMeetings(log: ActionLog, from: number, id: string, gift: boolean): number {
+  let n = 0;
+  for (const e of log.slice(from)) {
+    if (e.kind !== 'hero') continue;
+    if (
+      gift
+        ? e.e.t === 'gift' && e.e.from === 'hero' && e.e.to === id && e.e.move === 'give'
+        : e.e.from === id || e.e.to === id
+    )
+      n += 1;
+  }
+  return n;
+}
+
+const FEATHER = fenJson.valley.keepsake.id;
+
+/**
+ * Halcyon's player: walks to Wisp every 20 ticks and sends the first postcard. With `keepsake`,
+ * once it has given Wisp three gifts, it gives Wisp the Fen's feather while Wisp is within
+ * halcyon.keepsakeRadii meeting radii.
+ */
+export const givesToWisp = (keepsake: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  let gifts = 0;
+  let read = 0;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      if (tick >= next && runner.verb({ verb: 'walk', to: 'wisp' })) next = tick + 20;
+      gifts += heroMeetings(runner.log, read, 'wisp', true);
+      read = runner.log.length;
+      if (!keepsake || gifts < 3 || !lite.hero?.keepsakes.includes(FEATHER)) return;
+      const hero = creature(lite, 'hero');
+      const wisp = creature(lite, 'wisp');
+      const reach = tuning.halcyon.keepsakeRadii * tuning.meet.radius;
+      if (hero && wisp && (hero.x - wisp.x) ** 2 + (hero.y - wisp.y) ** 2 <= reach * reach)
+        runner.verb({ verb: 'keepsake', to: 'wisp', item: FEATHER });
+    },
+  };
+};
+
+/** The homecoming's player: walks to Pim every 20 ticks until they have met, then to the first bench. */
+const walksToPimThenBench = (): ScriptedPlayer => {
+  let next = 0;
+  let met = false;
+  let read = 0;
+  let seated = false;
+  return {
+    onTick(tick, runner) {
+      met ||= heroMeetings(runner.log, read, 'pim', false) > 0;
+      read = runner.log.length;
+      if (!met) {
+        if (tick >= next && runner.verb({ verb: 'walk', to: 'pim' })) next = tick + 20;
+      } else if (!seated) seated = runner.verb({ verb: 'walk', x: bench.x, y: bench.y });
+    },
+  };
 };
 
 /** Finishes the interlude's activity with `result` as soon as the runner takes it. */
@@ -116,4 +236,9 @@ export const PLAYERS = {
     };
   },
   ch10: finishes('heard'),
+  bridge: finishes(heroResult('lantern', 'Test')),
+  fen: walksToTove(true),
+  hollow: walksToSquare(true),
+  halcyon: givesToWisp(true),
+  home: walksToPimThenBench,
 } satisfies Record<string, () => ScriptedPlayer>;

@@ -1,10 +1,11 @@
 // Steering, goal choice, foraging, dew drops, and visit counts (ADR 0005, ADR 0004 item 2,
-// ADR 0003 item 9, ADR 0012 item 5).
+// ADR 0003 item 9, ADR 0012 item 5, ADR 0013 items 1 and 3).
 // Velocity is in world units per second; position advances by velocity / stepsPerSecond per tick.
 import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
+import { aimHero, isHero, stopHero, takeFromGift, topSpeed } from './hero.ts';
 import { inRect, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
@@ -115,6 +116,7 @@ function forage(c: Creature, world: World, tuning: Tuning): void {
   best.berries -= 1;
   c.berries += 1;
   c.forageReadyTick = world.tick + tuning.forage.cooldownTicks;
+  takeFromGift(world, best, c, tuning);
 }
 
 /** True when the mushroom has a drop left today and `c` has not taken one today. */
@@ -145,11 +147,15 @@ function takeDrop(c: Creature, world: World, tuning: Tuning): void {
  * deck on that water nearest it, on its own side. When no deck can help (none on that water, or
  * it already heads for the foot or stands within move.arriveRadius of it), it counts its goal's
  * cell as visited as often as its most visited cell and picks a random least-visited cell, so the
- * refused goal cannot come straight back.
+ * refused goal cannot come straight back. The hero just stops (stopHero).
  */
 function turnFromWater(c: Creature, water: Rect, land: Land, world: World, tuning: Tuning, rng: Rng): void {
   c.vx = 0;
   c.vy = 0;
+  if (isHero(world, c)) {
+    stopHero(world, c);
+    return;
+  }
   const on = land.decks.find((d) => inRect(d, c.x, c.y));
   const deck = on ?? nearestDeckOn(land, water, c.x, c.y);
   if (deck) {
@@ -170,7 +176,7 @@ function turnFromWater(c: Creature, water: Rect, land: Land, world: World, tunin
 
 function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng): void {
   const sps = tuning.sim.stepsPerSecond;
-  const maxSpeed = tuning.move.speed;
+  const maxSpeed = topSpeed(world, c, tuning);
   const maxDv = tuning.move.accel / sps;
   const gx = c.goalX - c.x;
   const gy = c.goalY - c.y;
@@ -214,7 +220,11 @@ function leaveLens(c: Creature, world: World, land: Land, tuning: Tuning): void 
   setGoal(c, x, clamp(light.y + (len > 0 ? (dy / len) * r : 0), 0, tuning.scene.height), world, land, tuning);
 }
 
-/** One movement step for every creature, in array order. Only `wander` creatures move, forage, or take drops. */
+/**
+ * One movement step for every creature, in array order. Only `wander` creatures move, forage, or
+ * take drops. The hero picks no goal of its own and avoids no lens: it heads where the player sent
+ * it (aimHero) and waits once it arrives.
+ */
 export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
   const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
   const land = landOf(world, tuning);
@@ -227,9 +237,13 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     }
     forage(c, world, tuning);
     takeDrop(c, world, tuning);
-    if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, land, tuning, rng);
-    leaveLens(c, world, land, tuning);
-    steer(c, land, world, tuning, rng);
+    if (isHero(world, c)) {
+      if (aimHero(world, c, tuning)) steer(c, land, world, tuning, rng);
+    } else {
+      if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, land, tuning, rng);
+      leaveLens(c, world, land, tuning);
+      steer(c, land, world, tuning, rng);
+    }
     const cell = visitCell(c.x, c.y, tuning);
     c.visits[cell] = (c.visits[cell] ?? 0) + 1;
   }

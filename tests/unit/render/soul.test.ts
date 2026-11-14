@@ -131,3 +131,39 @@ test('soulFrame centers the constellation left of the drawer and above the HUD, 
   expect(frame.y + frame.radius + 12).toBeLessThan(720 - insets.bottom);
   expect(soulFrame(300, 720, { right: 400, bottom: 0 }).radius).toBe(0);
 });
+
+test("Soul on the hero draws its kind's rig, and on a starling the starling's", () => {
+  const aspectOf = (id: string, speciesId: string): number => {
+    const app = fakeApp();
+    const soul = createSoulView(app, palette, rigs, cast, 0.3);
+    const w = lite([[id]], []);
+    soul.update({ ...w, creatures: w.creatures.map((c) => ({ ...c, speciesId })) }, settings, id, none);
+    const b = soul.container.getChildByLabel(id)?.getLocalBounds();
+    return (b?.width ?? 0) / (b?.height ?? 1);
+  };
+  const rigAspect = (id: string): number => {
+    const p = rigs.get(id)?.points ?? [];
+    const span = (axis: number): number => {
+      const v = p.filter((_, i) => i % 2 === axis);
+      return Math.max(...v) - Math.min(...v);
+    };
+    return span(0) / span(1);
+  };
+  expect(Math.abs(aspectOf('hero', 'kite') - rigAspect('kite'))).toBeLessThan(0.05);
+  expect(Math.abs(aspectOf('starling-3', 'starling') - rigAspect('starling'))).toBeLessThan(0.05);
+});
+
+test("Soul redraws the hero's body when the hero's kind changes", () => {
+  const app = fakeApp();
+  const soul = createSoulView(app, palette, rigs, cast, 0.3);
+  const w = lite([['hero']], []);
+  const as = (speciesId: string) => ({ ...w, creatures: w.creatures.map((c) => ({ ...c, speciesId })) });
+  const aspect = (): number => {
+    const b = soul.container.getChildByLabel('hero')?.getLocalBounds();
+    return (b?.width ?? 0) / (b?.height ?? 1);
+  };
+  soul.update(as('kite'), settings, 'hero', none);
+  const kite = aspect();
+  soul.update(as('mosscoat'), settings, 'hero', none);
+  expect(aspect()).toBeGreaterThan(kite + 0.5);
+});

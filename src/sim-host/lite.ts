@@ -1,13 +1,15 @@
 // Builds the world-lite snapshot (ADR 0009 item 4). Copies, so later steps do not change it.
 import type { World } from '../sim/types.ts';
+import { HERO } from '../sim/types.ts';
 import type { Tuning } from '../sim/tuning.ts';
 import type { WorldLite } from './protocol.ts';
 import { holds } from '../sim/daily/gossip.ts';
 import { landOf } from '../sim/land.ts';
 import { fogAt } from '../sim/light.ts';
+import { flies, perceivedShares } from '../sim/packs/fen.ts';
 import { friendPairs } from '../sim/metrics.ts';
 import { byCodeUnit } from '../sim/math.ts';
-import { averageWarmth } from '../sim/world.ts';
+import { averageWarmth, byId } from '../sim/world.ts';
 
 /** The latest rumor and the creatures that hold it (ADR 0012 item 2). */
 function lastRumor(w: World, tuning: Tuning): WorldLite['rumor'] {
@@ -36,11 +38,37 @@ function fogCells(w: World, tuning: Tuning): Float32Array {
   return cells;
 }
 
+/** The hero, with each other creature's opinion of it where it has one (ADR 0013 item 8). */
+function heroLite(w: World): WorldLite['hero'] {
+  const hero = byId(w, HERO);
+  if (!w.hero || !hero) return null;
+  const opinions: Record<string, number> = {};
+  for (const c of w.creatures) {
+    const v = c.opinions[HERO];
+    if (v !== undefined) opinions[c.id] = v;
+  }
+  const { kind, reply, gift, keepsakes } = w.hero;
+  return { kind, name: hero.name, reply, gift, keepsakes: [...keepsakes], opinions };
+}
+
+/**
+ * The Fen's flock, the Hollow's fame, or Wisp's choice in Halcyon as the snapshot shows it (ADR
+ * 0013 items 5 to 7); null without a pack.
+ */
+function packLite(w: World, tuning: Tuning): WorldLite['pack'] {
+  if (!w.pack) return null;
+  if (w.pack.id === 'hollow') return { id: 'hollow', fame: { ...w.pack.fame }, front: w.pack.front };
+  if (w.pack.id === 'halcyon') return { id: 'halcyon', chose: w.pack.chose };
+  const flying = w.creatures.filter((c) => c.state !== 'away' && flies(w, c)).map((c) => c.id);
+  return { id: 'fen', flying, perceived: perceivedShares(w, tuning) };
+}
+
 export function toLite(w: World, tuning: Tuning): WorldLite {
   const land = landOf(w, tuning);
   return {
     creatures: w.creatures.map((c) => ({
       id: c.id,
+      speciesId: c.speciesId,
       x: c.x,
       y: c.y,
       state: c.state,
@@ -55,10 +83,12 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       .sort(([x], [y]) => byCodeUnit(x, y))
       .map(([, tie]) => ({ a: tie.a, b: tie.b, ab: tie.ab.warmth, ba: tie.ba.warmth })),
     rumor: lastRumor(w, tuning),
+    hero: heroLite(w),
+    pack: packLite(w, tuning),
     light: w.fields.light ? { ...w.fields.light } : null,
     fog: { w: w.fields.fogW, h: w.fields.fogH, cells: fogCells(w, tuning) },
     structures: w.structures.map((s) => ({ ...s })),
-    bushes: w.bushes.map((b) => ({ ...b })),
+    bushes: w.bushes.map((b) => ({ id: b.id, x: b.x, y: b.y, berries: b.berries })),
     water: (w.water ?? []).map((r) => ({ ...r })),
     banks: land.banks.map((r) => ({ ...r })),
     decks: land.decks.map((d) => ({ ...d })),

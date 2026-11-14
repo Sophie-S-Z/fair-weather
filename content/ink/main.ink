@@ -13,7 +13,13 @@ VAR winterLeft = 0
 VAR bellDanced = true
 VAR festivalShare = 0.6
 VAR greetingSong = 0
+VAR toveFlew = true
+VAR heroFamous = false
+VAR wispHome = false
+VAR kithHeld = true
 VAR pim_sky_warmth = 0
+VAR hero_softness = 0
+VAR hero_tightness = 0
 
 INCLUDE ch0.ink
 INCLUDE ch1.ink
@@ -31,3 +37,8 @@ INCLUDE ch8.ink
 INCLUDE i8.ink
 INCLUDE ch9.ink
 INCLUDE ch10.ink
+INCLUDE bridge.ink
+INCLUDE fen.ink
+INCLUDE hollow.ink
+INCLUDE halcyon.ink
+INCLUDE home.ink

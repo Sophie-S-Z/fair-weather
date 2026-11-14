@@ -2,7 +2,6 @@
 // The chapter runner drives the sim through a direct SimPort; `advance` steps one tick at a time as
 // fast as possible, so the run is deterministic and needs no clock.
 import tuningJson from '../../content/tuning.json';
-import scenarioJson from '../../content/scenarios/m0.json';
 import inkStory from '../../content/ink/main.ink';
 import type { FromWorker, SimPort, WorldLite } from '../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
@@ -15,7 +14,19 @@ import type { ChapterRunner, Prompt } from '../../src/story/chapter-runner.ts';
 import type { Flags } from '../../src/story/flags.ts';
 import { createInk } from '../../src/story/ink.ts';
 import { buildScenario, chapterTicksPerDay } from '../../src/story/scenario.ts';
+import type { JourneyStart } from '../../src/story/scenario.ts';
 import type { Chapter } from '../../src/story/schema.ts';
+
+const scenarioFiles = import.meta.glob<Scenario>('../../content/scenarios/*.json', {
+  eager: true,
+  import: 'default',
+});
+/** The base scenario a config names: content/scenarios/<config.scenario>.json. */
+function baseScenario(config: Chapter): Scenario {
+  const s = scenarioFiles[`../../content/scenarios/${config.scenario}.json`];
+  if (!s) throw new Error(`${config.id} names scenario ${config.scenario}, which has no file`);
+  return s;
+}
 
 /** A player that makes the obvious choices. Make a new one per run: it may keep state. */
 export interface ScriptedPlayer {
@@ -45,9 +56,9 @@ const MAX_TICKS = 100_000;
 const NO_CLOCK = { now: () => 0, every: () => () => undefined };
 
 /**
- * Plays `config` to its exit, from `carry` when given (as main.ts starts a carried chapter). With
- * `stopAfterTicks`, a run still going after that many ticks stops there and reports the twist as
- * not fired, with 0 retries and no close call.
+ * Plays `config` to its exit, from `carry` when given (as main.ts starts a carried chapter), and
+ * for a valley from `journey`. With `stopAfterTicks`, a run still going after that many ticks
+ * stops there and reports the twist as not fired, with 0 retries and no close call.
  */
 export async function runChapterHeadless(
   config: Chapter,
@@ -56,6 +67,7 @@ export async function runChapterHeadless(
   flags: Flags,
   stopAfterTicks?: number,
   carry?: Carry,
+  journey?: JourneyStart,
 ): Promise<HeadlessResult> {
   const listeners = new Set<(m: FromWorker) => void>();
   // Set from callbacks, so an object: a plain `let` would look constant to the loop below.
@@ -68,8 +80,8 @@ export async function runChapterHeadless(
     }
     for (const cb of [...listeners]) cb(m);
   }, NO_CLOCK);
-  const base = scenarioJson as Scenario;
-  core({ t: 'init', seed, tuning: tuningJson, scenario: buildScenario(config, flags, base, carry) });
+  const base = baseScenario(config);
+  core({ t: 'init', seed, tuning: tuningJson, scenario: buildScenario(config, flags, base, carry, journey) });
   const port: SimPort = {
     send: (list) => {
       core({ t: 'commands', list });
@@ -132,15 +144,18 @@ function snapshot(lite: WorldLite | null): WorldLite {
 }
 
 /**
- * The control form of ch3-control.test.ts: `config` from `carry`, with its twist window opened at
- * tick 1 instead of on a verb, played by `player` (made anew per seed) through that first window
- * only, since retries are a separate honest mechanism. Returns how many of the 200 seeds fired.
+ * The control form of ch3-control.test.ts: `config` from `carry` (and for a valley from
+ * `journey`), with its twist window opened at tick 1 instead of on a verb, played by `player`
+ * (made anew per seed) through that first window only, since retries are a separate honest
+ * mechanism. Returns how many of `seeds` (1 to 200 by default) fired.
  */
 export async function controlFired(
   config: Chapter,
   player: () => ScriptedPlayer,
   flags: Flags,
-  carry: Carry,
+  carry: Carry | undefined,
+  journey?: JourneyStart,
+  seeds: readonly number[] = SEEDS,
 ): Promise<number> {
   const twist = config.twist;
   if (!twist) throw new Error(`${config.id} has no twist`);
@@ -151,8 +166,9 @@ export async function controlFired(
   // The window opens on the snapshot of tick 1 and its last check is at tick 1 + withinDays days.
   const firstWindow = 1 + twist.withinDays * chapterTicksPerDay(config);
   let fired = 0;
-  for (const seed of SEEDS)
-    if ((await runChapterHeadless(control, seed, player(), flags, firstWindow, carry)).twistFired) fired += 1;
+  for (const seed of seeds)
+    if ((await runChapterHeadless(control, seed, player(), flags, firstWindow, carry, journey)).twistFired)
+      fired += 1;
   return fired;
 }
 

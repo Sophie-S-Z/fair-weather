@@ -2,7 +2,8 @@
   import { tick } from 'svelte';
   import type { Dials } from '../../sim/types.ts';
   import type { peekRule } from '../../story/peek.ts';
-  import type { Note } from '../../story/schema.ts';
+  import type { Note as NoteData } from '../../story/schema.ts';
+  import Note from './Note.svelte';
 
   type Section = 'diary' | 'peek' | 'notes';
 
@@ -12,8 +13,9 @@
     openAt,
     open = $bindable(false),
     onBook,
+    onJournal,
   }: {
-    notes: readonly Note[];
+    notes: readonly NoteData[];
     /** The picked creature's page, with display names; `peek` is null while peek is locked. */
     diary: {
       name: string;
@@ -34,6 +36,8 @@
     open?: boolean;
     /** Opens the Book of Skies; the button shows only when this is given. */
     onBook?: (() => void) | undefined;
+    /** Opens the travel journal; the button shows only when this is given (Part 2). */
+    onJournal?: (() => void) | undefined;
   } = $props();
 
   const DIALS: readonly [keyof Dials, string][] = [
@@ -151,20 +155,12 @@
         <h2 id="notes-title">Margin notes</h2>
         <!-- By index: two notes may share a title, and a note may list a source twice. -->
         {#each notes as note, i (i)}
-          <article>
-            <h3>{note.title}</h3>
-            <p>{note.science}</p>
-            <p><strong>Limits:</strong> {note.limits}</p>
-            <p><strong>Counter-view:</strong> {note.counter}</p>
-            <p><strong>Open question:</strong> {note.question}</p>
-            <ul aria-label="Sources">
-              {#each note.sources as source, j (j)}
-                <li><a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>
-              {/each}
-            </ul>
-          </article>
+          <Note {note} />
         {/each}
       </section>
+      {#if onJournal}
+        <button type="button" onclick={onJournal}>Travel journal</button>
+      {/if}
       {#if onBook}
         <button type="button" onclick={onBook}>Book of Skies</button>
       {/if}
@@ -203,9 +199,6 @@
   h3 {
     margin-bottom: 0.25rem;
     font-size: 1rem;
-  }
-  a {
-    color: inherit;
   }
   ul,
   ol {

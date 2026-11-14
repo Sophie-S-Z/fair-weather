@@ -3,6 +3,8 @@
 // under them, so a body never reaches the water.
 import { expect, test } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
+import halcyonSceneJson from '../../../content/scenes/halcyon.json';
+import halcyonScenario from '../../../content/scenarios/halcyon.json';
 import { HIGH_CONTRAST_WIDTH } from '../../../src/render/ink.ts';
 import { BOIL_AMPLITUDE, BRISTLE_AMPLITUDE } from '../../../src/render/line/deform.ts';
 import { INK_WIDTH } from '../../../src/render/line/line-view.ts';
@@ -15,10 +17,13 @@ import {
   SWAY_ANGLE,
   VILLAGER_RIG,
 } from '../../../src/render/meadow-view.ts';
+import { depthAt, SceneSchema } from '../../../src/render/scene.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
+import { HERO_KINDS } from '../../../src/sim/types.ts';
 import { cast, rigs } from './content-fixture.ts';
 
 const tuning = parseTuning(tuningJson);
+const halcyonScene = SceneSchema.parse(halcyonSceneJson);
 
 /**
  * How far a body drawn with its feet at the origin reaches, in scene units, at its widest: no
@@ -50,8 +55,10 @@ function reach(id: string): { side: number; up: number; down: number } {
   };
 }
 
-// The Quiet Visitor walks by the same bank (meadow-view.ts overWater), so its rig is checked too.
-const ids = [...new Set([VILLAGER_RIG, 'visitor', ...cast.keys()])];
+// The Quiet Visitor walks by the same bank (meadow-view.ts overWater), so its rig is checked too,
+// and so is each hero's, which walks by Halcyon's mirror sea (ADR 0013 item 18), and the frogs' of
+// Hearsay Hollow, which a valley with water may hold.
+const ids = [...new Set([VILLAGER_RIG, 'visitor', ...cast.keys(), ...HERO_KINDS, 'frog'])];
 
 test.each(ids)('%s, drawn at its widest, stays inside the bank', (id) => {
   const r = reach(id);
@@ -66,4 +73,10 @@ test('the bank is no wider than the widest body needs, to the unit', () => {
   const need = ids.map(reach);
   expect(tuning.bank.side).toBe(Math.ceil(Math.max(...need.map((r) => Math.max(r.side, r.down)))));
   expect(tuning.bank.below).toBe(Math.ceil(Math.max(...need.map((r) => r.up))));
+});
+
+test("no body beside a valley's water is drawn larger than the bank holds: depth there is at most 1", () => {
+  // Bodies are sized to their depth (scene.ts depthAt); the bank above holds bodies at size 1.
+  // Halcyon's mirror sea is the only valley water so far.
+  for (const w of halcyonScenario.water) expect(depthAt(halcyonScene, w.y)).toBeLessThanOrEqual(1);
 });

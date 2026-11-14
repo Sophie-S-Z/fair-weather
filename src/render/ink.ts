@@ -30,3 +30,23 @@ export function dashedLine(
   }
   return g;
 }
+
+/** A smooth line through flat x, y pairs: quadratic curves through the segment midpoints. */
+export function smoothLine(g: Graphics, p: readonly number[]): Graphics {
+  const at = (i: number): number => p[i] ?? 0;
+  g.moveTo(at(0), at(1));
+  for (let k = 2; k + 3 < p.length; k += 2) {
+    g.quadraticCurveTo(at(k), at(k + 1), (at(k) + at(k + 2)) / 2, (at(k + 1) + at(k + 3)) / 2);
+  }
+  return g.lineTo(at(p.length - 2), at(p.length - 1));
+}
+
+/** A closed smooth shape through flat x, y pairs: quadratic curves through the segment midpoints. */
+export function smoothClosed(g: Graphics, p: readonly number[]): Graphics {
+  const n = p.length / 2;
+  const x = (i: number): number => p[(i % n) * 2] ?? 0;
+  const y = (i: number): number => p[(i % n) * 2 + 1] ?? 0;
+  g.moveTo((x(0) + x(1)) / 2, (y(0) + y(1)) / 2);
+  for (let i = 1; i <= n; i++) g.quadraticCurveTo(x(i), y(i), (x(i) + x(i + 1)) / 2, (y(i) + y(i + 1)) / 2);
+  return g.closePath();
+}

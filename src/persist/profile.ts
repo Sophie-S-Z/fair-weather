@@ -16,12 +16,19 @@ export interface Profile {
   /** The pages in the order they were kept. */
   pages(): Promise<BookPage[]>;
   keepMyth(page: MythPage, seed: number): Promise<BookPage>;
+  /**
+   * Adds the sixth verse (ADR 0013 item 13) to the page of `year`, once: a page with six verses is
+   * left alone, and a year with no page changes nothing.
+   */
+  addVerse(year: number, verse: MythPage['verses'][number]): Promise<void>;
   feathers(): Promise<number>;
   /** Counts one more feather and returns the new count. */
   addFeather(): Promise<number>;
 }
 
 const KEY = 'profile';
+/** A page holds the five Part 1 verses, then the sixth. */
+const SIXTH = 6;
 
 const ProfileSchema = z.object({
   pages: z.array(
@@ -105,6 +112,12 @@ export async function createProfile(
       const kept = d.pages.at(-1);
       if (!kept) throw new Error('the page was not kept');
       return kept;
+    },
+    async addVerse(year, verse) {
+      await write((d) => {
+        const page = d.pages.find((p) => p.year === year);
+        if (page && page.verses.length < SIXTH) page.verses.push({ ...verse });
+      });
     },
     feathers: async () => (await read()).feathers,
     async addFeather() {

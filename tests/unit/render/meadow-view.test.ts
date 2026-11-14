@@ -5,18 +5,32 @@ import tuningJson from '../../../content/tuning.json';
 import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
 import meadowJson from '../../../content/scenes/kith-meadow.json';
+import fenSceneJson from '../../../content/scenes/fen.json';
+import hollowSceneJson from '../../../content/scenes/hollow.json';
+import halcyonSceneJson from '../../../content/scenes/halcyon.json';
+import fenPaletteJson from '../../../content/palettes/fen.json';
+import hollowPaletteJson from '../../../content/palettes/hollow.json';
+import halcyonPaletteJson from '../../../content/palettes/halcyon.json';
+import fenJson from '../../../content/scenarios/fen.json';
+import hollowJson from '../../../content/scenarios/hollow.json';
+import halcyonJson from '../../../content/scenarios/halcyon.json';
+import { FAR_ALPHA } from '../../../src/render/ink.ts';
 import { bodyColor } from '../../../src/render/line/fill.ts';
 import type { Rig } from '../../../src/render/line/rig.ts';
 import {
   bodyHeight,
   createMeadowView,
   dewColor,
+  placeOf,
   rigArea,
+  SHADOW_HEIGHT,
   VISITOR_SIT_SECONDS,
   VISITOR_SPEED,
 } from '../../../src/render/meadow-view.ts';
 import { PaletteSchema } from '../../../src/render/palette.ts';
-import { SceneSchema } from '../../../src/render/scene.ts';
+import { depthAt, SceneSchema } from '../../../src/render/scene.ts';
+import { PERCHED_HEIGHT } from '../../../src/render/starling.ts';
+import { groundLane, skyOf } from '../../../src/render/valley.ts';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import type { WorldLite } from '../../../src/sim-host/protocol.ts';
@@ -26,11 +40,15 @@ import { ChapterSchema } from '../../../src/story/schema.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { createWorld } from '../../../src/sim/world.ts';
-import { SEASONS } from '../../../src/sim/types.ts';
+import { HERO_KINDS, SEASONS } from '../../../src/sim/types.ts';
+import { KITH_VALLEYS } from '../../../src/story/journey.ts';
 import type { Settings } from '../../../src/ui/settings.ts';
 import { rigs, cast } from './content-fixture.ts';
 
 const scene = SceneSchema.parse(meadowJson);
+const fenScene = SceneSchema.parse(fenSceneJson);
+const hollowScene = SceneSchema.parse(hollowSceneJson);
+const halcyonScene = SceneSchema.parse(halcyonSceneJson);
 const palette = PaletteSchema.parse(springJson);
 const autumn = PaletteSchema.parse(autumnJson);
 const tuning = parseTuning(tuningJson);
@@ -61,6 +79,7 @@ const snapshot = (
 ): WorldLite => ({
   creatures: creatures.map(([id, x, y, state = 'wander']) => ({
     id,
+    speciesId: 'kith',
     x,
     y,
     state,
@@ -83,6 +102,8 @@ const snapshot = (
   bushes: [],
   ties: [],
   rumor: null,
+  hero: null,
+  pack: null,
 });
 
 /** A stand-in for a Pixi Application: the view reads only the stage, screen, and ticker. */
@@ -109,18 +130,83 @@ function bodyFillOf(app: Application, id: string): number {
 }
 
 test('the content parses and matches the tuning', () => {
-  expect([scene.width, scene.height]).toEqual([tuningJson.scene.width, tuningJson.scene.height]);
+  for (const s of [scene, fenScene, hollowScene, halcyonScene])
+    expect([s.width, s.height]).toEqual([tuningJson.scene.width, tuningJson.scene.height]);
   expect(scene.cameras['crooked-tree']).toBeDefined();
   expect(scene.cameras['pim-close']).toEqual({ follow: 'pim', zoom: expect.any(Number) as number });
   expect(scene.trees.some((t) => t.id === 'crooked-tree')).toBe(true);
 });
 
-test('every season has a palette', () => {
+test('every season and every valley of Part 2 has a palette', () => {
   const files = readdirSync('content/palettes').filter((f) => f.endsWith('.json'));
   const ids = files.map(
     (f) => PaletteSchema.parse(JSON.parse(readFileSync(`content/palettes/${f}`, 'utf8'))).id,
   );
-  expect(ids.sort()).toEqual([...SEASONS].sort());
+  expect(ids.sort()).toEqual([...SEASONS, ...KITH_VALLEYS].sort());
+});
+
+/** WCAG relative luminance of a 0xrrggbb color. */
+function luminance(c: number): number {
+  const [r, g, b] = [16, 8, 0].map((sh) => {
+    const v = ((c >> sh) & 0xff) / 255;
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
+}
+const contrast = (a: number, b: number): number => {
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+
+test("each valley's accent (spec 7.3) stands apart from the paper and the page in lightness", () => {
+  // Rose, hot yellow, soft white-gold: lightness survives every kind of color blindness, hue does not.
+  for (const json of [fenPaletteJson, hollowPaletteJson, halcyonPaletteJson]) {
+    const p = PaletteSchema.parse(json);
+    expect(contrast(p.accent, p.paper)).toBeGreaterThanOrEqual(2);
+    expect(contrast(p.accent, p.background)).toBeGreaterThanOrEqual(1.8);
+  }
+});
+
+test("the Fen's starlings stand apart from its sky, its land, and its reeds in lightness", () => {
+  // Dark birds on a lighter sky and ground read without hue, for every kind of color blindness.
+  const p = PaletteSchema.parse(fenPaletteJson);
+  const body = p.plumage?.body ?? 0;
+  const sky = skyOf(p);
+  for (const c of [sky.top, sky.horizon, p.land ?? p.background, p.ground?.far ?? 0, p.ground?.near ?? 0])
+    expect(contrast(body, c)).toBeGreaterThanOrEqual(3);
+  expect(contrast(body, p.reeds?.back ?? 0)).toBeGreaterThanOrEqual(2);
+});
+
+test("each valley's ground is paler and cooler far off and warmer near, and ink reads on all of it", () => {
+  const channel = (c: number, shift: number): number => (c >> shift) & 0xff;
+  /** Red over blue: how warm a color is. */
+  const warmth = (c: number): number => channel(c, 16) - channel(c, 0);
+  for (const json of [fenPaletteJson, hollowPaletteJson, halcyonPaletteJson]) {
+    const p = PaletteSchema.parse(json);
+    const { far, near } = p.ground ?? { far: 0, near: 0 };
+    // Paler: the far ground stands further from ink than the near ground does.
+    expect(contrast(p.ink, far)).toBeGreaterThan(contrast(p.ink, near));
+    expect(warmth(near)).toBeGreaterThan(warmth(far));
+    // Creature outlines are ink, and must read on the nearest, darkest ground.
+    for (const c of [far, p.land ?? 0, near]) expect(contrast(p.ink, c)).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+test("each valley's scene stands its bench spots on clear ground, off the water and its bank", () => {
+  const scenes = [
+    [fenScene, fenJson],
+    [hollowScene, hollowJson],
+    [halcyonScene, halcyonJson],
+  ] as const;
+  for (const [s, scenario] of scenes) {
+    const banks = ('water' in scenario ? scenario.water : []).map((w) => withBank(w, tuning));
+    for (const spot of s.benchSpots) {
+      expect(
+        banks.some((b) => spot.x >= b.x && spot.x <= b.x + b.w && spot.y >= b.y && spot.y <= b.y + b.h),
+      ).toBe(false);
+    }
+    expect(s.benchSpots.length).toBeGreaterThan(0);
+  }
 });
 
 test('pick returns the nearest creature within the hit radius and null elsewhere', () => {
@@ -194,6 +280,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
     creatures: [
       {
         id: 'pim',
+        speciesId: 'kith',
         x: 300,
         y: 400,
         state: 'wander',
@@ -206,6 +293,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
       },
       {
         id: 'krit',
+        speciesId: 'kith',
         x: 600,
         y: 400,
         state: 'wander',
@@ -218,6 +306,7 @@ test('only the focus creature wears the accent; the rest show shell color as a m
       },
       {
         id: 'villager-1',
+        speciesId: 'kith',
         x: 900,
         y: 400,
         state: 'wander',
@@ -683,6 +772,27 @@ test('the Quiet Visitor walks from the gate to the nearest bench, sits 20 s with
   expect([gone, visitor.visible, feather.visible]).toEqual([true, false, false]);
 });
 
+test("in a valley the visitor's seat lift and its feather are sized to the bench's depth", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
+  const world: WorldLite = {
+    ...snapshot([]),
+    structures: [{ id: 'b1', kind: 'bench', x: 600, y: 300 }],
+  };
+  void view.visitor();
+  // Reduced motion shows it seated at once.
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const d = depthAt(halcyonScene, 300);
+  expect(d).toBeLessThan(0.9);
+  const visitor = creatureIn(app, 'visitor');
+  expect(visitor.x).toBe(600);
+  expect(visitor.y).toBeCloseTo(300 - 10 * d);
+  const feather = graphicsIn(app, 'feather');
+  expect(feather.scale.x).toBeCloseTo(d);
+  expect(feather.position.x).toBeCloseTo(600 + 30 * d);
+  view.endVisit();
+});
+
 test('a stalled page does not skip the visit: one late frame moves it on a quarter second at most', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, scene, rigs, palette, options);
@@ -809,4 +919,534 @@ test('the Meadow with no creatures, then one, draws and picks only that one', ()
   }).not.toThrow();
   expect(view.pick(400 * 0.5, (400 - heightOf('pim') / 2) * 0.5)).toBe('pim');
   expect(view.pick(10, 10)).toBeNull();
+});
+
+const fenPalette = PaletteSchema.parse(fenPaletteJson);
+const hollowPalette = PaletteSchema.parse(hollowPaletteJson);
+const halcyonPalette = PaletteSchema.parse(halcyonPaletteJson);
+
+test('setScene redraws the ground and trees from the new scene, and the visitor sits at its bench spots', async () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world = { ...snapshot([]), structures: [] };
+  view.update(world, world, 1, settings);
+  expect(app.stage.getChildByLabel('crooked-tree', true)).not.toBeNull();
+  const meadowGround = graphicsIn(app, 'ground').context.instructions.length;
+
+  view.setScene(halcyonScene);
+  view.update(world, world, 1, settings);
+  expect(app.stage.getChildByLabel('crooked-tree', true)).toBeNull();
+  for (const t of halcyonScene.trees) expect(app.stage.getChildByLabel(t.id, true)).not.toBeNull();
+  expect(graphicsIn(app, 'ground').context.instructions.length).not.toBe(meadowGround);
+
+  // With no bench, the visitor sits at the new scene's bench spot nearest the gate, reduced motion.
+  let gone = false;
+  void view.visitor().then(() => (gone = true));
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const nearest = [...halcyonScene.benchSpots].sort(
+    (a, b) =>
+      Math.hypot(a.x - options.gate.x, a.y - options.gate.y) -
+      Math.hypot(b.x - options.gate.x, b.y - options.gate.y),
+  )[0];
+  const visitor = creatureIn(app, 'visitor');
+  expect([visitor.x, visitor.y]).toEqual([nearest?.x, nearest?.y]);
+  view.endVisit();
+  await Promise.resolve();
+  expect(gone).toBe(true);
+});
+
+test('the Fen draws its reed beds and pools, and the Hollow its lanes and square, on the ground', () => {
+  const strokes = (s: typeof scene): number => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, palette, options);
+    const world = snapshot([]);
+    view.update(world, world, 1, settings);
+    return graphicsIn(app, 'ground').context.instructions.length;
+  };
+  expect(strokes(fenScene)).toBeGreaterThan(strokes({ ...fenScene, beds: [] }));
+  expect(strokes(fenScene)).toBeGreaterThan(strokes({ ...fenScene, pools: [] }));
+  expect(strokes(hollowScene)).toBeGreaterThan(strokes({ ...hollowScene, lanes: [], squares: [] }));
+});
+
+test("the Hollow's lanes lie flat on the ground: wider toward the foot, never pinched, and paved without outlines", () => {
+  // Along each lane, its width across grows steadily with y: narrow near the horizon, wide near.
+  const widest: number[] = [];
+  for (const points of hollowScene.lanes) {
+    const lane = groundLane(hollowScene, points);
+    const samples = Array.from({ length: 41 }, (_, i) => {
+      const s = (lane.length * i) / 40;
+      const [[ax, ay], [bx, by]] = [lane.at(s, -1), lane.at(s, 1)];
+      return { y: lane.at(s, 0)[1], width: Math.hypot(bx - ax, by - ay) };
+    }).sort((p, q) => p.y - q.y);
+    for (let i = 1; i < samples.length; i++)
+      expect(samples[i]?.width ?? 0).toBeGreaterThanOrEqual((samples[i - 1]?.width ?? 0) - 1e-6);
+    const [far, near] = [samples[0], samples.at(-1)];
+    expect(near?.width ?? 0).toBeGreaterThan(1.5 * (far?.width ?? 0));
+    widest.push(near?.width ?? 0);
+  }
+  // The south lane runs off the foot of the scene at its widest.
+  const south = groundLane(hollowScene, hollowScene.lanes[2] ?? []);
+  expect(south.at(south.length, 0)[1]).toBeCloseTo(hollowScene.height, 6);
+  expect(widest[2]).toBe(Math.max(...widest));
+
+  // The paving is stones, mortar, and a soft verge: many fills, and not one stroke (no ink tube).
+  const ground = (s: typeof hollowScene): Graphics => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, hollowPalette, options);
+    const world: WorldLite = { ...snapshot([]), structures: [] };
+    view.update(world, world, 1, settings);
+    return graphicsIn(app, 'ground');
+  };
+  const bare = { ...hollowScene, lanes: [], squares: [] };
+  const count = (g: Graphics, action: 'fill' | 'stroke'): number =>
+    g.context.instructions.filter((i) => i.action === action).length;
+  expect(count(ground(hollowScene), 'stroke')).toBe(count(ground(bare), 'stroke'));
+  expect(count(ground(hollowScene), 'fill') - count(ground(bare), 'fill')).toBeGreaterThan(300);
+});
+
+test("a reed bed's front stems stand in the shared layer, before the birds in it and behind a nearer body", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const bed = fenScene.beds[0];
+  if (!bed) throw new Error('no bed');
+  // One bird in the middle of the bed, and Tove well in front of it.
+  const base = fen(1);
+  const world: WorldLite = {
+    ...base,
+    creatures: base.creatures.map((c) =>
+      c.id === 'starling-1'
+        ? { ...c, x: bed.x, y: bed.y }
+        : c.id === 'tove'
+          ? { ...c, x: bed.x, y: bed.y + 200 }
+          : c,
+    ),
+  };
+  view.update(world, world, 1, settings);
+  const front = graphicsIn(app, 'reeds-0');
+  const tove = creatureIn(app, 'tove');
+  expect(front.parent).toBe(tove.parent);
+  expect(front.context.instructions.length).toBeGreaterThan(0);
+  // The flock lies under the shared layer, so the bed's front stems cover its birds.
+  const flock = graphicsIn(app, 'flock');
+  expect(flock.parent?.getChildIndex(flock)).toBeLessThan(
+    flock.parent?.getChildIndex(front.parent as Container) ?? -1,
+  );
+  expect(front.zIndex).toBeGreaterThan(bed.y);
+  expect(front.zIndex).toBeLessThan(tove.zIndex);
+});
+
+/** A Fen snapshot: `n` starlings in a bed at (600, 500), Tove, and the hero; `flying` ids fly. */
+function fen(n: number, flying: string[] = [], perceived: Record<string, number> = {}): WorldLite {
+  const birds = Array.from({ length: n }, (_, i): [string, number, number] => [
+    `starling-${String(i + 1)}`,
+    560 + (i % 8) * 10,
+    480 + Math.floor(i / 8) * 10,
+  ]);
+  const base = snapshot([...birds, ['tove', 520, 520], ['hero', 480, 520]]);
+  return {
+    ...base,
+    structures: [],
+    creatures: base.creatures.map((c) => ({
+      ...c,
+      speciesId: c.id === 'hero' ? 'lantern' : 'starling',
+    })),
+    pack: { id: 'fen', flying, perceived },
+  };
+}
+
+test('40 starlings without rigs of their own are birds in one Graphics: at most 2 more display objects', () => {
+  const count = (world: WorldLite): number => {
+    const app = fakeApp(800, 450);
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    return objectCount(app.stage);
+  };
+  expect(count(fen(40))).toBeLessThanOrEqual(count(fen(0)) + 2);
+  const app = fakeApp(800, 450);
+  createMeadowView(app, fenScene, rigs, fenPalette, options).update(fen(40), fen(40), 1, settings);
+  expect(app.stage.getChildByLabel('starling-1', true)).toBeNull();
+  // Tove has a rig of her own, so she is drawn as a body.
+  expect(creatureIn(app, 'tove').visible).toBe(true);
+});
+
+test('a grounded starling lower on screen than Tove and over her draws in front of her; one behind stays behind', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const base = fen(2);
+  // Each bird's spot before its fan, so starling-1 is drawn 10 units in front of Tove's feet
+  // (520, 520) and starling-2 10 units behind them, both over her.
+  const spot = (id: string, x: number, y: number): [number, number] => {
+    const [across, high] = placeOf(id);
+    return [x - 80 * (across - 0.5), y - 44 * (high - 0.5)];
+  };
+  const [x1, y1] = spot('starling-1', 520, 530);
+  const [x2, y2] = spot('starling-2', 520, 510);
+  const world: WorldLite = {
+    ...base,
+    creatures: base.creatures.map((c) =>
+      c.id === 'starling-1'
+        ? { ...c, x: x1, y: y1 }
+        : c.id === 'starling-2'
+          ? { ...c, x: x2, y: y2 }
+          : c.id === 'hero'
+            ? { ...c, x: 1200, y: 700 }
+            : c,
+    ),
+  };
+  view.update(world, world, 1, settings);
+  const tove = creatureIn(app, 'tove');
+  const near = graphicsIn(app, 'flock-near');
+  expect(near.parent).toBe(tove.parent);
+  expect(near.zIndex).toBeGreaterThan(tove.zIndex);
+  const [nearBody] = fillsOf(near).filter((f) => f.color === plumage());
+  expect(nearBody?.maxY).toBeLessThan(530);
+  expect(nearBody?.maxY).toBeGreaterThan(520);
+  // The farther bird stays in the flock, under the shared layer, so Tove hides it.
+  const far = flockFills(app, plumage());
+  expect(far).toHaveLength(1);
+  expect(far[0]?.maxY).toBeLessThan(510);
+});
+
+test('flying starlings are drawn in the sky band and drift slowly, even with reduced motion', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const ids = Array.from({ length: 40 }, (_, i) => `starling-${String(i + 1)}`);
+  const world = fen(40, ids);
+  const still = { ...settings, reducedMotion: true };
+  view.update(world, world, 1, still);
+  const flock = graphicsIn(app, 'flock');
+  const { minX, minY, maxY } = flock.getLocalBounds();
+  const [top, bottom] = fenScene.sky;
+  expect(minY).toBeGreaterThanOrEqual(top - 10);
+  expect(maxY).toBeLessThanOrEqual(bottom + 10);
+  (app.ticker as { lastTime: number }).lastTime = 3000;
+  view.update(world, world, 1, still);
+  const after = graphicsIn(app, 'flock').getLocalBounds().minX;
+  expect(after).not.toBe(minX);
+  // Slow: three seconds move the flock a few units, not across the sky.
+  expect(Math.abs(after - minX)).toBeLessThan(20);
+});
+
+/** The fills of the flock in the given color. */
+const flockFills = (app: Application, color: number) =>
+  fillsOf(graphicsIn(app, 'flock')).filter((f) => f.color === color);
+const plumage = (): number => fenPalette.plumage?.body ?? -1;
+
+test('a grounded starling is a small bird seen from the side, in its dark plumage, standing at its feet', () => {
+  const app = fakeApp(800, 450);
+  const world = fen(1);
+  createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+  const [body] = flockFills(app, plumage());
+  if (!body) throw new Error('no bird body');
+  const [across, high] = placeOf('starling-1');
+  const [x, y] = [560 + 80 * (across - 0.5), 480 + 44 * (high - 0.5)];
+  const k = 1.05 * depthAt(fenScene, y);
+  // Seen from the side: tail to beak about twice its height, its body above its feet at y.
+  const [long, tall] = [body.maxX - body.minX, body.maxY - body.minY];
+  expect(long).toBeGreaterThan(35 * k);
+  expect(long).toBeLessThan(40 * k);
+  expect(long / tall).toBeGreaterThan(2);
+  expect(long / tall).toBeLessThan(2.6);
+  expect(body.maxY).toBeLessThan(y);
+  expect(body.minY).toBeGreaterThan(y - PERCHED_HEIGHT * k);
+  expect(Math.abs((body.minX + body.maxX) / 2 - x)).toBeLessThan(4 * k);
+  // Light speckles and an eye on the body.
+  expect(fillsOf(graphicsIn(app, 'flock')).some((f) => f.color === fenPalette.paper)).toBe(true);
+});
+
+test('a flying starling is a bird with two swept wings, wider than tall', () => {
+  const app = fakeApp(800, 450);
+  const world = fen(1, ['starling-1']);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const [wings] = flockFills(app, plumage());
+  if (!wings) throw new Error('no flier');
+  expect(wings.maxX - wings.minX).toBeGreaterThan(3 * (wings.maxY - wings.minY));
+  // Fliers are not picked: only bodies on the ground and bodies with rigs are.
+  expect(
+    view.pick(...view.toScreen((wings.minX + wings.maxX) / 2, (wings.minY + wings.maxY) / 2)),
+  ).toBeNull();
+});
+
+test('the reflection is a faint, flipped copy of a grounded starling that sees at least half its neighbors flying', () => {
+  const reflections = (perceived: number) => {
+    const app = fakeApp(800, 450);
+    const world = fen(1, [], { 'starling-1': perceived });
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    const body = flockFills(app, plumage())[0];
+    // Not the bird's shadow (ink) or its eye and speckles (paper).
+    const faint = fillsOf(graphicsIn(app, 'flock')).filter(
+      (f) => f.alpha < 1 && f.color !== fenPalette.ink && f.color !== fenPalette.paper,
+    );
+    return { body, faint };
+  };
+  expect(reflections(0.4).faint).toHaveLength(0);
+  const { body, faint } = reflections(0.5);
+  expect(faint).toHaveLength(1);
+  const [copy] = faint;
+  if (!body || !copy) throw new Error('no reflection');
+  // The same size as the body, under its feet, and water-tinted, not the plumage.
+  expect(copy.maxX - copy.minX).toBeCloseTo(body.maxX - body.minX, 3);
+  expect(copy.maxY - copy.minY).toBeCloseTo(body.maxY - body.minY, 3);
+  expect(copy.minY).toBeGreaterThan(body.maxY);
+  expect(copy.color).not.toBe(plumage());
+});
+
+test('Tove, a starling with a rig of her own, gets her body flipped in the water under her shadow too', () => {
+  const flock = (perceived: number): Graphics => {
+    const app = fakeApp(800, 450);
+    const world = fen(0, [], { tove: perceived });
+    createMeadowView(app, fenScene, rigs, fenPalette, options).update(world, world, 1, settings);
+    return graphicsIn(app, 'flock');
+  };
+  // Only Tove could add a mark here: no birds, and the hero is no starling.
+  expect(flock(0.4).context.instructions).toHaveLength(0);
+  // Tove stands at y 520; the reflection lies below her shadow, as tall as her drawn body.
+  const h = heightOf('tove') * depthAt(fenScene, 520);
+  const b = flock(0.5).getLocalBounds();
+  expect(b.minY).toBeGreaterThan(520 + (SHADOW_HEIGHT * h) / 2);
+  expect(b.height).toBeGreaterThan(0.8 * h);
+  expect(b.height).toBeLessThan(1.05 * h);
+});
+
+test('a flying Tove is picked and framed where she is drawn, and her shadow stays on the ground', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const world = fen(0, ['tove']);
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const tove = creatureIn(app, 'tove');
+  expect(tove.y).toBeLessThan(520 - 40);
+  // The center of the drawn body, half a body (sized to her depth) above its lifted feet.
+  const h = heightOf('tove') * depthAt(fenScene, 520);
+  expect(view.pick(...view.toScreen(520, tove.y - h / 2))).toBe('tove');
+  expect(graphicsIn(app, 'shadows').getLocalBounds().maxY).toBeGreaterThan(520);
+});
+
+test('a tight bed of grounded starlings is fanned about its birds, each bird picked where it is drawn', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const base = fen(10);
+  // All ten at one spot, as a clumped bed can be.
+  const world = {
+    ...base,
+    creatures: base.creatures.map((c) =>
+      c.id === 'hero' || c.id === 'tove' ? c : { ...c, x: 1000, y: 600 },
+    ),
+  };
+  view.update(world, world, 1, settings);
+  const b = graphicsIn(app, 'flock').getLocalBounds();
+  expect(b.width).toBeGreaterThan(60);
+  // At most 40 units off each way across and 22 up or down, inside the reed bed, plus a bird's length.
+  const bird = 22 * 1.05 * depthAt(fenScene, 622);
+  expect(b.minX).toBeGreaterThanOrEqual(1000 - 40 - bird);
+  expect(b.maxX).toBeLessThanOrEqual(1000 + 40 + bird);
+  // Each bird is picked at its own fanned spot: its center is half its height above its feet.
+  for (const id of ['starling-1', 'starling-7']) {
+    const [across, high] = placeOf(id);
+    const [x, y] = [1000 + 80 * (across - 0.5), 600 + 44 * (high - 0.5)];
+    const k = 1.05 * depthAt(fenScene, y);
+    expect(view.pick(...view.toScreen(x, y - (PERCHED_HEIGHT * k) / 2))).toBe(id);
+  }
+});
+
+test('the depth scale is 1 at the reference, smaller toward the horizon, and 1 everywhere without depth', () => {
+  for (const s of [fenScene, hollowScene, halcyonScene]) {
+    const d = s.depth;
+    if (!d) throw new Error(`${s.id} has no depth`);
+    expect(depthAt(s, d.reference)).toBe(1);
+    expect(depthAt(s, d.horizon)).toBeCloseTo(d.far);
+    expect(depthAt(s, (d.horizon + d.reference) / 2)).toBeLessThan(1);
+    expect(depthAt(s, (d.horizon + d.reference) / 2)).toBeGreaterThan(d.far);
+    expect(depthAt(s, s.height)).toBeCloseTo(d.near);
+  }
+  // Part 1's meadow has no depth: everything is drawn at its own size, as its baselines show.
+  expect(scene.depth).toBeUndefined();
+  for (const y of [0, 300, 900]) expect(depthAt(scene, y)).toBe(1);
+});
+
+test('a body, its shadow, and its pick are sized to its depth, and so are trees', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const far = 200;
+  const ref = fenScene.depth?.reference ?? 0;
+  const world = {
+    ...snapshot([
+      ['villager-1', 300, far],
+      ['villager-2', 1200, ref],
+    ]),
+    structures: [],
+  };
+  view.update(world, world, 1, { ...settings, reducedMotion: true });
+  const s = depthAt(fenScene, far);
+  expect(s).toBeLessThan(0.9);
+  const h = heightOf('villager-1');
+  expect(creatureIn(app, 'villager-1').scale.y).toBeCloseTo(-h * s);
+  expect(creatureIn(app, 'villager-2').scale.y).toBeCloseTo(-h);
+  const [farShadow, nearShadow] = fillsOf(graphicsIn(app, 'shadows'));
+  expect((farShadow?.maxX ?? 0) - (farShadow?.minX ?? 0)).toBeCloseTo(
+    s * ((nearShadow?.maxX ?? 0) - (nearShadow?.minX ?? 0)),
+  );
+  // Picked within the drawn body: its center is half the scaled height above its feet.
+  expect(view.pick(...view.toScreen(300, far - (h * s) / 2))).toBe('villager-1');
+  // Just above the drawn head, inside where an unscaled body would reach, nothing is picked.
+  expect(view.pick(...view.toScreen(300, far - h * s - 2))).toBeNull();
+  const willow = graphicsIn(app, 'old-willow');
+  expect(willow.scale.x).toBeCloseTo(depthAt(fenScene, 580));
+  expect([willow.pivot.x, willow.pivot.y]).toEqual([1320, 580]);
+});
+
+test("a valley's ground has a sky at its top, and its calm water has a faint bank and no ink ripples", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
+  const world: WorldLite = { ...snapshot([]), structures: [], water: [{ x: 0, y: 800, w: 1600, h: 100 }] };
+  view.update(world, world, 1, settings);
+  const sky = skyOf(halcyonPalette);
+  const top = fillsOf(graphicsIn(app, 'ground')).find((f) => f.minY === 0 && f.maxY < 10);
+  // Each channel within a step of the sky's top color.
+  for (const shift of [16, 8, 0])
+    expect(Math.abs((((top?.color ?? 0) >> shift) & 0xff) - ((sky.top >> shift) & 0xff))).toBeLessThanOrEqual(
+      1,
+    );
+  const land = graphicsIn(app, 'land');
+  expect(fillsOf(land).map((f) => f.color)).toContain(halcyonPalette.water);
+  // One ink stroke only, the bank, and it is faint and thin (half the scenery's 6-unit line): a
+  // shore, not a table edge. No ink ripples: the water's ripples are light.
+  const strokes = land.context.instructions
+    .filter((i) => i.action === 'stroke')
+    .map((i) => i.data.style as { color: number; alpha: number; width: number })
+    .filter((st) => st.color === halcyonPalette.ink);
+  expect(strokes).toEqual([expect.objectContaining({ alpha: FAR_ALPHA, width: 3 })]);
+});
+
+/** True when each channel of `a` is within `d` of `b`'s. */
+const closeTo = (a: number, b: number, d: number): boolean =>
+  [16, 8, 0].every((s) => Math.abs(((a >> s) & 0xff) - ((b >> s) & 0xff)) <= d);
+
+test("each valley's floor runs from its far color at the horizon to its near color at the foot", () => {
+  const valleys = [
+    [fenScene, fenPalette],
+    [hollowScene, hollowPalette],
+    [halcyonScene, halcyonPalette],
+  ] as const;
+  for (const [s, p] of valleys) {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, s, rigs, p, options);
+    const world: WorldLite = { ...snapshot([]), structures: [] };
+    view.update(world, world, 1, settings);
+    const horizon = s.depth?.horizon ?? 0;
+    // The floor's bands span the scene; the first lies at the horizon and the last at the foot.
+    const floor = fillsOf(graphicsIn(app, 'ground')).filter(
+      (f) => f.alpha === 1 && f.minX === 0 && f.maxX === s.width && f.minY >= horizon,
+    );
+    const first = floor.find((f) => f.minY === horizon);
+    const last = floor.filter((f) => f.maxY >= s.height).at(-1);
+    expect(closeTo(first?.color ?? 0, p.ground?.far ?? 1, 3)).toBe(true);
+    expect(closeTo(last?.color ?? 0, p.ground?.near ?? 1, 3)).toBe(true);
+    // Far bands are thinner than near ones: the far ground lies foreshortened.
+    expect((first?.maxY ?? 0) - (first?.minY ?? 0)).toBeLessThan((last?.maxY ?? 0) - (last?.minY ?? 0));
+  }
+});
+
+test('grass on a valley floor is drawn bolder, darker, and less faint toward the foot', () => {
+  // In the Hollow every stroke on the ground but the grass is ink (hills, tufts, lanes, squares).
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, hollowScene, rigs, hollowPalette, options);
+  const world: WorldLite = { ...snapshot([]), structures: [] };
+  view.update(world, world, 1, settings);
+  const grass = graphicsIn(app, 'ground')
+    .context.instructions.filter((i) => i.action === 'stroke')
+    .map((i) => ({
+      style: i.data.style,
+      top: i.data.path.bounds.minY,
+    }))
+    .filter((st) => st.style.color !== hollowPalette.ink);
+  expect(grass.length).toBeGreaterThanOrEqual(3);
+  const luma = (c: number): number => ((c >> 16) & 0xff) + ((c >> 8) & 0xff) + (c & 0xff);
+  // Group by group, from the horizon down.
+  for (let i = 1; i < grass.length; i++) {
+    const [far, near] = [grass[i - 1], grass[i]];
+    expect(near?.top ?? 0).toBeGreaterThan(far?.top ?? 0);
+    expect(near?.style.width ?? 0).toBeGreaterThan(far?.style.width ?? 0);
+    expect(near?.style.alpha ?? 0).toBeGreaterThan(far?.style.alpha ?? 0);
+    expect(luma(near?.style.color ?? 0)).toBeLessThan(luma(far?.style.color ?? 0));
+  }
+});
+
+test("Halcyon's sea runs deep at its horizon to the shallows at its shore, under the sun, with sand on both shores", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, halcyonScene, rigs, halcyonPalette, options);
+  const world: WorldLite = { ...snapshot([]), structures: [], water: [{ x: 0, y: 800, w: 1600, h: 100 }] };
+  view.update(world, world, 1, settings);
+  const sea = halcyonScene.sea;
+  const colors = halcyonPalette.sea;
+  const shore = halcyonScene.depth?.horizon ?? 0;
+  if (!sea || !colors) throw new Error('Halcyon has a sea');
+  const ground = fillsOf(graphicsIn(app, 'ground'));
+  // The open sea's bands, from its horizon down to the shore: deep far off, the shallows' tint near.
+  const water = ground.filter(
+    (f) => f.alpha === 1 && f.minX === 0 && f.maxX === 1600 && f.minY >= sea.horizon && f.maxY <= shore + 1,
+  );
+  expect(closeTo(water.find((f) => f.minY === sea.horizon)?.color ?? 0, colors.deep, 3)).toBe(true);
+  expect(closeTo(water.at(-1)?.color ?? 0, colors.shallow, 6)).toBe(true);
+  // A pale sun disc over the sea, in a glow.
+  const [sx, sy] = sea.sun;
+  const atSun = ground.filter(
+    (f) => Math.abs((f.minX + f.maxX) / 2 - sx) < 1 && Math.abs((f.minY + f.maxY) / 2 - sy) < 1,
+  );
+  expect(atSun.some((f) => f.alpha === 1)).toBe(true);
+  expect(atSun.filter((f) => f.alpha < 1).length).toBeGreaterThan(4);
+  // Ripples on the far sea: long light lines, closer together toward its horizon.
+  const ripples = graphicsIn(app, 'ground')
+    .context.instructions.filter((i) => i.action === 'stroke')
+    .map((i) => i.data.path.bounds)
+    .filter((b) => b.minY === b.maxY && b.minY > sea.horizon && b.minY < shore)
+    .map((b) => b.minY);
+  expect(ripples.length).toBeGreaterThanOrEqual(4);
+  for (let i = 2; i < ripples.length; i++)
+    expect((ripples[i] ?? 0) - (ripples[i - 1] ?? 0)).toBeGreaterThan(
+      (ripples[i - 1] ?? 0) - (ripples[i - 2] ?? 0),
+    );
+  // Sand between the land and the water: on the far shore below the sea, and above the near water.
+  expect(ground.some((f) => f.color === colors.sand && f.alpha === 1 && f.minY >= shore)).toBe(true);
+  const land = fillsOf(graphicsIn(app, 'land'));
+  expect(land.some((f) => f.color === colors.sand && f.alpha === 1 && f.maxY <= 800)).toBe(true);
+});
+
+test("the Fen's sky band lies above its far hills", () => {
+  const top = Math.min(...fenScene.hills.flatMap((h) => h.filter((_, i) => i % 2 === 1)));
+  expect(fenScene.sky[1]).toBeLessThan(top);
+});
+
+test('a hero of kind kite draws the kite rig', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const base = snapshot([['hero', 400, 400]]);
+  const kite = { ...base, creatures: base.creatures.map((c) => ({ ...c, speciesId: 'kite' })) };
+  view.update(kite, kite, 1, { ...settings, reducedMotion: true });
+  const b = creatureIn(app, 'hero').getLocalBounds();
+  const span = (r: Rig, axis: 0 | 1): number => {
+    const v = r.points.filter((_, i) => i % 2 === axis);
+    return Math.max(...v) - Math.min(...v);
+  };
+  // Drawn at the kite rig's proportions, a tall ribbon, not a round villager.
+  const aspect = (r: Rig): number => span(r, 0) / span(r, 1);
+  expect(Math.abs(b.width / b.height - aspect(rig('kite')))).toBeLessThan(0.1);
+  expect(Math.abs(aspect(rig('kite')) - aspect(rig('villager')))).toBeGreaterThan(0.2);
+  for (const kind of HERO_KINDS) expect(rigs.has(kind)).toBe(true);
+});
+
+test("the Hollow's drama sky is the lens, ringed in the accent, and its press is drawn as a press", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, hollowScene, rigs, hollowPalette, options);
+  const plain = { ...snapshot([]), structures: [{ id: 'press', kind: 'bench' as const, x: 800, y: 400 }] };
+  view.update(plain, plain, 1, settings);
+  const ring = graphicsIn(app, 'lens-ring');
+  expect(ring.visible).toBe(false);
+  const hollow: WorldLite = { ...plain, pack: { id: 'hollow', fame: {}, front: null } };
+  view.update(hollow, hollow, 1, settings);
+  expect(ring.visible).toBe(true);
+  expect([ring.x, ring.y]).toEqual([800, 450]);
+  const stroke = ring.context.instructions.find((i) => i.action === 'stroke');
+  expect((stroke?.data.style as { color: number }).color).toBe(hollowPalette.accent);
+  // The press stands taller than a bench (20 units) on the same bench rules.
+  expect(graphicsIn(app, 'press').getLocalBounds().minY).toBeLessThan(400 - 40);
 });

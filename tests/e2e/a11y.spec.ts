@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
+import { tap } from './helpers.ts';
 
 async function seriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).analyze();
@@ -309,9 +310,15 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 
   test('The Long Night: five still seconds end it; the meter has a label and a value', async ({ page }) => {
-    const activity = await open(page, 13, 'Hold still');
+    const activity = await open(page, 13, 'Hold still', false);
+    // The night ends five seconds of wall clock after it opens, and on software rendering the axe
+    // scan alone takes four or more, so the scan runs paused: the meter waits (the tests below).
+    await page.keyboard.press(' ');
+    await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
     await expect(activity.getByLabel('Stillness')).toBeVisible();
     await expect(activity).toContainText(/[0-5] of 5 seconds/);
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.keyboard.press(' ');
     await expect(heading(page, 'Chapter 9')).toBeVisible({ timeout: 15_000 });
   });
 
@@ -342,7 +349,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 });
 
-test('the fire: Listen five times tells five verses and ends Part 1; no serious axe issues', async ({
+test('the fire: Listen five times tells five verses, keeps the page, and goes on to the bridge; no serious axe issues', async ({
   page,
 }) => {
   // Chapter 10 is index 15 in play order.
@@ -360,11 +367,10 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
     await expect(verse.getByRole('heading', { name: title })).toBeVisible();
   }
   await page.keyboard.press('Enter');
-  const end = page.getByRole('heading', { name: 'End of Part 1' });
-  await expect(end).toBeFocused();
-  expect(await seriousViolations(page)).toEqual([]);
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
   // The whole story, the last verse too, is the first page of the Book of Skies.
-  const open = page.getByRole('button', { name: 'Open the Book of Skies' });
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('button', { name: 'Book of Skies' });
   await open.click();
   const book = page.getByRole('dialog', { name: 'Book of Skies' });
   const year = book.getByRole('article', { name: 'Year 1' });
@@ -377,7 +383,7 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
   await expect(open).toBeFocused();
 
   // The title's Book of Skies opens now that it has a page.
-  await page.getByRole('button', { name: 'Back to title' }).click();
+  await page.goto('/');
   const button = page.getByRole('button', { name: 'Book of Skies' });
   await expect(button).toBeEnabled();
   await button.click();
@@ -388,6 +394,11 @@ test('the fire: Listen five times tells five verses and ends Part 1; no serious 
   expect(await seriousViolations(page)).toEqual([]);
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  // The bridge saved after the year was kept, so Continue resumes there, not at the fire.
+  const resume = page.getByRole('button', { name: 'Continue' });
+  await expect(resume).toBeEnabled();
+  await resume.click();
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
 });
 
 test('B opens the Book of Skies as a modal dialog with the sim paused; Escape closes it and gives focus back', async ({
@@ -471,12 +482,28 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
   await expect(scroll.getByText(/You blew 5 gusts/)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  // Year two in the same visit, with no gusts: its myth does not tell year one's.
+  // Year two in the same visit, with no gusts: its myth does not tell year one's. Part 2 is
+  // skipped through to the end, from which the title is reached.
   await listen.click();
   await listen.click();
+  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
+    await page.getByRole('button', { name: 'Skip chapter' }).click();
+  }
   await page.getByRole('button', { name: 'Back to title' }).click();
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: /^Chapter 7/ })).toBeVisible();
+  // The new year keeps no travel journal from the last one: no journey, no J, no drawer button.
+  expect(
+    await page.evaluate(() =>
+      (window as unknown as { fairWeather: { journey: () => unknown } }).fairWeather.journey(),
+    ),
+  ).toBeNull();
+  await expect(page.locator('#scene-help')).not.toContainText('J opens the travel journal');
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  await expect(page.getByRole('button', { name: 'Book of Skies', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Travel journal' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
   await skipToFire();
   for (let i = 0; i < 3; i++) await listen.click();
   await expect(moods.getByRole('heading', { name: "The Sky's Moods" })).toBeVisible();
@@ -608,3 +635,335 @@ for (const [index, name] of PLAY_ORDER.entries()) {
     expect(await seriousViolations(page)).toEqual([]);
   });
 }
+
+// M3.13: Part 2 from the bridge (index 16 in play order).
+test('the hero choice works by keyboard alone and has no serious axe issues; the Fen and its line have none', async ({
+  page,
+}) => {
+  // The hero choice and the Fen's first dusk together take 22 to 26 s on a quiet machine.
+  test.slow();
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
+  const choice = page.getByRole('group', { name: 'Choose your hero' });
+  const radios = choice.getByRole('radio');
+  await expect(radios).toHaveCount(6);
+  // Focus moves to the first hero, which is chosen until another is.
+  await expect(radios.first()).toBeFocused();
+  await expect(radios.first()).toBeChecked();
+  await expect(choice.getByText('A small creature in an acorn cap, with a satchel.')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('radio', { name: 'Seedcarrier' })).toBeChecked();
+  await page.keyboard.press('Tab');
+  const name = page.getByRole('textbox', { name: 'Name your hero' });
+  await expect(name).toBeFocused();
+  // The field keeps 24 characters, as heroResult counts them.
+  await page.keyboard.type('Fennel of the long bright meadow');
+  await expect(name).toHaveValue('Fennel of the long brigh');
+  for (let i = 0; i < 'of the long brigh'.length; i++) await page.keyboard.press('Backspace');
+  await page.keyboard.press('Tab');
+  const wake = page.getByRole('button', { name: 'Wake as Fennel' });
+  await expect(wake).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  // The line is plain text; its live region says it in steps of 10%.
+  await expect(page.locator('p.valley')).toHaveText(
+    /^The water shows Tove \d+% of the flock flying; \d+% of the starlings really fly\.$/,
+  );
+  await expect(
+    page
+      .getByRole('status')
+      .filter({ hasText: /^The water shows Tove about \d*0% of the flock .* about \d*0% of the starlings/ }),
+  ).toHaveCount(1);
+  // The Fen's tools: Walk, Manner, Join; Manner shows its choices as pressed buttons, and a Seedcarrier can plant.
+  const tools = page.getByRole('group', { name: 'Tools' });
+  await expect(tools.getByRole('button')).toHaveText([/Walk/, /Manner/, /Join/]);
+  await page.keyboard.press('2');
+  await expect(page.getByRole('button', { name: 'G Wave back' })).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('k');
+  await expect(page.getByRole('button', { name: 'K Keep' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'L Plant a gift' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  // The chapter ribbon shows each valley's title.
+  await expect(page.getByRole('navigation', { name: 'Chapters' })).toContainText('Hearsay Hollow');
+});
+
+test('with reduced motion, the bridge rain is still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('group', { name: 'Choose your hero' })).toBeVisible();
+  const animations = await page.evaluate(() =>
+    [...document.querySelectorAll('.rain span')].map((s) => getComputedStyle(s).animationName),
+  );
+  expect(animations.length).toBeGreaterThan(0);
+  expect(new Set(animations)).toEqual(new Set(['none']));
+});
+
+test('in the Fen, waving at Tove and joining the flock brings the postcard card; it has no serious axe issues and sends the postcard', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await page.goto('/?chapter=16&fast=20');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.getByRole('button', { name: /^Wake as / }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  await expect(page.locator('.beat-line')).toContainText('Starlings sit in the reeds');
+  // Walk: Tab to Tove, then W waves, so the hero walks to her bed; then Join (3) and Enter. Space
+  // pauses while Tab looks for Tove among the starlings: under load the Tabs can take longer than
+  // the 20 s to dusk at ?fast=20, when Tove may fly without the hero and the card takes the keys.
+  const pause = page.getByRole('button', { name: 'Pause' });
+  await page.keyboard.press(' ');
+  await expect(pause).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('1');
+  const picked = page.getByRole('status').filter({ hasText: /Picked: Tove/ });
+  for (let i = 0; i < 60 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
+  await expect(picked).toBeVisible();
+  await page.keyboard.press('w');
+  await page.keyboard.press('3');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press(' ');
+  await expect(pause).toHaveAttribute('aria-pressed', 'false');
+  const card = page.getByRole('dialog', { name: 'A postcard home' });
+  await expect(card).toBeVisible({ timeout: 240_000 });
+  await expect(card).toContainText('Which postcard will you send home?');
+  await expect(card.getByRole('button')).toHaveText(['Generosity', 'Wandering']);
+  await expect(card.getByRole('button').first()).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Enter');
+  await expect(card).toBeHidden();
+  // The valley ends: the journal opens at its new page, and closing it starts the next valley.
+  const journal = page.getByRole('dialog', { name: 'Travel journal' });
+  await expect(journal).toBeVisible({ timeout: 30_000 });
+  await expect(journal.getByRole('heading', { name: 'Murmuration Fen' })).toBeFocused();
+  expect(await seriousViolations(page)).toEqual([]);
+  await journal.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Hearsay Hollow' })).toBeVisible({
+    timeout: 30_000,
+  });
+});
+
+// M3.16: each valley's first screen after the Fen, reached by skipping, and the end of the journey.
+// A test for each screen, as Part 1's chapters have: on software rendering a valley draws about once
+// a second, so its load and its axe scan take seconds each, and all four in one test outlast it.
+const AFTER_FEN = [
+  ['Hearsay Hollow', 'The press runs by the square'],
+  ['Halcyon', 'A calm meadow lies over a mirror sea'],
+  ['The Homecoming', 'You walk back over the ridge'],
+] as const;
+
+/**
+ * Wakes the hero at the bridge, then skips `skips` times from the Fen. Each valley's first screen is
+ * in once its intro line shows (content/ink). Skip is pressed at its middle, as a player would
+ * (helpers.ts): a locator click waits on several animation frames, about 4 s in a valley there.
+ */
+async function skipFromFen(page: Page, skips: number): Promise<void> {
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.getByRole('button', { name: /^Wake as / }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  for (const [name, intro] of AFTER_FEN.slice(0, skips)) {
+    expect(await tap(page, 'main', 'Skip chapter')).toBe('Skip chapter');
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+    await expect(page.locator('.beat-line')).toContainText(intro);
+  }
+}
+
+for (const [index, [name]] of AFTER_FEN.entries()) {
+  test(`${name}: its first screen has no serious axe issues`, async ({ page }) => {
+    await skipFromFen(page, index + 1);
+    expect(await seriousViolations(page)).toEqual([]);
+  });
+}
+
+test('a skipped journey still ends with its sixth verse; The End takes focus and has no serious axe issues', async ({
+  page,
+}) => {
+  await skipFromFen(page, AFTER_FEN.length);
+  expect(await tap(page, 'main', 'Skip chapter')).toBe('Skip chapter');
+  await expect(page.getByRole('heading', { level: 1, name: 'The End' })).toBeFocused();
+  await expect(page.getByRole('heading', { level: 2, name: 'The Sky Came Down' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+/** Story lines, the status lines, and every control: each fully on screen and on top at its middle. */
+async function offOrHidden(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    // The HUD lets clicks through to the scene; for this check, every part of it is hit-testable.
+    const style = document.createElement('style');
+    style.textContent = 'main, main * { pointer-events: auto !important; }';
+    document.head.append(style);
+    const out: string[] = [];
+    const els = [
+      ...document.querySelectorAll<HTMLElement>(
+        '.beat-line p, p.status:not(.empty), p.valley:not(.empty), main button, main input, main a',
+      ),
+    ];
+    for (const el of els) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const r = el.getBoundingClientRect();
+      const name = `${el.tagName} "${(el.textContent || el.getAttribute('aria-label') || el.id).trim().slice(0, 40)}"`;
+      if (r.width === 0 || r.height === 0) continue;
+      if (r.top < 0 || r.left < 0 || r.bottom > innerHeight || r.right > innerWidth) {
+        out.push(`${name} off screen ${JSON.stringify([r.left, r.top, r.right, r.bottom].map(Math.round))}`);
+        continue;
+      }
+      // The middle and both ends of its middle row.
+      for (const fx of [0.5, 0.1, 0.9]) {
+        const at = document.elementFromPoint(r.left + r.width * fx, r.top + r.height / 2);
+        if (
+          at &&
+          at !== el &&
+          !el.contains(at) &&
+          !(el instanceof HTMLInputElement && at.closest('label')?.contains(el))
+        ) {
+          out.push(`${name} covered by ${at.tagName}.${at.className}`);
+          break;
+        }
+      }
+    }
+    style.remove();
+    return out;
+  });
+}
+
+// M3.13 fix: on a phone the hero choice and the Fen keep every story line and control on screen and uncovered.
+for (const size of [
+  { width: 360, height: 640 },
+  { width: 412, height: 915 },
+]) {
+  test(`at ${String(size.width)}x${String(size.height)}, the hero choice and the Fen keep their lines and controls on screen`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await page.goto('/?chapter=16');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(page.getByRole('group', { name: 'Choose your hero' })).toBeVisible();
+    await expect(page.locator('.beat-line p')).not.toHaveCount(0);
+    expect(await offOrHidden(page)).toEqual([]);
+    await page.getByRole('button', { name: /^Wake as/ }).click();
+    await expect(page.locator('p.valley')).toBeVisible();
+    await page.keyboard.press('2');
+    await expect(page.getByRole('group', { name: 'Give or keep' })).toBeVisible();
+    expect(await offOrHidden(page)).toEqual([]);
+  });
+}
+
+// M3.14: the travel journal. The journey is written through the dev hook, so no test plays whole valleys.
+test.describe('the travel journal', () => {
+  type Pages = { valley: string; keepsake: string | null }[];
+  /** Starts the Fen and gives the journey `pages` (a stamp of welcomed each) and its keepsakes. */
+  async function start(page: Page, pages: Pages, given: boolean) {
+    await page.goto('/?chapter=16');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await page.getByRole('button', { name: /^Wake as / }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+    const scene = page.getByRole('application', { name: 'The meadow' });
+    await expect(scene).toBeFocused();
+    await page.evaluate(
+      ({ pages, given }) => {
+        const fw = (
+          window as unknown as {
+            fairWeather: {
+              journey: () => { pages: unknown[]; keepsakes: unknown[] } | null;
+            };
+          }
+        ).fairWeather;
+        const j = fw.journey();
+        if (!j) throw new Error('no journey');
+        j.pages = pages.map((p) => ({
+          ...p,
+          stamp: 'welcomed',
+          said: { value: 0.8, strength: 0.9 },
+          postcard: null,
+          caption: '',
+        }));
+        j.keepsakes = pages.flatMap((p) => (p.keepsake ? [{ id: p.keepsake, given }] : []));
+      },
+      { pages, given },
+    );
+    return scene;
+  }
+  const speeds = (page: Page) =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+
+  test('J opens a one-page journal with the sim paused; Escape closes it; no serious axe issues', async ({
+    page,
+  }) => {
+    const scene = await start(page, [{ valley: 'fen', keepsake: 'starling-feather' }], false);
+    await page.keyboard.press('j');
+    const journal = page.getByRole('dialog', { name: 'Travel journal' });
+    await expect(journal).toBeVisible();
+    const fen = journal.getByRole('article', { name: 'Murmuration Fen' });
+    await expect(journal.getByRole('heading', { name: 'Travel journal' })).toBeFocused();
+    await expect(fen.getByRole('img')).toHaveAccessibleName(/starlings/);
+    await expect(fen).toContainText('Keepsake: A starling feather');
+    await expect(fen).toContainText('Welcomed');
+    await expect(fen.getByRole('heading', { name: 'What they say about you' })).toBeVisible();
+    await expect(fen.getByRole('article')).toHaveCount(2);
+    await expect.poll(() => speeds(page)).toBe(0);
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(journal).toBeHidden();
+    await expect(scene).toBeFocused();
+    await expect.poll(() => speeds(page)).toBe(1);
+  });
+
+  test('three pages have no serious axe issues; after the keepsake is given the Fen page shows an empty pressed shape; Tab stays inside', async ({
+    page,
+  }) => {
+    await start(
+      page,
+      [
+        { valley: 'fen', keepsake: 'starling-feather' },
+        { valley: 'hollow', keepsake: 'clipping' },
+        { valley: 'halcyon', keepsake: null },
+      ],
+      true,
+    );
+    await page.getByRole('button', { name: 'Diary and notes' }).click();
+    await page.getByRole('button', { name: 'Travel journal' }).click();
+    const journal = page.getByRole('dialog', { name: 'Travel journal' });
+    await expect(journal.getByRole('article')).toHaveCount(3 + 3 * 2);
+    await expect(journal.getByRole('article', { name: 'Murmuration Fen' })).toContainText(
+      'An empty pressed shape where the starling feather was',
+    );
+    expect(await seriousViolations(page)).toEqual([]);
+    // Tab wraps from the last control to the first, and Shift+Tab back.
+    await page.keyboard.press('Shift+Tab');
+    await expect(journal.getByRole('button', { name: 'Close' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(journal.getByRole('textbox').first()).toBeFocused();
+    await journal.getByRole('button', { name: 'Close' }).click();
+    await expect(journal).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Travel journal' })).toBeFocused();
+  });
+
+  test('Your line saves on change, keeps at most 80 characters, and stays in the journey', async ({
+    page,
+  }) => {
+    await start(page, [{ valley: 'fen', keepsake: null }], false);
+    await page.keyboard.press('j');
+    const line = page.getByRole('textbox', { name: 'Your line' });
+    await line.fill('🌧️'.repeat(85));
+    await expect(line).toHaveValue('🌧️'.repeat(80));
+    await page.keyboard.press('Tab');
+    const saved = () =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as { fairWeather: { journey: () => { pages: { caption: string }[] } } }
+          ).fairWeather.journey().pages[0]?.caption,
+      );
+    expect(await saved()).toBe('🌧️'.repeat(80));
+    // Escape keeps a line that was typed but not yet changed out of the field.
+    await line.fill('Rain on the reeds');
+    await page.keyboard.press('Escape');
+    expect(await saved()).toBe('Rain on the reeds');
+  });
+});

@@ -7,12 +7,14 @@
   import type { MythPage } from '../../myth/grammar.ts';
   import type { BookPage } from '../../persist/profile.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
-  import type { BidReply } from '../../sim/types.ts';
+  import type { BidReply, GiftMove } from '../../sim/types.ts';
   import type { ChapterRunner, Prompt } from '../../story/chapter-runner.ts';
   import type { Flags } from '../../story/flags.ts';
+  import type { Postcard as PostcardType } from '../../story/schema.ts';
   import { displayName } from '../../story/names.ts';
   import { chapterTicksPerDay } from '../../story/scenario.ts';
-  import { VERBS, WORLD_VERBS } from '../../story/verbs.ts';
+  import { tuning } from '../../story/tuning.ts';
+  import { unlockingVerb, VERBS, WORLD_VERBS } from '../../story/verbs.ts';
   import type { Verb, VerbInput, WorldVerb } from '../../story/verbs.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
@@ -25,13 +27,18 @@
   import MythScroll from '../components/MythScroll.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import ToolTray from '../components/ToolTray.svelte';
+  import ValleyLine from '../components/ValleyLine.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
   import Bubbles from '../interludes/Bubbles.svelte';
+  import HeroChoice from '../interludes/HeroChoice.svelte';
   import Postcard from '../interludes/Postcard.svelte';
+  import { inSentence, journalEntries } from '../journal-pages.ts';
+  import type { JournalEntry } from '../journal-pages.ts';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
   import BookOfSkies from './BookOfSkies.svelte';
+  import Journal from './Journal.svelte';
 
   let {
     game,
@@ -56,6 +63,12 @@
       '[PLACEHOLDER] Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
     fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
     blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
+    walk: '[PLACEHOLDER] Press Enter to walk to the spot, or pick a creature and press W to wave at it.',
+    manner:
+      '[PLACEHOLDER] Press G, H, or R to choose how your hero answers, and O or K to give or keep. A Seedcarrier plants a gift with L.',
+    join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
+    pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
+    keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
     zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
     peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
@@ -68,7 +81,21 @@
     soul: 'The Soul view',
   };
   /** The tools that act at the cursor. */
-  const POINT_TOOLS: ReadonlySet<Verb> = new Set(['place', 'shine', 'fog', 'blow']);
+  const POINT_TOOLS: ReadonlySet<Verb> = new Set(['place', 'shine', 'fog', 'blow', 'walk']);
+  /** The postcards' names (spec 7.2). */
+  const POSTCARD_LABELS: Record<PostcardType, string> = {
+    generosity: 'Generosity',
+    patience: 'Patience',
+    remembering: 'Remembering',
+    listening: 'Careful listening',
+    wandering: 'Wandering',
+  };
+  /** Each valley keepsake's label, without its article, as the keepsake tool says it ("the starling feather"). */
+  const KEEPSAKE_LABELS = new Map(
+    untrack(() => game.chapters).flatMap((c) =>
+      c.valley?.keepsake ? [[c.valley.keepsake.id, inSentence(c.valley.keepsake.label)]] : [],
+    ),
+  );
   /** How near the cursor a creature is named in the status line, in scene units: two cursor steps. */
   const NEAR = 40;
   const STATES: Record<string, string> = {
@@ -105,6 +132,8 @@
   /** Takes the last chapter's answer off the lines; cleared by the next chapter and on unmount. */
   let revealTimer: ReturnType<typeof setTimeout> | undefined;
   let bet: { question: string; options: string[] } | null = $state(null);
+  /** The open postcard card: a valley's choice of postcard home (ADR 0013 item 9). */
+  let postcard: { question: string; options: PostcardType[] } | null = $state(null);
   let betRunning = $state(false);
   let picked: string | null = $state(null);
   let pickedState = $state('');
@@ -114,6 +143,10 @@
   let ghost: Verb | null = $state(null);
   let speedNow = $state(0);
   let ended: 'done' | 'failed' | null = $state(null);
+  /** The sixth verse at the journey's end. */
+  let verse: ReturnType<GameService['sixthVerse']> | null = $state.raw(null);
+  /** Counts begins: a start that waits (a valley waits for Kith) plays only if no newer one came. */
+  let starting = 0;
   /** The flags the chapter started with, and the fire's myth once its first snapshot is in. */
   let flagsNow: Flags | null = null;
   let myth: MythPage | null = $state.raw(null);
@@ -122,9 +155,17 @@
   let threadFrom: string | null = $state(null);
   /** The open whisper card: the creature it whispers to, and those it can be about. */
   let whisperCard: { target: string; others: string[] } | null = $state(null);
-  /** The newest live snapshot and its tick, and this run's Cosmos timeline. */
+  /** The newest live snapshot and its tick. */
   let live: WorldLite | null = $state.raw(null);
-  let liveTick = $state(0);
+  let liveTick = 0;
+  /**
+   * The live snapshot the last frame drew, its tick, and this run's Cosmos timeline then. The Cosmos
+   * panel and the drawer read these, so their text changes as often as the scene is drawn, not at
+   * every step: at a bet's reveal speed the sim steps hundreds of times a second, and rewriting the
+   * panel for each step costs the page more than the steps come in, so it falls behind the sim.
+   */
+  let drawn: WorldLite | null = $state.raw(null);
+  let drawnTick = $state(0);
   let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
   /**
    * The tick the rewind range asks for, or null for now; the rewound world once it arrives. While
@@ -155,7 +196,16 @@
   /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
   let hasBook = $state(false);
   let speedBeforeBook = 0;
-  /** The finished year's myth on its way into the book. */
+  /**
+   * The open travel journal (Part 2), a modal dialog like the Book of Skies: the page to open at,
+   * and what to do on close (a valley's end goes on to the next valley).
+   */
+  let journal: { entries: JournalEntry[]; at: string | null; after: (() => void) | null } | null =
+    $state.raw(null);
+  /** Whether there is a journey, so the drawer offers the journal. */
+  let hasJourney = $state(false);
+  let speedBeforeJournal = 0;
+  /** The finished year's myth, or the journey's verse, on its way into the book. */
   let keptMyth: Promise<void> = Promise.resolve();
   /** Back to the title once the year's page is kept, so the title reads the saves after it. */
   function exit(): void {
@@ -187,19 +237,23 @@
   const wait = untrack(() => game.input.createWait());
 
   const chapter = $derived(game.chapters[index]);
-  /** The world drawn now, and what the Cosmos panel and the drawer say about it. */
+  /** The world now, live or rewound: what the valley line says. */
   // In closures, so TypeScript does not narrow the state to its first value.
   const shown = $derived.by(() => rewound ?? live);
-  const ties = $derived.by(() => (shown && (view === 'cosmos' || picked !== null) ? game.ties(shown) : null));
+  /** The same, as the last frame drew it: what the Cosmos panel and the drawer say about it. */
+  const seen = $derived.by(() => rewound ?? drawn);
+  /** A creature's name in the scene's text: the player's name for the hero. */
+  const nameOf = (id: string): string => (id === 'hero' && live?.hero ? live.hero.name : displayName(id));
+  const ties = $derived.by(() => (seen && (view === 'cosmos' || picked !== null) ? game.ties(seen) : null));
   const diary = $derived.by(() => {
-    const c = shown?.creatures.find((x) => x.id === picked);
+    const c = seen?.creatures.find((x) => x.id === picked);
     if (!c || !chapter) return null;
     const mine = ties?.get(c.id);
-    const away = new Set(shown?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
+    const away = new Set(seen?.creatures.filter((x) => x.state === 'away').map((x) => x.id));
     // The Cosmos panel's rule too: away ones count, marked away.
-    const named = (id: string): string => `${displayName(id)}${away.has(id) ? ' (away)' : ''}`;
+    const named = (id: string): string => `${nameOf(id)}${away.has(id) ? ' (away)' : ''}`;
     return {
-      name: displayName(c.id),
+      name: nameOf(c.id),
       lines: runner?.diary(c.id) ?? [],
       // The diary lines are the live ones; the rest is the rewound world.
       linesNow: rewound !== null,
@@ -234,17 +288,27 @@
       tool === 'place' && placeKind === 'bench'
         ? `Bench spot: ${spotName}`
         : pointing
-          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${displayName(nearby)}`}`
+          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${nameOf(nearby)}`}`
           : picked
-            ? `Picked: ${displayName(picked)}${pickedState ? `, ${pickedState}` : ''}`
+            ? `Picked: ${nameOf(picked)}${pickedState ? `, ${pickedState}` : ''}`
             : '',
-      tool === 'thread' && threadFrom !== null ? `Thread from ${displayName(threadFrom)}` : '',
+      // Walk acts at the spot and waves at the pick, so it names both.
+      pointing && tool === 'walk' && picked ? `Picked: ${nameOf(picked)}` : '',
+      tool === 'thread' && threadFrom !== null ? `Thread from ${nameOf(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
       rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
     ]
       .filter((part) => part !== '')
       .join('. '),
   );
+
+  /** The hero's standing manner as the sim has it (ADR 0013 item 2), toward and give without a hero. */
+  function mannerOf(lite: WorldLite | null): { reply: BidReply; gift: GiftMove } {
+    return lite?.hero ? { reply: lite.hero.reply, gift: lite.hero.gift } : { reply: 'toward', gift: 'give' };
+  }
+  function heroBerries(lite: WorldLite | null): number {
+    return lite?.creatures.find((c) => c.id === 'hero')?.berries ?? 0;
+  }
 
   function say(text: string, reveal = false): void {
     lines = [...lines.slice(-2), { id: (lineId += 1), text, reveal }];
@@ -254,7 +318,7 @@
     hints.activity();
     if (!runner || rewindAt !== null) return;
     if (runner.verb(v)) {
-      hints.used(v.verb);
+      hints.used(unlockingVerb(v));
       if (v.verb === 'place') {
         placed += 1;
         if (placed === chapter?.place.limit) used = [...used, 'place'];
@@ -285,7 +349,7 @@
    * answer plays, since the pause would take the runner's speed.
    */
   async function openBook(): Promise<void> {
-    if (book || bookOpening || betRunning) return;
+    if (book || bookOpening || journal || betRunning) return;
     bookOpening = true;
     if (!ended) {
       speedBeforeBook = game.currentSpeed();
@@ -295,6 +359,32 @@
     const [pages, feathers] = await Promise.all([game.book(), game.feathers()]);
     bookOpening = false;
     book = { pages, feathers };
+  }
+  /**
+   * Opens the travel journal at `at` (a valley's page; the title without one). Opened by the player
+   * (`after` null) it pauses the sim; at a valley's end the sim has stopped, and closing runs `after`.
+   */
+  function openJournal(at: string | null, after: (() => void) | null = null): void {
+    const j = game.journey();
+    if (!j || journal || book || bookOpening || betRunning) {
+      after?.();
+      return;
+    }
+    if (after === null) {
+      speedBeforeJournal = game.currentSpeed();
+      setSpeed(0);
+    }
+    journal = { entries: journalEntries(j, game.chapters, game.journalDrawing), at, after };
+  }
+  function closeJournal(): void {
+    const after = journal?.after ?? null;
+    journal = null;
+    // A Close button that goes away with the journal leaves focus nowhere; the scene takes it.
+    void tick().then(() => {
+      if (document.activeElement === document.body) sceneEl.focus();
+    });
+    if (after) after();
+    else if (!ended) setSpeed(speedBeforeJournal);
   }
   async function loadHasBook(): Promise<void> {
     hasBook = (await game.book()).length > 0;
@@ -347,10 +437,18 @@
       // Answering starts the sim, so a bet that arrives while rewound brings the world back to now.
       backToNow();
       bet = { question: p.question, options: p.options };
-    } else {
+    } else if (p.kind === 'reveal') {
       betRunning = false;
       say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`, true);
+    } else {
+      postcard = { question: p.question, options: p.options };
     }
+  }
+
+  function sendPostcard(option: string): void {
+    const type = postcard?.options.find((o) => o === option);
+    postcard = null;
+    if (type) runner?.sendPostcard(type);
   }
 
   function finishActivity(result: string): void {
@@ -371,17 +469,35 @@
   }
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
-    if (!due || !stage || hidden || ended || book || bookOpening || view !== 'meadow') return;
-    if (bet || betRunning || whisperCard || chapter?.activity) return;
+    if (!due || !stage || hidden || ended || book || bookOpening || journal || view !== 'meadow') return;
+    if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
   });
 
-  function begin(i: number, flags: Flags): void {
+  async function begin(i: number, flags: Flags): Promise<void> {
     const chapter = game.chapters[i];
     if (!chapter || !stage) return;
+    const token = (starting += 1);
+    // A valley's start waits for Kith. Meanwhile there is no runner, so verbs send nothing, the last
+    // world's snapshots are not drawn, and the heading changes only once Skip reaches the new runner.
+    runner = null;
+    let r: ChapterRunner;
+    try {
+      r = await game.startChapter(chapter, flags);
+    } catch (e) {
+      if (token === starting) {
+        // Why it stopped, for whoever reads the console: chapter and creature ids, never the hero's name.
+        console.error(e);
+        finish('failed');
+      }
+      return;
+    }
+    if (token !== starting) return;
     index = i;
+    hasJourney = game.journey() !== null;
     bet = null;
     betRunning = false;
+    postcard = null;
     picked = null;
     threadFrom = null;
     whisperCard = null;
@@ -405,17 +521,20 @@
       revealTimer = setTimeout(() => (lines = lines.filter((l) => l.id !== answer.id)), REVEAL_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
     // The host drops every message from the last chapter's worker once startChapter posts init
-    // (host.ts connect), and nothing runs between here and that post, so no old world comes back.
+    // (host.ts connect), and only a microtask passes between that post and here, so no old world
+    // comes back.
     live = null;
+    drawn = null;
     flagsNow = flags;
     myth = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
     const verb = chapter.newVerb;
     tool = tools.find((v) => v === verb) ?? tools[0] ?? null;
+    stage.setScene(chapter.scene);
+    stage.setPalette(chapter.palette ?? chapter.season);
     cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     stage.setShot(null);
     stage.setFocus(null);
-    stage.setSeason(chapter.season);
     stage.showHeatmap(false);
     view = 'meadow';
     stage.setView('meadow', null);
@@ -425,7 +544,6 @@
       if (document.activeElement === document.body) sceneEl.focus();
     });
 
-    const r = game.startChapter(chapter, flags);
     runner = r;
     r.onPrompt(onPrompt);
     r.onCamera((shot) => stage?.setShot(shot));
@@ -442,8 +560,23 @@
     r.done.then(
       (out) => {
         if (runner !== r) return;
-        if (i + 1 < game.chapters.length) begin(i + 1, out);
-        else finish('done');
+        if (i + 1 >= game.chapters.length) finish('done', out);
+        else if (chapter.activity === 'fire') {
+          // The year's page is kept before play goes on into the bridge, so the bridge's
+          // autosave comes after the year is marked kept.
+          keepPage();
+          void keptMyth.then(() => {
+            if (runner === r) void begin(i + 1, out);
+          });
+        } else if (chapter.valley) {
+          // The valley's new page opens in the journal; closing it starts the next valley.
+          const go = (): void => {
+            if (runner === r) void begin(i + 1, out);
+          };
+          const page = game.journey()?.pages.find((p) => p.valley === chapter.id);
+          if (page) openJournal(page.valley, go);
+          else go();
+        } else void begin(i + 1, out);
       },
       () => {
         if (runner === r) finish('failed');
@@ -451,10 +584,18 @@
     );
   }
 
-  function finish(how: 'done' | 'failed'): void {
-    // The finished year's myth becomes the next page of the Book of Skies (spec 10.6 item 7).
-    const page = how === 'done' ? (myth ?? (flagsNow ? game.myth(flagsNow) : null)) : null;
+  /** The fire's myth becomes the next page of the Book of Skies (spec 10.6 item 7). */
+  function keepPage(): void {
+    const page = myth ?? (flagsNow ? game.myth(flagsNow) : null);
     if (page) keptMyth = game.keepMyth(page).then(loadHasBook);
+  }
+
+  /** At the journey's end, `flags` are the homecoming's, which the sixth verse reads. */
+  function finish(how: 'done' | 'failed', flags: Flags | null = null): void {
+    if (how === 'done' && flags && game.journey()) {
+      verse = game.sixthVerse(flags);
+      keptMyth = game.finishJourney(verse).then(loadHasBook);
+    }
     endVisit();
     runner = null;
     setSpeed(0);
@@ -472,6 +613,11 @@
       return;
     }
     if (!stage || !prev || !next) return;
+    if (drawn !== next) {
+      drawn = next;
+      drawnTick = liveTick;
+      timeline = stage.timeline();
+    }
     const span = nextAt - prevAt;
     const alpha = span > 0 ? Math.min(1, Math.max(0, (now - nextAt) / span)) : 1;
     stage.draw(prev, next, alpha, $settings);
@@ -512,7 +658,7 @@
   });
 
   $effect(() => {
-    activityEl?.querySelector('button')?.focus();
+    activityEl?.querySelector<HTMLElement>('input, button')?.focus();
   });
 
   // The Meadow draws the cursor while a point tool is active.
@@ -525,10 +671,12 @@
    * the drawer opens at Under the hood for the picked creature.
    */
   function onSceneKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && !e.defaultPrevented) trayEl?.querySelector('button')?.focus();
+    if (e.key === 'Escape' && !e.defaultPrevented)
+      trayEl?.querySelector<HTMLElement>('input, button')?.focus();
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
     if (plain && e.key.toLowerCase() === 'p' && diary?.peek) drawerAt = { section: 'peek', focus: true };
     if (plain && e.key.toLowerCase() === 'b') void openBook();
+    if (plain && e.key.toLowerCase() === 'j' && hasJourney) openJournal(null);
   }
 
   /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
@@ -582,8 +730,8 @@
     });
     offs.push(
       game.onSnapshot((lite, at) => {
+        if (!runner) return;
         stage?.snapshot(at, lite);
-        if (stage) timeline = stage.timeline();
         live = lite;
         liveTick = at;
         if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
@@ -641,6 +789,11 @@
         threadFrom: () => threadFrom,
         setThreadFrom: (id) => (threadFrom = id),
         openWhisper,
+        manner: () => mannerOf(next),
+        heroKind: () => next?.hero?.kind ?? null,
+        heroBerries: () => heroBerries(next),
+        heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+        keepsakes: () => next?.hero?.keepsakes ?? [],
       };
       offs.push(game.input.createKeyboard(sceneEl, ctx));
       offs.push(
@@ -654,14 +807,15 @@
       // Continue starts the saved chapter over from its start; no save means a new game.
       const saved = untrack(() => resume) ? await game.resume() : null;
       if (isGone()) return;
-      if (saved) begin(saved.index, saved.flags);
-      else begin(game.firstChapter, game.defaultFlags);
+      if (saved) void begin(saved.index, saved.flags);
+      else void begin(game.firstChapter, game.defaultFlags);
       sceneEl.focus();
       if (!hidden) raf = requestAnimationFrame(frame);
     });
 
     return () => {
       gone = true;
+      starting += 1;
       runner = null;
       if (raf !== null) cancelAnimationFrame(raf);
       clearTimeout(ghostTimer);
@@ -673,14 +827,18 @@
       hints.dispose();
       wait.dispose();
       game.speed(0);
+      game.stop();
       stage?.destroy();
     };
   });
 </script>
 
 <div class="game">
-  <!-- Everything but the bet card, the whisper card, or the Book of Skies goes inert while one is open. -->
-  <div class="layer" inert={bet !== null || whisperCard !== null || book !== null}>
+  <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
+  <div
+    class="layer"
+    inert={bet !== null || postcard !== null || whisperCard !== null || book !== null || journal !== null}
+  >
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -696,27 +854,32 @@
       {chapter?.activity
         ? 'Tab picks a creature, Space pauses, and Escape moves to the activity.'
         : 'Tab picks a creature, the arrow keys move the spot, Enter uses the tool, Space pauses, and Escape moves to the tools.'}{chapter?.verbs.includes(
-        'zoom',
+        'walk',
       )
-        ? ' Z zooms out and X zooms in.'
-        : ''}{chapter?.verbs.includes('peek')
+        ? ' With Walk, W waves at the picked creature.'
+        : ''}{chapter?.verbs.includes('zoom') ? ' Z zooms out and X zooms in.' : ''}{chapter?.verbs.includes(
+        'peek',
+      )
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
         ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
-        : ''} B opens the Book of Skies.
+        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''}
     </p>
 
     {#if ended}
       <main class="end">
         <h1 id="end-title" tabindex="-1">
-          {ended === 'done' ? 'End of Part 1' : 'This chapter stopped'}
+          {ended === 'done' ? 'The End' : 'This chapter stopped'}
         </h1>
         {#if ended === 'done'}
-          <p>
-            [PLACEHOLDER] The year in Kith is done. Its sky story is a page in the Book of Skies now, and Part
-            2 is still to come.
-          </p>
-          <!-- The whole story stays in the book, so the last verse can be read after the fire. -->
+          {#if verse}
+            <h2>{verse.title}</h2>
+            <p>{verse.text}</p>
+            {#if verse.note}
+              <p class="note">{verse.note}</p>
+            {/if}
+          {/if}
+          <!-- The whole story stays in the book, so every verse can be read after the end. -->
           <div class="end-actions">
             <button
               type="button"
@@ -741,6 +904,11 @@
             openAt={drawerAt}
             bind:open={drawerOpen}
             onBook={hasBook ? () => void openBook() : undefined}
+            onJournal={hasJourney
+              ? () => {
+                  openJournal(null);
+                }
+              : undefined}
           />
         </div>
         {#if view === 'cosmos'}
@@ -750,16 +918,16 @@
             <div class="strip" bind:this={stripEl}></div>
           </div>
         {/if}
-        {#if view === 'cosmos' && shown && ties && chapter}
+        {#if view === 'cosmos' && seen && ties && chapter}
           <div class="cosmos">
             <CosmosPanel
-              lite={shown}
+              lite={seen}
               {ties}
               {timeline}
-              label={displayName}
+              label={nameOf}
               rewind={chapter.verbs.includes('rewind')
                 ? {
-                    now: liveTick,
+                    now: drawnTick,
                     at: rewindAt,
                     ticksPerDay: chapterTicksPerDay(chapter),
                     disabled: bet !== null || betRunning,
@@ -776,9 +944,10 @@
             <BeatLine {lines} />
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
+            <ValleyLine lite={shown} label={nameOf} />
             <div bind:this={trayEl}>
               {#if chapter?.activity}
-                <!-- The activity stands in for the tool tray; Escape from the scene reaches its first button. -->
+                <!-- The activity stands in for the tool tray; Escape from the scene reaches its first control. -->
                 {#if chapter.activity === 'fire'}
                   {#if myth}
                     <div class="activity" bind:this={activityEl}>
@@ -800,6 +969,8 @@
                       <Bubbles lite={live} finish={finishActivity} />
                     {:else if chapter.activity === 'postcard'}
                       <Postcard finish={finishActivity} />
+                    {:else if chapter.activity === 'hero'}
+                      <HeroChoice finish={finishActivity} />
                     {:else}
                       <Stillness
                         finish={finishActivity}
@@ -825,6 +996,24 @@
                     reply = r;
                     act({ verb: 'respond', reply: r });
                   }}
+                  manner={mannerOf(live)}
+                  onManner={(m: { reply: BidReply; gift: GiftMove }) => {
+                    act({ verb: 'manner', ...m });
+                  }}
+                  canPlant={live?.hero?.kind === 'seedcarrier'}
+                  plantCost={tuning.knack.seedCost}
+                  plantReady={heroBerries(live) >= tuning.knack.seedCost}
+                  onPlant={() => {
+                    act({ verb: 'plant' });
+                  }}
+                  keepsakes={(live?.hero?.keepsakes ?? []).map((id) => ({
+                    id,
+                    label: KEEPSAKE_LABELS.get(id) ?? id,
+                  }))}
+                  giveTo={picked === null || picked === 'hero' ? null : nameOf(picked)}
+                  onGive={(id: string) => {
+                    if (picked !== null && picked !== 'hero') act({ verb: 'keepsake', to: picked, item: id });
+                  }}
                 />
               {/if}
             </div>
@@ -844,12 +1033,26 @@
   </div>
   {#if book}
     <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
+  {:else if journal}
+    <Journal entries={journal.entries} at={journal.at} onCaption={game.setCaption} onBack={closeJournal} />
   {:else if bet}
     <BetCard
       question={bet.question}
       options={bet.options}
       label={displayName}
       onAnswer={answer}
+      home={() => {
+        sceneEl.focus();
+      }}
+    />
+  {:else if postcard}
+    <!-- The postcard home is chosen on the bet card, under its own heading; the runner logs it as a postcard. -->
+    <BetCard
+      heading="A postcard home"
+      question={postcard.question}
+      options={postcard.options}
+      label={(o) => POSTCARD_LABELS[o as PostcardType]}
+      onAnswer={sendPostcard}
       home={() => {
         sceneEl.focus();
       }}
@@ -979,6 +1182,10 @@
     padding: 2rem 1rem;
     overflow-y: auto;
     background: var(--bg);
+  }
+  .end .note {
+    font-style: italic;
+    color: var(--muted);
   }
   .end-actions {
     display: flex;

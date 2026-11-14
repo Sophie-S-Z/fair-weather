@@ -2,6 +2,7 @@
 import { expect, test } from 'vitest';
 import { applyCommand } from '../../../src/sim/commands.ts';
 import { landOf, withBank } from '../../../src/sim/land.ts';
+import { perceivedShares } from '../../../src/sim/packs/fen.ts';
 import { createWorld, ensureTie, side } from '../../../src/sim/world.ts';
 import { toLite } from '../../../src/sim-host/lite.ts';
 import { get, scriptedRng, tuning as t } from '../sim/helpers.ts';
@@ -62,4 +63,53 @@ test("lite carries the sim's own land: each water's bank, the decks, and the isl
   expect(lite.decks).toEqual(land.decks);
   expect(lite.islets).toEqual([]);
   expect(toLite(createWorld(1, t, scenario), t).banks).toEqual([]);
+});
+
+test('lite carries each species, and the hero with what each other creature thinks of it', () => {
+  const plain = toLite(createWorld(1, t, scenario), t);
+  expect(plain.hero).toBeNull();
+  expect(plain.creatures.map((c) => c.speciesId)).toEqual(scenario.creatures.map((c) => c.speciesId));
+  const hero = { kind: 'mosscoat' as const, name: 'Wren', x: 400, y: 300, berries: 2, keepsakes: ['acorn'] };
+  const w = createWorld(1, t, { ...scenario, hero: { ...hero, rumor: null } });
+  get(w, 'pim').opinions.hero = 0.4;
+  get(w, 'krit').opinions.hero = -0.2;
+  const lite = toLite(w, t);
+  expect(lite.creatures.at(-1)).toMatchObject({ id: 'hero', speciesId: 'mosscoat' });
+  expect(lite.hero).toEqual({
+    kind: 'mosscoat',
+    name: 'Wren',
+    reply: 'toward',
+    gift: 'give',
+    keepsakes: ['acorn'],
+    opinions: { pim: 0.4, krit: -0.2 },
+  });
+  expect(lite.hero!.keepsakes).not.toBe(w.hero!.keepsakes);
+});
+
+test('lite carries the Fen flock: who flies, the hero while it has joined, and each perceived share', () => {
+  expect(toLite(createWorld(1, t, scenario), t).pack).toBeNull();
+  const birds = scenario.creatures.map((c) => ({ ...c, speciesId: 'starling' }));
+  const hero = {
+    kind: 'kite' as const,
+    name: 'Wren',
+    x: 400,
+    y: 300,
+    berries: 2,
+    keepsakes: [],
+    rumor: null,
+  };
+  const second = birds[1]!;
+  const w = createWorld(1, t, {
+    ...scenario,
+    creatures: birds,
+    hero,
+    pack: { id: 'fen', restless: [second.id], fixed: {} },
+  });
+  if (w.pack?.id === 'fen') w.pack.heroFlying = true;
+  const lite = toLite(w, t);
+  expect(lite.pack).toEqual({ id: 'fen', flying: [second.id, 'hero'], perceived: perceivedShares(w, t) });
+  expect(Object.keys(lite.pack?.id === 'fen' ? lite.pack.perceived : {})).toEqual(birds.map((c) => c.id));
+  get(w, second.id).state = 'away';
+  const later = toLite(w, t).pack;
+  expect(later?.id === 'fen' && later.flying).toEqual(['hero']);
 });

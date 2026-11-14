@@ -18,6 +18,11 @@ export const FlagsSchema = z.strictObject({
   bellDanced: z.boolean(),
   festivalShare: z.number(),
   greetingSong: z.number(),
+  toveFlew: z.boolean(),
+  heroFamous: z.boolean(),
+  wispHome: z.boolean(),
+  /** Kith's average warmth after the postcards is at least wisp.minKithWarmth (ADR 0013 item 12). */
+  kithHeld: z.boolean(),
 });
 export type Flags = z.infer<typeof FlagsSchema>;
 export type FlagKey = keyof Flags;
@@ -36,6 +41,10 @@ export const FLAG_KEYS = [
   'bellDanced',
   'festivalShare',
   'greetingSong',
+  'toveFlew',
+  'heroFamous',
+  'wispHome',
+  'kithHeld',
 ] as const satisfies readonly FlagKey[];
 
 /** Validates raw flags JSON (content/flags.json). */

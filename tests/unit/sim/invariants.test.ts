@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- test fixtures have known ids */
 import { expect, test } from 'vitest';
 import { checkInvariants } from '../../../src/sim/invariants.ts';
-import type { World } from '../../../src/sim/types.ts';
+import type { HollowState, World } from '../../../src/sim/types.ts';
 import { befriend, get, makeWorld, tuning as t } from './helpers.ts';
 
 function fresh(): World {
@@ -50,5 +50,30 @@ test.each<[string, (w: World) => void]>([
 ])('checkInvariants reports %s', (_, edit) => {
   const w = fresh();
   edit(w);
+  expect(checkInvariants(w, t)).not.toEqual([]);
+});
+
+function hollowFresh(): World {
+  const w = makeWorld([{ id: 'a' }, { id: 'b' }], { pack: { id: 'hollow' } });
+  if (w.pack?.id === 'hollow') {
+    w.pack.fame = { a: 0.3 };
+    w.pack.drama = [{ subject: 'a', x: 800, y: 450, score: 1, day: 0, hero: false }];
+  }
+  return w;
+}
+
+test('a fresh Hollow world has no invariant violations', () => {
+  expect(checkInvariants(hollowFresh(), t)).toEqual([]);
+});
+
+test.each<[string, (h: HollowState, w: World) => void]>([
+  ['the lens off the drama sky', (_, w) => (w.fields.light = { x: 0, y: 0 })],
+  ['a negative fame', (h) => (h.fame.a = -0.1)],
+  ['a negative drama score', (h) => (h.drama[0]!.score = -1)],
+  ['a drama subject twice', (h) => h.drama.push({ ...h.drama[0]! })],
+])('checkInvariants reports %s in the Hollow', (_, edit) => {
+  const w = hollowFresh();
+  if (w.pack?.id !== 'hollow') throw new Error('not a Hollow');
+  edit(w.pack, w);
   expect(checkInvariants(w, t)).not.toEqual([]);
 });

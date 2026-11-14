@@ -10,9 +10,10 @@ const zoom = z.number().min(1);
 
 /**
  * A scene layout in scene units, y down (spec 11.1 item 3): far hills, grass tufts, trees
- * (a tapered trunk, branches, and a canopy of overlapping circles),
- * bench spots for the place verb, and named camera shots that beats ask for. A shot centers a
- * fixed point, or follows a creature by id. `credit` names who made the layout; a placeholder
+ * (a tapered trunk, branches, and a canopy of overlapping circles), and for the valleys (spec
+ * 7.3) reed beds, pools, lanes, and squares on the ground, the sky band where a flock flies, and
+ * depth; bench spots for the place verb, and named camera shots that beats ask for. A shot centers
+ * a fixed point, or follows a creature by id. `credit` names who made the layout; a placeholder
  * layout says so, so the production guard sees it (ADR 0010).
  */
 export const SceneSchema = z.strictObject({
@@ -34,6 +35,61 @@ export const SceneSchema = z.strictObject({
       canopy: z.array(z.tuple([z.number(), z.number(), z.number().positive()])).min(1),
     }),
   ),
+  /**
+   * Reed beds: a clump of `stems` reeds with their feet in the oval about (x, y) with radii rx and
+   * ry, the tallest `height` tall at the scene's depth reference. The back stems stand behind the
+   * birds in the bed and the front stems before them.
+   */
+  beds: z
+    .array(
+      z.strictObject({
+        x: z.number(),
+        y: z.number(),
+        rx: z.number().positive(),
+        ry: z.number().positive(),
+        stems: z.number().int().positive(),
+        height: z.number().positive(),
+      }),
+    )
+    .default([]),
+  /** Still pools [x, y, rx, ry] on the ground, drawn only (the sim's water is the snapshot's). */
+  pools: z.array(z.tuple([z.number(), z.number(), z.number().positive(), z.number().positive()])).default([]),
+  /** Lane center lines, drawn as faint edges `LANE_WIDTH` apart. */
+  lanes: z.array(Polyline).default([]),
+  /** Open squares [x, y, rx, ry]: a faint oval on the ground. */
+  squares: z
+    .array(z.tuple([z.number(), z.number(), z.number().positive(), z.number().positive()]))
+    .default([]),
+  /** The band [top, bottom] in scene y where a flying flock is drawn, above everything on the ground. */
+  sky: z.tuple([z.number(), z.number()]).default([24, 150]),
+  /**
+   * Depth (spec 11.1): the land meets the sky at `horizon`, and a thing standing at y is drawn
+   * `depthAt(scene, y)` times its size: `far` at the horizon, 1 at `reference`, `near` at the
+   * scene's foot, straight between. A scene with depth draws its sky, its hills in aerial
+   * perspective, and its ground in color. A scene with water keeps its reference at or below where
+   * bodies stand beside the water, so no body outgrows the sim's bank (bank.test.ts).
+   */
+  depth: z
+    .strictObject({
+      horizon: z.number(),
+      reference: z.number(),
+      far: z.number().positive(),
+      near: z.number().positive(),
+    })
+    .optional(),
+  /**
+   * A sea valley's open sea (drawn only; the sim's water is the snapshot's): it meets the sky at
+   * `horizon` and laps the land at the depth horizon, the sun hangs over it at `sun` [x, y], and a
+   * strip of sand `shore` deep at the depth reference lies between land and water (narrower far
+   * off). With a sea, each hill is a headland or an island standing on its lower end.
+   */
+  sea: z
+    .strictObject({
+      horizon: z.number(),
+      shore: z.number().positive(),
+      sun: z.tuple([z.number(), z.number()]),
+    })
+    .optional(),
   benchSpots: z.array(Spot),
   cameras: z.record(
     z.string(),
@@ -46,10 +102,26 @@ export const SceneSchema = z.strictObject({
 
 export type SceneData = z.infer<typeof SceneSchema>;
 
+/**
+ * How many times its size a thing standing at scene y is drawn: 1 without depth; with it, `far`
+ * at the horizon (and above it), 1 at the reference, `near` at the scene's foot (and below it).
+ */
+export function depthAt(scene: Pick<SceneData, 'depth' | 'height'>, y: number): number {
+  const d = scene.depth;
+  if (!d) return 1;
+  if (y <= d.reference) {
+    const u = Math.max(0, (y - d.horizon) / (d.reference - d.horizon));
+    return d.far + (1 - d.far) * u;
+  }
+  const u = Math.min(1, (y - d.reference) / Math.max(1, scene.height - d.reference));
+  return 1 + (d.near - 1) * u;
+}
+
 type LiteCreature = WorldLite['creatures'][number];
 
 export interface DrawnCreature {
   id: string;
+  speciesId: string;
   x: number;
   y: number;
   state: LiteCreature['state'];
@@ -69,6 +141,7 @@ export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: nu
     before.delete(b.id);
     return {
       id: b.id,
+      speciesId: b.speciesId,
       x: a.x + (b.x - a.x) * alpha,
       y: a.y + (b.y - a.y) * alpha,
       state: b.state,
@@ -77,6 +150,14 @@ export function interpolateCreatures(prev: WorldLite, next: WorldLite, alpha: nu
     };
   });
   for (const a of before.values())
-    out.push({ id: a.id, x: a.x, y: a.y, state: a.state, shell: a.shell, dancing: a.dancing });
+    out.push({
+      id: a.id,
+      speciesId: a.speciesId,
+      x: a.x,
+      y: a.y,
+      state: a.state,
+      shell: a.shell,
+      dancing: a.dancing,
+    });
   return out;
 }

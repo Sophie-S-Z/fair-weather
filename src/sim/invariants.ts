@@ -1,7 +1,7 @@
 // World invariants checked every tick by the T2 property test. Returns one message per violation.
 import type { World } from './types.ts';
 import type { Tuning } from './tuning.ts';
-import { DIAL_KEYS } from './types.ts';
+import { DIAL_KEYS, HERO } from './types.ts';
 import { decksOf, inRect, inWater } from './land.ts';
 import { tieKey } from './world.ts';
 
@@ -30,7 +30,13 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
  * the scene; no creature, unless away, in water off a bridge deck; population <= cap.sandbox;
- * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops].
+ * unique creature ids; each tie stored under tieKey(a, b); mushroom drops taken in [0, drops]; with
+ * `world.hero`, a hero creature that waves at no one or at another creature; a gift bush with at
+ * most knack.seedBerries and no finder twice (ADR 0013 item 3); with a Fen (ADR 0013 item 5),
+ * thresholds in [0, 1], each flier and restless starling one with a threshold, no flier twice, every
+ * restless starling in flight, and a hero in flight only in a world with a hero; with a Hollow
+ * (ADR 0013 item 6), the lens at the sky, every fame and drama score at least 0, and no drama
+ * subject twice. The hero is a creature, so every creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -64,11 +70,39 @@ export function checkInvariants(world: World, t: Tuning): string[] {
       if (!inRange(v, -1, 1)) out.push(`${c.id}.opinions.${about} ${String(v)}`);
     }
   }
-  for (const b of world.bushes) if (!(b.berries >= 0)) out.push(`${b.id}.berries ${String(b.berries)} < 0`);
+  for (const b of world.bushes) {
+    if (!(b.berries >= 0)) out.push(`${b.id}.berries ${String(b.berries)} < 0`);
+    if (!b.gift) continue;
+    if (b.berries > t.knack.seedBerries) out.push(`gift ${b.id} holds ${String(b.berries)} berries`);
+    if (new Set(b.gift.found).size !== b.gift.found.length) out.push(`gift ${b.id} has a finder twice`);
+  }
   for (const [key, tie] of world.ties) {
     if (key !== tieKey(tie.a, tie.b)) out.push(`tie ${key} holds ${tie.a} and ${tie.b}`);
     if (!inRange(tie.ab.warmth, -1, 1)) out.push(`tie ${key} ab.warmth ${String(tie.ab.warmth)}`);
     if (!inRange(tie.ba.warmth, -1, 1)) out.push(`tie ${key} ba.warmth ${String(tie.ba.warmth)}`);
+  }
+  if (world.hero && !ids.has(HERO)) out.push('world.hero is set without a hero creature');
+  if (world.hero?.waveTo === HERO) out.push('the hero waves at itself');
+  const fen = world.pack;
+  if (fen?.id === 'fen') {
+    for (const [id, v] of Object.entries(fen.thresholds)) {
+      if (!inRange(v, 0, 1)) out.push(`fen threshold ${id} ${String(v)}`);
+    }
+    for (const id of [...fen.flying, ...fen.restless]) {
+      if (fen.thresholds[id] === undefined) out.push(`fen ${id} has no threshold`);
+    }
+    if (new Set(fen.flying).size !== fen.flying.length) out.push('a starling flies twice');
+    if (!fen.restless.every((id) => fen.flying.includes(id))) out.push('a restless starling landed');
+    if (fen.heroFlying && !world.hero) out.push('the hero flies in a world without a hero');
+  }
+  const hollow = world.pack;
+  if (hollow?.id === 'hollow') {
+    const light = world.fields.light;
+    if (light?.x !== hollow.sky.x || light.y !== hollow.sky.y) out.push('the lens is off the drama sky');
+    for (const [id, v] of Object.entries(hollow.fame)) if (!(v >= 0)) out.push(`fame ${id} ${String(v)}`);
+    for (const d of hollow.drama) if (!(d.score >= 0)) out.push(`drama ${d.subject} ${String(d.score)}`);
+    const subjects = hollow.drama.map((d) => d.subject);
+    if (new Set(subjects).size !== subjects.length) out.push('a drama subject twice');
   }
   const m = world.mushroom;
   if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);

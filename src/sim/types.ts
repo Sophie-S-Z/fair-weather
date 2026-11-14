@@ -6,6 +6,53 @@ export type CreatureState = 'wander' | 'meet' | 'sleep' | 'leave' | 'away';
 export type BidReply = 'toward' | 'away' | 'against';
 export type GiftMove = 'give' | 'keep';
 export type Behavior = 'toward' | 'against' | 'give' | 'keep';
+/** The six heroes the player may walk as (ADR 0013 item 1). */
+export const HERO_KINDS = ['lantern', 'kite', 'mosscoat', 'glassling', 'seedcarrier', 'bellchime'] as const;
+export type HeroKind = (typeof HERO_KINDS)[number];
+/** The hero's creature id (ADR 0013 item 1). */
+export const HERO = 'hero';
+/** The valleys' rule packs (ADR 0013 item 4); each pack task adds its id. */
+export type PackId = 'fen' | 'hollow' | 'halcyon';
+/** The player's local verb, passed to the world's rule pack (ADR 0013 item 4). */
+export type LocalVerb =
+  { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string };
+/**
+ * Murmuration Fen's flock (ADR 0013 item 5): each starling's threshold, the starlings in flight in
+ * creature order, the restless ones that never land, and whether the hero has joined.
+ */
+export interface FenState {
+  id: 'fen';
+  thresholds: Record<string, number>;
+  flying: string[];
+  restless: string[];
+  heroFlying: boolean;
+}
+/**
+ * Hearsay Hollow's town (ADR 0013 item 6): the drama sky, one drama entry per subject (its total
+ * score, the spot and day of its newest drama, and whether that drama came from a meeting with the
+ * hero or a `pose`), each creature's fame, and the subject of the last print, or null. Fame runs
+ * from 0 to at most hollow.fameStep × knack.bellPrints / hollow.fameFade (4 by default); it is not
+ * capped at 1.
+ */
+export interface HollowState {
+  id: 'hollow';
+  sky: { x: number; y: number };
+  drama: { subject: string; x: number; y: number; score: number; day: number; hero: boolean }[];
+  fame: Record<string, number>;
+  front: string | null;
+}
+/**
+ * Halcyon (ADR 0013 item 7): Kith's average warmth the scenario gives, the creature that chooses
+ * (Wisp), whether it has been given a keepsake, and its choice, made once at a dusk, or null.
+ */
+export interface HalcyonState {
+  id: 'halcyon';
+  kithWarmth: number;
+  seeker: string;
+  given: boolean;
+  chose: 'home' | 'stay' | null;
+}
+export type PackState = FenState | HollowState | HalcyonState;
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -80,6 +127,11 @@ export interface Bush {
   x: number;
   y: number;
   berries: number;
+  /**
+   * A Seedcarrier's gift (ADR 0013 item 3): planted by `from`, it fills at the dusk of `readyDay`
+   * and never regrows; `found` lists the creatures that have taken a berry from it, in order.
+   */
+  gift?: { from: string; readyDay: number; found: string[] };
 }
 /** An axis-aligned rectangle, edges included. */
 export interface Rect {
@@ -159,6 +211,14 @@ export interface World {
   rumorFirst?: true;
   /** Set only with the scenario's: a giver with mutual friends forgives as they do, when they forgive more (ADR 0012 item 16). */
   friendsForgive?: true;
+  /**
+   * The player's hero (ADR 0013 items 1 and 2), set only with the scenario's: its kind, its standing
+   * manner, the creature it waved at (`walk` with `to`), and its keepsakes. `waveTo` clears when the
+   * two meet, when water stops the hero, when that creature goes away, and on a `walk` to a point.
+   */
+  hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] };
+  /** The valley's rule-pack state (ADR 0013 item 4), set only with the scenario's `pack`. */
+  pack?: PackState;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -173,7 +233,13 @@ export type Command =
   | { t: 'wake'; who: string }
   | { t: 'promptSkyBid'; who: string }
   | { t: 'overPoke' }
-  | { t: 'dance'; who: string };
+  | { t: 'dance'; who: string }
+  | { t: 'walk'; x: number; y: number }
+  | { t: 'walk'; to: string }
+  | { t: 'manner'; reply: BidReply; gift: GiftMove }
+  | { t: 'plant' }
+  | { t: 'local'; verb: LocalVerb }
+  | { t: 'nudge'; dial: DialKey; amount: number };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -185,7 +251,10 @@ export type SimEvent =
   | { t: 'wake'; who: string }
   | { t: 'lit'; a: string; b: string; behaviors: Behavior[] }
   | { t: 'dance'; who: string }
-  | { t: 'mushroom'; taken: number; drops: number };
+  | { t: 'mushroom'; taken: number; drops: number }
+  | { t: 'print'; subject: string; fame: number } // the Hollow's gazette, with the fame after the dusk fade
+  | { t: 'keepsake'; to: string; item: string }
+  | { t: 'goHome' | 'stay'; who: string }; // Wisp's choice in Halcyon (ADR 0013 item 7)
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -214,4 +283,29 @@ export interface Scenario {
   ambientSkyBids?: true;
   rumorFirst?: true;
   friendsForgive?: true;
+  /**
+   * The player's hero, added as the last creature (ADR 0013 item 1). `rumor` is the reputation it
+   * brings from the last valley (ADR 0013 item 8), or null.
+   */
+  hero?: {
+    kind: HeroKind;
+    name: string;
+    x: number;
+    y: number;
+    berries: number;
+    keepsakes: string[];
+    rumor: { value: number; strength: number } | null;
+    /** The shell it brings from the last valley (ADR 0013 item 1); none starts it with no shell. */
+    shell?: Shell;
+  };
+  /**
+   * The valley's rule pack (ADR 0013 items 4 to 6). Murmuration Fen: the `restless` starlings fly
+   * from the start and never land, and `fixed` holds the thresholds that take no draw (Tove's 0.5).
+   * Hearsay Hollow takes nothing more. Halcyon (item 7): Kith's average warmth after the postcards
+   * so far (item 10), and the `seeker` who chooses, Wisp.
+   */
+  pack?:
+    | { id: 'fen'; restless: string[]; fixed: Record<string, number> }
+    | { id: 'hollow' }
+    | { id: 'halcyon'; kithWarmth: number; seeker: string };
 }

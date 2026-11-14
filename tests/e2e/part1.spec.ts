@@ -124,9 +124,9 @@ async function tabToAny(page: Page, not: string[] = []): Promise<string | null> 
   return null;
 }
 
-/** Presses Tab inside a card until the focused button reads `text`. */
-async function tabToButton(page: Page, text: string): Promise<void> {
-  for (let i = 0; i < 40 && (await look(page)).focus !== text; i++) await page.keyboard.press('Tab');
+/** Presses Tab (or `key`, such as Shift+Tab) until the focused button reads `text`. */
+async function tabToButton(page: Page, text: string, key = 'Tab'): Promise<void> {
+  for (let i = 0; i < 40 && (await look(page)).focus !== text; i++) await page.keyboard.press(key);
   expect((await look(page)).focus).toBe(text);
 }
 
@@ -298,7 +298,7 @@ async function playActivity(page: Page, mode: Mode, seen: Look): Promise<void> {
  * Bridge, and Lantern act once at the middle. Interludes and the fire are played to their end.
  */
 async function playPart1(page: Page, mode: Mode): Promise<Played> {
-  const end = page.getByRole('heading', { name: 'End of Part 1' });
+  const end = page.getByRole('heading', { level: 1, name: 'The Bridge' });
   const played: Played = { bets: [], used: [] };
   let shown = '';
   let framesAtStart = 0;
@@ -439,25 +439,28 @@ for (const mode of ['pointer', 'keyboard'] as const) {
     }
     const played = await playPart1(page, mode);
 
-    const end = page.getByRole('heading', { name: 'End of Part 1' });
-    await expect(end).toBeFocused();
+    // Part 1 ends at the bridge, with the year's page kept in the Book of Skies.
+    await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
     expect(played.bets).toEqual(LAST_OPTIONS);
     expect(played.used).toEqual(USED_ONCE);
     expect(errors).toEqual([]);
-
-    // Back to the title, whose Book of Skies now has the year's page.
-    if (mode === 'pointer') await page.getByRole('button', { name: 'Back to title' }).click();
-    else {
-      await page.keyboard.press('Tab');
-      await expect(page.getByRole('button', { name: 'Open the Book of Skies' })).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
+    const open = page.getByRole('button', { name: 'Book of Skies' });
+    if (mode === 'pointer') {
+      await page.getByRole('button', { name: 'Diary and notes' }).click();
+      await open.click();
+    } else {
+      // Focus is on the bridge's activity; the drawer's button comes before it (Tab in the scene picks creatures).
+      await expect(
+        page.getByRole('region', { name: 'Choose your hero' }).getByRole('radio').first(),
+      ).toBeFocused();
+      await tabToButton(page, 'Diary and notes', 'Shift+Tab');
+      await page.keyboard.press('Enter');
+      await tabToButton(page, 'Book of Skies');
       await page.keyboard.press('Enter');
     }
-    await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Book of Skies' })).toBeEnabled();
-    // The year is kept, so Continue does not offer its fire again (one page per year).
-    await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    const book = page.getByRole('dialog', { name: 'Book of Skies' });
+    await expect(book.getByRole('article')).toHaveCount(1);
+    await expect(book.getByRole('article', { name: 'Year 1' })).toBeVisible();
     expect(errors).toEqual([]);
   });
 }

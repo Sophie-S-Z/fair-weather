@@ -91,7 +91,16 @@ export const TuningSchema = obj({
   festival: obj({ threshold: count, everyTicks: count }),
   postcard: obj({ nudge: signed }),
   wisp: obj({ minWarmth: signed, minKithWarmth: signed }),
-  halcyon: obj({ giftWarmthMultiplier: prob, keepsakeWarmth: signed }),
+  halcyon: obj({
+    giftWarmthMultiplier: prob,
+    keepsakeWarmth: signed,
+    keepsakeRadii: pos,
+    chooseByDay: count,
+  }),
+  /** Kith's silent run over the Part 2 valleys (ADR 0013 item 10). */
+  kith: obj({ days: count }),
+  /** "What they say about you" (ADR 0013 item 14): most of the locals hold the rumor at a strength of mostAt or more, some at someAt or more. */
+  journal: obj({ mostAt: prob, someAt: prob }),
   bet: obj({ revealSpeed: pos }),
   bridge: obj({ radius: pos, landing: pos }),
   /**
@@ -105,6 +114,53 @@ export const TuningSchema = obj({
    */
   bank: obj({ side: pos, below: pos }),
   lantern: obj({ radius: pos, fogFactor: prob }),
+  /**
+   * The six hero knacks (ADR 0013 item 3); bellRadius is the Bellchime's reach in scene units. In
+   * Hearsay Hollow the drama sky moves × lanternSky toward a Lantern-bearer's drama, and a print
+   * about a Bellchime adds hollow.fameStep bellPrints times.
+   */
+  knack: obj({
+    lanternFog: prob,
+    kiteSpeed: pos,
+    mossMemory: pos,
+    mossDrift: prob,
+    glassWarmth: pos,
+    seedCost: count,
+    seedBerries: count,
+    seedDays: count,
+    seedWarmth: signed,
+    bellRadius: pos,
+    lanternSky: pos,
+    bellPrints: count,
+  }),
+  /**
+   * Murmuration Fen (ADR 0013 item 5): flight is checked every `everyTicks` ticks against each
+   * starling's `neighbors` nearest, with thresholds `duskLift` lower from `duskAt` of the day. A
+   * drawn threshold is thresholdMin + thresholdSpan × the draw (0.2 to 0.8, ADR 0007); a span, not
+   * a max, since 0.8 − 0.2 is not 0.6 in floating point and would move every drawn threshold.
+   */
+  fen: obj({
+    everyTicks: count,
+    duskAt: prob,
+    duskLift: prob,
+    neighbors: count,
+    thresholdMin: prob,
+    thresholdSpan: prob,
+  }),
+  /**
+   * Hearsay Hollow (ADR 0013 item 6): the drama sky moves `skySpeed` scene units a second; a print
+   * adds `fameStep` to its subject's fame, every fame then falls by `fameFade` of itself, and a
+   * creature with fame above `fearAt` meets no local. `fameFade` is above 0, so fame stays at most
+   * fameStep × knack.bellPrints / fameFade. `drama` holds the ADR 0007 scores: an against reply,
+   * a keep after the other side's gift, an away reply, and a `pose`.
+   */
+  hollow: obj({
+    skySpeed: pos,
+    fameStep: pos,
+    fameFade: z.number().gt(0).max(1),
+    fearAt: pos,
+    drama: obj({ against: nonNeg, keep: nonNeg, away: nonNeg, pose: nonNeg }),
+  }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

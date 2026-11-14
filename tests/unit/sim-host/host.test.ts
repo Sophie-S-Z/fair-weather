@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from 'vitest';
 import golden from '../../golden/m0-hash.json';
 import type { FromWorker, ToWorker } from '../../../src/sim-host/protocol.ts';
+import type { Command } from '../../../src/sim/types.ts';
 import { createSimHost } from '../../../src/sim-host/host.ts';
 import type { SimHost } from '../../../src/sim-host/host.ts';
 import type { Endpoint } from './harness.ts';
@@ -175,4 +176,90 @@ test('host.rewind rejects when the worker errors before answering', async () => 
   await expect(pending).rejects.toThrow(/restarted/);
   // The restarted worker answers a new request.
   await expect(host.rewind(10)).resolves.toMatchObject({ tick: 10 });
+});
+
+test('host.fastForward resolves with the forwarded world, and rejects on a restart', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  const seen: FromWorker[] = [];
+  host.onMessage((m) => seen.push(m));
+  host.post(initGolden);
+  const pending = host.fastForward(100);
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  await expect(pending).rejects.toThrow(/restarted/);
+  const done = await host.fastForward(100);
+  expect(done.tick).toBe(100);
+  expect(done.lite.creatures).toHaveLength(
+    initGolden.t === 'init' ? initGolden.scenario.creatures.length : 0,
+  );
+  // Listeners see nothing of the forwarded ticks, and a restart replays them silently.
+  const plain = createSimHost(spawner(() => null).spawn);
+  plain.post(initGolden);
+  plain.post({ t: 'advance', ticks: 100 });
+  const want = await plain.requestHash();
+  s.spawned[1]?.port.dispatchEvent(new Event('error'));
+  expect(await host.requestHash()).toEqual(want);
+  expect(s.spawned).toHaveLength(3);
+  expect(seen.filter((m) => m.t === 'snapshot' || m.t === 'events')).toEqual([]);
+});
+
+/**
+ * A spawn function whose first worker, after its first `forwarded`, answers the next `accepted`
+ * with an error instead and then goes quiet, so the host restarts between the two.
+ */
+function failAfterForward(): { spawn: () => MessagePort; spawned: Endpoint[] } {
+  const spawned: Endpoint[] = [];
+  const spawn = (): MessagePort => {
+    const first = spawned.length === 0;
+    let forwarded = false;
+    let dead = false;
+    const ep = coreOverChannel({ dev: true }, (m, post) => {
+      if (dead) return;
+      if (first && forwarded && m.t === 'accepted') {
+        dead = true;
+        post({ t: 'error', message: 'injected fault', lastGoodTick: m.tick });
+        return;
+      }
+      if (m.t === 'forwarded') forwarded = true;
+      post(m);
+    });
+    spawned.push(ep);
+    open.push(ep);
+    return ep.port;
+  };
+  return { spawn, spawned };
+}
+
+test('a restart between forwarded and accepted replays later commands and advances after the forward', async () => {
+  const nudge: Command[] = [{ t: 'nudge', dial: 'ear', amount: 0.1 }];
+  const plain = createSimHost(spawner(() => null).spawn);
+  plain.post(initGolden);
+  plain.post({ t: 'advance', ticks: 100 });
+  plain.send(nudge);
+  plain.post({ t: 'advance', ticks: 5 });
+  const want = await plain.requestHash();
+  expect(want.tick).toBe(105);
+
+  const s = failAfterForward();
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const forward = host.fastForward(100);
+  host.send(nudge);
+  host.post({ t: 'advance', ticks: 5 });
+  expect((await forward).tick).toBe(100);
+  expect(await host.requestHash()).toEqual(want);
+  expect(s.spawned).toHaveLength(2);
+  expect(host.log()).toEqual([{ tick: 100, list: nudge }]);
+});
+
+test('a rewind and a fastForward in flight at once resolve by id, and one restart rejects both', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  play(host, 30);
+  const [back, ahead] = await Promise.all([host.rewind(10), host.fastForward(20)]);
+  expect(back.tick).toBe(10);
+  expect(ahead.tick).toBe(50);
+  const both = [host.rewind(5), host.fastForward(10)];
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  for (const p of both) await expect(p).rejects.toThrow(/restarted/);
 });

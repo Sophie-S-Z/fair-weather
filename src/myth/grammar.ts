@@ -3,7 +3,57 @@
 import { z } from 'zod';
 import type { MythFeatures } from './features.ts';
 
-/** Each feature's value type: the feature list for conditions, and what a condition may compare. */
+/** A feature's value type, which a condition's value must have. */
+type FeatureType = 'number' | 'boolean' | 'string';
+/** Each feature's value type in a features record `F`. */
+export type FeatureTypes<F> = {
+  [K in keyof F]: NonNullable<F[K]> extends number
+    ? 'number'
+    : NonNullable<F[K]> extends boolean
+      ? 'boolean'
+      : 'string';
+};
+
+/** Matches each `{slot}` of `slots` in a text. */
+export const slotPattern = (slots: readonly string[]): RegExp =>
+  new RegExp(`\\{(${slots.join('|')})\\}`, 'g');
+
+/**
+ * The template form (spec 10.6 item 3): conditions on the features of `types`, each `eq`, `gte`, or
+ * `lte` a value of its feature's type, and a text and optional note whose every brace is a slot.
+ */
+export function templateSchema<K extends string>(
+  types: Readonly<Record<K, FeatureType>>,
+  slots: readonly string[],
+) {
+  const slot = slotPattern(slots);
+  const text = z
+    .string()
+    .refine((s) => !/[{}]/.test(s.replace(slot, '')), { message: `slots are only ${slots.join(', ')}` });
+  const condition = z
+    .strictObject({
+      feature: z.enum(Object.keys(types) as [K, ...K[]]),
+      op: z.enum(['eq', 'gte', 'lte']),
+      value: z.union([z.number(), z.boolean(), z.string()]),
+    })
+    .refine((c) => typeof c.value === types[c.feature] && (c.op === 'eq' || typeof c.value === 'number'), {
+      message: "a condition's value has its feature's type, and gte and lte compare numbers",
+    });
+  return z.strictObject({ when: z.array(condition), text, note: text.optional() });
+}
+
+/** Whether condition `c` holds for the features `f`. */
+export function holds<K extends string>(
+  c: { feature: K; op: 'eq' | 'gte' | 'lte'; value: number | boolean | string },
+  f: Readonly<Record<K, unknown>>,
+): boolean {
+  const v = f[c.feature];
+  if (c.op === 'eq') return v === c.value;
+  if (typeof v !== 'number' || typeof c.value !== 'number') return false;
+  return c.op === 'gte' ? v >= c.value : v <= c.value;
+}
+
+/** Each Part 1 feature's value type: the feature list for conditions, and what a condition may compare. */
 const FEATURE_TYPES = {
   lightOnConflict: 'number',
   lightOnKindness: 'number',
@@ -18,42 +68,13 @@ const FEATURE_TYPES = {
   festivalShare: 'number',
   wispPushed: 'boolean',
   narrator: 'string',
-} as const satisfies {
-  [K in keyof MythFeatures]: NonNullable<MythFeatures[K]> extends number
-    ? 'number'
-    : NonNullable<MythFeatures[K]> extends boolean
-      ? 'boolean'
-      : 'string';
-};
-const FEATURES = Object.keys(FEATURE_TYPES) as [keyof MythFeatures, ...(keyof MythFeatures)[]];
+} as const satisfies FeatureTypes<MythFeatures>;
 
 const SLOTS = ['narrator', 'mostLit', 'rumbles', 'gusts', 'welcomes', 'winterLeft'] as const;
 type Slot = (typeof SLOTS)[number];
-const SLOT = new RegExp(`\\{(${SLOTS.join('|')})\\}`, 'g');
-/** Text whose every brace is one of the slots. */
-const SlotText = z
-  .string()
-  .refine((s) => !/[{}]/.test(s.replace(SLOT, '')), { message: `slots are only ${SLOTS.join(', ')}` });
+const SLOT = slotPattern(SLOTS);
 
-const ConditionSchema = z
-  .strictObject({
-    feature: z.enum(FEATURES),
-    op: z.enum(['eq', 'gte', 'lte']),
-    value: z.union([z.number(), z.boolean(), z.string()]),
-  })
-  .refine(
-    (c) => typeof c.value === FEATURE_TYPES[c.feature] && (c.op === 'eq' || typeof c.value === 'number'),
-    {
-      message: "a condition's value has its feature's type, and gte and lte compare numbers",
-    },
-  );
-type Condition = z.infer<typeof ConditionSchema>;
-
-const TemplateSchema = z.strictObject({
-  when: z.array(ConditionSchema),
-  text: SlotText,
-  note: SlotText.optional(),
-});
+const TemplateSchema = templateSchema(FEATURE_TYPES, SLOTS);
 type Template = z.infer<typeof TemplateSchema>;
 
 const usesMostLit = (t: Template): boolean => `${t.text}${t.note ?? ''}`.includes('{mostLit}');
@@ -90,13 +111,6 @@ export type Verses = z.infer<typeof VersesSchema>;
 export interface MythPage {
   narrator: string;
   verses: { title: string; text: string; note: string | null }[];
-}
-
-function holds(c: Condition, f: MythFeatures): boolean {
-  const v = f[c.feature];
-  if (c.op === 'eq') return v === c.value;
-  if (typeof v !== 'number' || typeof c.value !== 'number') return false;
-  return c.op === 'gte' ? v >= c.value : v <= c.value;
 }
 
 /**

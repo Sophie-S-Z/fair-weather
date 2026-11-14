@@ -1,7 +1,7 @@
 // Save slots (spec 15.1): three manual slots and an autosave that keeps the one before it.
 import { openDb } from './db.ts';
 import type { Db } from './db.ts';
-import type { SaveV2 } from './format.ts';
+import type { SaveV3 } from './format.ts';
 import { migrate } from './migrations.ts';
 
 export type Slot = 0 | 1 | 2 | 'auto';
@@ -14,13 +14,13 @@ export interface Slots {
   list(): Promise<SlotInfo[]>;
   /** True when the autosave loads: written, not damaged, and its year not kept. */
   hasAuto(): Promise<boolean>;
-  save(slot: Slot, s: SaveV2): Promise<void>;
+  save(slot: Slot, s: SaveV3): Promise<void>;
   /**
    * A damaged autosave falls back to the one before it; a damaged manual slot gives null. An
    * autosave whose year is kept gives null.
    */
-  load(slot: Slot): Promise<SaveV2 | null>;
-  /** Marks the autosave's year as kept in the Book of Skies (SaveV2 `yearKept`), so Continue ends. */
+  load(slot: Slot): Promise<SaveV3 | null>;
+  /** Marks the autosave's year as kept in the Book of Skies (SaveV3 `yearKept`), so Continue ends. */
   keepYear(): Promise<void>;
 }
 
@@ -50,7 +50,7 @@ export async function createSlots(
     unavailable();
   }
 
-  async function read(k: string): Promise<SaveV2 | null> {
+  async function read(k: string): Promise<SaveV3 | null> {
     if (!db) return null;
     try {
       const raw = await db.get(k);
@@ -60,7 +60,7 @@ export async function createSlots(
     }
   }
 
-  const load = async (slot: Slot): Promise<SaveV2 | null> => {
+  const load = async (slot: Slot): Promise<SaveV3 | null> => {
     const s = (await read(key(slot))) ?? (slot === 'auto' ? await read(key(slot, true)) : null);
     return s?.yearKept ? null : s;
   };

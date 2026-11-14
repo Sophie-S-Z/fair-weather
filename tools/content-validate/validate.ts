@@ -8,13 +8,16 @@ import { ErrorType } from 'inkjs/engine/Error';
 import { AudioSchema } from '../../src/audio/schema.ts';
 import { VoiceSchema } from '../../src/audio/voices.ts';
 import { VersesSchema } from '../../src/myth/grammar.ts';
+import { SixthSchema } from '../../src/myth/sixth.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
+import { HERO_KINDS } from '../../src/sim/types.ts';
 import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
+import { HeroesSchema, JournalSchema } from '../../src/story/journey.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
@@ -39,7 +42,7 @@ function walk(dir: string): string[] {
   );
 }
 
-/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, and overrides. */
+/** Every creature id a chapter names: beats, a bet's creatures, the twist retry pair, diaries, overrides, and a valley's guide. */
 function creatureRefs(c: Chapter): string[] {
   const ids: string[] = [];
   const fromOverrides = (o: Overrides): void => {
@@ -67,12 +70,16 @@ function creatureRefs(c: Chapter): string[] {
   if (who) ids.push(...(c.bet?.options ?? []));
   if (c.bet?.metric.kind === 'warmth') ids.push(c.bet.metric.from, c.bet.metric.to);
   ids.push(...(c.twist?.retryArrange ?? []), ...Object.keys(c.diary ?? {}));
+  if (c.valley) ids.push(c.valley.guide);
   fromOverrides(c.overrides);
   for (const v of c.variants) fromOverrides(v.overrides);
   return ids;
 }
 
-/** Checks tuning, flags, diary, myth verses, rigs, palettes, scenes, cast, chapter camera names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind. */
+/**
+ * Checks tuning, flags, diary, heroes, journal, myth verses and the sixth verse, rigs, palettes, scenes, cast, chapter and valley camera
+ * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
+ */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
   const content = join(root, 'content');
@@ -99,6 +106,25 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`diary.json: ${(e as Error).message}`);
     }
   }
+  // The six heroes, in HERO_KINDS order (spec 5.5), and the journal's words (ADR 0013 item 14).
+  const heroesPath = join(content, 'heroes.json');
+  if (existsSync(heroesPath)) {
+    try {
+      const ids = HeroesSchema.parse(JSON.parse(readFileSync(heroesPath, 'utf8'))).map((h) => h.id);
+      if (ids.join() !== HERO_KINDS.join())
+        errors.push(`heroes.json: lists ${ids.join(', ')}, not ${HERO_KINDS.join(', ')}`);
+    } catch (e) {
+      errors.push(`heroes.json: ${(e as Error).message}`);
+    }
+  }
+  const journalPath = join(content, 'journal.json');
+  if (existsSync(journalPath)) {
+    try {
+      JournalSchema.parse(JSON.parse(readFileSync(journalPath, 'utf8')));
+    } catch (e) {
+      errors.push(`journal.json: ${(e as Error).message}`);
+    }
+  }
   const versesPath = join(content, 'myth', 'verses.json');
   if (existsSync(versesPath)) {
     try {
@@ -107,9 +133,21 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`myth/verses.json: ${(e as Error).message}`);
     }
   }
-  for (const f of filesIn(join(content, 'chapters'), '.json')) {
+  const sixthPath = join(content, 'myth', 'sixth.json');
+  if (existsSync(sixthPath)) {
     try {
-      ChapterSchema.parse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+      SixthSchema.parse(JSON.parse(readFileSync(sixthPath, 'utf8')));
+    } catch (e) {
+      errors.push(`myth/sixth.json: ${(e as Error).message}`);
+    }
+  }
+  // Part 1 chapters and the bridge sit in content/chapters/, the valleys in content/valleys/.
+  const configs = ['chapters', 'valleys'].flatMap((dir) =>
+    filesIn(join(content, dir), '.json').map((f) => ({ f, path: join(content, dir, f) })),
+  );
+  for (const { f, path } of configs) {
+    try {
+      ChapterSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
     } catch (e) {
       errors.push(`${f}: ${(e as Error).message}`);
     }
@@ -134,24 +172,32 @@ export function validateContent(root: string): ValidationResult {
       }
     }
   }
-  // Chapters start from the m0 scenario (src/main.ts), so every creature id they name must be in it.
-  const scenarioPath = join(content, 'scenarios', 'm0.json');
-  const creatures = existsSync(scenarioPath)
-    ? new Set(
-        (JSON.parse(readFileSync(scenarioPath, 'utf8')) as { creatures: { id: string }[] }).creatures.map(
-          (c) => c.id,
-        ),
-      )
-    : null;
-  // A chapter's `scene` names a file in content/scenes/, and every camera shot its beats name
+  // A config starts from its `scenario` (m0 by default), so every creature id it names must be in
+  // it; a valley may also name the hero.
+  const creaturesOf = (scenario: string): Set<string> | null => {
+    const path = join(content, 'scenarios', `${scenario}.json`);
+    if (!existsSync(path)) return null;
+    const json = JSON.parse(readFileSync(path, 'utf8')) as { creatures: { id: string }[] };
+    return new Set(json.creatures.map((c) => c.id));
+  };
+  // A config's `scene` names a file in content/scenes/, and every camera shot its beats name
   // must be one of that scene's cameras.
-  for (const f of filesIn(join(content, 'chapters'), '.json')) {
-    const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(join(content, 'chapters', f), 'utf8')));
+  for (const { f, path } of configs) {
+    const parsed = ChapterSchema.safeParse(JSON.parse(readFileSync(path, 'utf8')));
     if (!parsed.success) continue;
+    const c = parsed.data;
+    const creatures = creaturesOf(c.scenario);
+    // A fixture root may hold no scenarios at all; a scenario a config names must exist.
+    if (!creatures && c.scenario !== 'm0')
+      errors.push(`${f}: scenario ${c.scenario} has no file content/scenarios/${c.scenario}.json`);
     if (creatures) {
-      for (const id of new Set(creatureRefs(parsed.data)))
-        if (!creatures.has(id)) errors.push(`${f}: names creature ${id}, which scenario m0 lacks`);
+      for (const id of new Set(creatureRefs(c)))
+        if (!creatures.has(id) && !(c.valley && id === 'hero'))
+          errors.push(`${f}: names creature ${id}, which scenario ${c.scenario} lacks`);
     }
+    // In Hearsay Hollow the drama sky is the lens (ADR 0013 item 6); a shine would move it.
+    if (c.valley?.pack === 'hollow' && c.verbs.includes('shine'))
+      errors.push(`${f}: a Hollow valley may not list shine`);
     const scenePath = join(content, 'scenes', `${parsed.data.scene}.json`);
     if (!existsSync(scenePath)) {
       errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);

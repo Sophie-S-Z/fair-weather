@@ -74,9 +74,40 @@
   "festival": { "threshold": 2, "everyTicks": 10 },
   "postcard": { "nudge": 0.1 },
   "wisp": { "minWarmth": 0.6, "minKithWarmth": 0.2 },
-  "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6 },
+  "halcyon": { "giftWarmthMultiplier": 0.2, "keepsakeWarmth": 0.6, "keepsakeRadii": 2, "chooseByDay": 3 },
+  "kith": { "days": 20 },
+  "journal": { "mostAt": 0.5, "someAt": 0.2 },
   "bet": { "revealSpeed": 8 },
   "bridge": { "radius": 32, "landing": 14 },
   "bank": { "side": 53, "below": 123 },
-  "lantern": { "radius": 120, "fogFactor": 0.5 }
+  "lantern": { "radius": 120, "fogFactor": 0.5 },
+  "knack": {
+    "lanternFog": 0.5,
+    "kiteSpeed": 1.5,
+    "mossMemory": 2,
+    "mossDrift": 0.5,
+    "glassWarmth": 1.5,
+    "seedCost": 1,
+    "seedBerries": 3,
+    "seedDays": 2,
+    "seedWarmth": 0.1,
+    "bellRadius": 72,
+    "lanternSky": 2,
+    "bellPrints": 2
+  },
+  "fen": {
+    "everyTicks": 10,
+    "duskAt": 0.75,
+    "duskLift": 0.15,
+    "neighbors": 7,
+    "thresholdMin": 0.2,
+    "thresholdSpan": 0.6
+  },
+  "hollow": {
+    "skySpeed": 120,
+    "fameStep": 0.2,
+    "fameFade": 0.1,
+    "fearAt": 0.5,
+    "drama": { "against": 3, "keep": 2, "away": 1, "pose": 3 }
+  }
 }

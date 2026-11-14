@@ -4,7 +4,7 @@ import type { Settings } from '../ui/settings.ts';
 import { creatureColor, type Cast } from './cast.ts';
 import { dashedLine, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
 import { createLineView } from './line/line-view.ts';
-import type { Rig } from './line/rig.ts';
+import { rigFor, type Rig } from './line/rig.ts';
 import type { Palette } from './palette.ts';
 import { nearestNode, SNAP_PIXELS, tieKind } from './ties.ts';
 
@@ -106,20 +106,21 @@ export function createSoulView(
   const page = new Graphics({ label: 'page' });
   const constellation = new Graphics({ label: 'constellation' });
   container.addChild(page, constellation);
-  let soul: { id: string; view: ReturnType<typeof createLineView> } | null = null;
+  let soul: { id: string; rig: Rig; view: ReturnType<typeof createLineView> } | null = null;
   let nodes: { id: string; x: number; y: number }[] = [];
 
-  function soulFor(id: string): ReturnType<typeof createLineView> | null {
-    if (soul?.id === id) return soul.view;
+  /** The soul's view, made anew for another creature or another rig (a new hero of another kind). */
+  function soulFor(id: string, speciesId: string): ReturnType<typeof createLineView> | null {
+    const rig = rigFor(rigs, id, speciesId, FALLBACK_RIG);
+    if (soul?.id === id && soul.rig === rig) return soul.view;
     soul?.view.container.destroy({ children: true });
     soul = null;
-    const rig = rigs.get(id) ?? rigs.get(FALLBACK_RIG);
     if (!rig) return null;
     const color = creatureColor(id, cast, palette);
     const view = createLineView(rig, { ink: palette.ink, accent: color, paper: palette.paper });
     view.container.label = id;
     container.addChild(view.container);
-    soul = { id, view };
+    soul = { id, rig, view };
     return view;
   }
 
@@ -131,7 +132,8 @@ export function createSoulView(
       page.clear().rect(0, 0, width, height).fill(palette.background);
       constellation.clear();
       nodes = [];
-      const view = id === null ? null : soulFor(id);
+      const c = lite.creatures.find((x) => x.id === id);
+      const view = id === null ? null : soulFor(id, c?.speciesId ?? '');
       if (soul) soul.view.container.visible = view !== null;
       if (id === null || !view) return;
 
@@ -166,7 +168,6 @@ export function createSoulView(
       nodes = [...stars, { id, x: frame.x, y: frame.y }];
 
       const size = frame.radius * SOUL_HEIGHT;
-      const c = lite.creatures.find((x) => x.id === id);
       const shell = c?.shell ?? { tightness: 0, bristle: 0, color: 0, softness: 0 };
       // The rig's origin is its base: the feet sit half a body below the center.
       view.container.position.set(frame.x, frame.y + size / 2);

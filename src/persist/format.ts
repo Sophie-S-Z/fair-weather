@@ -1,12 +1,15 @@
-// The save format (spec 15.1). Version 2 adds the year so far and the year carry; version 1 saves
-// migrate to it (migrations.ts).
+// The save format (spec 15.1). Version 2 adds the year so far and the year carry; version 3 adds
+// Part 2's journey. Older saves migrate to version 3 (migrations.ts).
 import { z } from 'zod';
 import type { Command, World } from '../sim/types.ts';
 import { YearLogSchema } from '../story/action-log.ts';
 import type { YearLog } from '../story/action-log.ts';
+import { CarrySchema } from '../story/carry.ts';
 import type { Carry } from '../story/carry.ts';
 import { FlagsSchema } from '../story/flags.ts';
 import type { Flags } from '../story/flags.ts';
+import { JourneySchema } from '../story/journey.ts';
+import type { Journey } from '../story/journey.ts';
 
 export interface SaveV1 {
   version: 1;
@@ -36,6 +39,13 @@ export type SaveV2 = Omit<SaveV1, 'version' | 'log'> & {
   yearKept?: true;
 };
 
+/**
+ * A save with Part 2's journey (ADR 0013 item 9), or null before the bridge ends. A valley's save
+ * needs it, and Continue rebuilds Kith from it (item 10). The hero's name and the journal captions
+ * in it stay on the device.
+ */
+export type SaveV3 = Omit<SaveV2, 'version'> & { version: 3; journey: Journey | null };
+
 const common = {
   seed: z.number(),
   tuningHash: z.string(),
@@ -60,30 +70,24 @@ export const SaveV1Schema = z.object({
   log: z.array(z.object({ tick: z.number(), list: z.array(z.custom<Command>()) })),
 });
 
-const unit = z.number().min(0).max(1);
-const CarrySchema = z.object({
-  creatures: z.array(
-    z.object({
-      id: z.string(),
-      dials: z.object({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
-      shell: z.object({ tightness: unit, bristle: unit, color: unit, softness: unit }),
-      skyWarmth: z.number(),
-      away: z.boolean(),
-      gone: z.boolean(),
-      diary: z.array(z.string()),
-    }),
-  ),
-  ties: z.array(z.object({ a: z.string(), b: z.string(), ab: z.number(), ba: z.number() })),
-}) satisfies z.ZodType<Carry>;
-
+/**
+ * A version 2 save. A save from before Part 2 lacks its four flags; migrate fills them. No
+ * `satisfies z.ZodType<SaveV2>` here: the partial flags admit what SaveV2's full Flags does not.
+ */
 export const SaveV2Schema = z.object({
   ...common,
   version: z.literal(2),
-  flags: FlagsSchema,
+  flags: FlagsSchema.partial({ toveFlew: true, heroFamous: true, wispHome: true, kithHeld: true }),
   year: YearLogSchema,
   carry: CarrySchema.nullable(),
   yearKept: z.literal(true).exactOptional(),
-}) satisfies z.ZodType<SaveV2>;
+});
+
+export const SaveV3Schema = SaveV2Schema.extend({
+  version: z.literal(3),
+  flags: FlagsSchema,
+  journey: JourneySchema.nullable(),
+}) satisfies z.ZodType<SaveV3>;
 
 /** FNV-1a 32-bit over the string's UTF-16 code units, as 8 hex characters. */
 export function hashTuning(rawJson: string): string {

@@ -6,13 +6,22 @@ import { lerpTransform, toScene, toScreen, viewTransform, type Shot, type ViewTr
 import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
-import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, TUFT_ALPHA } from './ink.ts';
+import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, smoothClosed, smoothLine, TUFT_ALPHA } from './ink.ts';
 import { drawLand, inRect } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
-import type { Rig } from './line/rig.ts';
+import { rigFor, type Rig } from './line/rig.ts';
 import type { Palette } from './palette.ts';
-import { interpolateCreatures, type DrawnCreature, type SceneData } from './scene.ts';
+import { depthAt, interpolateCreatures, type DrawnCreature, type SceneData } from './scene.ts';
+import {
+  drawFlier,
+  drawOutlineReflection,
+  drawPerched,
+  drawPerchedReflection,
+  PERCHED_HEIGHT,
+  type StarlingLook,
+} from './starling.ts';
+import { drawStems, drawValleyGround, drawWaterSurface, REED_FRONT } from './valley.ts';
 
 /** A villager's height in scene units. Other bodies are sized to a villager's area (see bodyHeight). */
 export const CREATURE_HEIGHT = 64;
@@ -41,6 +50,67 @@ const HEAT_ALPHA = 0.4;
 /** The keyboard cursor's ink ring, in scene units. */
 const CURSOR_RADIUS = 16;
 /**
+ * Murmuration Fen (spec 7.3: a sky full of small dark marks). A starling with no rig of its own is
+ * a small bird drawn in code (starling.ts), `BIRD` scene units per bird unit at the depth
+ * reference: on the ground a bird seen from the side, facing a way its id sets, fanned up to
+ * `GROUND_SPREAD` units across and `GROUND_SPREAD_Y` up or down about its feet so a tight bed
+ * reads as its birds; in flight a
+ * bird with swept wings, spread over the scene's sky band above its place on the ground, where it
+ * drifts `DRIFT` units about its place once every `DRIFT_SECONDS`, slowly, so reduced motion keeps
+ * it. A flier is drawn at the horizon's depth, between `FLIER_MIN` and `FLIER_MIN + FLIER_RANGE`
+ * of a grounded bird's size there by its id.
+ */
+const STARLING = 'starling';
+const BIRD = 1.05;
+const FLIER_MIN = 0.85;
+const FLIER_RANGE = 0.35;
+/** A starling's ink outline, in bird units, and its reflection's tint toward the body and alpha. */
+const BIRD_LINE = 0.9;
+const REFLECT_TINT = 0.45;
+const REFLECT_ALPHA = 0.5;
+const DRIFT = 24;
+const DRIFT_SECONDS = 30;
+/** A flying flock spreads this wide about its birds' places on the ground. */
+const SPREAD = 200;
+const GROUND_SPREAD = 40;
+const GROUND_SPREAD_Y = 22;
+/**
+ * A grounded bird reaches this far each side of its feet, in bird units; one that overlaps a body
+ * and stands nearer is drawn this far in the shared layer's order before that body.
+ */
+const BIRD_REACH = 21;
+const NEAR_STEP = 0.5;
+/**
+ * The reflection (ADR 0007): under each grounded starling, Tove included, whose perceived share is
+ * at least `REFLECT_AT`, its body flipped in the water under its feet (under its shadow, `REFLECT_GAP`
+ * below it, for a body with a rig), faint and water-tinted.
+ */
+const REFLECT_AT = 0.5;
+const REFLECT_GAP = 2;
+/** A starling's colors and line widths in this palette, at `widthScale` (high contrast thickens its line). */
+function starlingLook(palette: Palette, widthScale: number): StarlingLook {
+  const plumage = palette.plumage ?? { body: palette.ink, sheen: palette.paper };
+  return {
+    body: plumage.body,
+    sheen: plumage.sheen,
+    ink: palette.ink,
+    paper: palette.paper,
+    rim: palette.land ?? palette.background,
+    water: bodyColor(palette.water, plumage.body, REFLECT_TINT),
+    waterAlpha: REFLECT_ALPHA,
+    line: BIRD_LINE * widthScale,
+  };
+}
+/** A body with a rig of its own (Tove, the joined hero) flies this far above its shadow. */
+const FLY_LIFT = 48;
+/** The Hollow's press: a structure of kind bench with this id (ADR 0013 item 17), drawn as a press. */
+const PRESS = 'press';
+const PRESS_SCALE = 1.3;
+/** A lane's two faint edges stand this far apart, in scene units (Part 1; a valley paves its lanes). */
+const LANE_WIDTH = 30;
+/** A square's outline has this many points. */
+const SQUARE_POINTS = 32;
+/**
  * A shadow at each creature's feet: an ink ellipse this wide and tall, as shares of its body
  * height, at this alpha (more in high contrast), so its feet read as on the ground. The sim's bank
  * keeps it off the water (tests/unit/render/bank.test.ts); on a bridge deck it lies on the deck.
@@ -58,6 +128,8 @@ const VISITOR_RIG = 'visitor';
 export const VISITOR_SPEED = 50;
 export const VISITOR_SIT_SECONDS = 20;
 const SEAT_LIFT = 10;
+/** The feather lies this far to the right of the seat. */
+const FEATHER_OFFSET = 30;
 /** A visit moves on at most this many seconds a frame, so a stalled or hidden page does not skip it. */
 const VISIT_STEP_MAX = 0.25;
 
@@ -75,8 +147,10 @@ export interface MeadowView {
   setShot(name: string | null): void;
   /** The screen pixels at the top that the scene keeps clear of (the Cosmos timeline band); 0 for none. */
   setTopInset(px: number): void;
-  /** Redraws everything in a season's colors. */
+  /** Redraws everything in a season's or a valley's colors. */
   setPalette(p: Palette): void;
+  /** Redraws the ground and trees from `scene`, whose bench spots and camera shots are used from now on. */
+  setScene(scene: SceneData): void;
   /**
    * Counts a live snapshot's lens center for the heat map. The caller passes each snapshot as it
    * arrives, so frames skipped at high speed still count and rewound or peeked worlds never do.
@@ -197,24 +271,40 @@ function phaseOf(id: string): number {
   return h / 997;
 }
 
-/** A smooth line through flat x, y pairs: quadratic curves through the segment midpoints. */
-function smoothLine(g: Graphics, p: readonly number[]): Graphics {
-  const at = (i: number): number => p[i] ?? 0;
-  g.moveTo(at(0), at(1));
-  for (let k = 2; k + 3 < p.length; k += 2) {
-    g.quadraticCurveTo(at(k), at(k + 1), (at(k) + at(k + 2)) / 2, (at(k + 1) + at(k + 3)) / 2);
-  }
-  return g.lineTo(at(p.length - 2), at(p.length - 1));
+/**
+ * Two numbers in [0, 1) from a creature id, well mixed (FNV-1a, then a final avalanche), so
+ * neighbors in id order land apart.
+ */
+export function placeOf(id: string): [number, number] {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = (h ^ (h >>> 13)) >>> 0;
+  return [(h & 0xffff) / 0x10000, (h >>> 16) / 0x10000];
 }
 
 /** Square ends and sharp corners: far fewer vertices than round ones, so a small prop stays in the batch. */
 const plainStroke = (palette: Palette, width: number) =>
   ({ color: palette.ink, width, cap: 'square', join: 'miter' }) as const;
 
-/** Paper, far hills, and grass tufts: the layer behind everything, in scene units. */
+/**
+ * Paper, far hills, squares, lanes, and grass tufts: the layer behind everything, in scene units.
+ * A scene with depth (a valley) draws its own ground in color (valley.ts).
+ */
 function drawGround(g: Graphics, scene: SceneData, palette: Palette, w: number): void {
+  if (scene.depth) {
+    drawValleyGround(g, scene, palette, w);
+    return;
+  }
   g.clear().rect(0, 0, scene.width, scene.height).fill(palette.background);
   for (const hill of scene.hills) smoothLine(g, hill).stroke(inkStroke(palette, w, FAR_ALPHA));
+  const faint = inkStroke(palette, w * 0.6, TUFT_ALPHA);
+  for (const [x, y, rx, ry] of scene.squares) oval(g, x, y, rx, ry, SQUARE_POINTS).stroke(faint);
+  for (const lane of scene.lanes) {
+    const edges = limbOutline(lane, LANE_WIDTH, LANE_WIDTH);
+    smoothLine(g, edges.slice(0, lane.length));
+    smoothLine(g, edges.slice(lane.length)).stroke(faint);
+  }
   for (const [x, y] of scene.tufts) {
     g.moveTo(x - 6, y)
       .lineTo(x - 9, y - 8)
@@ -236,16 +326,6 @@ const TRUNK_FLARE = 0.7;
 const LEAF_CURL_MIN = 24;
 /** The ground line under a tree reaches this many girths each side of the trunk. */
 const GROUND_REACH = 1.6;
-
-/** A closed smooth shape through flat x, y pairs: quadratic curves through the segment midpoints. */
-function smoothClosed(g: Graphics, p: readonly number[]): Graphics {
-  const n = p.length / 2;
-  const x = (i: number): number => p[(i % n) * 2] ?? 0;
-  const y = (i: number): number => p[(i % n) * 2 + 1] ?? 0;
-  g.moveTo((x(0) + x(1)) / 2, (y(0) + y(1)) / 2);
-  for (let i = 1; i <= n; i++) g.quadraticCurveTo(x(i), y(i), (x(i) + x(i + 1)) / 2, (y(i) + y(i + 1)) / 2);
-  return g.closePath();
-}
 
 /**
  * The outline of a limb around its center line, as flat x, y pairs: up one side and down the
@@ -272,23 +352,29 @@ function limbOutline(line: readonly number[], from: number, to: number, flare = 
 
 /**
  * One tree, as one Graphics: branches, then a tapered trunk that flares at its base, both paper
- * with ink outlines, then a canopy of overlapping leaf-colored circles. Each circle is outlined,
- * then all are filled again a line's half-width smaller, so only the outer scalloped edge stays.
- * The trunk's first point is its base.
+ * (or bark, in a valley) with ink outlines, then a canopy of overlapping leaf-colored circles.
+ * Each circle is outlined, then all are filled again a line's half-width smaller, so only the
+ * outer scalloped edge stays. The trunk's first point is its base.
  */
-function drawTree(g: Graphics, tree: SceneData['trees'][number], palette: Palette, w: number): void {
+function drawTree(
+  g: Graphics,
+  tree: SceneData['trees'][number],
+  palette: Palette,
+  w: number,
+  bark = palette.paper,
+): void {
   g.clear();
   const ink = inkStroke(palette, w);
   for (const branch of tree.branches) {
     smoothClosed(g, limbOutline(branch, tree.girth * BRANCH_BASE, tree.girth * BRANCH_TIP))
-      .fill(palette.paper)
+      .fill(bark)
       .stroke(ink);
   }
   // The base points go in twice, so the outline passes through them and the trunk stands flat.
   const trunk = limbOutline(tree.trunk, tree.girth, tree.girth * TRUNK_TOP, tree.girth * TRUNK_FLARE);
   const n = trunk.length;
   smoothClosed(g, [...trunk.slice(0, 2), ...trunk, ...trunk.slice(n - 2)])
-    .fill(palette.paper)
+    .fill(bark)
     .stroke(ink);
   // A short ground line under the base.
   const [bx, by] = [tree.trunk[0] ?? 0, tree.trunk[1] ?? 0];
@@ -332,6 +418,65 @@ function drawBench(g: Graphics, { x, y }: Structure, palette: Palette, w: number
     .moveTo(x + 16, y - 10)
     .lineTo(x + 16, y)
     .stroke(inkStroke(palette, w));
+}
+
+/** Wood (the press, a valley's bark): a brown, mixed this far toward the palette's warm tint. */
+const WOOD = 0x8a6646;
+const WOOD_WARMTH = 0.35;
+const woodOf = (palette: Palette): number => bodyColor(WOOD, palette.warmth, WOOD_WARMTH);
+
+/**
+ * The Hollow's press (ADR 0013 item 17), with its feet at (x, y): a wooden frame of two posts on a
+ * sill under a heavy head, the screw down from the head with its bar, the platen over the bed, a
+ * sheet on the bed, and a printed sheet hung from the head to dry.
+ */
+function drawPress(g: Graphics, { x, y }: Structure, palette: Palette, w: number): void {
+  const ink = plainStroke(palette, w * 0.6);
+  const wood = woodOf(palette);
+  // The hung sheet, behind the frame.
+  g.moveTo(x + 24, y - 80)
+    .lineTo(x + 48, y - 80)
+    .stroke(ink);
+  g.rect(x + 30, y - 80, 18, 24)
+    .fill(palette.paper)
+    .stroke(ink);
+  for (let k = 0; k < 4; k++) g.moveTo(x + 33, y - 75 + k * 5).lineTo(x + 45 - (k % 2) * 4, y - 75 + k * 5);
+  g.stroke(plainStroke(palette, w * 0.25));
+  // Sill, posts, and head.
+  g.rect(x - 34, y - 7, 68, 7)
+    .fill(wood)
+    .stroke(ink);
+  g.rect(x - 28, y - 82, 9, 76)
+    .fill(wood)
+    .stroke(ink);
+  g.rect(x + 19, y - 82, 9, 76)
+    .fill(wood)
+    .stroke(ink);
+  g.rect(x - 36, y - 94, 72, 13)
+    .fill(wood)
+    .stroke(ink);
+  // The screw with its thread, and the bar through it.
+  g.rect(x - 4, y - 81, 8, 26)
+    .fill(palette.paper)
+    .stroke(ink);
+  for (let k = 0; k < 5; k++) g.moveTo(x - 4, y - 78 + k * 5).lineTo(x + 4, y - 75 + k * 5);
+  g.stroke(plainStroke(palette, w * 0.3));
+  g.moveTo(x + 4, y - 68)
+    .lineTo(x + 30, y - 74)
+    .stroke(plainStroke(palette, w * 0.7));
+  g.rect(x + 28, y - 78, 7, 7)
+    .fill(wood)
+    .stroke(ink);
+  // The platen, the bed on its rails, and the sheet on the bed.
+  g.rect(x - 16, y - 55, 32, 7)
+    .fill(palette.paper)
+    .stroke(ink);
+  g.rect(x - 40, y - 36, 80, 8)
+    .fill(wood)
+    .stroke(ink);
+  g.rect(x - 14, y - 40, 28, 4)
+    .fill(palette.paper)
+    .stroke(plainStroke(palette, w * 0.35));
 }
 
 /**
@@ -454,20 +599,25 @@ function fogUnder(fog: WorldLite['fog'], width: number, x: number, y: number): n
 
 /**
  * The Meadow view (spec 11.3): the valley and its creatures in ink and one accent, in the season's
- * palette. It draws snapshots only and never changes the world. Creatures use their own rig, or
- * the villager rig. Water and bridges lie flat on the ground; each creature's shadow lies under
+ * or the valley's palette, over the scene it was last given. It draws snapshots only and never
+ * changes the world. A creature uses its id's rig, then its species', then the villager's; in the
+ * Fen a starling with no rig of its own is an ink tick, all of them in one Graphics with the
+ * reflection, and a flier with a rig is lifted above its shadow; Hearsay Hollow's drama sky is
+ * the lens in an accent ring, and its press is drawn as a press (spec 7.3). Water and bridges lie
+ * flat on the ground; each creature's shadow lies under
  * them, or on its deck when it stands on one. Creatures, trees, benches, lanterns, and the
  * mushroom share one layer sorted by base y, so nearer things hide farther ones (spec 11.1
  * depth). Every body shows its shell color as a muted warm tint (spec 5.2); only the focus
  * creature wears the accent (spec 11.1). A creature in thick fog is drawn in dashes, and a dancing
  * one hops. The heat map counts the lens center over a 16 x 9 grid in every live snapshot and shows
  * each cell's share of the most watched cell as an ink wash. The keyboard cursor is a still ink
- * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves; high
- * contrast thickens every line by half again and darkens the shadows.
+ * ring over everything. Reduced motion stops the boil, the sway, the hop, and camera moves, but
+ * not the flock's slow drift; high contrast thickens every line by half again and darkens the
+ * shadows.
  */
 export function createMeadowView(
   app: Application,
-  scene: SceneData,
+  firstScene: SceneData,
   rigs: Map<string, Rig>,
   firstPalette: Palette,
   options: {
@@ -477,11 +627,20 @@ export function createMeadowView(
   },
 ): MeadowView {
   let palette = firstPalette;
+  let scene = firstScene;
   const world = new Container();
   const ground = new Graphics({ label: 'ground' });
   const land = new Graphics({ label: 'land' });
   const shadows = new Graphics({ label: 'shadows' });
   const deckShadows = new Graphics({ label: 'deck-shadows' });
+  /** The Fen's starlings, their shadows, and the reflections, redrawn each frame. */
+  const flock = new Graphics({ label: 'flock' });
+  /**
+   * The grounded starlings that stand nearer than a body they overlap, redrawn each frame in the
+   * shared layer just before the nearest such body, so they hide its feet and not it theirs.
+   */
+  const flockNear = new Graphics({ label: 'flock-near' });
+  const lensRing = new Graphics({ label: 'lens-ring', visible: false });
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -492,14 +651,50 @@ export function createMeadowView(
   let cursorAt: { x: number; y: number } | null = null;
   /** What the ring was drawn for; '' redraws it. */
   let cursorKey = '';
-  world.addChild(ground, shadows, land, deckShadows, light.graphics, actors, fog.sprite, heat.sprite, cursor);
+  world.addChild(
+    ground,
+    shadows,
+    land,
+    deckShadows,
+    flock,
+    light.graphics,
+    lensRing,
+    actors,
+    fog.sprite,
+    heat.sprite,
+    cursor,
+  );
   app.stage.addChild(world);
 
-  const trees = scene.trees.map((tree) => {
-    const g = new Graphics({ label: tree.id, zIndex: tree.trunk[1] ?? 0 });
-    actors.addChild(g);
-    return { tree, g };
-  });
+  /** A thing drawn in scene units with its foot at (x, y), sized to its depth about that foot. */
+  const standAt = (g: Graphics, x: number, y: number): void => {
+    g.pivot.set(x, y);
+    g.position.set(x, y);
+    g.scale.set(depthAt(scene, y));
+  };
+  const plantTrees = (): { tree: SceneData['trees'][number]; g: Graphics }[] =>
+    scene.trees.map((tree) => {
+      const [bx, by] = [tree.trunk[0] ?? 0, tree.trunk[1] ?? 0];
+      const g = new Graphics({ label: tree.id, zIndex: by });
+      standAt(g, bx, by);
+      actors.addChild(g);
+      return { tree, g };
+    });
+  let trees = plantTrees();
+  /**
+   * Each reed bed's front stems, standing in the shared layer at the line where its front begins,
+   * so its birds stand behind them and a body nearer than the bed stands before them.
+   */
+  const plantBeds = (): { bed: SceneData['beds'][number]; g: Graphics }[] =>
+    scene.beds.map((bed, i) => {
+      const g = new Graphics({ label: `reeds-${String(i)}`, zIndex: bed.y + REED_FRONT * bed.ry });
+      // Batched with the bodies beside it, so a bed costs no draw call of its own.
+      g.context.batchMode = 'batch';
+      actors.addChild(g);
+      return { bed, g };
+    });
+  let beds = plantBeds();
+  actors.addChild(flockNear);
   /** Benches, lanterns, and bushes by id, each with the key it was drawn for. Bridges are drawn with the water. */
   const props = new Map<string, { g: Graphics; key: string }>();
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
@@ -527,22 +722,63 @@ export function createMeadowView(
 
   const villager = rigs.get(VILLAGER_RIG);
   const villagerArea = villager ? rigArea(villager) : 1;
-  const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number }>();
+  const views = new Map<string, { view: ReturnType<typeof createLineView>; height: number; rig: Rig }>();
   let drawn: (DrawnCreature & { height: number })[] = [];
   let camera: ViewTransform | null = null;
   let focus: string | null = null;
   let shot: string | null = null;
   let topInset = 0;
   let lineWidth = 0;
+  let look: StarlingLook = starlingLook(palette, 1);
+  /** Each rig's body outline, for a reflection of a body with a rig. */
+  const outlines = new Map<Rig, number[]>();
+  const outlineOf = (rig: Rig): number[] => {
+    let o = outlines.get(rig);
+    if (!o) {
+      o = fillOutline(rig.points);
+      outlines.set(rig, o);
+    }
+    return o;
+  };
   const heatCounts = new Uint32Array(HEAT_COLS * HEAT_ROWS);
+  /**
+   * The Fen's frame scratch, reused so the flock allocates nothing per frame: who flies; grounded
+   * birds and their reflections as flat x, y, size, facing quads; fliers as flat x, y, size, lift
+   * quads; the grounded birds' drawing order; and each bird's place.
+   */
+  const flying = new Set<string>();
+  const perched: number[] = [];
+  const reflected: number[] = [];
+  const fliers: number[] = [];
+  const order: number[] = [];
+  /** Each body with a rig drawn this frame, as flat feet y, left, right, top, bottom quints. */
+  const bodies: number[] = [];
+  const places = new Map<string, [number, number]>();
+  const placeFor = (id: string): [number, number] => {
+    let p = places.get(id);
+    if (!p) {
+      p = placeOf(id);
+      places.set(id, p);
+    }
+    return p;
+  };
 
-  function viewFor(id: string): { view: ReturnType<typeof createLineView>; height: number } | undefined {
+  /** The creature's view, made anew when its rig changes (a new hero of another kind). */
+  function viewFor(
+    id: string,
+    speciesId: string,
+  ): { view: ReturnType<typeof createLineView>; height: number; rig: Rig } | undefined {
     let entry = views.get(id);
-    const rig = rigs.get(id) ?? villager;
+    const rig = rigFor(rigs, id, speciesId, VILLAGER_RIG);
+    if (entry && entry.rig !== rig) {
+      entry.view.container.destroy({ children: true });
+      views.delete(id);
+      entry = undefined;
+    }
     if (!entry && rig) {
       const height = bodyHeight(rig, villagerArea, options.cast.get(id)?.scale ?? 1);
       const colors = { ink: palette.ink, accent: palette.accent, paper: palette.paper };
-      entry = { view: createLineView(rig, colors, height), height };
+      entry = { view: createLineView(rig, colors, height), height, rig };
       entry.view.container.label = id;
       views.set(id, entry);
       actors.addChild(entry.view.container);
@@ -575,7 +811,12 @@ export function createMeadowView(
       if (w !== lineWidth) {
         lineWidth = w;
         drawGround(ground, scene, palette, w);
-        for (const { tree, g } of trees) drawTree(g, tree, palette, w);
+        // A valley's trees have bark in the press's wood; Part 1's are paper.
+        const bark = scene.depth ? woodOf(palette) : palette.paper;
+        for (const { tree, g } of trees) drawTree(g, tree, palette, w, bark);
+        for (const { bed, g } of beds) drawStems(g.clear(), bed, scene, palette, w, true);
+        look = starlingLook(palette, widthScale);
+        lensRing.clear().circle(0, 0, options.lensRadius).stroke({ color: palette.accent, width: w });
         for (const { g } of props.values()) g.destroy();
         props.clear();
         landKey = mushroomKey = '';
@@ -583,28 +824,42 @@ export function createMeadowView(
       const key = JSON.stringify([next.water, next.decks, next.islets]);
       if (key !== landKey) {
         landKey = key;
-        drawLand(land, next.water, next.decks, next.islets, palette, w, scene);
+        // A valley's water is calm, with the sky in it.
+        const surface = scene.depth
+          ? (g: Graphics, r: (typeof next.water)[number]): void => {
+              drawWaterSurface(g, r, scene, palette, w);
+            }
+          : undefined;
+        drawLand(land, next.water, next.decks, next.islets, palette, w, scene, surface);
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
-      const redraw = (id: string, y: number, key: string): Graphics | null => {
+      const redraw = (id: string, x: number, y: number, key: string): Graphics | null => {
         standing.add(id);
         if (props.get(id)?.key === key) return null;
         props.get(id)?.g.destroy();
         const g = new Graphics({ label: id, zIndex: y });
+        standAt(g, x, y);
         props.set(id, { g, key });
         actors.addChild(g);
         return g;
       };
       for (const s of next.structures) {
         if (s.kind === 'bridge') continue;
-        const g = redraw(s.id, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
+        const g = redraw(s.id, s.x, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
         if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
-        else if (g) drawBench(g, s, palette, w);
+        else if (g && s.id === PRESS) {
+          // Batched with the bodies beside it, as small props are, though it has more vertices.
+          g.context.batchMode = 'batch';
+          // Larger than its depth alone, so its head stands clear of a crowd at it; its lines
+          // stay the scenery's width.
+          drawPress(g, s, palette, w / PRESS_SCALE);
+          g.scale.set(g.scale.x * PRESS_SCALE);
+        } else if (g) drawBench(g, s, palette, w);
       }
       for (const b of next.bushes) {
         const berries = Math.min(Math.floor(b.berries), BERRY_SPOTS.length);
-        const g = redraw(b.id, b.y, `${String(b.x)},${String(b.y)},${String(berries)}`);
+        const g = redraw(b.id, b.x, b.y, `${String(b.x)},${String(b.y)},${String(berries)}`);
         if (g) drawBush(g, b, palette, w);
       }
       // A prop from an earlier chapter that this one does not have.
@@ -621,6 +876,10 @@ export function createMeadowView(
         mushroom.zIndex = m.y;
       }
       light.update(next.light);
+      // In Hearsay Hollow the drama sky is the lens (ADR 0013 item 6).
+      const lens = next.pack?.id === 'hollow' ? next.light : null;
+      lensRing.visible = lens !== null;
+      if (lens) lensRing.position.set(lens.x, lens.y);
       fog.update(next.fog, settings.highContrast);
       cursor.visible = cursorAt !== null;
       const ringKey = cursorAt ? `${String(cursorAt.x)},${String(cursorAt.y)},${String(w)}` : '';
@@ -637,12 +896,62 @@ export function createMeadowView(
         alpha: settings.highContrast ? SHADOW_ALPHA_HIGH_CONTRAST : SHADOW_ALPHA,
       };
       for (const { view } of views.values()) view.container.visible = false;
+      const fen = next.pack?.id === 'fen' ? next.pack : null;
+      flying.clear();
+      if (fen) for (const id of fen.flying) flying.add(id);
+      perched.length = 0;
+      reflected.length = 0;
+      fliers.length = 0;
+      bodies.length = 0;
+      flock.clear();
+      flockNear.clear();
+      const skyTop = scene.sky[0];
+      const skyBottom = scene.sky[1];
+      const skyDepth = depthAt(scene, scene.depth?.horizon ?? 0);
       for (const c of interpolateCreatures(prev, next, alpha)) {
-        const entry = c.state === 'away' ? undefined : viewFor(c.id);
+        if (c.state === 'away') continue;
+        const up = flying.has(c.id);
+        // A grounded starling that sees at least half its neighbors flying in the water.
+        const sees = c.speciesId === STARLING && !up && (fen?.perceived[c.id] ?? 0) >= REFLECT_AT;
+        if (c.speciesId === STARLING && !rigs.has(c.id)) {
+          const place = placeFor(c.id);
+          const across = place[0];
+          const high = place[1];
+          const phase = phaseOf(c.id);
+          if (up) {
+            // Each bird keeps its own place in the band, above its place on the ground, and drifts about it.
+            const turn = 2 * Math.PI * (seconds / DRIFT_SECONDS + phase);
+            const x = c.x + SPREAD * (across - 0.5);
+            const y = skyTop + (skyBottom - skyTop) * high;
+            const k = BIRD * skyDepth * (FLIER_MIN + FLIER_RANGE * ((phase * 7) % 1));
+            fliers.push(x + DRIFT * Math.sin(turn), y + (DRIFT / 4) * Math.cos(turn), k, (phase * 13) % 1);
+          } else {
+            // Fanned about its feet, inside its reed bed; drawn, reflected, and picked there.
+            const x = c.x + 2 * GROUND_SPREAD * (across - 0.5);
+            const y = c.y + 2 * GROUND_SPREAD_Y * (high - 0.5);
+            const k = BIRD * depthAt(scene, y);
+            const dir = phase < 0.5 ? -1 : 1;
+            perched.push(x, y, k, dir);
+            if (sees) reflected.push(x, y, k, dir);
+            drawn.push({ ...c, x, y, height: PERCHED_HEIGHT * k });
+          }
+          continue;
+        }
+        const entry = viewFor(c.id, c.speciesId);
         if (!entry) continue;
-        drawn.push({ ...c, height: entry.height });
+        // Sized to its depth: drawn, shadowed, picked, and framed at that size.
+        const h = entry.height * depthAt(scene, c.y);
+        // A flier is drawn, picked, and framed where it flies; its shadow stays on the ground.
+        const lift = up ? FLY_LIFT * (h / entry.height) : 0;
+        drawn.push({ ...c, y: c.y - lift, height: h });
+        const half = (SHADOW_WIDTH * h) / 2;
+        bodies.push(c.y, c.x - half, c.x + half, c.y - lift - h, c.y - lift);
+        if (sees) {
+          // Under its shadow: its body flipped in the water.
+          const below = c.y + (SHADOW_HEIGHT * h) / 2 + REFLECT_GAP;
+          drawOutlineReflection(flock, outlineOf(entry.rig), c.x, below, h, look);
+        }
         // On the ground, so a hop lifts the body off its shadow.
-        const h = entry.height;
         const onDeck = next.decks.some(
           (d) => c.x >= d.x && c.x <= d.x + d.w && c.y >= d.y && c.y <= d.y + d.h,
         );
@@ -650,10 +959,11 @@ export function createMeadowView(
         oval(layer, c.x, c.y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
         const { container } = entry.view;
         container.visible = true;
+        container.scale.set(h, -h);
         // Dancers hop together.
         const hop =
           c.dancing && motion ? HOP_HEIGHT * Math.abs(Math.sin((Math.PI * seconds) / HOP_SECONDS)) : 0;
-        container.position.set(c.x, c.y - hop);
+        container.position.set(c.x, c.y - hop - lift);
         container.zIndex = c.y;
         // Creatures in a meeting sway in time (spec 11.1 harmony); the rest sway out of step.
         const phase = c.state === 'meet' ? 0 : phaseOf(c.id);
@@ -664,9 +974,59 @@ export function createMeadowView(
           c.id === focus
             ? bodyColor(palette.paper, palette.accent, FOCUS_MIX + FOCUS_MIX_COLOR * c.shell.color)
             : bodyColor(palette.paper, palette.warmth, c.shell.color);
-        const fogHere = fogUnder(next.fog, scene.width, c.x, c.y - entry.height / 2);
+        const fogHere = fogUnder(next.fog, scene.width, c.x, c.y - h / 2);
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
       }
+      // The flock, in one Graphics: reflections, then each grounded bird's shadow, then the
+      // grounded birds farthest first, then the fliers. A grounded bird nearer than a body it
+      // overlaps goes in the near flock instead, which stands just before the nearest such body.
+      for (let i = 0; i + 3 < reflected.length; i += 4)
+        drawPerchedReflection(
+          flock,
+          reflected[i] ?? 0,
+          reflected[i + 1] ?? 0,
+          reflected[i + 2] ?? 0,
+          reflected[i + 3] ?? 1,
+          look,
+        );
+      order.length = 0;
+      for (let i = 0; i + 3 < perched.length; i += 4) {
+        const k = perched[i + 2] ?? 0;
+        flock.ellipse(perched[i] ?? 0, perched[i + 1] ?? 0, 9 * k, 2.2 * k);
+        // Insertion by y, so a nearer bird overlaps a farther one.
+        let j = order.length;
+        order.push(i);
+        while (j > 0 && (perched[(order[j - 1] ?? 0) + 1] ?? 0) > (perched[i + 1] ?? 0)) {
+          order[j] = order[j - 1] ?? 0;
+          j--;
+        }
+        order[j] = i;
+      }
+      if (perched.length > 0) flock.fill(shade);
+      let nearAt = -Infinity;
+      for (let j = 0; j < order.length; j++) {
+        const i = order[j] ?? 0;
+        const x = perched[i] ?? 0;
+        const y = perched[i + 1] ?? 0;
+        const k = perched[i + 2] ?? 0;
+        let before = -Infinity;
+        for (let b = 0; b + 4 < bodies.length; b += 5) {
+          const feet = bodies[b] ?? 0;
+          if (
+            y > feet &&
+            x + BIRD_REACH * k > (bodies[b + 1] ?? 0) &&
+            x - BIRD_REACH * k < (bodies[b + 2] ?? 0) &&
+            y > (bodies[b + 3] ?? 0) &&
+            y - PERCHED_HEIGHT * k < (bodies[b + 4] ?? 0)
+          )
+            before = Math.max(before, feet);
+        }
+        if (before > nearAt) nearAt = before;
+        drawPerched(before > -Infinity ? flockNear : flock, x, y, k, perched[i + 3] ?? 1, look);
+      }
+      if (nearAt > -Infinity) flockNear.zIndex = nearAt + NEAR_STEP;
+      for (let i = 0; i + 3 < fliers.length; i += 4)
+        drawFlier(flock, fliers[i] ?? 0, fliers[i + 1] ?? 0, fliers[i + 2] ?? 0, fliers[i + 3] ?? 0, look);
 
       if (visitAsked) {
         // A seat it can reach without crossing water off a deck: first one on the gate's side
@@ -706,7 +1066,7 @@ export function createMeadowView(
         visit.t += Math.min(Math.max(0, seconds - visit.last), VISIT_STEP_MAX);
         visit.last = seconds;
         const { seat, walk, t, path, length } = visit;
-        const entry = viewFor(VISITOR_RIG);
+        const entry = viewFor(VISITOR_RIG, VISITOR_RIG);
         if (t >= 2 * walk + VISITOR_SIT_SECONDS || !entry) {
           visit.done();
           visit = null;
@@ -721,14 +1081,17 @@ export function createMeadowView(
           const seated = share === 1;
           const { x, y } = along(path, share * length);
           const { container } = entry.view;
+          const h = entry.height * depthAt(scene, y);
           container.visible = true;
           container.rotation = 0;
+          container.scale.set(h, -h);
           const onBench = seated && seat.bench;
-          container.position.set(x, onBench ? y - SEAT_LIFT : y);
+          // The seat, its lift, and the feather beside it are sized to the seat's depth.
+          const seatDepth = depthAt(scene, seat.y);
+          container.position.set(x, onBench ? y - SEAT_LIFT * seatDepth : y);
           // In front of the bench it sits on.
           container.zIndex = y + 1;
           if (!onBench) {
-            const h = entry.height;
             oval(shadows, x, y, (SHADOW_WIDTH * h) / 2, (SHADOW_HEIGHT * h) / 2, SHADOW_POINTS).fill(shade);
           }
           entry.view.update(VISITOR_SHELL, seconds, settings.reducedMotion, 0, {
@@ -737,10 +1100,15 @@ export function createMeadowView(
           });
           // The feather stays on the seat from when it sits until it has gone.
           feather.visible = t >= walk;
-          const key = `${String(seat.x)},${String(seat.y)},${String(seat.bench)},${String(w)}`;
+          const key = `${scene.id},${String(seat.x)},${String(seat.y)},${String(seat.bench)},${String(w)}`;
           if (key !== featherKey) {
             featherKey = key;
-            drawFeather(feather, seat.x + 30, seat.bench ? seat.y - SEAT_LIFT : seat.y, palette, w);
+            const fy = seat.bench ? seat.y - SEAT_LIFT * seatDepth : seat.y;
+            const fx = seat.x + FEATHER_OFFSET * seatDepth;
+            drawFeather(feather, fx, fy, palette, w);
+            feather.pivot.set(fx, fy);
+            feather.position.set(fx, fy);
+            feather.scale.set(seatDepth);
             feather.zIndex = seat.y + 2;
           }
         }
@@ -785,6 +1153,16 @@ export function createMeadowView(
     },
     setCursor(p) {
       cursorAt = p;
+    },
+    setScene(s) {
+      if (s === scene) return;
+      scene = s;
+      for (const { g } of trees) g.destroy();
+      trees = plantTrees();
+      for (const { g } of beds) g.destroy();
+      beds = plantBeds();
+      // The next update redraws the ground, the trees, and the water over the new scene.
+      lineWidth = 0;
     },
     setPalette(p) {
       if (p === palette) return;

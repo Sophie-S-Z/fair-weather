@@ -4,13 +4,15 @@ import { DIAL_KEYS } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { createGrid } from '../grid.ts';
+import { isHero } from '../hero.ts';
 import { friendCount } from '../world.ts';
 
 /**
  * On dusks where day % everyDays === everyDays - 1, each active creature compares itself with one
  * random active neighbor within imitation.radius. When the neighbor is fitter (berries +
  * friendWeight x friends), it copies one random dial with chance imitation.rate. Fitness and
- * dials are read before any copy is applied, so creature order does not matter.
+ * dials are read before any copy is applied, so creature order does not matter. The hero neither
+ * copies nor is copied (ADR 0013 item 1): it is nobody's neighbor.
  *
  * PRNG draws, per active creature in `world.creatures` order: a neighbor pick (from neighbors in
  * ascending index order; none when there are no neighbors); when the neighbor is fitter, the
@@ -28,7 +30,9 @@ export function imitate(world: World, t: Tuning, rng: Rng): SimEvent[] {
   );
   const fitness = new Map<Creature, number>();
   for (const c of cs) {
-    if (c.state !== 'away') fitness.set(c, c.berries + friendWeight * friendCount(world, c, t));
+    if (c.state !== 'away' && !isHero(world, c)) {
+      fitness.set(c, c.berries + friendWeight * friendCount(world, c, t));
+    }
   }
   const copies: { who: Creature; from: Creature; dial: DialKey; value: number }[] = [];
   const near: number[] = [];
@@ -38,7 +42,7 @@ export function imitate(world: World, t: Tuning, rng: Rng): SimEvent[] {
     const neighbors: Creature[] = [];
     for (const j of grid.query(c.x, c.y, radius, near)) {
       const o = cs[j];
-      if (j !== i && o && o.state !== 'away') neighbors.push(o);
+      if (j !== i && o && fitness.has(o)) neighbors.push(o);
     }
     if (neighbors.length === 0) return;
     const n = rng.pick(neighbors);

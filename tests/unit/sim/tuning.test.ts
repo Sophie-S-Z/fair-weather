@@ -93,11 +93,47 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.festival).toEqual({ threshold: 1, everyTicks: 10 });
   expect(t.postcard).toEqual({ nudge: 0.1 });
   expect(t.wisp).toEqual({ minWarmth: 0.6, minKithWarmth: 0.2 });
-  expect(t.halcyon).toEqual({ giftWarmthMultiplier: 0.2, keepsakeWarmth: 0.6 });
+  expect(t.halcyon).toEqual({
+    giftWarmthMultiplier: 0.2,
+    keepsakeWarmth: 0.6,
+    keepsakeRadii: 2,
+    chooseByDay: 3,
+  });
+  expect(t.kith).toEqual({ days: 20 });
+  expect(t.journal).toEqual({ mostAt: 0.5, someAt: 0.2 });
   expect(t.bet).toEqual({ revealSpeed: 8 });
   expect(t.bridge).toEqual({ radius: 32, landing: 14 });
   expect(t.bank).toEqual({ side: 53, below: 123 });
   expect(t.lantern).toEqual({ radius: 120, fogFactor: 0.5 });
+  expect(t.knack).toEqual({
+    lanternFog: 0.5,
+    kiteSpeed: 1.5,
+    mossMemory: 2,
+    mossDrift: 0.5,
+    glassWarmth: 1.5,
+    seedCost: 1,
+    seedBerries: 3,
+    seedDays: 2,
+    seedWarmth: 0.1,
+    bellRadius: 72,
+    lanternSky: 2,
+    bellPrints: 2,
+  });
+  expect(t.fen).toEqual({
+    everyTicks: 10,
+    duskAt: 0.75,
+    duskLift: 0.15,
+    neighbors: 7,
+    thresholdMin: 0.2,
+    thresholdSpan: 0.6,
+  });
+  expect(t.hollow).toEqual({
+    skySpeed: 120,
+    fameStep: 0.2,
+    fameFade: 0.1,
+    fearAt: 0.5,
+    drama: { against: 3, keep: 2, away: 1, pose: 3 },
+  });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

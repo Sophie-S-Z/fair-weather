@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Command } from '../sim/types.ts';
 import { CommandSchema } from '../story/action-log.ts';
 import { CHALLENGES } from '../story/challenges.ts';
-import { GUST_REACH, SandboxSetupSchema, bridgesIn, isCreatureId } from '../story/sandbox.ts';
+import { GUST_REACH, SandboxSetupSchema, bridgesIn, inScene, isCreatureId } from '../story/sandbox.ts';
 import type { SandboxSetup } from '../story/sandbox.ts';
 import { tuning } from '../story/tuning.ts';
 
@@ -36,9 +36,7 @@ export interface SeedLink {
   tick: number;
 }
 
-const { width, height } = tuning.scene;
 const { brushRadius, brushAmount } = tuning.fog;
-const inScene = (x: number, y: number): boolean => x >= 0 && x <= width && y >= 0 && y <= height;
 
 /**
  * Why a command cannot be in a link, or null when it can: only what the sandbox runner sends, as it
@@ -130,11 +128,46 @@ export async function encodeLink(link: SeedLink): Promise<string> {
 }
 
 /**
+ * The text that `bytes` inflate to, or null when they do not inflate or inflate past MAX_LINK_BYTES
+ * (reading stops there). Fed one FEED_BYTES slice at a time, so even an engine that inflates a whole
+ * written chunk before it enqueues any of it holds about 1 MiB of expansion at once.
+ */
+async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<string | null> {
+  let fed = 0;
+  const input = new ReadableStream<Uint8Array<ArrayBuffer>>(
+    {
+      pull(c) {
+        if (fed >= bytes.length) c.close();
+        else c.enqueue(bytes.subarray(fed, (fed += FEED_BYTES)));
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  const reader = input.pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return await new Blob(chunks).text();
+      size += value.byteLength;
+      if (size > MAX_LINK_BYTES) {
+        reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The link in `text` (a fragment without its `#`, or a valley file's line), or null when it is
- * longer than MAX_LINK_TEXT, has no `v1.` prefix, is not URL-safe base64, does not inflate, inflates
- * past MAX_LINK_BYTES (reading stops there), is not JSON, fails SeedLinkSchema, is not the JSON
- * encodeLink writes for it, or was made under another tuning hash. Never throws.
- * It does not build the scenario: the caller must treat a throw from `sandboxScenario` (a bench
+ * longer than MAX_LINK_TEXT, has no `v1.` prefix, is not URL-safe base64, does not inflate, has
+ * bytes after the deflate end, inflates past MAX_LINK_BYTES (reading stops there), is not JSON,
+ * fails SeedLinkSchema, is not the JSON encodeLink writes for it, or was made under another tuning
+ * hash. Never throws. It does not build the scenario: the caller must treat a throw from `sandboxScenario` (a bench
  * density past the scene's spots, land that checkLand refuses) as a broken link too.
  */
 export async function decodeLink(text: string, tuningHash: string): Promise<SeedLink | null> {
@@ -144,32 +177,10 @@ export async function decodeLink(text: string, tuningHash: string): Promise<Seed
     if (!/^[A-Za-z0-9_-]+$/.test(data) || data.length % 4 === 1) return null;
     const binary = atob(data.replaceAll('-', '+').replaceAll('_', '/'));
     const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-    let fed = 0;
-    // Pulled one small slice at a time, so even an engine that inflates a whole written chunk
-    // before it enqueues any of it holds about FEED_BYTES of expansion at once.
-    const input = new ReadableStream<Uint8Array<ArrayBuffer>>(
-      {
-        pull(c) {
-          if (fed >= bytes.length) c.close();
-          else c.enqueue(bytes.subarray(fed, (fed += FEED_BYTES)));
-        },
-      },
-      { highWaterMark: 0 },
-    );
-    const reader = input.pipeThrough(new DecompressionStream('deflate-raw')).getReader();
-    const chunks: Uint8Array<ArrayBuffer>[] = [];
-    let size = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_LINK_BYTES) {
-        reader.cancel().catch(() => undefined);
-        return null;
-      }
-      chunks.push(value);
-    }
-    const json = await new Blob(chunks).text();
+    const json = await inflate(bytes);
+    // The stream must end at its last byte: without that byte it must not inflate, so no bytes (and
+    // no words in the base64) can ride after the deflate end, which some engines ignore.
+    if (json === null || (await inflate(bytes.subarray(0, -1))) !== null) return null;
     const parsed = SeedLinkSchema.safeParse(JSON.parse(json));
     // Canonical: only the JSON encodeLink writes, so no duplicate key or spacing can carry text.
     if (!parsed.success || JSON.stringify(parsed.data) !== json) return null;

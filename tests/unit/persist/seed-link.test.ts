@@ -12,7 +12,9 @@ import {
   fitsInLink,
 } from '../../../src/persist/seed-link.ts';
 import type { SeedLink } from '../../../src/persist/seed-link.ts';
-import { DEFAULT_SWITCHES } from '../../../src/story/sandbox.ts';
+import type { FromWorker, SimPort, WorldLite } from '../../../src/sim-host/protocol.ts';
+import type { Command } from '../../../src/sim/types.ts';
+import { DEFAULT_SWITCHES, createSandboxRunner } from '../../../src/story/sandbox.ts';
 import { tuning } from '../../../src/story/tuning.ts';
 
 const HASH = '0badf00d';
@@ -110,8 +112,8 @@ test('decode gives null for v2, a cut link, one extra character, bad base64, and
   expect(await decodeLink(text.slice(0, text.length - 4), HASH)).toBeNull();
   expect(await decodeLink(text.slice(0, 20), HASH)).toBeNull();
   // One extra character on data whose length is a multiple of 4 is a length base64 cannot have.
-  // (Other lengths are not covered: atob ignores the unused low bits of the last character, and
-  // Node's inflater ignores bytes after the deflate end, so such a text can decode to the same link.)
+  // (atob ignores the unused low bits of the last character, so two texts can still decode to
+  // the same link; bytes after the deflate end are refused in the next test.)
   const whole = data.slice(0, data.length - (data.length % 4));
   expect(await decodeLink(`v1.${whole}A`, HASH)).toBeNull();
   // Bad base64: standard alphabet, padding, a space, a line end, a character outside the alphabet.
@@ -141,13 +143,35 @@ test('decode gives null for JSON that encode would not write: a duplicate key, s
   }
 });
 
+test('decode gives null for bytes after the deflate end: one to three extra characters, or words', async () => {
+  const text = await encodeLink(link());
+  expect(await decodeLink(text, HASH)).toEqual(link());
+  // Each makes a length base64 cannot have, or adds whole bytes after the end.
+  for (const extra of ['A', 'AA', 'AAA', 'AAAA', '_', '__'])
+    expect(await decodeLink(text + extra, HASH)).toBeNull();
+  for (const words of ['MeetMeAtTheOldMillAtNoonAda', 'AdaWroteThis', 'callMe5550100']) {
+    // Padded to a length base64 can have: 1 mod 4 cannot be one.
+    const padded = text + words + ((text.length - 3 + words.length) % 4 === 1 ? 'A' : '');
+    expect(await decodeLink(padded, HASH)).toBeNull();
+  }
+});
+
 test('decode gives null for a text longer than MAX_LINK_TEXT before it reads any of it', async () => {
   expect(MAX_LINK_TEXT).toBe(Math.ceil(((MAX_LINK_BYTES + 1024) * 4) / 3) + 3);
-  // A real link padded with A: zero bytes after the deflate end, which Node's inflater ignores.
+  // A real link padded with A to one character past the cap: refused before any inflate starts.
   const text = await encodeLink(link());
   const padded = text + 'A'.repeat(MAX_LINK_TEXT + 1 - text.length);
   expect((padded.length - 3) % 4).not.toBe(1);
+  const Real = globalThis.DecompressionStream;
+  let inflaters = 0;
+  vi.stubGlobal('DecompressionStream', function (format: CompressionFormat) {
+    inflaters += 1;
+    return new Real(format);
+  });
   expect(await decodeLink(padded, HASH)).toBeNull();
+  expect(inflaters).toBe(0);
+  expect(await decodeLink(padded.slice(0, -4), HASH)).toBeNull(); // under the cap, the tail is refused
+  expect(inflaters).toBeGreaterThan(0);
   // The largest JSON a link may hold still fits under the text cap.
   const biggest = await encodeLink(linkOfSize(MAX_LINK_BYTES));
   expect(biggest.length).toBeLessThanOrEqual(MAX_LINK_TEXT);
@@ -400,4 +424,40 @@ test('fitsInLink is true at 2000 characters and false at 2001', () => {
   expect(LINK_CHARS).toBe(2000);
   expect(fitsInLink('x'.repeat(2000))).toBe(true);
   expect(fitsInLink('x'.repeat(2001))).toBe(false);
+});
+
+test('the runner refuses an off-scene point and clamps a path, so its sends always encode', async () => {
+  const sent: Command[] = [];
+  const listeners = new Set<(m: FromWorker) => void>();
+  const port: SimPort = {
+    send: (list) => sent.push(...list),
+    onMessage(cb) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    speed: () => undefined,
+    requestHash: () => Promise.reject(new Error('no hash')),
+  };
+  const runner = createSandboxRunner(port, link().setup);
+  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: { water: [] } as unknown as WorldLite });
+  // A tap in a portrait letterbox, above the scene.
+  const at = { x: 820, y: -1117 };
+  expect(runner.verb({ verb: 'shine', ...at })).toBe(false);
+  expect(runner.verb({ verb: 'fog', ...at, clear: false })).toBe(false);
+  expect(runner.verb({ verb: 'rain', ...at })).toBe(false);
+  expect(runner.verb({ verb: 'blow', ...at, dx: 100, dy: 0 })).toBe(false);
+  for (const kind of ['bush', 'lantern'] as const) {
+    runner.setPlaceKind(kind);
+    expect(runner.verb({ verb: 'place', ...at })).toBe(false);
+  }
+  expect(runner.verb({ verb: 'path', x: 100, y: 200, x2: 1700, y2: -50 })).toBe(true);
+  expect(runner.verb({ verb: 'path', x: 100, y: 200, x2: Number.NaN, y2: 0 })).toBe(false);
+  expect(runner.verb({ verb: 'shine', x: 1600, y: 900 })).toBe(true);
+  expect(sent).toEqual([
+    { t: 'path', x: 100, y: 200, x2: 1600, y2: 0 },
+    { t: 'shine', x: 1600, y: 900 },
+  ]);
+  const text = await encodeLink(link({ script: [{ tick: 1, list: sent }], tick: 2 }));
+  expect(await decodeLink(text, HASH)).not.toBeNull();
+  runner.dispose();
 });

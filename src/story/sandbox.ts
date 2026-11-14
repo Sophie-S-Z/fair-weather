@@ -329,6 +329,13 @@ export const SandboxSetupSchema = z
 const inRect = (r: Rect, px: number, py: number): boolean =>
   px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
+/** Inside the scene, edges included, as the sim's `onScene` (NaN is outside). */
+export const inScene = (px: number, py: number): boolean =>
+  px >= 0 && px <= tuning.scene.width && py >= 0 && py <= tuning.scene.height;
+
+/** The sim's `clamp` (story may not import sim values). */
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+
 /** The bridges among `structures`. */
 export function bridgesIn(structures: readonly Structure[]): number {
   return structures.filter((st) => st.kind === 'bridge').length;
@@ -434,8 +441,10 @@ const SANDBOX_VERBS: ReadonlySet<VerbInput['verb']> = new Set([...SANDBOX_TOOLS,
 export interface SandboxRunner {
   readonly setup: SandboxSetup;
   /**
-   * False before the first snapshot, after dispose, for a verb outside the tools and `welcome`, for
-   * a bridge off the water (which the sim refuses, so it does not count), and for a bridge past the
+   * Sends a path's ends clamped to the scene and a gust's dx and dy clamped to GUST_REACH. False
+   * before the first snapshot, after dispose, for a verb outside the tools and `welcome`, for a
+   * shine, fog, rain, place, or gust point off the scene (which the sim ignores), for a bridge off
+   * the water (which the sim refuses, so it does not count), and for a bridge past the
    * challenge's bridge limit, the setup's bridges included.
    */
   verb(v: VerbInput): boolean;
@@ -485,10 +494,17 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       if (!ready || !SANDBOX_VERBS.has(v.verb)) return false;
       const cmd = verbCommand(v, undefined, placeKind);
       if (!cmd) return false;
+      // What the sim would ignore or clamp is refused or clamped here, as the sim does, so the
+      // world is the same and a player's valley always encodes as a link.
+      if (cmd.t === 'path') {
+        if (![cmd.x, cmd.y, cmd.x2, cmd.y2].every(Number.isFinite)) return false;
+        const { width, height } = tuning.scene;
+        [cmd.x, cmd.x2] = [clamp(cmd.x, 0, width), clamp(cmd.x2, 0, width)];
+        [cmd.y, cmd.y2] = [clamp(cmd.y, 0, height), clamp(cmd.y2, 0, height)];
+      } else if ('x' in cmd && !inScene(cmd.x, cmd.y)) return false;
       if (cmd.t === 'blow') {
-        // Clamped to the link's bound, so a player's valley always encodes.
-        cmd.dx = Math.min(Math.max(cmd.dx, -GUST_REACH.dx), GUST_REACH.dx);
-        cmd.dy = Math.min(Math.max(cmd.dy, -GUST_REACH.dy), GUST_REACH.dy);
+        cmd.dx = clamp(cmd.dx, -GUST_REACH.dx, GUST_REACH.dx);
+        cmd.dy = clamp(cmd.dy, -GUST_REACH.dy, GUST_REACH.dy);
       }
       const bridge = cmd.t === 'place' && cmd.kind === 'bridge';
       if (bridge && !water.some((r) => inRect(r, cmd.x, cmd.y))) return false;

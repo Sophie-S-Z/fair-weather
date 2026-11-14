@@ -59,7 +59,7 @@ const DIALS = Object.keys(DIAL_SET) as [DialKey, ...DialKey[]];
  * Every command shape (sim/types.ts Command). `walk` has two shapes, which a discriminated union
  * cannot hold, so they sit beside it.
  */
-const CommandSchema = z.union([
+export const CommandSchema = z.union([
   z.strictObject({ t: z.literal('walk'), ...at }),
   z.strictObject({ t: z.literal('walk'), to: str }),
   z.discriminatedUnion('t', [
@@ -99,6 +99,9 @@ const CommandSchema = z.union([
       dial: z.enum(DIALS),
       amount: num,
     }),
+    z.strictObject({ t: z.literal('rain'), ...at }),
+    z.strictObject({ t: z.literal('welcome'), on: z.boolean() }),
+    z.strictObject({ t: z.literal('path'), ...at, x2: num, y2: num }),
   ]),
 ]) satisfies z.ZodType<Command>;
 

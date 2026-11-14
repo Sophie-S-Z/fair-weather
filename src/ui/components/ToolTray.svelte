@@ -23,7 +23,7 @@
   }: {
     tools: readonly WorldVerb[];
     /** What the place tool sets, which names its button. */
-    placeKind: Structure['kind'];
+    placeKind: Exclude<Structure['kind'], 'path'>;
     /** Tools used up in this chapter; their buttons say so. */
     used?: readonly Verb[];
     active: Verb | null;
@@ -63,7 +63,7 @@
     pose: 'Pose',
     keepsake: 'Keepsake',
   };
-  const PLACE_LABELS: Record<Structure['kind'], string> = {
+  const PLACE_LABELS: Record<Exclude<Structure['kind'], 'path'>, string> = {
     bench: 'Bench',
     bridge: 'Bridge',
     lantern: 'Lantern',

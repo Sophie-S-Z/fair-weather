@@ -845,7 +845,8 @@ export function createMeadowView(
         return g;
       };
       for (const s of next.structures) {
-        if (s.kind === 'bridge') continue;
+        // Bridges are drawn with the water; paths are not drawn yet (plan task M4.9).
+        if (s.kind === 'bridge' || s.kind === 'path') continue;
         const g = redraw(s.id, s.x, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
         if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
         else if (g && s.id === PRESS) {

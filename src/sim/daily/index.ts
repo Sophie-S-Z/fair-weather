@@ -1,5 +1,6 @@
 // The dusk pass: every daily rule in ADR 0004 item 1 order, then the day rises.
 import type { SimEvent, World } from '../types.ts';
+import { SEASONS } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import type { DailyRule } from './rule.ts';
@@ -30,7 +31,11 @@ const RULES: readonly DailyRule[] = [
   ambientSkyBid,
 ];
 
-/** Runs all daily rules, expires boosts, resets each creature's light sky warmth for the day, and raises `day`. */
+/**
+ * Runs all daily rules, expires boosts, resets each creature's light sky warmth for the day, and
+ * raises `day`. With `seasonDays`, the season then turns to the next in SEASONS order (thaw to
+ * spring) when the new day is a multiple of it (ADR 0014 item 4). No draw of its own.
+ */
 export function runDusk(world: World, t: Tuning, rng: Rng): SimEvent[] {
   const events: SimEvent[] = [];
   for (const rule of RULES) events.push(...rule(world, t, rng));
@@ -38,5 +43,8 @@ export function runDusk(world: World, t: Tuning, rng: Rng): SimEvent[] {
   world.boosts = world.boosts.filter((b) => b.untilDay >= newDay);
   for (const c of world.creatures) c.skyLightToday = 0;
   world.day = newDay;
+  if (world.seasonDays !== undefined && newDay % world.seasonDays === 0) {
+    world.season = SEASONS[(SEASONS.indexOf(world.season) + 1) % SEASONS.length] ?? world.season;
+  }
   return events;
 }

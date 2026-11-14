@@ -47,6 +47,10 @@ test.each<[string, (w: World) => void]>([
   ['negative light sky warmth', (w) => (get(w, 'a').skyLightToday = -0.01)],
   ['fog above 1', (w) => (w.fields.fog[3] = 1.5)],
   ['fog below 0', (w) => (w.fields.fog[3] = -0.5)],
+  [
+    'a path end outside the scene',
+    (w) => w.structures.push({ id: 'path-1', kind: 'path', x: 0, y: 0, x2: t.scene.width + 1, y2: 0 }),
+  ],
 ])('checkInvariants reports %s', (_, edit) => {
   const w = fresh();
   edit(w);

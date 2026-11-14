@@ -8,7 +8,18 @@ import type { Command } from '../../src/sim/types.ts';
 // A new Command kind fails typecheck here until it is covered or listed in NotInM0.
 // Later kinds stay out of the m0 list (that would change the stored hash); their own tests cover them.
 type NotInM0 =
-  'wake' | 'promptSkyBid' | 'overPoke' | 'dance' | 'walk' | 'manner' | 'plant' | 'local' | 'nudge';
+  | 'wake'
+  | 'promptSkyBid'
+  | 'overPoke'
+  | 'dance'
+  | 'walk'
+  | 'manner'
+  | 'plant'
+  | 'local'
+  | 'nudge'
+  | 'rain'
+  | 'welcome'
+  | 'path';
 const ALL = {
   shine: true,
   paintFog: true,

@@ -81,6 +81,9 @@ function liteOf(
     decks: [],
     islets: [],
     mushroom: null,
+    season: 'spring',
+    day: 0,
+    gateDark: false,
   };
 }
 const gift = (move: GiftMove): ActionLog[number] => ({

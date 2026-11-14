@@ -8,6 +8,7 @@ import type {
   HeroKind,
   Rect,
   Scenario,
+  Season,
   Shell,
   SimEvent,
   Structure,
@@ -80,6 +81,11 @@ export interface WorldLite {
   islets: Rect[];
   /** The dew mushroom, with the drops left today; null with none. */
   mushroom: { x: number; y: number; drops: number; witherDays: number } | null;
+  /** The season and the day (ADR 0014 item 4: in the sandbox the seasons turn). */
+  season: Season;
+  day: number;
+  /** True while the sandbox's gate is dark (ADR 0014 item 5). */
+  gateDark: boolean;
 }
 
 /**

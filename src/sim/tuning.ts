@@ -21,7 +21,7 @@ export const TuningSchema = obj({
   scene: obj({ width: count, height: count, gateX: nonNeg, gateY: nonNeg }),
   move: obj({ speed: pos, accel: pos, arriveRadius: pos }),
   meet: obj({ radius: pos, benchRepeatMultiplier: pos, durationTicks: count }),
-  goal: obj({ benchChance: prob }),
+  goal: obj({ benchChance: prob, pathChance: prob }),
   forage: obj({ carryMax: count, cooldownTicks: count }),
   eat: obj({ perDusk: count }),
   bush: obj({ limit: count, growth: prob, base: nonNeg }),
@@ -161,6 +161,10 @@ export const TuningSchema = obj({
     fearAt: pos,
     drama: obj({ against: nonNeg, keep: nonNeg, away: nonNeg, pose: nonNeg }),
   }),
+  /** The sandbox's rain (ADR 0014 item 5): each bush within `radius` gains `berries`, up to bush.limit. */
+  rain: obj({ radius: pos, berries: count }),
+  /** A creature within `reach` of a path end may walk the path (ADR 0014 item 5). */
+  path: obj({ reach: pos }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

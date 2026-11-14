@@ -36,6 +36,9 @@ test('carryFrom keeps dials, shell, sky warmth, away, gone, and tie warmths', ()
     decks: [],
     islets: [],
     mushroom: null,
+    season: 'spring',
+    day: 0,
+    gateDark: false,
     bushes: [],
   };
   const carry = carryFrom(lite, new Map([['pim', ['Danced.']]]));

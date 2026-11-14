@@ -4,7 +4,7 @@
   "scene": { "width": 1600, "height": 900, "gateX": 40, "gateY": 450 },
   "move": { "speed": 40, "accel": 80, "arriveRadius": 8 },
   "meet": { "radius": 24, "benchRepeatMultiplier": 2, "durationTicks": 20 },
-  "goal": { "benchChance": 0.25 },
+  "goal": { "benchChance": 0.25, "pathChance": 0.5 },
   "forage": { "carryMax": 5, "cooldownTicks": 50 },
   "eat": { "perDusk": 1 },
   "bush": { "limit": 10, "growth": 0.2, "base": 0.5 },
@@ -109,5 +109,7 @@
     "fameFade": 0.1,
     "fearAt": 0.5,
     "drama": { "against": 3, "keep": 2, "away": 1, "pose": 3 }
-  }
+  },
+  "rain": { "radius": 120, "berries": 2 },
+  "path": { "reach": 40 }
 }

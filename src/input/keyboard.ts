@@ -12,7 +12,7 @@ export type InputContext = {
   creatures: () => readonly { id: string; state: string }[];
   benchSpots: () => readonly BenchSpot[];
   /** What the place tool sets in this chapter. */
-  placeKind: () => Structure['kind'];
+  placeKind: () => Exclude<Structure['kind'], 'path'>;
   /** The water rectangles a bridge snaps into. */
   water: () => readonly Rect[];
   cursor: () => Point;

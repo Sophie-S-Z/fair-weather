@@ -42,7 +42,8 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
  * Half the scenarios have a hero. Two fifths have no pack. A fifth are in Murmuration Fen: some
  * creatures are starlings, some of the ids (and an unknown one) are restless, and some have a fixed
  * threshold. A fifth are in Hearsay Hollow, and a fifth in Halcyon, where the seeker is any id (or
- * an unknown one), Kith's warmth is any, and the hero holds two keepsakes.
+ * an unknown one), Kith's warmth is any, and the hero holds two keepsakes. A quarter are sandbox
+ * worlds, with 1 to 4 days a season and any base fog, and no hero, as in the sandbox (ADR 0014 item 1).
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -86,6 +87,10 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
       .record({
         ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
         hero: fc.option(heroArb, { freq: 2, nil: undefined }),
+        sandbox: fc.oneof(
+          { weight: 3, arbitrary: fc.constant(undefined) },
+          { weight: 1, arbitrary: fc.record({ seasonDays: fc.integer({ min: 1, max: 4 }), baseFog: unit }) },
+        ),
         pack: fc.oneof(
           { weight: 2, arbitrary: fc.constant(undefined) },
           { weight: 1, arbitrary: fen },
@@ -96,15 +101,19 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
           },
         ),
       })
-      .map(({ ties, hero, pack }): Scenario => {
-        const out: Scenario = hero ? { ...scenario, ties, hero } : { ...scenario, ties };
+      .map(({ ties, hero, sandbox, pack }): Scenario => {
+        const out: Scenario = sandbox
+          ? { ...scenario, ties, sandbox: true, ...sandbox }
+          : hero
+            ? { ...scenario, ties, hero }
+            : { ...scenario, ties };
         if (!pack) return out;
         if (pack === 'hollow') return { ...out, pack: { id: 'hollow' } };
         if ('seeker' in pack) {
           const keepsakes = ['feather', 'acorn'];
           return {
             ...out,
-            ...(hero ? { hero: { ...hero, keepsakes } } : {}),
+            ...(out.hero ? { hero: { ...out.hero, keepsakes } } : {}),
             pack: { id: 'halcyon', ...pack },
           };
         }
@@ -177,6 +186,9 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
       ),
     }),
     fc.record({ t: fc.constant('nudge' as const), dial: fc.constantFrom(...DIAL_KEYS), amount: num(-1, 1) }),
+    fc.record({ t: fc.constant('rain' as const), x, y }),
+    fc.record({ t: fc.constant('welcome' as const), on: fc.boolean() }),
+    fc.record({ t: fc.constant('path' as const), x, y, x2: x, y2: y }),
   );
 }
 

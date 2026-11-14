@@ -140,12 +140,10 @@ export interface Rect {
   w: number;
   h: number;
 }
-export interface Structure {
-  id: string;
-  kind: 'bench' | 'bridge' | 'lantern';
-  x: number;
-  y: number;
-}
+/** A placed structure; a path runs from (x, y) to (x2, y2) (ADR 0014 item 5). */
+export type Structure =
+  | { id: string; kind: 'bench' | 'bridge' | 'lantern'; x: number; y: number }
+  | { id: string; kind: 'path'; x: number; y: number; x2: number; y2: number };
 /**
  * The latest whisper. Only `about` and `sign` are read (lite.ts lastRumor). `strength`, `origin`,
  * and `tick` are written but never read; they stay because they are hashed, and removing them would
@@ -219,6 +217,12 @@ export interface World {
   hero?: { kind: HeroKind; reply: BidReply; gift: GiftMove; waveTo: string | null; keepsakes: string[] };
   /** The valley's rule-pack state (ADR 0013 item 4), set only with the scenario's `pack`. */
   pack?: PackState;
+  /** Set only with the scenario's: the sandbox's verbs and population cap apply (ADR 0014 items 1 and 5). */
+  sandbox?: true;
+  /** Set only with the scenario's: the season turns every this many days (ADR 0014 item 4). */
+  seasonDays?: number;
+  /** Set while the gate is dark: no newcomer arrives (ADR 0014 item 5). */
+  gateDark?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -239,7 +243,10 @@ export type Command =
   | { t: 'manner'; reply: BidReply; gift: GiftMove }
   | { t: 'plant' }
   | { t: 'local'; verb: LocalVerb }
-  | { t: 'nudge'; dial: DialKey; amount: number };
+  | { t: 'nudge'; dial: DialKey; amount: number }
+  | { t: 'rain'; x: number; y: number }
+  | { t: 'welcome'; on: boolean }
+  | { t: 'path'; x: number; y: number; x2: number; y2: number };
 export type SimEvent =
   | { t: 'bid'; from: string; to: string; reply: BidReply; seenAs: BidReply }
   | { t: 'gift'; from: string; to: string; move: GiftMove; seenAs: GiftMove }
@@ -308,4 +315,10 @@ export interface Scenario {
     | { id: 'fen'; restless: string[]; fixed: Record<string, number> }
     | { id: 'hollow' }
     | { id: 'halcyon'; kithWarmth: number; seeker: string };
+  /** A sandbox world (ADR 0014 items 1 and 5). */
+  sandbox?: true;
+  /** The days in each season, a positive integer; without it the season never turns (ADR 0014 item 4). */
+  seasonDays?: number;
+  /** The fog every cell starts at, 0 to 1 (ADR 0014 item 2). */
+  baseFog?: number;
 }

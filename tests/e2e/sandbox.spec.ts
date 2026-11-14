@@ -209,7 +209,9 @@ test('the start choice lists the finished valleys in first-played order, and the
   await expect(page.getByLabel('Gift warmth')).toHaveCount(0);
 });
 
-test('a rule change that the worker cannot start puts the knob back and says so', async ({ page }) => {
+test('a rule change that the worker cannot start puts the knob back, says so, and keeps the rules off', async ({
+  page,
+}) => {
   await open(page);
   // The next run's worker does not load, so the host gives up before its first snapshot.
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
@@ -223,6 +225,58 @@ test('a rule change that the worker cannot start puts the knob back and says so'
   );
   await expect(gift).toHaveValue('3');
   await expect(gift).toHaveAttribute('aria-valuetext', '3');
+  // No run goes on, so no control that starts one again works, and a new tool does not hide the notice.
+  await expect(gift).toBeDisabled();
+  await expect(page.getByLabel('Mixed thresholds', { exact: true })).toBeDisabled();
+  await page.getByRole('application', { name: 'The sandbox valley' }).focus();
+  await page.keyboard.press('3');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+    'The valley could not start again. The rules did not change. Go back to the title to try again.',
+  );
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+});
+
+test('while a rule change starts the run again, no other rule can change', async ({ page }) => {
+  await open(page);
+  // The next run's worker loads only when the test lets it, so the start waits.
+  let load = (): void => undefined;
+  const loaded = new Promise<void>((resolve) => {
+    load = resolve;
+  });
+  await page.route('**/src/sim-host/worker.ts*', async (route) => {
+    await loaded;
+    await route.continue();
+  });
+  await page.getByText('Rules', { exact: true }).click();
+  await page.getByText('Network', { exact: true }).click();
+  const gift = page.getByLabel('Gift value');
+  const mixed = page.getByLabel('Mixed thresholds', { exact: true });
+  await gift.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(gift).toBeDisabled();
+  await expect(mixed).toBeDisabled();
+  await expect(page.getByLabel('Fog level')).toBeDisabled();
+  load();
+  await expect(gift).toBeEnabled();
+  await expect(mixed).toBeEnabled();
+  await expect(gift).toHaveAttribute('aria-valuetext', '4');
+  await expect(mixed).toBeChecked();
+});
+
+test('a first start that the worker cannot run says so on the start choice', async ({ page }) => {
+  await page.goto('/');
+  await keepProfile(page, []);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
+  await page.getByRole('button', { name: 'A new valley' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+    'The valley could not start again. The rules did not change. Go back to the title to try again.',
+  );
+  await expect(page.getByRole('button', { name: 'A new valley' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
   await page.getByRole('button', { name: 'Back to title' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });

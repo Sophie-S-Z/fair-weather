@@ -7,6 +7,7 @@
     title,
     knobs,
     onKnob,
+    locked,
     tools,
     tool,
     onTool,
@@ -17,6 +18,8 @@
     knobs: readonly { knob: Knob; index: number; max: number; why: string | null }[];
     /** A knob moved to `index`; `input` is its range, which a start that fails puts back. */
     onKnob: (id: KnobId, index: number, input: HTMLInputElement) => void;
+    /** The knobs are off while a start waits, and after the worker failed (each one restarts the run). */
+    locked: boolean;
     /**
      * The panel's tools with their keys (1 to 8). Each panel's are a radio group of their own, all
      * set from `tool`, so an open panel's radios are in the Tab order when the tool is another panel's.
@@ -44,7 +47,7 @@
           step="1"
           value={index}
           aria-valuetext={String(knobValue(knob, index))}
-          disabled={why !== null}
+          disabled={why !== null || locked}
           aria-describedby={why === null ? undefined : `why-${knob.id}`}
           onchange={(e) => {
             onKnob(knob.id, Number(e.currentTarget.value), e.currentTarget);

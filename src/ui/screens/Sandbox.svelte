@@ -103,8 +103,13 @@
   let pathFrom: { x: number; y: number } | null = $state(null);
   let whisperCard: { target: string; others: string[] } | null = $state(null);
   let speedNow = $state(0);
-  /** Why the last start failed, shown in the status region in place of the status line; null when none. */
+  /** Why the last start failed, shown in the status region until the player's next verb or start; null when none. */
   let notice: string | null = $state(null);
+  /** A start waits for its first snapshot: one start at a time, so the controls that start one are off. */
+  let starting = $state(false);
+  /** A start failed in the worker, so no run goes on until the title starts the worker again. */
+  let dead = $state(false);
+  const locked = $derived(starting || dead);
   /** Counts starts, so only the newest one plays. */
   let runs = 0;
   let gone = false;
@@ -179,32 +184,39 @@
 
   /**
    * Starts a run of `s` from day 0; the run before stops once it has started. When the start fails,
-   * `undo` puts the control back to the setup's value, and the status region says so.
+   * `undo` puts the control back to the setup's value, and the status region says so. `from` is the
+   * control that asked, which gets the focus back if it lost it while it was off.
    */
-  async function run(s: SandboxSetup, undo?: () => void): Promise<void> {
+  async function run(s: SandboxSetup, undo?: () => void, from?: HTMLElement): Promise<void> {
     const token = (runs += 1);
-    let r: SandboxRunner;
+    notice = null;
+    starting = true;
+    let r: SandboxRunner | null = null;
     try {
       r = await game.sandbox.start(s);
     } catch (e) {
       // Ids only, for whoever reads the console.
       console.error(e);
-      if (token !== runs || gone) return;
-      undo?.();
-      if (game.sandbox.running()) notice = 'The valley could not start again. The rules did not change.';
-      else {
-        // The worker refused the run, so no run goes on: the title starts the worker again.
-        loop.stop();
-        runner = null;
-        notice =
-          'The valley could not start again. The rules did not change. Go back to the title to try again.';
-      }
-      return;
     }
     if (token !== runs || gone) return;
+    starting = false;
+    if (!r) {
+      undo?.();
+      dead = game.sandbox.workerFailed();
+      if (dead) {
+        // No run goes on: the title starts the worker again.
+        loop.stop();
+        runner = null;
+      }
+      notice = dead
+        ? 'The valley could not start again. The rules did not change. Go back to the title to try again.'
+        : 'The valley could not start again. The rules did not change.';
+    }
+    await tick();
+    if (!dead && document.activeElement === document.body) from?.focus();
+    if (!r) return;
     loop.stop();
     next = null;
-    notice = null;
     runner = r;
     setup = s;
     r.setPlaceKind(placeKind);
@@ -223,6 +235,7 @@
   function restart(
     change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'>,
     undo: () => void,
+    from: HTMLElement,
   ): void {
     if (!setup) return;
     void run(
@@ -233,23 +246,32 @@
         bushes: game.sandbox.placedBushes(),
       },
       undo,
+      from,
     );
   }
   function setKnob(id: KnobId, index: number, input: HTMLInputElement): void {
     if (!setup) return;
     const knob = KNOBS.find((k) => k.id === id);
     const before = knob ? stepOf(knob) : index;
-    restart({ knobs: { ...setup.knobs, [id]: index } }, () => {
-      // The range is bound one way to the setup's step, which did not change, so it is put back here.
-      input.value = String(before);
-    });
+    restart(
+      { knobs: { ...setup.knobs, [id]: index } },
+      () => {
+        // The range is bound one way to the setup's step, which did not change, so it is put back here.
+        input.value = String(before);
+      },
+      input,
+    );
   }
   function setSwitch(key: keyof Switches, input: HTMLInputElement): void {
     if (!setup) return;
     const before = setup.switches[key];
-    restart({ switches: { ...setup.switches, [key]: input.checked } }, () => {
-      input.checked = before;
-    });
+    restart(
+      { switches: { ...setup.switches, [key]: input.checked } },
+      () => {
+        input.checked = before;
+      },
+      input,
+    );
   }
 
   /** Opens a valley from the start choice: its scene and the gate's lamp, then the run (the palette comes with its first snapshot). */
@@ -261,15 +283,23 @@
     cursor = st.benchSpots[0] ?? { x: 0, y: 0 };
     await run(s);
     await tick();
-    sceneEl.focus();
+    // After a failed start the choice stays, with its enabled buttons (Back to title at least).
+    if (setup) sceneEl.focus();
+    else document.querySelector<HTMLElement>('.choice button:enabled')?.focus();
   }
 
+  /** Uses a verb on the run; with a run going on, the player's verb also ends a failed start's notice. */
+  function verb(v: VerbInput): boolean {
+    if (!runner) return false;
+    notice = null;
+    return runner.verb(v);
+  }
   function act(v: VerbInput): void {
-    runner?.verb(v);
+    verb(v);
   }
   function setGate(e: Event & { currentTarget: HTMLInputElement }): void {
     const on = e.currentTarget.checked;
-    if (runner?.verb({ verb: 'welcome', on })) gateLit = on;
+    if (verb({ verb: 'welcome', on })) gateLit = on;
     else e.currentTarget.checked = gateLit;
   }
   function pickTool(t: SandboxTool): void {
@@ -299,10 +329,6 @@
   // The Meadow draws the cursor while a tool acts at it.
   $effect(() => {
     stage?.setCursor(setup && pointing ? { x: cursor.x, y: cursor.y } : null);
-  });
-  // A new status line takes the place of a failed start's notice, while a run goes on.
-  $effect(() => {
-    if (statusLine !== '' && untrack(() => notice) !== null && game.sandbox.running()) notice = null;
   });
 
   onMount(() => {
@@ -417,6 +443,7 @@
             title={PANEL_TITLES.population}
             knobs={knobsOf('population')}
             onKnob={setKnob}
+            {locked}
             tools={toolsOf('population')}
             {tool}
             onTool={pickTool}
@@ -446,6 +473,7 @@
             title={PANEL_TITLES.rules}
             knobs={knobsOf('rules')}
             onKnob={setKnob}
+            {locked}
             tools={[]}
             {tool}
             onTool={pickTool}
@@ -456,6 +484,7 @@
             title={PANEL_TITLES.weather}
             knobs={knobsOf('weather')}
             onKnob={setKnob}
+            {locked}
             tools={toolsOf('weather')}
             {tool}
             onTool={pickTool}
@@ -464,6 +493,7 @@
             title={PANEL_TITLES.network}
             knobs={knobsOf('network')}
             onKnob={setKnob}
+            {locked}
             tools={toolsOf('network')}
             {tool}
             onTool={pickTool}
@@ -473,6 +503,7 @@
                 <input
                   type="checkbox"
                   checked={setup.switches[sw.key]}
+                  disabled={locked}
                   onchange={(e) => {
                     setSwitch(sw.key, e.currentTarget);
                   }}
@@ -482,7 +513,6 @@
             {/each}
           </SandboxPanel>
         </div>
-        <p class="status" role="status">{notice ?? statusLine}</p>
         <div class="time">
           <TimeControls speed={speedNow} disabled={false} onPause={togglePause} onSpeed={setSpeed} />
         </div>
@@ -495,11 +525,15 @@
       <p>Choose a valley to start from.</p>
       <div class="start-from" role="group" aria-label="Start from">
         {#if status.kith}
-          <button type="button" onclick={() => void choose('kith', true)}>Your Kith</button>
+          <button type="button" disabled={locked} onclick={() => void choose('kith', true)}>Your Kith</button>
         {/if}
-        <button type="button" onclick={() => void choose('kith', false)}>A new valley</button>
+        <button type="button" disabled={locked} onclick={() => void choose('kith', false)}
+          >A new valley</button
+        >
         {#each status.valleys as v (v)}
-          <button type="button" onclick={() => void choose(v, false)}>{valleyChapter(v)?.title ?? v}</button>
+          <button type="button" disabled={locked} onclick={() => void choose(v, false)}
+            >{valleyChapter(v)?.title ?? v}</button
+          >
         {/each}
       </div>
       <button type="button" onclick={onExit}>Back to title</button>
@@ -513,6 +547,8 @@
       onCancel={() => (whisperCard = null)}
     />
   {/if}
+  <!-- Always here, so a failed first start, from the start choice, is said too. -->
+  <p class="status" role="status">{notice ?? (setup ? statusLine : '')}</p>
 </div>
 
 <style>
@@ -570,6 +606,7 @@
     margin: 0;
   }
   .status {
+    pointer-events: none;
     position: absolute;
     left: 50%;
     bottom: 0.75rem;

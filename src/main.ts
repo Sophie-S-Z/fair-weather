@@ -402,6 +402,9 @@ let sandboxRun: {
 } | null = null;
 /** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
 let startWaiting: ((why: string) => void) | null = null;
+/** Whether the last sandbox start failed in the worker (an error or a give-up before its first snapshot). */
+let workerFailed = false;
+const sandboxWorkerFailed = (): boolean => workerFailed;
 host.onMessage((m) => {
   if (m.t !== 'snapshot') return;
   // A sandbox run is no chapter: the story's carry stays the last chapter's.
@@ -530,8 +533,9 @@ const game: GameService = {
           settle();
           reject(new Error(`The sandbox run did not start: ${why}`));
         };
-        // The worker refused the run, or the host gave up: no run goes on (`running` is false).
+        // The worker refused the run, or the host gave up: no run goes on (`workerFailed` is true).
         const fail = (why: string): void => {
+          workerFailed = true;
           if (sandboxRun === run) {
             runner.dispose();
             sandboxRun = null;
@@ -540,6 +544,7 @@ const game: GameService = {
           drop(why);
         };
         startWaiting = drop;
+        workerFailed = false;
         // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
         offs.push(
           host.onMessage((m) => {
@@ -553,11 +558,13 @@ const game: GameService = {
         season = scenario.season;
         greeting = undefined;
         host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
+        // A worker that cannot spawn gives up inside the post: that start failed, and gets no speed.
+        if (sandboxWorkerFailed()) return;
         // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
         speedControl.runner(1);
         speedControl.player(1);
       }),
-    running: () => sandboxRun !== null,
+    workerFailed: sandboxWorkerFailed,
     placedStructures() {
       const run = sandboxRun;
       if (!run) return [];

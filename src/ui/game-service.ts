@@ -87,12 +87,12 @@ export interface SandboxService {
   /**
    * Starts a new run of `setup` at day 0 and 1x, and resolves with its runner at the run's first
    * snapshot; the run before it stops. Rejects, and the run before goes on, when the setup cannot
-   * be built. Rejects, and no run goes on (`running` is false), when the worker posts an error or
-   * the host gives up before that snapshot. Rejects also when a newer start or a stop replaces it.
+   * be built. Rejects, and no run goes on (`workerFailed` is true), when the worker posts an error
+   * or the host gives up before that snapshot. Rejects also when a newer start or a stop replaces it.
    */
   start(setup: SandboxSetup): Promise<SandboxRunner>;
-  /** Whether a run goes on: false before the first start, after a stop, and after a start the worker refused. */
-  running(): boolean;
+  /** Whether the last start failed in the worker, so no run goes on until the title starts the worker again. */
+  workerFailed(): boolean;
   /** The structures in the run now that the player placed: neither the base scenario nor bench density made them. */
   placedStructures(): Structure[];
   /** The bushes in the run now that the player placed. */

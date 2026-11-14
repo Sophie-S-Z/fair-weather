@@ -3,6 +3,7 @@ import {
   LINK_CHARS,
   MAX_LINK_BYTES,
   MAX_LINK_LISTS,
+  MAX_LINK_TEXT,
   MAX_LINK_TICKS,
   SeedLinkSchema,
   VALLEY_FILE,
@@ -12,6 +13,7 @@ import {
 } from '../../../src/persist/seed-link.ts';
 import type { SeedLink } from '../../../src/persist/seed-link.ts';
 import { DEFAULT_SWITCHES } from '../../../src/story/sandbox.ts';
+import { tuning } from '../../../src/story/tuning.ts';
 
 const HASH = '0badf00d';
 
@@ -32,11 +34,35 @@ const link = (over: Partial<SeedLink> = {}): SeedLink => ({
     { tick: 0, list: [{ t: 'shine', x: 10, y: 20 }] },
     { tick: 5, list: [{ t: 'thread', a: 'pim', b: 'krit', on: true }] },
     { tick: 5, list: [{ t: 'whisper', target: 'pim', about: 'krit', sign: 1 }] },
-    { tick: 9, list: [{ t: 'dance', who: 'pim' }] },
+    { tick: 9, list: [{ t: 'welcome', on: false }] },
   ],
   tick: 40,
   ...over,
 });
+
+/** A Kith carry creature. */
+const creature = (id: string) => ({
+  id,
+  dials: { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.5 },
+  shell: { tightness: 0, bristle: 0, color: 0, softness: 0 },
+  skyWarmth: 0,
+  away: false,
+  gone: false,
+  diary: [],
+});
+
+/** A valid link whose JSON is exactly `bytes` long: one list of `welcome` commands, some `on: false`. */
+function linkOfSize(bytes: number): SeedLink {
+  const make = (k: number, off: number) =>
+    link({
+      script: [{ tick: 0, list: Array.from({ length: k }, (_, i) => ({ t: 'welcome', on: i >= off })) }],
+    });
+  const size = (l: SeedLink) => JSON.stringify(l).length; // ASCII only
+  const k = Math.floor((bytes - size(make(0, 0))) / 26);
+  const l = make(k, bytes - size(make(k, 0)));
+  expect(size(l)).toBe(bytes);
+  return l;
+}
 
 /** The `v1.<data>` text of any JSON text, as encodeLink would make it but with no schema check. */
 async function rawLink(json: string): Promise<string> {
@@ -84,6 +110,8 @@ test('decode gives null for v2, a cut link, one extra character, bad base64, and
   expect(await decodeLink(text.slice(0, text.length - 4), HASH)).toBeNull();
   expect(await decodeLink(text.slice(0, 20), HASH)).toBeNull();
   // One extra character on data whose length is a multiple of 4 is a length base64 cannot have.
+  // (Other lengths are not covered: atob ignores the unused low bits of the last character, and
+  // Node's inflater ignores bytes after the deflate end, so such a text can decode to the same link.)
   const whole = data.slice(0, data.length - (data.length % 4));
   expect(await decodeLink(`v1.${whole}A`, HASH)).toBeNull();
   // Bad base64: standard alphabet, padding, a space, a line end, a character outside the alphabet.
@@ -97,30 +125,70 @@ test('decode gives null for v2, a cut link, one extra character, bad base64, and
   expect(await decodeLink(text, 'deadbeef')).toBeNull();
 });
 
-test('decode stops at 1 MiB of inflated data and gives null', async () => {
-  // Exactly MAX_LINK_BYTES of JSON (the link padded with spaces) decodes; one byte more does not.
+test('decode gives null for JSON that encode would not write: a duplicate key, spacing, odd numbers', async () => {
   const json = JSON.stringify(link());
-  const pad = (n: number) => json + ' '.repeat(n - json.length);
-  expect(await decodeLink(await rawLink(pad(MAX_LINK_BYTES)), HASH)).toEqual(link());
-  expect(await decodeLink(await rawLink(pad(MAX_LINK_BYTES + 1)), HASH)).toBeNull();
+  expect(await decodeLink(await rawLink(json), HASH)).toEqual(link());
+  const caption = json.replace('"setup":', '"setup":{"caption":"our secret valley, love Ada"},"setup":');
+  const note = json.replace('"tuning":', '"tuning":"Ada wrote this note","tuning":');
+  const spaced = JSON.stringify(link(), null, 1);
+  const zeros = json.replace('"seed":7', `"seed":7.${'0'.repeat(1000)}`);
+  const { tick, ...rest } = link();
+  const order = JSON.stringify({ tick, ...rest });
+  for (const t of [caption, note, spaced, zeros, order]) {
+    expect(JSON.parse(t)).toEqual(link());
+    expect(t).not.toBe(json);
+    expect(await decodeLink(await rawLink(t), HASH)).toBeNull();
+  }
+});
 
-  // A 16 MiB bomb: count what the inflater gives, to see that decode stops reading at the cap.
+test('decode gives null for a text longer than MAX_LINK_TEXT before it reads any of it', async () => {
+  expect(MAX_LINK_TEXT).toBe(Math.ceil(((MAX_LINK_BYTES + 1024) * 4) / 3) + 3);
+  // A real link padded with A: zero bytes after the deflate end, which Node's inflater ignores.
+  const text = await encodeLink(link());
+  const padded = text + 'A'.repeat(MAX_LINK_TEXT + 1 - text.length);
+  expect((padded.length - 3) % 4).not.toBe(1);
+  expect(await decodeLink(padded, HASH)).toBeNull();
+  // The largest JSON a link may hold still fits under the text cap.
+  const biggest = await encodeLink(linkOfSize(MAX_LINK_BYTES));
+  expect(biggest.length).toBeLessThanOrEqual(MAX_LINK_TEXT);
+});
+
+test('decode stops at 1 MiB of inflated data and gives null', async () => {
+  // Exactly MAX_LINK_BYTES of JSON decodes; one byte more does not, and encode refuses it.
+  const most = linkOfSize(MAX_LINK_BYTES);
+  expect(await decodeLink(await encodeLink(most), HASH)).toEqual(most);
+  const over = linkOfSize(MAX_LINK_BYTES + 1);
+  await expect(encodeLink(over)).rejects.toThrow();
+  expect(await decodeLink(await rawLink(JSON.stringify(over)), HASH)).toBeNull();
+
+  // A 16 MiB bomb: count what the inflater gives, to see that decode stops reading at the cap, and
+  // the largest slice it is fed, so an engine that inflates a whole slice at once stays bounded.
   const bomb = await rawLink(' '.repeat(16 * MAX_LINK_BYTES));
   const Real = globalThis.DecompressionStream;
   let inflated = 0;
+  let largestFed = 0;
   vi.stubGlobal('DecompressionStream', function (format: CompressionFormat) {
     const real = new Real(format);
+    const feed = new TransformStream<BufferSource, BufferSource>({
+      transform(chunk, c) {
+        largestFed = Math.max(largestFed, chunk.byteLength);
+        c.enqueue(chunk);
+      },
+    });
+    feed.readable.pipeTo(real.writable).catch(() => undefined);
     const count = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, c) {
         inflated += chunk.byteLength;
         c.enqueue(chunk);
       },
     });
-    return { writable: real.writable, readable: real.readable.pipeThrough(count) };
+    return { writable: feed.writable, readable: real.readable.pipeThrough(count) };
   });
   expect(await decodeLink(bomb, HASH)).toBeNull();
   expect(inflated).toBeGreaterThan(MAX_LINK_BYTES);
   expect(inflated).toBeLessThan(MAX_LINK_BYTES + 256 * 1024);
+  expect(largestFed).toBeGreaterThan(0);
+  expect(largestFed).toBeLessThanOrEqual(1024);
 });
 
 test('decode gives null for a script tick at or after the link tick, NaN, or 40,001 ticks', async () => {
@@ -155,6 +223,7 @@ test('decode gives null for a script tick at or after the link tick, NaN, or 40,
 
 test('encode throws for an extra field (a name, a caption, a note) and for an id with a space or over 40 characters', async () => {
   const base = link();
+  const kith = (c: object) => ({ ...base.setup, kith: { creatures: [c], ties: [] } });
   const extra: unknown[] = [
     { ...base, name: 'Ada' },
     { ...base, setup: { ...base.setup, caption: 'our valley' } },
@@ -165,42 +234,140 @@ test('encode throws for an extra field (a name, a caption, a note) and for an id
       setup: { ...base.setup, structures: [{ id: 'bench-1', kind: 'bench', x: 1, y: 1, note: 'hi' }] },
     },
     { ...base, setup: { ...base.setup, bushes: [{ id: 'bush-1', x: 1, y: 1, name: 'Ada' }] } },
+    { ...base, setup: kith({ ...creature('pim'), name: 'Ada' }) },
+    { ...base, setup: kith({ ...creature('pim'), dials: { ...creature('pim').dials, note: 1 } }) },
     { ...base, script: [{ tick: 0, list: [], note: 'hi' }] },
     { ...base, script: [{ tick: 0, list: [{ t: 'shine', x: 1, y: 1, caption: 'look' }] }] },
-    {
-      ...base,
-      script: [{ tick: 0, list: [{ t: 'local', verb: { verb: 'join', on: true, note: 'hi' } }] }],
-    },
   ];
+  expect(SeedLinkSchema.safeParse({ ...base, setup: kith(creature('pim')) }).success).toBe(true);
   for (const l of extra) await expect(encodeLink(l as SeedLink)).rejects.toThrow();
 
-  const badIds = ['two words', 'x'.repeat(41), 'Ada', '', 'ada!'];
+  const badIds = ['two words', 'x'.repeat(41), 'Ada', '', 'ada!', 'bench-1234567', 'newcomer-1234567'];
   for (const id of badIds) {
     const setups = [
       { ...base.setup, structures: [{ id, kind: 'bench' as const, x: 1, y: 1 }] },
       { ...base.setup, bushes: [{ id, x: 1, y: 1 }] },
+      { ...base.setup, kith: { creatures: [creature(id)], ties: [] } },
     ];
     for (const setup of setups) await expect(encodeLink({ ...base, setup })).rejects.toThrow();
-    // Every free string a command has: a creature, a target, a keepsake.
+    // Every string a sandbox command names a creature with.
     const commands: SeedLink['script'][number]['list'] = [
-      { t: 'dance', who: id },
+      { t: 'thread', a: id, b: 'krit', on: true },
       { t: 'thread', a: 'pim', b: id, on: true },
       { t: 'whisper', target: id, about: 'krit', sign: -1 },
       { t: 'whisper', target: 'pim', about: id, sign: -1 },
-      { t: 'walk', to: id },
-      { t: 'local', verb: { verb: 'keepsake', to: 'pim', item: id } },
     ];
     for (const c of commands)
       await expect(encodeLink({ ...base, script: [{ tick: 0, list: [c] }] })).rejects.toThrow();
   }
-  // An id at 40 characters is fine.
-  const long = 'x'.repeat(40);
-  await expect(
-    encodeLink({ ...base, script: [{ tick: 0, list: [{ t: 'dance', who: long }] }] }),
-  ).resolves.toMatch(/^v1\./);
+  // The sim's own ids pass: placed structures and bushes, newcomers, and every valley's creatures.
+  const ok = {
+    ...base,
+    setup: {
+      ...base.setup,
+      kith: { creatures: [creature('newcomer-123456'), creature('bell')], ties: [] },
+      structures: [{ id: 'lantern-999999', kind: 'lantern' as const, x: 1, y: 1 }],
+      bushes: [{ id: 'path-12', x: 1, y: 1 }],
+    },
+    script: [
+      { tick: 0, list: [{ t: 'thread' as const, a: 'starling-39', b: 'townsfolk-1', on: true }] },
+      { tick: 0, list: [{ t: 'whisper' as const, target: 'wisp', about: 'quill', sign: 1 as const }] },
+    ],
+  };
+  await expect(encodeLink(ok)).resolves.toMatch(/^v1\./);
   await expect(encodeLink({ ...base, tuning: 'ABCDEF12' })).rejects.toThrow();
   // The decoder refuses the same as the encoder: an extra field written past the schema.
   expect(await decodeLink(await rawLink(JSON.stringify({ ...base, name: 'Ada' })), HASH)).toBeNull();
+});
+
+test('id-shaped words are refused: every id comes from a closed set', async () => {
+  const base = link();
+  const structure = { id: 'meet-me-at-the-old-mill-at-noon-ada', kind: 'bench' as const, x: 1, y: 1 };
+  const words: SeedLink[] = [
+    { ...base, setup: { ...base.setup, structures: [structure] } },
+    {
+      ...base,
+      script: [{ tick: 0, list: [{ t: 'thread', a: 'ada-loves-bob', b: 'call-555-0100', on: true }] }],
+    },
+    { ...base, setup: { ...base.setup, kith: { creatures: [creature('my-name-is-ada')], ties: [] } } },
+    {
+      ...base,
+      setup: {
+        ...base.setup,
+        kith: { creatures: [creature('pim')], ties: [{ a: 'i-miss-you', b: 'come-home', ab: 0, ba: 0 }] },
+      },
+    },
+  ];
+  for (const l of words) await expect(encodeLink(l)).rejects.toThrow();
+});
+
+test('a link holds only the sandbox commands, as the runner sends them', async () => {
+  const base = link();
+  const { width, height } = tuning.scene;
+  const { brushRadius, brushAmount } = tuning.fog;
+  const one = (c: unknown, challenge: SeedLink['setup']['challenge'] = null) =>
+    SeedLinkSchema.safeParse({
+      ...base,
+      setup: { ...base.setup, challenge },
+      script: [{ tick: 0, list: [c] }],
+    }).success;
+  const allowed: unknown[] = [
+    { t: 'place', kind: 'bush', x: 0, y: 0 },
+    { t: 'path', x: 0, y: 0, x2: width, y2: height },
+    { t: 'shine', x: width, y: height },
+    { t: 'paintFog', x: 5, y: 5, r: brushRadius, amount: brushAmount },
+    { t: 'paintFog', x: 5, y: 5, r: brushRadius, amount: -brushAmount },
+    { t: 'blow', x: 5, y: 5, dx: 300, dy: -300 },
+    { t: 'blow', x: 5, y: 5, dx: -2 * width, dy: 2 * height },
+    { t: 'rain', x: 5, y: 5 },
+    { t: 'thread', a: 'pim', b: 'krit', on: false },
+    { t: 'whisper', target: 'pim', about: 'krit', sign: 1 },
+    { t: 'welcome', on: true },
+  ];
+  for (const c of allowed) expect(one(c)).toBe(true);
+  const refused: unknown[] = [
+    { t: 'walk', x: 5, y: 5 },
+    { t: 'walk', to: 'pim' },
+    { t: 'wake', who: 'pim' },
+    { t: 'respond', to: 'pim', reply: 'toward' },
+    { t: 'arrangeMeeting', a: 'pim', b: 'krit' },
+    { t: 'setSeason', season: 'winter' },
+    { t: 'promptSkyBid', who: 'pim' },
+    { t: 'overPoke' },
+    { t: 'manner', reply: 'toward', gift: 'give' },
+    { t: 'plant' },
+    { t: 'local', verb: { verb: 'keepsake', to: 'pim', item: 'feather' } },
+    { t: 'nudge', dial: 'ear', amount: 0.1 },
+    { t: 'place', kind: 'bench', x: -1, y: 5 },
+    { t: 'shine', x: width + 1, y: 5 },
+    { t: 'rain', x: 5, y: height + 0.5 },
+    { t: 'path', x: 0, y: 0, x2: width + 1, y2: 0 },
+    { t: 'path', x: 0, y: 0, x2: 0, y2: -1 },
+    { t: 'paintFog', x: -5, y: 5, r: brushRadius, amount: brushAmount },
+    { t: 'paintFog', x: 5, y: 5, r: brushRadius + 1, amount: brushAmount },
+    { t: 'paintFog', x: 5, y: 5, r: brushRadius, amount: 0.25 },
+    { t: 'blow', x: 5, y: 5, dx: 2 * width + 1, dy: 0 },
+    { t: 'blow', x: 5, y: 5, dx: 0, dy: -2 * height - 1 },
+    { t: 'blow', x: 5, y: 5, dx: 1e308, dy: 0 },
+    { t: 'blow', x: width + 1, y: 5, dx: 1, dy: 0 },
+  ];
+  for (const c of refused) expect(one(c), JSON.stringify(c)).toBe(false);
+  // Bell's "Start the dance": Pim's, in a Bell link, once.
+  const dance = { t: 'dance', who: 'pim' };
+  expect(one(dance, 'bell')).toBe(true);
+  expect(one(dance)).toBe(false);
+  expect(one(dance, 'krit')).toBe(false);
+  expect(one({ t: 'dance', who: 'krit' }, 'bell')).toBe(false);
+  const twice = {
+    ...base,
+    setup: { ...base.setup, challenge: 'bell' },
+    script: [
+      { tick: 0, list: [dance] },
+      { tick: 1, list: [dance] },
+    ],
+  };
+  expect(SeedLinkSchema.safeParse(twice).success).toBe(false);
+  await expect(encodeLink(twice as SeedLink)).rejects.toThrow();
 });
 
 test('a challenge link refuses more bridges than its limit, the setup and the script together', async () => {

@@ -2,6 +2,10 @@
 // the scenario a setup starts from, and the runner that sends the player's tools and checks its
 // challenge.
 import { z } from 'zod';
+import fenJson from '../../content/scenarios/fen.json' with { type: 'json' };
+import halcyonJson from '../../content/scenarios/halcyon.json' with { type: 'json' };
+import hollowJson from '../../content/scenarios/hollow.json' with { type: 'json' };
+import m0Json from '../../content/scenarios/m0.json' with { type: 'json' };
 import type { SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, NetworkSwitches, Rect, Scenario, SimEvent, Structure, Tuning } from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
@@ -214,7 +218,17 @@ export interface SandboxSetup {
 
 /** The most entries in any of a setup's arrays: Kith's 30 creatures have 435 ties. */
 const MAX_ENTRIES = 1000;
-const id = z.string().regex(/^[a-z0-9-]{1,40}$/);
+/** A placed structure's or bush's id, in the sim's own `<kind>-<n>` form. */
+const STRUCTURE_ID = /^(bench|bush|bridge|lantern|path)-[0-9]{1,6}$/;
+/** The creatures of the four sandbox valleys' bases (Kith's is m0). */
+const BASE_CREATURE_IDS: ReadonlySet<string> = new Set(
+  [m0Json, fenJson, hollowJson, halcyonJson].flatMap((s) => s.creatures.map((c) => c.id)),
+);
+/** A base creature, or a newcomer in the sim's own `newcomer-<n>` form: a closed set of ids. */
+export const isCreatureId = (id: string): boolean =>
+  BASE_CREATURE_IDS.has(id) || /^newcomer-[0-9]{1,6}$/.test(id);
+const structureId = z.string().regex(STRUCTURE_ID);
+const creatureId = z.string().refine(isCreatureId);
 const signed = z.number().min(-1).max(1);
 const x = z.number().min(0).max(tuning.scene.width);
 const y = z.number().min(0).max(tuning.scene.height);
@@ -226,13 +240,13 @@ const knobIndex = (k: Knob) =>
     .max(k.steps === 'benchSpots' ? MAX_ENTRIES : k.steps);
 
 /**
- * The setup as a seed link holds it (ADR 0014 item 7): strict objects, ids only, and every number
- * bounded. A link is canonical: only Kith keeps a carry, a valley's knobs are set only in that
- * valley, no id is both a structure's and a bush's or used twice, and a challenge starts from a
- * new Kith (ADR 0014 item 6: no carry) with at most its bridge limit of bridges. Passing the
- * schema is not enough: sandboxScenario still throws on a bench density past the scene's spot
- * count and on land that checkLand refuses, and a caller must treat that throw as a refused setup
- * too.
+ * The setup as a seed link holds it (ADR 0014 item 7): strict objects, ids from closed sets only
+ * (STRUCTURE_ID, isCreatureId), and every number bounded. A link is canonical: only Kith keeps a
+ * carry, a valley's knobs are set only in that valley, no id is both a structure's and a bush's or
+ * used twice, and a challenge starts from a new Kith (ADR 0014 item 6: no carry) with at most its
+ * bridge limit of bridges. Passing the schema is not enough: sandboxScenario still throws on a
+ * bench density past the scene's spot count and on land that checkLand refuses, and a caller must
+ * treat that throw as a refused setup too.
  */
 export const SandboxSetupSchema = z
   .strictObject({
@@ -247,7 +261,7 @@ export const SandboxSetupSchema = z
         creatures: z
           .array(
             z.strictObject({
-              id,
+              id: creatureId,
               dials: z.strictObject(DIALS_SHAPE),
               shell: z.strictObject(SHELL_SHAPE),
               skyWarmth: signed,
@@ -257,7 +271,9 @@ export const SandboxSetupSchema = z
             }),
           )
           .max(MAX_ENTRIES),
-        ties: z.array(z.strictObject({ a: id, b: id, ab: signed, ba: signed })).max(MAX_ENTRIES),
+        ties: z
+          .array(z.strictObject({ a: creatureId, b: creatureId, ab: signed, ba: signed }))
+          .max(MAX_ENTRIES),
       })
       .nullable(),
     challenge: z.enum(CHALLENGE_IDS).nullable(),
@@ -276,12 +292,12 @@ export const SandboxSetupSchema = z
     structures: z
       .array(
         z.discriminatedUnion('kind', [
-          z.strictObject({ id, kind: z.enum(['bench', 'bridge', 'lantern']), x, y }),
-          z.strictObject({ id, kind: z.literal('path'), x, y, x2: x, y2: y }),
+          z.strictObject({ id: structureId, kind: z.enum(['bench', 'bridge', 'lantern']), x, y }),
+          z.strictObject({ id: structureId, kind: z.literal('path'), x, y, x2: x, y2: y }),
         ]),
       )
       .max(MAX_ENTRIES),
-    bushes: z.array(z.strictObject({ id, x, y })).max(MAX_ENTRIES),
+    bushes: z.array(z.strictObject({ id: structureId, x, y })).max(MAX_ENTRIES),
   })
   .superRefine((s, ctx) => {
     if (s.kith !== null && s.valley !== 'kith')
@@ -308,7 +324,8 @@ export const SandboxSetupSchema = z
 const inRect = (r: Rect, px: number, py: number): boolean =>
   px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
-function bridgesIn(structures: readonly Structure[]): number {
+/** The bridges among `structures`. */
+export function bridgesIn(structures: readonly Structure[]): number {
   return structures.filter((st) => st.kind === 'bridge').length;
 }
 

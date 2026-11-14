@@ -246,7 +246,7 @@ test("sandboxScenario applies the challenge's start last, and the schema keeps a
   expect(ok(setup({ challenge: 'bell', kith }))).toBe(false);
   expect(ok(setup({ challenge: 'winter', valley: 'fen' }))).toBe(false);
   const bridges = [300, 500, 600].map((y, i) => ({
-    id: `b-${String(i)}`,
+    id: `bridge-${String(i)}`,
     kind: 'bridge' as const,
     x: 810,
     y,

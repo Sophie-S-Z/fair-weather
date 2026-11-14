@@ -555,7 +555,7 @@ const pathTo = (i: number, x: number, y: number, x2: number, y2: number) => ({
   y2,
 });
 
-test('paths are dashed ink lines from end to end in the land Graphics, no object of their own', () => {
+test('paths are dashed ink lines from end to end in the land Graphics, adding no display object for any number', () => {
   const count = (world: WorldLite): number => {
     const app = fakeApp(800, 450);
     const view = createMeadowView(app, scene, rigs, palette, options);
@@ -592,6 +592,56 @@ test('paths are dashed ink lines from end to end in the land Graphics, no object
   expect(strokesOf(graphicsIn(app, 'land'))[0]?.width).toBe((line?.width ?? 0) * 1.5);
 });
 
+/** Each dash the land's ink strokes draw, as [x1, y1, x2, y2]: a moveTo and the lineTo after it. */
+function dashesOf(g: Graphics): number[][] {
+  return g.context.instructions.flatMap((i) => {
+    if (i.action !== 'stroke' || (i.data.style as { color: number }).color !== palette.ink) return [];
+    const steps = i.data.path.instructions;
+    return steps.flatMap((m, k) => {
+      const to = steps[k + 1];
+      return m.action === 'moveTo' && to?.action === 'lineTo'
+        ? [[...(m.data as number[]), ...(to.data as number[])]]
+        : [];
+    });
+  });
+}
+
+test('a path of any length and angle is inked at both ends, with every dash full length', () => {
+  const draw = (...ends: [number, number, number, number]): number[][] => {
+    const app = fakeApp(800, 450);
+    const world: WorldLite = { ...snapshot([]), structures: [pathTo(1, ...ends)] };
+    createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+    return dashesOf(graphicsIn(app, 'land'));
+  };
+  const length = ([x1, y1, x2, y2]: number[]): number =>
+    Math.hypot((x2 ?? 0) - (x1 ?? 0), (y2 ?? 0) - (y1 ?? 0));
+  // Zero length: nothing. Under one dash and a gap (32): one solid dash from end to end.
+  expect(draw(300, 300, 300, 300)).toEqual([]);
+  expect(draw(300, 300, 324, 300)).toEqual([[300, 300, 324, 300]]);
+  // Vertical and diagonal: the first dash starts at one end and the last ends at the other.
+  for (const ends of [
+    [500, 100, 500, 800],
+    [100, 100, 900, 700],
+  ] as [number, number, number, number][]) {
+    const dashes = draw(...ends);
+    expect(dashes.length).toBeGreaterThan(1);
+    expect(dashes[0]?.slice(0, 2)).toEqual(ends.slice(0, 2));
+    expect(
+      dashes
+        .at(-1)
+        ?.slice(2)
+        .map((v) => Math.round(v * 1e6) / 1e6),
+    ).toEqual(ends.slice(2));
+  }
+  // Across many lengths and angles, no stray short dash at the end.
+  for (let len = 24; len < 700; len += 7.3) {
+    for (const angle of [0, 0.4, 1.1, Math.PI / 2, 2.5]) {
+      const dashes = draw(200, 200, 200 + len * Math.cos(angle), 200 + len * Math.sin(angle));
+      expect(Math.min(...dashes.map(length))).toBeGreaterThan(Math.min(len, 18) - 1e-6);
+    }
+  }
+});
+
 test('the gate lamp is lit in an accent ring unless the gate is dark, and a story valley has none', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, scene, rigs, palette, options);
@@ -609,6 +659,14 @@ test('the gate lamp is lit in an accent ring unless the gate is dark, and a stor
     (s) => Math.abs((s.minX + s.maxX) / 2 - options.gate.x) < 30 && s.maxY <= options.gate.y + 10,
   );
   expect(near).toBe(true);
+  // High contrast thickens every lamp line by half again, as it does the rest of the land.
+  const widths = strokesOf(graphicsIn(app, 'land')).map((s) => s.width);
+  view.update(lit, lit, 1, { ...settings, highContrast: true });
+  const thick = strokesOf(graphicsIn(app, 'land')).map((s) => s.width);
+  expect(thick).toHaveLength(widths.length);
+  thick.forEach((w, i) => {
+    expect(w).toBeCloseTo((widths[i] ?? 0) * 1.5);
+  });
   view.update(dark, dark, 1, settings);
   expect(accents()).toBe(0);
   expect(strokesOf(graphicsIn(app, 'land')).length).toBeGreaterThan(0);

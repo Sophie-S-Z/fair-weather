@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
+import { tap } from './helpers.ts';
 
 async function seriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).analyze();
@@ -309,9 +310,15 @@ test.describe('the interludes, each played by keyboard alone', () => {
   });
 
   test('The Long Night: five still seconds end it; the meter has a label and a value', async ({ page }) => {
-    const activity = await open(page, 13, 'Hold still');
+    const activity = await open(page, 13, 'Hold still', false);
+    // The night ends five seconds of wall clock after it opens, and on software rendering the axe
+    // scan alone takes four or more, so the scan runs paused: the meter waits (the tests below).
+    await page.keyboard.press(' ');
+    await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
     await expect(activity.getByLabel('Stillness')).toBeVisible();
     await expect(activity).toContainText(/[0-5] of 5 seconds/);
+    expect(await seriousViolations(page)).toEqual([]);
+    await page.keyboard.press(' ');
     await expect(heading(page, 'Chapter 9')).toBeVisible({ timeout: 15_000 });
   });
 
@@ -740,26 +747,43 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
 });
 
 // M3.16: each valley's first screen after the Fen, reached by skipping, and the end of the journey.
-test('the Hollow, Halcyon, and the homecoming first screens and the end have no serious axe issues', async ({
-  page,
-}) => {
+// A test for each screen, as Part 1's chapters have: on software rendering a valley draws about once
+// a second, so its load and its axe scan take seconds each, and all four in one test outlast it.
+const AFTER_FEN = [
+  ['Hearsay Hollow', 'The press runs by the square'],
+  ['Halcyon', 'A calm meadow lies over a mirror sea'],
+  ['The Homecoming', 'You walk back over the ridge'],
+] as const;
+
+/**
+ * Wakes the hero at the bridge, then skips `skips` times from the Fen. Each valley's first screen is
+ * in once its intro line shows (content/ink). Skip is pressed at its middle, as a player would
+ * (helpers.ts): a locator click waits on several animation frames, about 4 s in a valley there.
+ */
+async function skipFromFen(page: Page, skips: number): Promise<void> {
   await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
   await page.getByRole('button', { name: /^Wake as / }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
-  // Each valley's first screen is in once its intro line shows (content/ink).
-  for (const [name, intro] of [
-    ['Hearsay Hollow', 'The press runs by the square'],
-    ['Halcyon', 'A calm meadow lies over a mirror sea'],
-    ['The Homecoming', 'You walk back over the ridge'],
-  ] as const) {
-    await page.getByRole('button', { name: 'Skip chapter' }).click();
+  for (const [name, intro] of AFTER_FEN.slice(0, skips)) {
+    expect(await tap(page, 'main', 'Skip chapter')).toBe('Skip chapter');
     await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
     await expect(page.locator('.beat-line')).toContainText(intro);
-    expect(await seriousViolations(page)).toEqual([]);
   }
-  // A skipped journey still ends with its sixth verse, and The End takes focus.
-  await page.getByRole('button', { name: 'Skip chapter' }).click();
+}
+
+for (const [index, [name]] of AFTER_FEN.entries()) {
+  test(`${name}: its first screen has no serious axe issues`, async ({ page }) => {
+    await skipFromFen(page, index + 1);
+    expect(await seriousViolations(page)).toEqual([]);
+  });
+}
+
+test('a skipped journey still ends with its sixth verse; The End takes focus and has no serious axe issues', async ({
+  page,
+}) => {
+  await skipFromFen(page, AFTER_FEN.length);
+  expect(await tap(page, 'main', 'Skip chapter')).toBe('Skip chapter');
   await expect(page.getByRole('heading', { level: 1, name: 'The End' })).toBeFocused();
   await expect(page.getByRole('heading', { level: 2, name: 'The Sky Came Down' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);

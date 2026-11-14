@@ -166,7 +166,17 @@ test('the bet card takes focus, keeps it, ignores Escape, and gives it back', as
   await expect(live(page)).toContainText(/Your guess: Pim\. The answer: (Pim|Krit|Echo|Moss|Bell|Wisp)\./, {
     timeout: 90_000,
   });
-  // The answer can end the chapter; it stays a short time into the next one, and then goes.
+  // The answer ends the chapter when Krit took Pim's berries in the bet's week. The arrangement that
+  // brings them together runs on the tick the worker is at when it arrives (ADR 0009 item 1), so on a
+  // page that runs behind the sim it can land too late for that week; then Skip ends the chapter here.
+  // The skip checks the heading in the same task, since the answer may already have ended it.
+  await page.evaluate(() => {
+    if (!document.querySelector('h1')?.textContent.startsWith('Chapter 2')) return;
+    const skip = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Skip chapter');
+    skip?.click();
+  });
+  await expect(page.getByRole('heading', { name: 'Chapter 3' })).toBeVisible();
+  // The answer stays a short time into the next chapter, and then goes.
   await expect(live(page)).not.toContainText('Your guess', { timeout: 15_000 });
 });
 
@@ -547,9 +557,12 @@ async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
   await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
   await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
   const canvas = page.locator('canvas');
-  const a = await canvas.screenshot();
+  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
+  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
+  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
+  const a = await canvas.screenshot({ style });
   await page.waitForTimeout(500);
-  return [a, await canvas.screenshot()];
+  return [a, await canvas.screenshot({ style })];
 }
 
 test.describe('with reduced motion', () => {

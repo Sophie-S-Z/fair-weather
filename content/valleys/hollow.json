@@ -77,8 +77,9 @@
   ],
   "twist": {
     "id": "heroFamous",
-    "withinDays": 7,
-    "retryArrange": ["quill", "townsfolk-1"]
+    "withinDays": 8,
+    "retryArrange": ["quill", "townsfolk-1"],
+    "retries": 0
   },
   "reads": [],
   "writes": ["heroFamous"],

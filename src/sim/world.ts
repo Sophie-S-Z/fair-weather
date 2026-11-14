@@ -1,5 +1,5 @@
 // World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4 to 6, and 8, ADR 0014
-// items 1, 2, and 4).
+// items 1 to 4).
 import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
@@ -132,6 +132,7 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   if (scenario.sandbox) world.sandbox = true;
   if (scenario.seasonDays !== undefined) world.seasonDays = scenario.seasonDays;
   if (scenario.baseFog !== undefined) world.fields.fog.fill(scenario.baseFog);
+  if (scenario.network) world.network = { ...scenario.network };
   if (scenario.pack) {
     // The pack's setup draws from the world's PRNG, so a scenario without `pack` takes no draw
     // (ADR 0013 item 4). The Hollow's drama sky starts at the scene center (item 6).
@@ -202,15 +203,20 @@ export function activeCreatures(world: World): Creature[] {
 
 /**
  * Creatures, not away, that `c` counts as friends (warmth above friend.threshold, ADR 0002),
- * one-sided: only c's own warmth counts, unlike the Cosmos's mutual friendships (ADR 0012 item 6);
- * sorted by id in code-unit order so PRNG picks never depend on tie insertion order.
+ * one-sided: only c's own warmth counts, unlike the Cosmos's mutual friendships (ADR 0012 item 6).
+ * With `world.network.mutual`, the other side's warmth must be above it too (ADR 0014 item 3).
+ * Sorted by id in code-unit order so PRNG picks never depend on tie insertion order.
  */
 export function friendsOf(world: World, c: Creature, tuning: Tuning): Creature[] {
+  const { threshold } = tuning.friend;
+  const mutual = world.network?.mutual === true;
   const out: Creature[] = [];
   for (const tie of world.ties.values()) {
     if (tie.a !== c.id && tie.b !== c.id) continue;
-    if (side(tie, c.id).warmth <= tuning.friend.threshold) continue;
-    const other = byId(world, tie.a === c.id ? tie.b : tie.a);
+    const otherId = tie.a === c.id ? tie.b : tie.a;
+    if (side(tie, c.id).warmth <= threshold) continue;
+    if (mutual && side(tie, otherId).warmth <= threshold) continue;
+    const other = byId(world, otherId);
     if (other && other.state !== 'away') out.push(other);
   }
   return out.sort((x, y) => byCodeUnit(x.id, y.id));

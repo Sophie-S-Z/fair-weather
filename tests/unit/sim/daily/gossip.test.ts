@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { gossip } from '../../../../src/sim/daily/gossip.ts';
-import { befriend, get, makeWorld, scriptedRng, tuning as t } from '../helpers.ts';
+import { hashWorld } from '../../../../src/sim/hash.ts';
+import { runGolden } from '../../../golden/run-golden.ts';
+import { befriend, get, hasBadNumber, makeWorld, scriptedRng, setWarmth, tuning as t } from '../helpers.ts';
 
 /** L hears from friends F1 and F2, who hold opinions of X; F1 and F2 are not friends of each other. */
 function simpleWorld() {
@@ -162,4 +164,77 @@ test('gossip: with rumorFirst a holder of the latest rumor shares it first', () 
   const w = rumorWorld(true);
   gossip(w, t, scriptedRng([]));
   expect(get(w, 'L').opinions).toEqual({ X: -0.6 });
+});
+
+test('with weighted, a listener with Ear 0.6 adopts when its warmth to holders is 0.9 of 1.3 total, though 1 of 2 friends hold it', () => {
+  for (const weighted of [false, true]) {
+    const w = makeWorld(
+      [{ id: 'L', ear: 0.6 }, { id: 'F1' }, { id: 'F2' }, { id: 'X' }],
+      weighted ? { network: { weighted: true } } : {},
+    );
+    befriend(w, 'L', 'F1');
+    befriend(w, 'L', 'F2');
+    setWarmth(w, 'L', 'F1', 0.9);
+    setWarmth(w, 'L', 'F2', 0.4);
+    get(w, 'F1').opinions.X = 0.8;
+    const rng = scriptedRng([]);
+    gossip(w, t, rng);
+    expect(rng.used()).toBe(0);
+    // 1 of 2 friends is below Ear 0.6; 0.9 / 1.3 is above it.
+    expect(get(w, 'L').opinions.X).toBe(weighted ? 0.8 : undefined);
+  }
+});
+
+test('with drift, an adopted value is the mean plus a draw from -0.2 to 0.2, clamped, and the draw comes after the simple-contagion draws', () => {
+  const w = makeWorld([{ id: 'L', ear: 0.05 }, { id: 'F1' }, { id: 'F2' }, { id: 'X' }, { id: 'Y' }], {
+    network: { drift: true },
+  });
+  befriend(w, 'L', 'F1');
+  befriend(w, 'L', 'F2');
+  get(w, 'F1').opinions.X = 0.8; // F1 shares X
+  get(w, 'F2').opinions.X = 0.6;
+  get(w, 'F2').opinions.Y = -0.95; // F2 shares Y, its strongest
+  // X: F1 misses, F2 hits; Y: F2 hits; then X's drift (+0.1) and Y's (-0.2), in adoption order.
+  const rng = scriptedRng([0.5, 0.1, 0.1, 0.75, 0]);
+  const events = gossip(w, t, rng);
+  expect(rng.used()).toBe(5);
+  const l = get(w, 'L');
+  expect(l.opinions.X).toBeCloseTo(0.8, 12); // mean 0.7, plus 0.1
+  expect(l.opinions.Y).toBe(-1); // -0.95 - 0.2, clamped
+  expect(events).toEqual([
+    { t: 'opinion', holder: 'L', about: 'X', value: l.opinions.X },
+    { t: 'opinion', holder: 'L', about: 'Y', value: -1 },
+  ]);
+});
+
+test('a world without network takes the same draws and gives the same opinions (golden hash unchanged)', () => {
+  const w = simpleWorld();
+  expect('network' in w).toBe(false);
+  const rng = scriptedRng([0.31, 0.29]);
+  gossip(w, t, rng);
+  expect(rng.used()).toBe(2);
+  expect(get(w, 'L').opinions.X).toBeCloseTo(0.7, 12);
+  expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf');
+});
+
+test('weighted gossip with every friend at the threshold edge gives no NaN', () => {
+  // At the default threshold 0.3, a warmth of exactly 0.3 makes no friend, so L weighs nobody.
+  // At threshold 0, the smallest warmth above it makes two friends whose warmths sum above 0.
+  for (const [threshold, warmth, value] of [
+    [0.3, 0.3, undefined],
+    [0, Number.MIN_VALUE, 0.8],
+  ] as const) {
+    const tuning = { ...t, friend: { threshold } };
+    const w = makeWorld([{ id: 'L' }, { id: 'F1' }, { id: 'F2' }, { id: 'X' }], {
+      network: { weighted: true },
+    });
+    befriend(w, 'L', 'F1');
+    befriend(w, 'L', 'F2');
+    setWarmth(w, 'L', 'F1', warmth);
+    setWarmth(w, 'L', 'F2', warmth);
+    get(w, 'F1').opinions.X = 0.8;
+    gossip(w, tuning, scriptedRng([]));
+    expect(get(w, 'L').opinions.X).toBe(value);
+    expect(hasBadNumber(w)).toBe(false);
+  }
 });

@@ -76,7 +76,7 @@ export const TuningSchema = obj({
     dailyDrift: prob,
   }),
   friend: obj({ threshold: prob }),
-  gossip: obj({ simpleEarBelow: prob, simpleChance: prob }),
+  gossip: obj({ simpleEarBelow: prob, simpleChance: prob, drift: nonNeg }),
   imitation: obj({ everyDays: count, radius: pos, rate: prob, friendWeight: nonNeg }),
   art: obj({ minWarmth: signed, minBerries: nonNeg, days: count }),
   cap: obj({ story: count, sandbox: count }),

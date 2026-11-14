@@ -223,6 +223,18 @@ export interface World {
   seasonDays?: number;
   /** Set while the gate is dark: no newcomer arrives (ADR 0014 item 5). */
   gateDark?: true;
+  /** The sandbox's network switches, set only with the scenario's (ADR 0014 item 3). */
+  network?: NetworkSwitches;
+}
+/**
+ * The advanced network switches (ADR 0014 item 3): `mutual`, a friend needs warmth above
+ * friend.threshold on both sides; `weighted`, complex contagion weighs summed warmths; `drift`, an
+ * adopted rumor's value drifts by up to gossip.drift.
+ */
+export interface NetworkSwitches {
+  mutual?: true;
+  weighted?: true;
+  drift?: true;
 }
 export type Command =
   | { t: 'shine'; x: number; y: number }
@@ -321,4 +333,6 @@ export interface Scenario {
   seasonDays?: number;
   /** The fog every cell starts at, 0 to 1 (ADR 0014 item 2). */
   baseFog?: number;
+  /** The network switches (ADR 0014 item 3). */
+  network?: NetworkSwitches;
 }

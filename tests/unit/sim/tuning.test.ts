@@ -78,7 +78,7 @@ test('defaults equal the handoff and ADR values', () => {
     dailyDrift: 0.02,
   });
   expect(t.friend).toEqual({ threshold: 0.3 });
-  expect(t.gossip).toEqual({ simpleEarBelow: 0.1, simpleChance: 0.3 });
+  expect(t.gossip).toEqual({ simpleEarBelow: 0.1, simpleChance: 0.3, drift: 0.2 });
   expect(t.imitation).toEqual({ everyDays: 3, radius: 200, rate: 0.3, friendWeight: 2 });
   expect(t.art).toEqual({ minWarmth: 0.4, minBerries: 1.5, days: 2 });
   expect(t.cap).toEqual({ story: 30, sandbox: 60 });

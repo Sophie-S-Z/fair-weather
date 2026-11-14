@@ -43,7 +43,8 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
  * creatures are starlings, some of the ids (and an unknown one) are restless, and some have a fixed
  * threshold. A fifth are in Hearsay Hollow, and a fifth in Halcyon, where the seeker is any id (or
  * an unknown one), Kith's warmth is any, and the hero holds two keepsakes. A quarter are sandbox
- * worlds, with 1 to 4 days a season and any base fog, and no hero, as in the sandbox (ADR 0014 item 1).
+ * worlds, with 1 to 4 days a season, any base fog, any of the network switches, and no hero, as in
+ * the sandbox (ADR 0014 items 1 and 3).
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -89,7 +90,21 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
         hero: fc.option(heroArb, { freq: 2, nil: undefined }),
         sandbox: fc.oneof(
           { weight: 3, arbitrary: fc.constant(undefined) },
-          { weight: 1, arbitrary: fc.record({ seasonDays: fc.integer({ min: 1, max: 4 }), baseFog: unit }) },
+          {
+            weight: 1,
+            arbitrary: fc.record({
+              seasonDays: fc.integer({ min: 1, max: 4 }),
+              baseFog: unit,
+              network: fc.record(
+                {
+                  mutual: fc.constant(true as const),
+                  weighted: fc.constant(true as const),
+                  drift: fc.constant(true as const),
+                },
+                { requiredKeys: [] },
+              ),
+            }),
+          },
         ),
         pack: fc.oneof(
           { weight: 2, arbitrary: fc.constant(undefined) },

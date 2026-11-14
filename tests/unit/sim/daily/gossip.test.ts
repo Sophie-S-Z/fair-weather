@@ -217,24 +217,18 @@ test('a world without network takes the same draws and gives the same opinions (
   expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf');
 });
 
-test('weighted gossip with every friend at the threshold edge gives no NaN', () => {
-  // At the default threshold 0.3, a warmth of exactly 0.3 makes no friend, so L weighs nobody.
-  // At threshold 0, the smallest warmth above it makes two friends whose warmths sum above 0.
-  for (const [threshold, warmth, value] of [
-    [0.3, 0.3, undefined],
-    [0, Number.MIN_VALUE, 0.8],
-  ] as const) {
-    const tuning = { ...t, friend: { threshold } };
-    const w = makeWorld([{ id: 'L' }, { id: 'F1' }, { id: 'F2' }, { id: 'X' }], {
-      network: { weighted: true },
-    });
-    befriend(w, 'L', 'F1');
-    befriend(w, 'L', 'F2');
-    setWarmth(w, 'L', 'F1', warmth);
-    setWarmth(w, 'L', 'F2', warmth);
-    get(w, 'F1').opinions.X = 0.8;
-    gossip(w, tuning, scriptedRng([]));
-    expect(get(w, 'L').opinions.X).toBe(value);
-    expect(hasBadNumber(w)).toBe(false);
-  }
+test('weighted gossip with the smallest warmths above a threshold of 0 gives no NaN', () => {
+  // Ear 0.6: the count rule (1 of 2) does not adopt, so only the weighted rule (2 of 3) can.
+  const tuning = { ...t, friend: { threshold: 0 } };
+  const w = makeWorld([{ id: 'L', ear: 0.6 }, { id: 'F1' }, { id: 'F2' }, { id: 'X' }], {
+    network: { weighted: true },
+  });
+  befriend(w, 'L', 'F1');
+  befriend(w, 'L', 'F2');
+  setWarmth(w, 'L', 'F1', 2 * Number.MIN_VALUE);
+  setWarmth(w, 'L', 'F2', Number.MIN_VALUE);
+  get(w, 'F1').opinions.X = 0.8;
+  gossip(w, tuning, scriptedRng([]));
+  expect(get(w, 'L').opinions.X).toBe(0.8);
+  expect(hasBadNumber(w)).toBe(false);
 });

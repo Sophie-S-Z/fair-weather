@@ -15,6 +15,7 @@ import { PaletteSchema } from '../../src/render/palette.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { HERO_KINDS } from '../../src/sim/types.ts';
+import { ChallengesSchema } from '../../src/story/challenges.ts';
 import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { HeroesSchema, JournalSchema } from '../../src/story/journey.ts';
@@ -78,7 +79,8 @@ function creatureRefs(c: Chapter): string[] {
 
 /**
  * Checks tuning, flags, diary, heroes, journal, myth verses and the sixth verse, rigs, palettes, scenes, cast, chapter and valley camera
- * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
+ * names and creature ids, the sandbox challenges and the creatures their starts name, and Ink under
+ * `root/content`, and counts placeholder occurrences by kind.
  */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
@@ -213,6 +215,18 @@ export function validateContent(root: string): ValidationResult {
           );
         }
       }
+    }
+  }
+  // A challenge starts from a new Kith (ADR 0014 item 6), so every creature its start names is in m0.
+  const sandboxPath = join(content, 'sandbox.json');
+  if (existsSync(sandboxPath)) {
+    const parsed = ChallengesSchema.safeParse(JSON.parse(readFileSync(sandboxPath, 'utf8')));
+    if (!parsed.success) errors.push(`sandbox.json: ${parsed.error.message}`);
+    const kith = creaturesOf('m0');
+    for (const c of parsed.data?.challenges ?? []) {
+      const named = [...Object.keys(c.start.shell ?? {}), ...Object.keys(c.start.danceThreshold ?? {})];
+      for (const id of named)
+        if (kith && !kith.has(id)) errors.push(`sandbox.json: ${c.id} names creature ${id}, which m0 lacks`);
     }
   }
   // An INCLUDEd file compiles inside the file that includes it, so it may use that file's VARs.

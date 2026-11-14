@@ -102,6 +102,27 @@ describe('validateContent', () => {
     ]);
     expect(errors.some((e) => e.startsWith('journal.json:'))).toBe(true);
   });
+  test('reports a sandbox file with a challenge missing and a start that names an unknown creature', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    mkdirSync(join(root, 'content', 'scenarios'), { recursive: true });
+    writeFileSync(
+      join(root, 'content', 'scenarios', 'm0.json'),
+      readFileSync(join(repoRoot, 'content', 'scenarios', 'm0.json'), 'utf8'),
+    );
+    const file = JSON.parse(readFileSync(join(repoRoot, 'content', 'sandbox.json'), 'utf8')) as {
+      challenges: { start: { danceThreshold?: Record<string, number> } }[];
+    };
+    const sandbox = (json: unknown) => {
+      writeFileSync(join(root, 'content', 'sandbox.json'), JSON.stringify(json));
+      return validateContent(root).errors.filter((e) => e.startsWith('sandbox.json:'));
+    };
+    expect(sandbox(file)).toEqual([]);
+    expect(sandbox({ challenges: file.challenges.slice(1) })).toHaveLength(1);
+    const bell = file.challenges[1];
+    if (!bell) throw new Error('no bell challenge');
+    bell.start.danceThreshold = { nobody: 3 };
+    expect(sandbox(file)).toEqual(['sandbox.json: bell names creature nobody, which m0 lacks']);
+  });
   test("compiles an INCLUDEd Ink file inside its includer, so it may use the includer's VARs", () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'ink'), { recursive: true });

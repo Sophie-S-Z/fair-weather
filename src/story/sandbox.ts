@@ -1,9 +1,12 @@
-// The sandbox (spec 13.1, ADR 0014 items 1 to 5): its setup, which a seed link holds, the knobs,
-// the scenario a setup starts from, and the runner that sends the player's tools.
+// The sandbox (spec 13.1, ADR 0014 items 1 to 6): its setup, which a seed link holds, the knobs,
+// the scenario a setup starts from, and the runner that sends the player's tools and checks its
+// challenge.
 import { z } from 'zod';
-import type { SimPort } from '../sim-host/protocol.ts';
-import type { Command, NetworkSwitches, Scenario, Structure, Tuning } from '../sim/types.ts';
+import type { SimPort, WorldLite } from '../sim-host/protocol.ts';
+import type { Command, NetworkSwitches, Rect, Scenario, SimEvent, Structure, Tuning } from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
+import { CHALLENGES, CHALLENGE_IDS, applyStart, createChallengeCheck } from './challenges.ts';
+import type { ChallengeId, ChallengeState } from './challenges.ts';
 import type { Carry } from './carry.ts';
 import { verbCommand } from './chapter-runner.ts';
 import { chapterTicksPerDay, checkLand } from './scenario.ts';
@@ -12,10 +15,10 @@ import type { VerbInput } from './verbs.ts';
 
 export const SANDBOX_VALLEYS = ['kith', 'fen', 'hollow', 'halcyon'] as const;
 export const PANELS = ['population', 'rules', 'weather', 'network'] as const;
-export const CHALLENGE_IDS = ['winter', 'bell', 'krit'] as const;
+export { CHALLENGE_IDS };
+export type { ChallengeId };
 export type SandboxValley = (typeof SANDBOX_VALLEYS)[number];
 export type Panel = (typeof PANELS)[number];
-export type ChallengeId = (typeof CHALLENGE_IDS)[number];
 
 export const KNOB_IDS = [
   'giftValue',
@@ -225,9 +228,11 @@ const knobIndex = (k: Knob) =>
 /**
  * The setup as a seed link holds it (ADR 0014 item 7): strict objects, ids only, and every number
  * bounded. A link is canonical: only Kith keeps a carry, a valley's knobs are set only in that
- * valley, and no id is both a structure's and a bush's or used twice. Passing the schema is not
- * enough: sandboxScenario still throws on a bench density past the scene's spot count and on land
- * that checkLand refuses, and a caller must treat that throw as a refused setup too.
+ * valley, no id is both a structure's and a bush's or used twice, and a challenge starts from a
+ * new Kith (ADR 0014 item 6: no carry) with at most its bridge limit of bridges. Passing the
+ * schema is not enough: sandboxScenario still throws on a bench density past the scene's spot
+ * count and on land that checkLand refuses, and a caller must treat that throw as a refused setup
+ * too.
  */
 export const SandboxSetupSchema = z
   .strictObject({
@@ -287,7 +292,25 @@ export const SandboxSetupSchema = z
     }
     const ids = [...s.structures, ...s.bushes].map((x) => x.id);
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'An id is used twice' });
+    if (s.challenge !== null) {
+      if (s.valley !== 'kith' || s.kith !== null)
+        ctx.addIssue({ code: 'custom', message: 'A challenge starts from a new Kith, with no carry' });
+      const limit = CHALLENGES[s.challenge].start.bridgeLimit;
+      if (limit !== undefined && bridgesIn(s.structures) > limit)
+        ctx.addIssue({
+          code: 'custom',
+          message: `The ${s.challenge} challenge allows ${String(limit)} bridges`,
+        });
+    }
   }) satisfies z.ZodType<SandboxSetup>;
+
+/** Edges included, as the sim's water test (story may not import sim values). */
+const inRect = (r: Rect, px: number, py: number): boolean =>
+  px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+
+function bridgesIn(structures: readonly Structure[]): number {
+  return structures.filter((st) => st.kind === 'bridge').length;
+}
 
 /** A set knob's value, or undefined while it is unset. */
 function setValue(setup: SandboxSetup, id: KnobId): number | undefined {
@@ -326,9 +349,10 @@ export function sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning {
  * The scenario `setup` starts from (ADR 0014 items 1 to 3): a deep copy of its valley's base (Kith's
  * is `m0`) with the Kith carry, spring for Kith, a sandbox day, the season length, the fog level,
  * the network switches, one Ear for all while Mixed thresholds is off, a bench at each of the first
- * bench density `benchSpots`, then the setup's structures. A valley keeps its pack, Halcyon's with
- * `kithWarmth` 0, and the sandbox has no hero. Throws when the bench density is past the scene's
- * spot count and on land that checkLand refuses.
+ * bench density `benchSpots`, then the setup's structures, and last the challenge's start. A valley
+ * keeps its pack, Halcyon's with `kithWarmth` 0, and the sandbox has no hero. Throws when the bench
+ * density is past the scene's spot count, on a challenge start that names a creature the valley
+ * lacks, and on land that checkLand refuses.
  */
 export function sandboxScenario(
   setup: SandboxSetup,
@@ -363,6 +387,7 @@ export function sandboxScenario(
   s.bushes.push(...setup.bushes.map((b) => ({ ...b, berries: 0 })));
   delete s.hero;
   if (s.pack?.id === 'halcyon') s.pack.kithWarmth = 0;
+  if (setup.challenge) applyStart(s, CHALLENGES[setup.challenge].start);
   checkLand(s);
   return s;
 }
@@ -386,18 +411,51 @@ const SANDBOX_VERBS: ReadonlySet<VerbInput['verb']> = new Set([...SANDBOX_TOOLS,
 
 export interface SandboxRunner {
   readonly setup: SandboxSetup;
-  /** False before the first snapshot, after dispose, and for a verb outside the tools and `welcome`. */
+  /**
+   * False before the first snapshot, after dispose, for a verb outside the tools and `welcome`, for
+   * a bridge off the water (which the sim refuses, so it does not count), and for a bridge past the
+   * challenge's bridge limit, the setup's bridges included.
+   */
   verb(v: VerbInput): boolean;
   /** What `place` sets, picked in the Population panel; a bench until then. */
   setPlaceKind(kind: Extract<Command, { t: 'place' }>['kind']): void;
+  /** The challenge's state after the last snapshot, or null without a challenge. */
+  challenge(): ChallengeState | null;
+  /** Called when the challenge passes or fails. */
+  onChallenge(cb: (s: ChallengeState) => void): () => void;
+  /**
+   * The Bell challenge's "Start the dance" (ADR 0014 item 6): sends Pim's dance as a player
+   * command, once per run. False in another challenge, before the first snapshot, after dispose,
+   * and after the first.
+   */
+  startDance(): boolean;
   dispose(): void;
 }
 
 export function createSandboxRunner(port: SimPort, setup: SandboxSetup): SandboxRunner {
   let placeKind: Extract<Command, { t: 'place' }>['kind'] = 'bench';
   let ready = false;
+  const check = setup.challenge && createChallengeCheck(setup.challenge);
+  const bridgeLimit = setup.challenge ? CHALLENGES[setup.challenge].start.bridgeLimit : undefined;
+  let bridges = bridgesIn(setup.structures);
+  let danced = false;
+  let state: ChallengeState | null = check ? 'open' : null;
+  let water: readonly Rect[] = [];
+  // The events of the step whose snapshot comes next (the worker posts them first).
+  let events: readonly SimEvent[] = [];
+  const challengeListeners = new Set<(s: ChallengeState) => void>();
+  const onSnapshot = (lite: WorldLite): void => {
+    ready = true;
+    water = lite.water;
+    const seen = events;
+    events = [];
+    if (!check || state !== 'open') return;
+    state = check.step(lite, seen);
+    if (state !== 'open') for (const cb of [...challengeListeners]) cb(state);
+  };
   const off = port.onMessage((m) => {
-    if (m.t === 'snapshot') ready = true;
+    if (m.t === 'events') events = m.list;
+    if (m.t === 'snapshot') onSnapshot(m.lite);
   });
   return {
     setup,
@@ -405,15 +463,31 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       if (!ready || !SANDBOX_VERBS.has(v.verb)) return false;
       const cmd = verbCommand(v, undefined, placeKind);
       if (!cmd) return false;
+      const bridge = cmd.t === 'place' && cmd.kind === 'bridge';
+      if (bridge && !water.some((r) => inRect(r, cmd.x, cmd.y))) return false;
+      if (bridge && bridgeLimit !== undefined && bridges >= bridgeLimit) return false;
       port.send([cmd]);
+      if (bridge) bridges += 1;
       return true;
     },
     setPlaceKind(kind) {
       placeKind = kind;
     },
+    challenge: () => state,
+    onChallenge(cb) {
+      challengeListeners.add(cb);
+      return () => challengeListeners.delete(cb);
+    },
+    startDance() {
+      if (!ready || danced || setup.challenge !== 'bell') return false;
+      danced = true;
+      port.send([{ t: 'dance', who: 'pim' }]);
+      return true;
+    },
     dispose() {
       ready = false;
       off();
+      challengeListeners.clear();
     },
   };
 }

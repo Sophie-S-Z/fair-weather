@@ -167,8 +167,9 @@ async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<string | null> {
  * longer than MAX_LINK_TEXT, has no `v1.` prefix, is not URL-safe base64, does not inflate, has
  * bytes after the deflate end, inflates past MAX_LINK_BYTES (reading stops there), is not JSON,
  * fails SeedLinkSchema, is not the JSON encodeLink writes for it, or was made under another tuning
- * hash. Never throws. It does not build the scenario: the caller must treat a throw from `sandboxScenario` (a bench
- * density past the scene's spots, land that checkLand refuses) as a broken link too.
+ * hash. Never throws. It does not build the scenario: the caller must treat a throw from
+ * `sandboxScenario` (a bench density past the scene's spots, land that checkLand refuses) as a
+ * broken link too.
  */
 export async function decodeLink(text: string, tuningHash: string): Promise<SeedLink | null> {
   try {

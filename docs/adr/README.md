@@ -19,3 +19,4 @@ Format: Status, Context, Decision, Consequences. A new decision gets the next nu
 | [0011](0011-composition-root.md) | Composition root, sim speed on the port, and metrics in the snapshot | Accepted |
 | [0012](0012-part-1-rules.md) | Part 1 rules for chapters 4 to 10 | Accepted |
 | [0013](0013-part-2-rules.md) | Part 2 rules for the bridge, three valleys, and the homecoming | Accepted |
+| [0014](0014-launch-rules.md) | Launch rules for the sandbox, sharing, analytics, and the launch checks | Accepted |

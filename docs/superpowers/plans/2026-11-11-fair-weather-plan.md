@@ -6,9 +6,9 @@
 
 **Architecture:** Ten modules with hard boundaries (spec 14.2). A pure, deterministic `sim` runs inside a Web Worker through `sim-host`. The `story` director is the only module that changes the chapter or the unlocked verbs, and it talks to the sim only through commands. `render` (PixiJS) and `ui` (Svelte, from M1) read snapshots only.
 
-**Tech Stack:** TypeScript 6 (strict), Vite 8, PixiJS 8, inkjs 2, Zod 4, Vitest 5, fast-check 4, Playwright 1.64, ESLint 10 with typescript-eslint, Prettier 3. Svelte 5 and axe-core arrive in M1. Exact pins are in ADR 0008.
+**Tech Stack:** TypeScript 6 (strict), Vite 8, PixiJS 8, inkjs 2, Zod 4, Vitest 5, fast-check 4, Playwright 1.64, ESLint 10 with typescript-eslint, Prettier 3. Svelte 5 and axe-core arrive in M1, and `@fontsource/atkinson-hyperlegible` in M4. Exact pins are in ADR 0008 and ADR 0014 item 19.
 
-**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0013`. A task that cites "ADR n" uses the exact rule in that file.
+**Spec:** `docs/superpowers/specs/2026-11-11-fair-weather-design.md`. Read it with this plan. The decisions on spec gaps are in `docs/adr/0001` to `docs/adr/0014`. A task that cites "ADR n" uses the exact rule in that file.
 
 ## Global Constraints
 
@@ -1654,15 +1654,497 @@ Per-task self-consistency:
 
 ---
 
+## Milestone M4: Launch quality
+
+Exit check: T7 passes (the auto-player and keyboard-only runs from M2 and M3, plus the phone, reduced-motion, and no-WebGL runs of ADR 0014 item 17, each to "The End", in Chromium); the sandbox, seed-link, export, analytics, still-version, asset-retry, and offline e2e runs pass; T8: the new baseline is approved by the user and no earlier one changes; T9: the heaviest Meadow frame takes at most 100 draw calls in CI; T10: axe-core finds no serious or critical issue on any screen or dialog; the challenge calibration passes (`npm run test:t3`). The golden hash in `tests/golden/m0-hash.json` stays `c29d2fa4dbda4dcf`: every new sim rule is on only with an optional scenario field. Every M3 check still passes. Then run superpowers:verification-before-completion and superpowers:requesting-code-review, and report to the user. Three steps are the user's after the exit check, each with a kit this milestone writes: the frame-time measurement on the reference desktop and the reference phone (T9, ADR 0014 item 16; spec 22 leaves the phone for the user to name), the manual screen-reader pass (T10), and the five-person playtest against S1 to S4 (T11).
+
+Scope: the sandbox (spec 12.3, 13.1): sim rules for the knobs, switches, seasons, and the sandbox verbs; the sandbox setup, runner, and three challenges; the sandbox screen with its four panels, timeline strip, notes, and challenge card; seed links and the `.fairweather` file with the broken-link page (spec 15.2, 12.8); the postcard GIF and PNG page exports (spec 13.4, 15.3); opt-in count-only analytics (spec 15.4); the "Where this model is wrong" page (spec 19.1); the still version without WebGL and asset retry (spec 12.8, 16); offline play (spec 3.6); Atkinson Hyperlegible and the phone layout (spec 12.4, 12.7); the performance harness (spec 11.4, 17); the launch test runs and kits (spec 18 T7 to T11). Stage 2 valleys and features stay in M5. The collection book and ink fossils (spec 13.2) are not in Stage 1's list (spec 21.1) and stay out. ADR 0014 holds every M4 ruling on a spec gap. A task that cites "ADR 0014 item n" uses that exact rule.
+
+### M4 file structure
+
+| Path | Responsibility |
+| --- | --- |
+| `src/sim/types.ts`, `world.ts`, `commands.ts`, `move.ts`, `tuning.ts`, `invariants.ts`, `daily/index.ts`, `daily/population.ts`, `daily/gossip.ts` (modify) | Sandbox rules: seasons, base fog, rain, the gate, paths, the network switches (ADR 0014 items 3 to 5) |
+| `src/sim-host/protocol.ts`, `lite.ts`, `worker-core.ts`, `host.ts` (modify) | Season and day in the snapshot; the scripted fast-forward; worker load retry |
+| `src/story/sandbox.ts`, `src/story/challenges.ts`, `content/sandbox.json` | Sandbox setup, knobs, scenario, runner, challenges (ADR 0014 items 1, 2, 6) |
+| `src/story/stills.ts`, `src/story/limits.ts`, `content/notes/model-limits.json`, `content/placeholder/PLACEHOLDER-still-*.svg` | The still version and the model-limits page (items 10, 13) |
+| `src/persist/seed-link.ts`, `gif.ts`, `page-image.ts`, `analytics.ts`; `profile.ts` (modify) | Links, GIF, PNG pages, counts; Kith, valleys, and the sandbox save in the profile (items 1, 7 to 9) |
+| `src/render/frame-ring.ts`; `meadow-view.ts` (modify) | The postcard ring; paths and the gate in the Meadow |
+| `src/ui/screens/Sandbox.svelte`, `LostValley.svelte`, `ModelLimits.svelte`, `Stills.svelte`; `src/ui/components/SandboxPanel.svelte`, `TimelineStrip.svelte`, `ChallengeCard.svelte`, `SharePanel.svelte`, `PostcardExport.svelte`, `HelpSheet.svelte`; `src/ui/frame-loop.ts`, `save-file.ts`, `retry-image.ts` | The sandbox and the new screens |
+| `src/ui/App.svelte`, `game-service.ts`, `settings.ts`, `screens/Title.svelte`, `Settings.svelte`, `Game.svelte`, `Journal.svelte`, `BookOfSkies.svelte`, `components/CosmosPanel.svelte`, `Drawer.svelte`; `src/input/keyboard.ts`, `pointer.ts`; `src/main.ts` (modify) | Routing, the services, the new verbs, the seed |
+| `tools/sw-plugin.ts`, `tools/service-worker.js`, `vite.config.ts`, `playwright.offline.config.ts` | Offline (item 12) |
+| `tests/golden/run-sandbox.ts`, `sandbox-players.ts`, `sandbox-challenges.test.ts` | Challenge calibration |
+| `tests/e2e/sandbox.spec.ts`, `share.spec.ts`, `exports.spec.ts`, `analytics.spec.ts`, `stills.spec.ts`, `budget.spec.ts`, `launch.spec.ts`, `tests/offline/offline.spec.ts` | T7, T9, T10 runs |
+| `docs/playtest/m4.md`, `docs/playtest/screen-reader.md`, `tests/perf/RESULTS.md` | The user's kits (T9, T10, T11) |
+
+### Task M4.1: Sandbox world rules (sim, sim-host)
+
+**Files:** Modify `src/sim/types.ts`, `world.ts`, `commands.ts`, `move.ts`, `daily/index.ts`, `daily/population.ts`, `tuning.ts`, `invariants.ts`, `content/tuning.json`, `src/sim-host/protocol.ts`, `lite.ts`, `src/story/action-log.ts` (`CommandSchema` gains the new commands and is exported), `src/input/keyboard.ts` and `src/ui/components/ToolTray.svelte` (`placeKind` is typed `Exclude<Structure['kind'], 'path'>`), `src/render/meadow-view.ts` (skips `path` until M4.9 draws it), `tests/property/arbitraries.ts`. Test `tests/unit/sim/sandbox.test.ts` (new); extend `tests/unit/sim/tuning.test.ts`, `tests/unit/sim-host/lite.test.ts`.
+
+**Interfaces:**
+- `types.ts`: `Scenario.sandbox?: true`, `Scenario.seasonDays?: number` (a positive integer), `Scenario.baseFog?: number` (0 to 1); `World.sandbox?: true`, `World.seasonDays?: number`, `World.gateDark?: true`. `Structure` becomes `{ id: string; kind: 'bench' | 'bridge' | 'lantern'; x: number; y: number } | { id: string; kind: 'path'; x: number; y: number; x2: number; y2: number }`. Commands `{ t: 'rain'; x: number; y: number }`, `{ t: 'welcome'; on: boolean }`, `{ t: 'path'; x: number; y: number; x2: number; y2: number }`.
+- Tuning: `rain: { radius: 120, berries: 2 }`, `path: { reach: 40 }`, `goal.pathChance: 0.5`.
+- Rules (ADR 0014 items 1, 4, 5): `createWorld` fills every fog cell with `baseFog`; rain, welcome, and path are ignored without `world.sandbox`; a path's ends are clamped to the scene, its id is `path-<nextId>`, and one shorter than `meet.radius` is ignored; `pickGoal` takes the path step before the bench step, with its one draw only within `path.reach` of a path end; `runDusk` turns the season after the day rises; `newcomer` uses `cap.sandbox` with `world.sandbox` and adds no one while `gateDark`.
+- `protocol.ts`: `WorldLite.season: Season`, `WorldLite.day: number`, `WorldLite.gateDark: boolean`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('baseFog 0.4 starts every fog cell at 0.4 (as float32)', () => {});
+test('rain at a point adds 2 berries to each bush within 120 units, capped at bush.limit', () => {});
+test('with seasonDays 2 the season turns at the dusks that end days 1 and 3; thaw turns to spring', () => {});
+test('a dark gate lets no newcomer in; a sandbox world fills up to cap.sandbox, a story world to cap.story', () => {});
+test('a creature within 40 units of a path end walks to its other end when its draw is below 0.5', () => {});
+test('a creature near no path end takes the same draws as a world without paths', () => {});
+test('a path shorter than meet.radius, and rain, welcome, or path in a world without sandbox, change nothing', () => {});
+test('toLite carries season, day, and gateDark', () => {});
+test('the m0 golden hash is unchanged', () => expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf'));
+```
+
+Add sandbox worlds (with `seasonDays`, `baseFog`, rain, welcome, and path commands) to some `scenarioArb` worlds.
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/sim tests/unit/sim-host`. Expected: FAIL.
+- [ ] **Step 3: Implement.** The path step lives in `move.ts` beside the bench step; `invariants.ts` checks that both path ends are inside the scene.
+- [ ] **Step 4: Run** `npm test && npm run test:prop && npm run typecheck`. Expected: PASS, golden hash unchanged.
+- [ ] **Step 5: Commit.** `feat(sim): add the sandbox seasons, fog, rain, gate, and paths`
+
+### Task M4.2: The network switches (sim)
+
+**Files:** Modify `src/sim/types.ts`, `world.ts` (`friendsOf`), `daily/gossip.ts`, `tuning.ts`, `content/tuning.json`, `tests/property/arbitraries.ts`. Test `tests/unit/sim/daily/gossip.test.ts`, `tests/unit/sim/world.test.ts`.
+
+**Interfaces:**
+- `Scenario.network?: { mutual?: true; weighted?: true; drift?: true }`, copied to `World.network`. Tuning `gossip.drift: 0.2`.
+- Rules: ADR 0014 item 3. `friendsOf` with `mutual` also needs the other side's warmth above `friend.threshold`. Gossip with `weighted` compares summed warmths; with `drift`, one draw per adoption after that listener's other draws, in adoption order.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('with mutual, a one-sided warm tie is no friend for gossip, the dance, and imitation', () => {});
+test('with weighted, a listener with Ear 0.5 adopts when its warmth to holders is 0.9 of 1.2 total, though 1 of 2 friends hold it', () => {});
+test('with drift, an adopted value is the mean plus a draw from -0.2 to 0.2, clamped, and the draw comes after the simple-contagion draws', () => {});
+test('a world without network takes the same draws and gives the same opinions (golden hash unchanged)', () => {});
+test('weighted gossip with every friend at the threshold edge gives no NaN', () => {});
+```
+
+- [ ] **Step 2: Run** and see FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run test:prop`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(sim): add the sandbox network switches`
+
+### Task M4.3: The scripted fast-forward and worker load retry (sim-host)
+
+**Files:** Modify `src/sim-host/protocol.ts`, `worker-core.ts`, `host.ts`. Test `tests/unit/sim-host/worker-core.test.ts`, `host.test.ts`.
+
+**Interfaces:**
+- `ToWorker` `fastForward` gains `script?: { tick: number; list: Command[] }[]`. The core feeds each list to the step that runs at its tick and adds it to its accepted lists (so rewind sees it), posting no `accepted`.
+- `SimHost.fastForward(ticks: number, script?: readonly { tick: number; list: Command[] }[])`: on its `forwarded` the host appends the script's lists to `log()` in tick order, so a restart replays them; a forward that a restart or an `init` rejects leaves the log unchanged.
+- `createSimHost(spawn, opts?: { loadWaitsMs?: readonly number[]; wait?: (ms: number) => Promise<void> })`: a worker that fails before its first message is a failed load; the host spawns again after each wait in `loadWaitsMs` (default `[]`) and then gives up (ADR 0014 item 11). `SimHost.onGiveUp(cb: (reason: string) => void): () => void` fires once each time the host stops restarting, from a failed load or from the existing repeated fault.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('a scripted fastForward gives the hash of stepping with each list at its tick', () => {});
+test('a rewind into the forwarded range replays the script', () => {});
+test('after a scripted forward, log() holds the script, and a restart reaches the same hash', async () => {});
+test('an init during a scripted forward rejects it, and the new log holds none of the script', async () => {});
+test('a worker that fails before its first message is spawned again after 1000 and 2000 ms, then onGiveUp fires', async () => {});
+test('a load that works on the second try plays on, and onGiveUp never fires', async () => {});
+```
+
+The fourth test is Review Focus 4.
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/sim-host`. Expected: FAIL. **Step 3: Implement.** **Step 4: Run** `npm test`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(sim-host): replay a script in a fast-forward; retry a worker that fails to load`
+
+### Task M4.4: The sandbox setup, scenario, and runner (story)
+
+**Files:** Create `src/story/sandbox.ts`. Modify `src/story/verbs.ts`, `chapter-runner.ts` (exports `verbCommand`), `scenario.ts` (exports `checkLand`), `carry.ts` (`quantizeCarry`). Test `tests/unit/story/sandbox.test.ts` (new), extend `tests/unit/story/carry.test.ts`.
+
+**Interfaces:**
+- `verbs.ts`: `WORLD_VERBS` adds `'rain', 'path', 'welcome'`; `VerbInput` adds `{ verb: 'rain'; x: number; y: number }`, `{ verb: 'path'; x: number; y: number; x2: number; y2: number }`, `{ verb: 'welcome'; on: boolean }`, each mapping to its command in `verbCommand`.
+- `carry.ts`: `quantizeCarry(carry: Carry, ids: ReadonlySet<string>): Carry`: only creatures in `ids` and ties between them, every number rounded to thousandths (`Math.round(v × 1000) / 1000`), diaries empty (ADR 0014 item 1).
+- `sandbox.ts`:
+  - `SANDBOX_VALLEYS = ['kith', 'fen', 'hollow', 'halcyon'] as const`; `PANELS = ['population', 'rules', 'weather', 'network'] as const`; `CHALLENGE_IDS = ['winter', 'bell', 'krit'] as const`; their types `SandboxValley`, `Panel`, `ChallengeId`.
+  - `KNOB_IDS` (the 13 ids of ADR 0014 item 2: `giftValue`, `fogLevel`, `benchDensity`, `gossipThreshold`, `imitationRate`, `windStrength`, `seasonLength`, `flockLow`, `flockHigh`, `skyAgainst`, `skyKeep`, `skyAway`, `giftWarmth`); `interface Knob { id: KnobId; label: string; panel: Panel; valley: SandboxValley | null; low: number; step: number; steps: number | 'benchSpots'; unset: number }` with low and step in hundredths and the item 2 table's values and labels; `KNOBS: readonly Knob[]`; `knobValue(knob: Knob, index: number): number` = `(low + index × step) / 100`.
+  - `interface Switches { oneWay: boolean; weighted: boolean; mixed: boolean; drift: boolean }`; `DEFAULT_SWITCHES = { oneWay: true, weighted: false, mixed: true, drift: false }`.
+  - `interface SandboxSetup { seed: number; valley: SandboxValley; kith: Carry | null; challenge: ChallengeId | null; knobs: Partial<Record<KnobId, number>>; switches: Switches; structures: Structure[] }` (knob values are step indices); `SandboxSetupSchema` (Zod, integer indices in range, id strings matching `^[a-z0-9-]{1,40}$`).
+  - `sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning` (a deep copy with the set knobs' tuning values).
+  - `sandboxScenario(setup: SandboxSetup, bases: Record<SandboxValley, Scenario>, benchSpots: readonly { id: string; x: number; y: number }[]): Scenario`: the base (`kith` is `m0`), `applyCarry` with `setup.kith`, season spring for Kith, `ticksPerDay` from `story.dayLengthSeconds`, `sandbox: true`, `seasonDays` (always set, 7 unset), `baseFog`, `network` from the switches, every Ear from Gossip threshold when `mixed` is off, the density benches, then `setup.structures`; a valley keeps its pack, with Halcyon's `kithWarmth` 0 and no hero; then `checkLand`.
+  - `SANDBOX_TOOLS = ['place', 'path', 'shine', 'fog', 'blow', 'rain', 'thread', 'whisper'] as const` (panel order, so keys 1 to 8 follow it); `TOOL_PANEL: Record<SandboxTool, Panel>`.
+  - `interface SandboxRunner { readonly setup: SandboxSetup; verb(v: VerbInput): boolean; setPlaceKind(kind: 'bench' | 'bush' | 'bridge' | 'lantern'): void; dispose(): void }`; `createSandboxRunner(port: SimPort, setup: SandboxSetup): SandboxRunner`. `verb` is false before the first snapshot and for a verb outside `SANDBOX_TOOLS` and `welcome`. It sends each command through `verbCommand`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('knobValue gives the decimal double: imitationRate index 6 is exactly 0.3', () => expect(knobValue(imitation, 6)).toBe(0.3));
+test('giftValue index 4 sets gift.value 2 and gift.valueWinter 1; index 0 sets both to 0', () => {});
+test('an unset knob leaves the tuning deep-equal to the base', () => {});
+test('flockHigh below flockLow gives thresholdSpan 0', () => {});
+test('a Kith setup with a carry starts in spring with the carry, sandbox true, seasonDays 7', () => {});
+test('benchDensity 2 puts sandbox-bench-under-crooked-tree and sandbox-bench-east-meadow at their spots', () => {});
+test('mixed off sets every Ear to the gossip threshold; mixed on keeps them', () => {});
+test('oneWay off sets network.mutual; weighted and drift set theirs', () => {});
+test('a fen setup keeps the fen pack and has no hero; halcyon gets kithWarmth 0', () => {});
+test('quantizeCarry keeps only the given ids, rounds to thousandths, and drops diaries and hero ties', () => {});
+test('the setup schema refuses a knob index out of range and a structure id with a space', () => {});
+test('the runner sends rain and path, and refuses wake and walk', () => {});
+```
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/story`. Expected: FAIL. **Step 3: Implement.** **Step 4: Run** `npm test && npm run typecheck`. Expected: PASS; every T3 count unchanged (`npm run test:t3`).
+- [ ] **Step 5: Commit.** `feat(story): add the sandbox setup, knobs, scenario, and runner`
+
+### Task M4.5: The three challenges and their calibration (story, content, T3)
+
+**Files:** Create `src/story/challenges.ts`, `content/sandbox.json`, `tests/golden/run-sandbox.ts`, `tests/golden/sandbox-players.ts`, `tests/golden/sandbox-challenges.test.ts`, `tests/unit/story/challenges.test.ts`. Modify `src/story/sandbox.ts`, `tools/content-validate/validate.ts`, `vitest.config.ts` (the t3 project includes and the golden project excludes `tests/golden/sandbox-*.test.ts`), `docs/adr/0014-launch-rules.md` (calibration in item 6).
+
+**Interfaces:**
+- `content/sandbox.json`: `{ challenges: [{ id, text, start: { season, water?, shell?, danceThreshold?, bridgeLimit? }, softAt?, pass, fail }] }`, with the spec 13.1 texts (no tag) and `[PLACEHOLDER]` pass and fail lines; `ChallengesSchema`, `CHALLENGES`.
+- `type ChallengeState = 'open' | 'passed' | 'failed'`; `createChallengeCheck(id: ChallengeId): { step(lite: WorldLite, events: readonly SimEvent[]): ChallengeState }`, with the rules of ADR 0014 item 6; once not `open` it stays.
+- `sandboxScenario` applies the challenge's start after everything else; a challenge setup has `kith: null`.
+- `SandboxRunner` adds `challenge(): ChallengeState | null`, `onChallenge(cb: (s: ChallengeState) => void): () => void`, `startDance(): boolean` (the Bell challenge only, once, sends `{ t: 'dance', who: 'pim' }`); `verb` refuses a bridge past `bridgeLimit`.
+- `run-sandbox.ts`: `runSandboxHeadless(setup: SandboxSetup, player: SandboxPlayer, maxTicks: number): { state: ChallengeState; last: WorldLite }` over the real worker core, as `run-chapter.ts` does. `sandbox-players.ts`: `feedsTheValley` (winter), `bridgesTheBrook` (bell), `warmsKrit` (krit), and `idle` (Bell: "Start the dance" at tick 1; otherwise nothing).
+
+- [ ] **Step 1: Write the failing unit tests.**
+
+```ts
+test('winter fails at the first leave event while it is winter, and passes when winter turns to thaw', () => {});
+test('a leave in autumn does not fail winter', () => {});
+test('bell passes at a dance event for bell and fails when thaw turns to spring', () => {});
+test('krit passes when the season turns to spring with softness at least softAt', () => {});
+test('the runner refuses a third bridge in the bell challenge and a second Start the dance', () => {});
+test('the challenges file has the three spec texts, untagged', () => {});
+```
+
+- [ ] **Step 2: Write `sandbox-challenges.test.ts`:** for each challenge over seeds 1 to 20, the scripted player passes in at least 16 and the idle player in at most 4 (ADR 0014 item 6). **Run** `npm run test:t3 -- tests/golden/sandbox-challenges.test.ts`. If it fails, change only the challenge's start fields, `softAt`, or the scripted player, never a check, and record each try in ADR 0014 item 6 with its numbers.
+- [ ] **Step 3: Run** `npm test && npm run validate-content && npm run test:t3`. Expected: PASS.
+- [ ] **Step 4: Commit.** `feat(story): add the three sandbox challenges with their calibration`
+
+### Task M4.6: Seed links (persist)
+
+**Files:** Create `src/persist/seed-link.ts`. Test `tests/unit/persist/seed-link.test.ts`.
+
+**Interfaces:**
+- `interface SeedLink { v: 1; tuning: string; setup: SandboxSetup; script: { tick: number; list: Command[] }[]; tick: number }`; `SeedLinkSchema` (with `SandboxSetupSchema` and `CommandSchema`; ticks of the script ascending and below `tick`; `tick` at most `MAX_LINK_TICKS = 40_000`; at most `MAX_LINK_LISTS = 10_000` lists).
+- `encodeLink(link: SeedLink): Promise<string>` gives `v1.<data>` (ADR 0014 item 7); it parses the link with `SeedLinkSchema` first and throws when that fails. Every object in the schema is strict, every id field matches `^[a-z0-9-]{1,40}$`, and every other string field is a fixed enum, so no field can hold free text.
+- `decodeLink(text: string, tuningHash: string): Promise<SeedLink | null>`: null for no `v1.` prefix, bad base64, a failed inflate, more than `MAX_LINK_BYTES = 1_048_576` inflated bytes (it stops reading there), bad JSON, a schema failure, or another tuning hash.
+- `LINK_CHARS = 2000`; `fitsInLink(url: string): boolean`; `VALLEY_FILE = 'fair-weather-valley.fairweather'`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('a link round-trips through encode and decode', async () => {});
+test('the data is URL-safe base64 with no padding', async () => {});
+test('decode gives null for v2, a cut link, one extra character, bad base64, and another tuning hash', async () => {});
+test('decode stops at 1 MiB of inflated data and gives null', async () => {});
+test('decode gives null for a script tick at or after the link tick, NaN, or 40,001 ticks', async () => {});
+test('encode throws for an extra field (a name, a caption, a note) and for an id with a space or over 40 characters', async () => {});
+test('fitsInLink is true at 2000 characters and false at 2001', () => {});
+```
+
+The fourth to sixth tests are Review Focus 2 and 3.
+
+- [ ] **Step 2: Run** `npx vitest run tests/unit/persist`. Expected: FAIL. **Step 3: Implement** with `CompressionStream('deflate-raw')` and `DecompressionStream('deflate-raw')` (no package, ADR 0014 item 19). **Step 4: Run** `npm test`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(persist): add seed links`
+
+### Task M4.7: Kith, finished valleys, and the sandbox save in the profile (persist)
+
+**Files:** Modify `src/persist/profile.ts`. Test `tests/unit/persist/profile.test.ts`.
+
+**Interfaces:**
+- `Profile` adds `kith(): Promise<Carry | null>`, `setKith(carry: Carry): Promise<void>`, `valleys(): Promise<string[]>`, `addValley(id: string): Promise<void>` (each id once, in first-played order), `sandbox(): Promise<SandboxSave | null>`, `keepSandbox(save: SandboxSave): Promise<void>`.
+- `interface SandboxSave { link: string; notes: { tick: number; text: string }[] }` (`link` is `v1.<data>`; a note's text at most `NOTE_LENGTH = 80` characters, by `characters`).
+- The schema reads a profile without the new keys as `kith: null`, `valleys: []`, `sandbox: null`, so M3 profiles keep their pages and feathers.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('an M3 profile loads with its pages and feathers, no Kith, no valleys, and no sandbox', async () => {});
+test('setKith keeps the carry; a second call replaces it', async () => {});
+test('addValley keeps each valley once, in order', async () => {});
+test('keepSandbox keeps the link and the notes, cutting each note to 80 characters', async () => {});
+test('with blocked storage the new fields live for this visit', async () => {});
+```
+
+- [ ] **Step 2–4.** Run `npx vitest run tests/unit/persist` (FAIL), implement, run `npm test` (PASS). **Step 5: Commit.** `feat(persist): keep Kith, finished valleys, and the sandbox in the profile`
+
+### Task M4.8: The GIF encoder (persist)
+
+**Files:** Create `src/persist/gif.ts`. Test `tests/unit/persist/gif.test.ts` (with a small LZW decoder of its own, test code only).
+
+**Interfaces:**
+- `interface RgbaFrame { width: number; height: number; data: Uint8ClampedArray; delayMs: number }`.
+- `buildPalette(frames: readonly RgbaFrame[]): Uint8Array` (768 bytes; 256 colors by popularity over 15-bit colors; ties to the lower 15-bit value; unused entries black).
+- `encodeGif(frames: readonly RgbaFrame[]): Uint8Array`: GIF89a, one global palette, NETSCAPE2.0 loop count 0, one graphic control block per frame with delay `max(2, round(delayMs / 10))` hundredths, LZW with minimum code size 8 and clear codes at the 4096-code limit, no comment block (ADR 0014 item 8). Throws for no frames or frames of different sizes.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('the file starts GIF89a with the frame size and ends with 0x3b', () => {});
+test('a 3-color frame decodes back to its exact pixels', () => {});
+test('a 480 by 318 frame of 300 colors maps each pixel to its nearest palette color', () => {});
+test('a run of 5000 pixels of one color crosses the 4096-code limit and still decodes', () => {});
+test('delays: 83 ms gives 8, 5 ms gives 2', () => {});
+test('it writes one NETSCAPE2.0 block and no comment block', () => {});
+```
+
+- [ ] **Step 2–4.** As M4.7. **Step 5: Commit.** `feat(persist): add a GIF encoder`
+
+### Task M4.9: Paths and the gate in the Meadow (render)
+
+**Files:** Modify `src/render/meadow-view.ts`, `dev/meadow.ts` (`?sandbox=1`: two paths and a dark gate). Test `tests/unit/render/meadow-view.test.ts`, `tests/visual/meadow.spec.ts`.
+
+**Interfaces:**
+- Paths are dashed ink lines from end to end, all in one `Graphics` with the land (no extra draw call per path). The gate shows a small lamp, lit (accent ring) unless `lite.gateDark`. Both follow reduced motion and high contrast as the other land does.
+
+- [ ] **Step 1: Write the failing tests:** paths and the gate add at most 1 draw call for any number of paths; a dark gate draws no accent ring. Visual: `meadow-sandbox.png` with two paths and a dark gate. The user approves the new baseline before it is committed; earlier baselines must not change.
+- [ ] **Step 2–4.** Run `npx vitest run tests/unit/render` and `npx playwright test --project=visual`. **Step 5: Commit.** `feat(render): draw paths and the gate`
+
+### Task M4.10: The sandbox screen (ui, input, main)
+
+**Files:** Create `src/ui/screens/Sandbox.svelte`, `src/ui/components/SandboxPanel.svelte`, `src/ui/frame-loop.ts`, `tests/unit/ui/frame-loop.test.ts`, `tests/e2e/sandbox.spec.ts`. Modify `src/ui/App.svelte`, `src/ui/screens/Title.svelte`, `src/ui/screens/Game.svelte` (its frame loop moves to `frame-loop.ts`), `src/ui/game-service.ts`, `src/input/keyboard.ts`, `src/input/pointer.ts`, `src/main.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- `frame-loop.ts`: `createFrameLoop(draw: (prev: WorldLite, next: WorldLite, alpha: number) => void, now: () => number): { push(lite: WorldLite): void; start(): void; stop(): void }` (the alpha rule `Game.svelte` has now; it stops while the tab is hidden).
+- `GameService.webgl: boolean` (`hasWebGL()` in `main.ts`: a `webgl2` or `webgl` context on a scratch canvas, asked once at load).
+- `GameService.sandbox: SandboxService` with `status(): Promise<{ unlocked: boolean; kith: boolean; valleys: SandboxValley[] }>`, `newSetup(valley: SandboxValley, fromKith: boolean): Promise<SandboxSetup>` (a new seed, default knobs and switches, no structures), `start(setup: SandboxSetup): Promise<SandboxRunner>` (posts `init` with `sandboxTuning`, `sandboxScenario`, and the scene's bench spots; speed 1), `placedStructures(): Structure[]` (the live world's structures that neither the base scenario nor bench density made), `stop(): void`.
+- `main.ts`: `keepMyth` and `finishJourney` also call `setKith(quantizeCarry(carryFrom(lastLite, new Map()), m0 ids))`; a valley that made a journal page calls `addValley`; the year's seed (ADR 0014 item 18) replaces `SEED`, read from the save on Continue; dev `?sandbox=new` opens the sandbox on a new Kith valley, and dev `?seed=N` gives that seed to Begin and to a new valley.
+- Title: a Sandbox button between Book of Skies and Settings, disabled with its reason as `aria-describedby` text (ADR 0014 item 1). App routes `'sandbox'`.
+- `Sandbox.svelte`: the start choice (Your Kith, A new valley, and each finished valley; M4.12 adds the other two of item 1), then the scene, the four `SandboxPanel`s as `details` elements on the left (Population, Rules, Weather, Network; closed at first), the knobs as labelled range inputs with `aria-valuetext` of the value, the switches as checkboxes, the tools as one radio group across the panels, the gate switch, Pause, 1× and 2× (`TimeControls`), Back to title. A knob or switch change calls `start` with the new setup and `placedStructures()`; the Rules panel says "When you change a rule, the valley starts again from its first day." While Mixed thresholds is on, Gossip threshold is disabled with the line "Turn off Mixed thresholds to give all creatures one threshold." In Kith the palette follows `lite.season`.
+- Keyboard: keys 1 to 8 pick `SANDBOX_TOOLS[n − 1]`; with Path, Enter sets the start at the cursor and Enter again the end; with Rain, Enter rains at the cursor. Pointer: a drag draws a path; a click rains.
+
+- [ ] **Step 1: Write the failing tests.**
+  - `frame-loop.test.ts`: alpha is 0 at a new snapshot and 1 one snapshot span later; stop cancels the frame.
+  - `sandbox.spec.ts` (`?sandbox=new`): the four panels are closed; opening Rules and setting Gift value starts the run again at day 0 with a bench placed before still there; keys only: 1 picks Place, Enter places a bench at the cursor, 8 picks Whisper; a drag draws a path the next snapshot holds; axe finds no serious issue with each panel open; Back to title returns focus to the Sandbox button.
+  - `a11y.spec.ts`: on a fresh profile the Sandbox button is disabled and names its reason; Tab still reaches every enabled title button in order.
+- [ ] **Step 2–4.** Run `npm test && npm run typecheck && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): add the sandbox screen`
+
+### Task M4.11: The timeline strip, notes, and the challenge card (ui)
+
+**Files:** Create `src/ui/components/TimelineStrip.svelte`, `src/ui/components/ChallengeCard.svelte`. Modify `src/ui/components/CosmosPanel.svelte` (its rewind range moves into `TimelineStrip`), `src/ui/screens/Sandbox.svelte`, `src/ui/game-service.ts`, `src/main.ts`. Test `tests/e2e/sandbox.spec.ts`, `tests/e2e/part1.spec.ts` (the ch6 rewind test still passes unchanged).
+
+**Interfaces:**
+- `TimelineStrip` props: `timeline` and `rewind` as `CosmosPanel` has them now, plus `notes: readonly { tick: number; text: string }[]` and `onPin: ((tick: number, text: string) => void) | null` (null in the Cosmos panel). The range has `aria-valuetext` "Day {d}: {n} creatures, mean warmth {w}"; each note is a button on the strip, "Note on day {d}: {text}", which rewinds to its tick; "Pin a note" opens a text field "Note (at most 80 characters)" for the strip's tick.
+- `SandboxService` adds `notes(): readonly { tick: number; text: string }[]`, `pin(tick: number, text: string): void`. A rule change drops the notes, since they mark moments of the old run (ADR 0014 item 5); M4.12 writes them with the save.
+- `ChallengeCard` (top right): "Challenges" with the three texts as buttons; picking one starts it (a new valley of the seed with its start); then the text, "Start the dance" for Bell, the state as a `role=status` line (the pass or fail line), "Try again", and "Stop the challenge".
+
+- [ ] **Step 1: Write the failing tests:** scrubbing the strip pauses the sim and shows the rewound day, and Back to now goes on; a pinned note of 90 characters keeps 80 and shows on the strip; the Bell card's Start the dance works once; picking winter starts in autumn (the status line says so); axe finds no serious issue with the card open and a note open; Tab reaches the strip, its notes, and the card in order.
+- [ ] **Step 2–4.** Run `npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): add the sandbox timeline, notes, and challenge card`
+
+### Task M4.12: Share a valley: links, files, and the broken-link page (ui, main)
+
+**Files:** Create `src/ui/components/SharePanel.svelte`, `src/ui/screens/LostValley.svelte`, `src/ui/save-file.ts`, `tests/e2e/share.spec.ts`. Modify `src/ui/App.svelte`, `src/ui/screens/Sandbox.svelte`, `src/ui/game-service.ts`, `src/main.ts`.
+
+**Interfaces:**
+- `SandboxService` adds `share(): Promise<{ kind: 'link'; url: string } | { kind: 'file'; text: string } | { kind: 'tooOld' }>` (from the setup, `host.log()`, and the tick; item 7's limits), `open(text: string): Promise<SandboxRunner | null>` (decode, `start`, then `fastForward(tick, script)`; paused at the tick; null for an old or broken link), and `leave(): Promise<void>` (keeps the save when the player acted since the run started or opened); `status()` adds `saved: boolean`. The start choice adds "Go on with your last valley" (`open` of the save's link, with its notes) and "Open a valley file". Dev builds read `?linkChars=N` to lower `LINK_CHARS`, so e2e reaches the file path. The dev hook `window.fairWeather` adds `hash(): Promise<{ tick: number; value: string }>` (`host.requestHash`).
+- `save-file.ts`: `saveFile(blob: Blob, name: string): void` (an object URL and an `a download`, revoked after).
+- At load, `main.ts` reads `location.hash`: `#v1.` opens the sandbox on the link (App starts on `'sandbox'` with it), then `history.replaceState` drops the fragment; a failed open shows `LostValley`: the heading "This valley could not be found" and a "Start fresh" button to the title.
+- `SharePanel`: "Share this valley". For a link: a read-only text field with the URL and "Copy the link" (Clipboard API; the line "The link is copied." in a `role=status`). For a file: "This valley is too large for a link. Save it as a file." and "Save the file" (`VALLEY_FILE`). For `tooOld`: the item 7 line. "Open a valley file" takes an `input type=file accept=".fairweather"`.
+
+- [ ] **Step 1: Write the failing tests** (`share.spec.ts`, `?sandbox=new&seed=7`): place a bench, a path, and a whisper, pause, Share, and read the hash and tick (dev hook); open the URL in a new page: the same tick and hash, paused; a cut link and a `#v2.` link show "This valley could not be found", and Start fresh shows the title; with `?linkChars=200` Share offers the file, and opening that file gives the same hash; Go on with your last valley after Back to title gives the same hash; the address has no fragment after a link opens; axe finds no serious issue on the share panel and the lost-valley page. The round trip also runs in the e2e-firefox and e2e-webkit projects (Review Focus 1).
+- [ ] **Step 2–4.** Run `npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): share a valley by link or file`
+
+### Task M4.13: The postcard GIF (render, ui, main)
+
+**Files:** Create `src/render/frame-ring.ts`, `src/ui/components/PostcardExport.svelte`, `tests/unit/render/frame-ring.test.ts`, `tests/e2e/exports.spec.ts`. Modify `src/main.ts` (the Stage's ring), `src/ui/game-service.ts` (`Stage` adds `setRecording(on: boolean): void` and `postcard(caption: string): RgbaFrame[]`; `SandboxService` adds `postcard(caption: string): Promise<Blob>`), `src/ui/screens/Sandbox.svelte`.
+
+**Interfaces:**
+- `createFrameRing(capture: (width: number, height: number) => Uint8ClampedArray, opts: { seconds: 5; fps: 12; width: 480; aspect: number }): { offer(now: number): void; frames(): RgbaFrame[]; clear(): void }`: `offer` captures when at least 1000 / 12 ms have passed since the last capture; frames older than 5000 ms before the newest leave; each frame's `delayMs` is the time to the next capture (the last one's, the mean).
+- `main.ts`: while recording, each `draw` offers the ring right after `app.ticker.update()` (a `drawImage` of the canvas into a 480 × 270 2D canvas, then `getImageData`); only the sandbox records. `Stage.postcard` draws each frame with the 48-pixel caption band into 480 × 318 frames (ADR 0014 item 8).
+- `PostcardExport`: "Make a postcard", a caption field "Caption (at most 60 characters)", "Save the postcard" (pauses the sim while it encodes; `saveFile` with `fair-weather-postcard.gif`), and the export line of item 8.
+
+- [ ] **Step 1: Write the failing tests:** the ring keeps at most 60 frames and none older than 5 s; offers 10 ms apart capture once; delays follow capture times. `exports.spec.ts` (`?sandbox=new`): after some frames, Save the postcard downloads a GIF that `ImageDecoder` reads as 480 × 318 with at least 1 frame (no frame count is asserted, since CI draws slowly); a 70-character caption keeps 60; the encoder's output for a fixed 3-color frame set (the dev hook `fairWeather.encodeGif`) decodes to the same pixels in Chromium.
+- [ ] **Step 2–4.** Run `npm test && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): export a postcard GIF from the sandbox`
+
+### Task M4.14: Journal and myth pages as PNG (persist, ui, main)
+
+**Files:** Create `src/persist/page-image.ts`, `tests/unit/persist/page-image.test.ts`. Modify `src/ui/journal-pages.ts` (`journalBlocks`, `mythBlocks`), `src/ui/screens/Journal.svelte`, `src/ui/screens/BookOfSkies.svelte`, `src/ui/game-service.ts` (`exportPage(blocks: PageBlock[]): Promise<Blob>`), `src/main.ts`, `tests/unit/ui/journal-pages.test.ts`, `tests/e2e/exports.spec.ts`.
+
+**Interfaces:**
+- `page-image.ts`: `type PageBlock = { kind: 'title' | 'heading' | 'text' | 'note'; text: string } | { kind: 'image'; src: string; width: number; height: number }`; `PAGE_WIDTH = 1080`; `layoutPage(blocks: readonly PageBlock[], measure: (font: string, text: string) => number): { height: number; ops: DrawOp[] }` with item 8's sizes, margins, and wrap rule (graphemes by `characters`); `DrawOp = { op: 'text'; font: string; text: string; x: number; y: number } | { op: 'image'; src: string; x: number; y: number; w: number; h: number }`.
+- `journal-pages.ts`: `journalBlocks(entry: JournalEntry): PageBlock[]` (title, drawing, keepsake line, locals, stamp, "What they say about you", the player's line, notes); `mythBlocks(page: BookPage): PageBlock[]` (the year, the narrator, each verse's title, text, and note).
+- `main.ts` draws the layout into a canvas (`document.fonts.load` of both weights first; the face itself is bundled in M4.19, and M4.16 adds the image retry), on the item 8 colors, then `toBlob('image/png')`.
+- Journal: "Save this page as an image" on each page; *Book of Skies*: the same on each year's page; each with the item 8 line; files `fair-weather-journal-<valley>.png`, `fair-weather-year-<n>.png`.
+
+- [ ] **Step 1: Write the failing tests:** with `measure` = 14 px per character, a 200-character text wraps at spaces within 936 px; one 80-character word breaks between graphemes and keeps an emoji whole; the height grows with each block; `journalBlocks` of a page with a caption holds the caption, and without one holds no empty block. e2e: Save this page as an image downloads a PNG whose IHDR says 1080 wide, from the journal (dev journey) and from the *Book of Skies*.
+- [ ] **Step 2–4.** Run `npm test && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): save journal and myth pages as PNG`
+
+### Task M4.15: Opt-in analytics (persist, ui, main)
+
+**Files:** Create `src/persist/analytics.ts`, `tests/unit/persist/analytics.test.ts`, `tests/e2e/analytics.spec.ts`. Modify `src/ui/settings.ts` (`analytics: boolean`, default false, saved), `src/ui/screens/Settings.svelte`, `src/svelte-env.d.ts` (`ImportMetaEnv.VITE_ANALYTICS_URL?: string`), `src/main.ts`, `playwright.config.ts` (the dev server gets `VITE_ANALYTICS_URL=http://localhost:5179/__count`), `tests/unit/ui/settings.test.ts`.
+
+**Interfaces:**
+- `type Count = { v: 1; e: 'chapter'; chapter: string } | { v: 1; e: 'bet'; chapter: string; right: boolean } | { v: 1; e: 'sandbox'; minutes: number }`.
+- `betCounts(chapterId: string, log: ActionLog): Count[]` (one per `bet` entry; `right` is answer equals result); `createAnalytics(url: string | null, enabled: () => boolean, post: (url: string, body: string) => void): { count(c: Count): void }` (nothing without a URL or while off); `fetchPost(url, body)` with the item 9 options.
+- `main.ts`: a chapter start counts `chapter`; a chapter's end counts its bets; leaving the sandbox counts whole visible minutes (none under 1). Settings shows the switch only when the URL is set, with the item 9 label and line.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('betCounts gives one count per bet with right true only when the answer is the result', () => {});
+test('nothing is posted while off or without a URL', () => {});
+test('every count body has only the keys v, e, and chapter, right, or minutes', () => {});
+test('fetchPost sends credentials omit, no-referrer, no-store, keepalive, and text/plain', () => {});
+test('settings keep analytics true through save and load; an old saved false stays false', () => {});
+```
+
+e2e: with the switch off, chapter 0 sends no request to `/__count`; on, its start sends exactly `{"v":1,"e":"chapter","chapter":"ch0"}` with no cookie header; axe finds no serious issue on Settings.
+- [ ] **Step 2–4.** Run `npm test && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(persist): add opt-in count-only analytics`
+
+### Task M4.16: The still version and asset retry (story, ui, main)
+
+**Files:** Create `src/story/stills.ts`, `src/ui/screens/Stills.svelte`, `src/ui/retry-image.ts`, `content/placeholder/PLACEHOLDER-still-kith-meadow.svg`, `PLACEHOLDER-still-fen.svg`, `PLACEHOLDER-still-hollow.svg`, `PLACEHOLDER-still-halcyon.svg`, `tests/unit/story/stills.test.ts`, `tests/e2e/stills.spec.ts`. Modify `src/story/schema.ts` (optional `still: id`), `src/ui/App.svelte`, `src/ui/screens/Game.svelte`, `src/ui/screens/Journal.svelte` (drawings use `retryImage`), `src/ui/game-service.ts`, `src/main.ts`, `tools/content-validate/validate.ts`.
+
+**Interfaces:**
+- `stills.ts`: `interface StillPage { id: string; title: string; still: string; lines: string[]; notes: Note[] }`; `stillPages(chapters: readonly Chapter[], ink: InkRunner, flags: Flags): StillPage[]` (ADR 0014 item 10; `still` is the chapter's or `PLACEHOLDER-still-<scene>`).
+- `retry-image.ts`: `retryImage(node: HTMLImageElement, opts: { waits: readonly number[]; fallback: string | null }): { destroy(): void }` (a Svelte action; each retry sets the `src` again with `?retry=n`, then the fallback, then nothing but the alt).
+- `main.ts`: `ASSET_WAITS_MS = [1000, 2000]` to `createSimHost` (M4.3), to the PNG export's image load (M4.14), and to `GameService.assetWaits`; `GameService` adds `stills(): StillPage[]`, `stillUrl(id: string): string`, `savedChapter(): Promise<number | null>`, `onSimLost(cb: () => void): () => void` (the host's `onGiveUp`).
+- `Stills.svelte`: item 10's line, then one page at a time (heading, `img` with the chapter's title as alt, lines as paragraphs, notes through `Note.svelte`), Back and Next, and "The End" with Back to title. Without WebGL (`GameService.webgl`, M4.10), App sends Begin and Continue there. `Game.svelte` switches to it at the current chapter on `onSimLost` or when `createStage` throws.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ts
+test('stillPages gives one page per chapter in play order with its knots in beat order', () => {});
+test('a close-call beat is left out; a chapter with no still uses its scene placeholder', () => {});
+test('the lines hold no #beat tag and no empty line', () => {});
+```
+
+e2e (`stills.spec.ts`): Chromium with `--disable-3d-apis` (the e2e launch options kept, `PW_CHROMIUM_PATH` included; skipped in other browsers): Begin shows the still line; Next through every page reaches "The End"; axe finds no serious issue on a page. With the worker script routed to fail always, Begin shows the still page of chapter 0 after the two waits; failing twice then serving it plays on. A journal drawing failing twice then served shows the drawing; failing always shows the still.
+- [ ] **Step 2–4.** Run `npm test && npm run validate-content && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): add the still version and asset retry`
+
+### Task M4.17: "Where this model is wrong" (content, story, ui)
+
+**Files:** Create `content/notes/model-limits.json`, `src/story/limits.ts`, `src/ui/screens/ModelLimits.svelte`, `tests/unit/story/limits.test.ts`. Modify `src/ui/App.svelte`, `src/ui/screens/Title.svelte`, `src/ui/screens/Sandbox.svelte` (in the Rules panel), `src/ui/components/Drawer.svelte` (under the margin notes), `tools/content-validate/validate.ts`, `tests/e2e/a11y.spec.ts`.
+
+**Interfaces:**
+- `model-limits.json`: `{ "title": "Where this model is wrong", "items": [{ "heading": string, "text": string, "sources": { "label": string, "url": string }[] }] }`; the first four items are spec 19.1's four limits in its words (no tag); further items `[PLACEHOLDER]`. `limits.ts`: `ModelLimitsSchema`, `MODEL_LIMITS`.
+- `ModelLimits.svelte`: a page with an `h1`, one `section` per item with its `h2`, the text, and the sources as links; Back. From the game's drawer it opens as a modal dialog with the sim paused, as the *Book of Skies* does.
+
+- [ ] **Step 1: Write the failing tests:** the schema refuses an item with no heading; the first four items are untagged and hold spec 19.1's text. e2e: the title button opens the page and Back returns focus to it; the drawer button opens the dialog with the sim paused and Escape closes it; axe finds no serious issue on both.
+- [ ] **Step 2–4.** Run `npm test && npm run validate-content && npx playwright test --project=e2e`. **Step 5: Commit.** `feat(ui): add the Where this model is wrong page`
+
+### Task M4.18: Offline after the first load (tools, main)
+
+**Files:** Create `tools/sw-plugin.ts`, `tools/service-worker.js`, `playwright.offline.config.ts`, `tests/offline/offline.spec.ts`, `tests/unit/tools/sw-plugin.test.ts`. Modify `vite.config.ts`, `src/main.ts`, `package.json` (`"test:offline": "playwright test -c playwright.offline.config.ts"`), `.github/workflows/ci.yml` (a step after the Playwright install), `eslint.config.js` (`tools/service-worker.js` gets the `serviceworker` globals).
+
+**Interfaces:**
+- `sw-plugin.ts`: `swPlugin(): Plugin` (build only): in `generateBundle` it emits `sw.js`, the text of `service-worker.js` after `self.PRECACHE = [...]` and `self.VERSION = '<8 hex>'`; `precacheList(fileNames: readonly string[], base: string): string[]` (the page `base`, then every emitted file but `sw.js` and `.map` files, sorted).
+- `service-worker.js`: install caches `PRECACHE` under `fair-weather-<VERSION>`; activate deletes other `fair-weather-` caches; fetch answers same-origin GETs from the cache, then the network, and navigations with the cached page (ADR 0014 item 12).
+- `main.ts`: with `import.meta.env.PROD` and `'serviceWorker' in navigator`, register `${import.meta.env.BASE_URL}sw.js` after `load`.
+- `playwright.offline.config.ts`: one Chromium project, `testDir: 'tests/offline'`, web server `npx vite preview --port 5180 --strictPort` over the `vite build --mode development` output.
+
+- [ ] **Step 1: Write the failing tests:** `precacheList` keeps the page and the worker chunk and drops `sw.js` and maps; `offline.spec.ts`: load, wait for `navigator.serviceWorker.ready` and a controller (one reload), go offline, reload: the title shows; Begin shows chapter 0's heading and the canvas, with no page error.
+- [ ] **Step 2: Run** `npx vite build --mode development && npm run test:offline`. Expected: FAIL, then PASS after **Step 3: Implement**.
+- [ ] **Step 4: Run** `npm run lint && npm test`. **Step 5: Commit.** `feat: play offline after the first load`
+
+### Task M4.19: Type, the phone layout, and the help sheet (ui, input)
+
+**Files:** Modify `package.json` and `package-lock.json` (`@fontsource/atkinson-hyperlegible` `5.3.0`, exact), `src/main.ts` (imports `400.css` and `700.css`), `src/ui/App.svelte` (font family), `src/ui/screens/Game.svelte`, `src/ui/components/Drawer.svelte`, `src/ui/screens/Journal.svelte`, `src/ui/screens/BookOfSkies.svelte`, `src/ui/screens/Sandbox.svelte`, `src/ui/components/SharePanel.svelte`, `src/ui/components/PostcardExport.svelte`, `src/input/keyboard.ts` (`?` calls `ctx.help()`). Create `src/ui/components/HelpSheet.svelte`. Test `tests/e2e/launch.spec.ts` (new), `tests/unit/input/input.test.ts`.
+
+**Interfaces:**
+- Body: `font-family: 'Atkinson Hyperlegible', system-ui, sans-serif`; titles in its bold (ADR 0014 item 14).
+- Portrait: the scene element ends at the top of the bottom bar. Below 600 px: the drawer, journal, *Book of Skies*, sandbox panels, share panel, postcard dialog, and help sheet take the whole viewport (ADR 0014 item 15).
+- `InputContext.help: () => void`. `HelpSheet` (spec 12.5): a modal dialog "Keys" with the sim paused, a table of each key and what it does (spec 12.5's rows, then W, G, H, R, O, K, L, P for Part 2 and peek, and 1 to 8, Enter twice for a path in the sandbox), only the rows for the screen it opens on; Escape and Close close it and give focus back.
+
+- [ ] **Step 1: Write the failing tests.** `input.test.ts`: `?` calls `help` and nothing else; it does nothing in a text field. `launch.spec.ts`: `?` opens the help sheet in the game and in the sandbox with no serious axe issue, and Escape gives focus back to the scene. Then, with a Pixel 7 in portrait: the canvas's bottom is at or above the tool tray's top; the drawer, the journal (dev journey), and an open sandbox panel each span the viewport width; the page never scrolls sideways; `document.fonts.check('16px "Atkinson Hyperlegible"')` is true after load; axe finds no serious issue at this size on the game, the sandbox, and the journal.
+- [ ] **Step 2–4.** Run `npx playwright test --project=e2e`; the M1 to M3 baselines must not change (`--project=visual`, the user's gate). **Step 5: Commit.** `feat(ui): use Atkinson Hyperlegible, lay out the phone screen, and add the help sheet`
+
+### Task M4.20: The performance harness (T9)
+
+**Files:** Modify `dev/perf.ts` (`?scene=meadow`: the Meadow view with `n` creatures, fog, the lens, the brook with two bridges, a lantern, the mushroom, the heat map, and two paths; it writes its result as text on the page too), `tests/perf/rigs.spec.ts` (a Meadow test; `PERF_PHONE=1` adds 4× CPU throttling through CDP and a 412 × 915 viewport, printed only), `tests/perf/RESULTS.md` (the M4 table for the user's runs). Create `tests/e2e/budget.spec.ts`.
+
+- [ ] **Step 1: Write the failing tests:** `budget.spec.ts` (CI): `dev/perf.html?scene=meadow&n=30&seconds=2` takes at most 100 draw calls a frame. `rigs.spec.ts`: the Meadow test asserts mean at most 16.9 ms and p95 at most 20 ms only with `PERF_HEADED=1` (ADR 0014 item 16).
+- [ ] **Step 2–4.** Run `npx playwright test --project=e2e tests/e2e/budget.spec.ts` and `npm run test:perf`; record the cloud smoke numbers in `RESULTS.md` as smoke only.
+- [ ] **Step 5: Write the user's steps in `RESULTS.md`:** on the reference desktop, `PERF_HEADED=1 npm run test:perf`; on the reference phone (the user names it, spec 22), `npm run dev -- --host`, open `/dev/perf.html?scene=meadow&n=30&seconds=30` on the phone, and copy the printed numbers into the table; pass is mean at most 33.4 ms and p95 at most 40 ms. A failed phone run becomes its own follow-up task, with the trace.
+- [ ] **Step 6: Commit.** `test(perf): measure the Meadow and check its draw calls`
+
+### Task M4.21: The launch runs, the kits, and the M4 exit check (e2e)
+
+**Files:** Modify `tests/e2e/launch.spec.ts`, `tests/e2e/a11y.spec.ts`. Create `docs/playtest/m4.md`, `docs/playtest/screen-reader.md`.
+
+- [ ] **Step 1: Write the tests** (ADR 0014 item 17): the phone run (Pixel 7, taps only) and the reduced-motion run each go from Begin to "The End" by tapping Skip once each chapter's heading shows, checking at each chapter that no HUD element covers another and, with reduced motion, that two paused frames match; axe runs on every screen these pass through and on every M4 screen and dialog not yet covered.
+- [ ] **Step 2: Write the kits.** `screen-reader.md`: NVDA with Firefox on Windows and VoiceOver with Safari on macOS; for each screen (title, game, bet card, drawer, journal, *Book of Skies*, sandbox and each panel, share panel, postcard dialog, still version, model-limits page, help sheet, settings) the checks: the heading is read, each control has its name and state, live lines are read once, focus moves into and back out of each dialog, and nothing that carries meaning is only in the canvas; a results table. `m4.md`: the M1 kit's form for the whole game and the sandbox, with S1 (each tester's bet answers and results, chapters 2 to 8), S2 (where each tester stopped), S3, and S4, and every hero in every valley across the five testers (ADR 0013 item 15). Name no real tester.
+- [ ] **Step 3: Run** `npm run lint && npm run typecheck && npm test && npm run test:prop && npm run test:t3 && npm run validate-content && npx vite build --mode development && npm run test:offline && npx playwright test --project=e2e --project=e2e-year`. Expected: all pass; the golden hash `c29d2fa4dbda4dcf`.
+- [ ] **Step 4:** Run superpowers:verification-before-completion, then superpowers:requesting-code-review on the M4 commits. Fix findings.
+- [ ] **Step 5:** Report to the user: the test summary, the challenge calibration numbers, the golden hash, the content still marked placeholder (which keeps `npm run build` failing, ADR 0010), and the three user steps (T9 measurements with the reference phone to name, the screen-reader pass, the T11 playtest), plus the open analytics endpoint (ADR 0014 item 9) and the Bao To check that spec 2 asks for before launch.
+- [ ] **Step 6: Commit.** `test(e2e): add the launch runs and the M4 kits`
+
+### M4 Review Focus
+
+1. **A link opened in another engine.** A player who sends a link from Chrome expects the friend in Safari or Firefox to see the same valley. Owner: M4.12's round trip, which also runs in the e2e-firefox and e2e-webkit projects and compares the state hash at the link's tick.
+2. **A damaged link.** A chat app cuts a long link, adds a character, or a person edits it by hand; a link can also be huge or name a creature that does not exist. The game must show "This valley could not be found" or open a valley, and never hang or crash. Owner: M4.6's decode tests (cut, one extra character, 1 MiB, NaN, 40,001 ticks), with M0.8's unknown-id commands.
+3. **Words that must stay on the device.** A hero name, a caption, a note, or a diary line must never ride along in a link, and a count must never carry one. Owner: M4.6, "encode throws for an extra field (a name, a caption, a note)", and M4.15, "every count body has only the keys".
+4. **A rule change at a bad moment.** A knob change while a link replays, or while the strip is rewound, must start one clean run, with no old answer applied to it. Owner: M4.3, "an init during a scripted forward rejects it".
+5. **Long or odd text in an image.** An 80-character line with no spaces, emoji, or a 60-character caption must wrap or fit inside the image and never cut a character in half. Owner: M4.14's wrap tests, and M4.13's 70-character caption.
+
+### M4 pre-flight scan
+
+| Tasks | Shared file or interface | How they stay consistent |
+| --- | --- | --- |
+| M4.1, M4.2 | `sim/types.ts` `Scenario`, `World`; `world.ts`; `tuning.ts`, `content/tuning.json`; `tests/property/arbitraries.ts` | Each adds optional fields and new tuning keys only, and runs the golden hash test. |
+| M4.1, M4.3 | `sim-host/protocol.ts` | M4.1 adds `WorldLite` fields; M4.3 adds the `fastForward` script; neither changes a message the other uses. |
+| M4.1, M4.4, M4.6 | `Command` (`rain`, `welcome`, `path`), `action-log.ts` `CommandSchema` | M4.1 adds the shapes and exports the schema; M4.4 maps verbs to exactly them; M4.6 validates links with the same schema. |
+| M4.1, M4.9 | `Structure` with `kind: 'path'`, `WorldLite.gateDark`, `meadow-view.ts` | M4.1 makes the Meadow skip paths; M4.9 replaces the skip with the drawing and reads exactly these fields. |
+| M4.1, M4.10 | `input/keyboard.ts` `placeKind` | M4.1 changes only its type; M4.10 adds the sandbox keys. |
+| M4.2, M4.4 | `Scenario.network` | `sandboxScenario` sets only `mutual`, `weighted`, `drift`. |
+| M4.3, M4.12 | `SimHost.fastForward(ticks, script)`, `log()` | `open` replays through it; `share` reads `log()`, which then holds the script. |
+| M4.3, M4.16 | `createSimHost` `loadWaitsMs`, `onGiveUp` | `main.ts` passes `ASSET_WAITS_MS` and maps `onGiveUp` to `onSimLost`. |
+| M4.4, M4.5 | `sandbox.ts`: `SandboxSetup.challenge`, `ChallengeId`, `SandboxRunner`, `sandboxScenario` | M4.4 defines the ids, the runner, and the scenario; M4.5 adds the check, `startDance`, the bridge limit, and the challenge start to the same functions. |
+| M4.4, M4.6, M4.7 | `SandboxSetup`, `SandboxSetupSchema`, `quantizeCarry` | The link holds the setup through that schema; the profile keeps the link text, never a second setup format. |
+| M4.4, M4.10 | `KNOBS`, `knobValue`, `SANDBOX_TOOLS`, `sandboxTuning`, `sandboxScenario`, `quantizeCarry` | The panels list `KNOBS` and `SANDBOX_TOOLS` as given; keys 1 to 8 index `SANDBOX_TOOLS`; `main.ts` keeps Kith through `quantizeCarry`. |
+| M4.5, M4.11 | `createChallengeCheck`, `onChallenge`, `startDance`, `content/sandbox.json` | The card shows only the content's text and lines. |
+| M4.5, M4.16, M4.17 | `tools/content-validate/validate.ts` | Each adds the check for its own content file. |
+| M4.7, M4.10, M4.11, M4.12 | `Profile.kith`, `valleys`, `sandbox`, `keepSandbox`, `SandboxSave` | M4.10 reads the status; M4.11 adds notes; M4.12 writes the save on leave. |
+| M4.8, M4.13 | `RgbaFrame`, `encodeGif` | The ring makes `RgbaFrame`s; the export encodes them unchanged. |
+| M4.10 to M4.17, M4.19 | `game-service.ts` (`GameService`, `SandboxService`, `Stage`), `main.ts` | Each task adds its own members; no member is renamed or retyped. |
+| M4.10 to M4.13, M4.17, M4.19 | `Sandbox.svelte` | M4.10 lays it out; the others add their part to its panels, strip, or card. |
+| M4.10, M4.12, M4.16, M4.17 | `App.svelte` routes, `Title.svelte` buttons | Routes `'sandbox'`, `'lost'`, `'stills'`, `'limits'` are new; the title's order is Begin, Continue, Book of Skies, Sandbox, Where this model is wrong, Settings. |
+| M4.10, M4.16, M4.19 | `Game.svelte`, `GameService.webgl` | M4.10 moves the frame loop out and adds `webgl`; M4.16 reads it and adds the switch to stills; M4.19 adds the help key and styles. |
+| M4.10, M4.19 | `input/keyboard.ts` | M4.10 widens the digit keys to 1 to 8 and adds path and rain; M4.19 adds `?`. No key changes meaning. |
+| M4.12, M4.13, M4.14 | `save-file.ts` `saveFile` | Every download goes through it. |
+| M4.12 to M4.14, M4.19 | `SharePanel`, `PostcardExport`, the export buttons and their item 8 line | M4.19 only restyles them for the phone. |
+| M4.14, M4.16, M4.19 | `Journal.svelte`, `BookOfSkies.svelte` | M4.14 adds the export button; M4.16 the drawing retry; M4.19 the phone sheet. |
+| M4.17, M4.19 | `Drawer.svelte` | M4.17 adds the model-limits button; M4.19 the phone sheet. |
+| M4.14, M4.16 | the export's image load in `main.ts`, `ASSET_WAITS_MS` | M4.14 loads once; M4.16 gives it the same waits as `retryImage`. |
+| M4.14, M4.19 | the export font | M4.14 names the family; M4.19 bundles the face, and no export test depends on it. |
+| M4.11 and M2.13 | `TimelineStrip`, `CosmosPanel` rewind | The ch6 rewind e2e test passes unchanged. |
+| M4.18, M4.19 | `package.json` | M4.18 adds a script; M4.19 adds the one dependency. |
+| M4.10, M4.11 | `tests/e2e/sandbox.spec.ts` | M4.11 adds tests; M4.10's stay as they are. |
+| M4.13, M4.14 | `tests/e2e/exports.spec.ts` | Each adds its own tests. |
+| M4.10, M4.17, M4.21 | `tests/e2e/a11y.spec.ts` | Each adds its screens; the title order test follows the row above. |
+| M4.19, M4.21 | `tests/e2e/launch.spec.ts` | M4.19 creates it with the help and phone layout checks; M4.21 adds the runs. |
+
+Per-task self-consistency:
+
+- M4.1 and M4.2 change no rule without their scenario fields; each ends with `c29d2fa4dbda4dcf`.
+- M4.3's script entries enter `log()` only on `forwarded`, so a rejected forward never leaves half a script.
+- M4.4's knob values are all `(low + index × step) / 100`; no other path makes a knob value.
+- M4.5 changes no check while calibrating; every try is in ADR 0014 item 6.
+- M4.6 accepts only strings that M4.4's schema accepts, so no player text can pass.
+- M4.7 reads every M3 profile.
+- M4.8 is pure: no DOM, so Node tests it.
+- M4.9 keeps every earlier baseline and the draw-call limits of M2 and M3.
+- M4.10 starts every run through `start`, so a knob change and a challenge both make one `init`.
+- M4.11's notes never reach `share`.
+- M4.12 opens a link only through `decodeLink` and `start`.
+- M4.13 records only in the sandbox.
+- M4.14 draws only the blocks the HTML page shows.
+- M4.15 posts nothing without both the URL and the switch.
+- M4.16's still pages read the same chapter configs and Ink as the game.
+- M4.17's first four items are the spec's text, untagged.
+- M4.18 registers the worker only in a production build.
+- M4.19 changes no text and no behavior but the new `?` key.
+- M4.20 asserts frame time only with `PERF_HEADED=1`.
+- M4.21's runs wait on headings and snapshots, never on a sim speed.
+
+---
+
 ## Milestones M2 to M5 (outline)
 
-Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. The M2 and M3 detailed plans are above.
+Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. The M2, M3, and M4 detailed plans are above.
 
 | Milestone | Contents | Exit check |
 | --- | --- | --- |
 | **M2: Part 1 complete** | Detailed in "Milestone M2: Part 1 complete (chapters 4 to 10)" above, with its rulings in ADR 0012. Chapters 4 to 10 and the 5 interludes as chapter configs and Ink. Sim additions: lanterns and bridges with walk-mesh effects, ambient sky bids, dew mushroom rule (`mushroom.*`), festival threshold dance for Bell. Cosmos view (network schematic, timeline) and Soul view (constellation, diary, dials). Mind verbs: peek, zoom, rewind (rewind replays the log to a tick). Threads in Cosmos with finger snapping. Myth module: `src/myth/features.ts` (action log to features), `src/myth/grammar.ts` (5 verses, 6 to 8 templates each, first true condition wins, narrator = highest sky warmth), templates in `content/myth/*.json` with `[PLACEHOLDER]` until a writer delivers. *Book of Skies* screen. The Quiet Visitor. Margin notes drawer. Persist the runner action log in saves (spec 10.4; myth needs it). | T3 for chapters 4 to 10; T4 (from M0.9); T6: at least 90% distinct myths over 1,000 random-play runs; the auto-player and a keyboard player reach the end of Part 1 |
 | **M3: Part 2, Stage 1** | Detailed in "Milestone M3" above, with its rulings in ADR 0013. `RulePack` interface (spec 9.5) and `heroGift`/`localVerb` commands. Bridge scene and hero choice with naming (six designed heroes, knacks as exact rules from spec 5.5). Rule packs for Murmuration Fen, Hearsay Hollow, Halcyon (ADR 0007). Reputation (spec 9.6), postcards with Kith fast-forward, travel journal with keepsakes and "What they say about you". Homecoming and the sixth myth verse. Wisp's choice (spec 7.4). | T3 for each valley; every hero playtested in every valley; playtest |
-| **M4: Launch quality** | Sandbox (4 panels, timeline, 3 challenges, modes from finished valleys). Seed links with fflate (`#v1.<data>`, file fallback above 2 KB) and the broken-link page. Postcard GIF ring buffer and PNG page exports. Opt-in count-only analytics. Accessibility pass and a manual screen-reader pass. Phone performance at 30 fps on the reference phone. No-WebGL still-image fallback. Asset retry. Offline after first load (service worker). "Where this model is wrong" page. | T7 to T11 pass |
+| **M4: Launch quality** | Detailed in Milestone M4 above, with its rulings in ADR 0014. Sandbox (4 panels, timeline, 3 challenges, modes from finished valleys). Seed links with the browser's `CompressionStream` (`#v1.<data>`, file fallback above 2 KB) and the broken-link page. Postcard GIF ring buffer and PNG page exports. Opt-in count-only analytics. Accessibility pass and a manual screen-reader pass. Phone performance at 30 fps on the reference phone. No-WebGL still-image fallback. Asset retry. Offline after first load (service worker). "Where this model is wrong" page. | T7 to T11 pass |
 | **M5: Stage 2** | Foglight Heights, Toadstool Council, Lily Shallows rule packs. Rule cards. Travelers by code. Remix tree for seed links. | T3 and T5 pass |
 
 ---

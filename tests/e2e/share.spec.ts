@@ -302,17 +302,19 @@ test('a link opened and acted in becomes the last valley', async ({ page, contex
 
 test('a challenge link opens with the challenge as it ended', async ({ page, context }) => {
   const card = (p: Page) => p.getByRole('region', { name: 'Challenges' });
+  // The result is the card's last paragraph.
+  const line = (p: Page) => card(p).locator('p').last();
   await openNew(page, '&fast=10');
   await press(page, card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }));
-  await expect(card(page).getByRole('status')).toHaveText(/^The challenge is not finished/);
+  await expect(line(page)).toHaveText(/^The challenge is not finished/);
   // The shortest seasons, so winter ends in two days.
   await press(page, page.getByText('Rules', { exact: true }));
   await page.getByLabel('Season length').focus();
   await page.keyboard.press('Home');
-  await expect(card(page).getByRole('status')).not.toHaveText(/^The challenge is not finished/, {
+  await expect(line(page)).not.toHaveText(/^The challenge is not finished/, {
     timeout: 60_000,
   });
-  const ended = await card(page).getByRole('status').textContent();
+  const ended = await line(page).textContent();
   await share(page);
   const url = await dialog(page).getByLabel('Link to this valley').inputValue();
   const want = await hash(page);
@@ -321,7 +323,7 @@ test('a challenge link opens with the challenge as it ended', async ({ page, con
   const other = await context.newPage();
   await other.goto(url);
   await pausedAt(other, want);
-  await expect(card(other).getByRole('status')).toHaveText(ended ?? '');
+  await expect(line(other)).toHaveText(ended ?? '');
 });
 
 // Fix round 1.

@@ -323,11 +323,13 @@
         loop.stop();
         runner = null;
       }
-      notice = opening
-        ? 'The valley could not open. Go back to the title to try again.'
-        : dead
-          ? 'The valley could not start again. The rules did not change. Go back to the title to try again.'
-          : 'The valley could not start again. The rules did not change.';
+      // "The rules did not change" is true only where a rule change started the run (`undo` is set).
+      const what = opening
+        ? 'The valley could not open.'
+        : undo
+          ? 'The valley could not start again. The rules did not change.'
+          : 'The game could not start this valley.';
+      notice = dead || opening ? `${what} Go back to the title to try again.` : what;
     } else notice = null;
     await tick();
     // A control that lost the focus while it was off gets it back; when it stays off, Back to title gets it.

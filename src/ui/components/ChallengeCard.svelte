@@ -55,7 +55,7 @@
         {#if challenge === 'bell'}
           <button type="button" disabled={!canDance} onclick={onDance}>Start the dance</button>
         {/if}
-        <p role="status">{line}</p>
+        <p>{line}</p>
         <div class="row">
           <button type="button" disabled={locked} onclick={onTryAgain}>Try again</button>
           <button type="button" disabled={locked} onclick={onStop}>Stop the challenge</button>

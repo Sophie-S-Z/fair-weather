@@ -305,7 +305,7 @@ test('a first start that the worker cannot run says so on the start choice', asy
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
   await page.getByRole('button', { name: 'A new valley' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
-    'The valley could not start again. The rules did not change. Go back to the title to try again.',
+    'The game could not start this valley. Go back to the title to try again.',
   );
   await expect(page.getByRole('button', { name: 'A new valley' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
@@ -420,7 +420,7 @@ test('picking winter starts in the season content/sandbox.json gives it, and Sto
   if (!winter) throw new Error('no winter challenge');
   await open(page);
   await card(page).getByRole('button', { name: winter.text }).click();
-  await expect(card(page).getByRole('status')).toHaveText(
+  await expect(card(page).getByText('The challenge is not finished.')).toHaveText(
     `The challenge is not finished. Season: ${winter.start.season}.`,
   );
   await expect.poll(async () => (await run(page))?.lite.season).toBe(winter.start.season);

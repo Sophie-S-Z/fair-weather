@@ -49,7 +49,7 @@
       {#if item.sources.length > 0}
         <ul aria-label="Sources">
           {#each item.sources as source, j (j)}
-            <li><a href={source.url}>{source.label}</a></li>
+            <li><a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></li>
           {/each}
         </ul>
       {/if}

@@ -457,10 +457,11 @@ test('the title opens Where this model is wrong as a page; Back gives focus back
   await expect(page.getByRole('heading', { level: 1, name: 'Where this model is wrong' })).toBeFocused();
   const copycat = page.getByRole('region', { name: 'Copycat does not always win' });
   await expect(copycat).toContainText('"Copycat wins" holds only under some noise levels and payoffs.');
-  // A link opens in the same tab, and its text is its label.
+  // A link opens in a new tab, so the game keeps its place, and its text is its label.
   const link = copycat.getByRole('link', { name: 'The Evolution of Trust, full text' });
   await expect(link).toHaveAttribute('href', 'https://ncase.me/trust/words.html');
-  await expect(link).not.toHaveAttribute('target', /.+/);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   expect(await seriousViolations(page)).toEqual([]);
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();

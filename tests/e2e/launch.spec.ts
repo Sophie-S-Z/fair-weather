@@ -238,6 +238,57 @@ test('in landscape the story strip comes before the tools in the tab order, as i
   await expect(wake).toBeFocused();
 });
 
+/**
+ * The pairs of visible controls that overlap, by name. Each box is cut to the scroll boxes around it,
+ * so a control scrolled out of its box counts only where it shows.
+ */
+const controlClashes = (page: Page) =>
+  page.evaluate(() => {
+    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
+    const shown = (el: Element) => {
+      let r = el.getBoundingClientRect();
+      let { left, top, right, bottom } = r;
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (getComputedStyle(p).overflowY === 'visible') continue;
+        r = p.getBoundingClientRect();
+        left = Math.max(left, r.left);
+        top = Math.max(top, r.top);
+        right = Math.min(right, r.right);
+        bottom = Math.min(bottom, r.bottom);
+      }
+      return { left, top, right, bottom };
+    };
+    const boxes = [...document.querySelectorAll(things)]
+      .filter((el) => el.checkVisibility({ visibilityProperty: true }))
+      .map((el) => ({ el, r: shown(el) }))
+      .filter(({ r }) => r.right - r.left > 1 && r.bottom - r.top > 1);
+    const name = (el: Element) =>
+      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
+    const hit: string[] = [];
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = (boxes[i] as (typeof boxes)[number]).r;
+        const b = (boxes[j] as (typeof boxes)[number]).r;
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 0.5 && h > 0.5)
+          hit.push(
+            `${name((boxes[i] as (typeof boxes)[number]).el)} / ${name((boxes[j] as (typeof boxes)[number]).el)}`,
+          );
+      }
+    return hit;
+  });
+/** The top of the bottom bar, and the bottom of what sits above it: the title, the drawer button, and the Cosmos band. */
+const barAndAbove = (page: Page) =>
+  page.evaluate(() => ({
+    bar: document.querySelector('.bottom')?.getBoundingClientRect().top ?? 0,
+    above: Math.max(
+      ...['.title', '.drawer', '.band'].map(
+        (s) => document.querySelector(s)?.getBoundingClientRect().bottom ?? 0,
+      ),
+    ),
+  }));
+
 test('on a landscape phone with the largest text no control covers another, and the bar is below the top row', async ({
   page,
 }) => {
@@ -245,35 +296,41 @@ test('on a landscape phone with the largest text no control covers another, and 
   await setTextSize(page, '1.5');
   await startChapter2(page);
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-  const clashes = await page.evaluate(() => {
-    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
-    const shown = [...document.querySelectorAll(things)].filter((el) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 1 && r.height > 1 && el.checkVisibility({ visibilityProperty: true });
-    });
-    const name = (el: Element) =>
-      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
-    const hit: string[] = [];
-    for (let i = 0; i < shown.length; i++)
-      for (let j = i + 1; j < shown.length; j++) {
-        const a = (shown[i] as Element).getBoundingClientRect();
-        const b = (shown[j] as Element).getBoundingClientRect();
-        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (w > 0.5 && h > 0.5) hit.push(`${name(shown[i] as Element)} / ${name(shown[j] as Element)}`);
-      }
-    return hit;
-  });
-  expect(clashes).toEqual([]);
-  const rowBottom = await page.evaluate(() =>
-    Math.max(
-      ...[document.querySelector('.title'), document.querySelector('.drawer')].map(
-        (el) => el?.getBoundingClientRect().bottom ?? Infinity,
-      ),
-    ),
-  );
-  const bar = await page.evaluate(() => document.querySelector('.bottom')?.getBoundingClientRect().top ?? 0);
-  expect(bar).toBeGreaterThanOrEqual(rowBottom);
+  expect(await controlClashes(page)).toEqual([]);
+  const { bar, above } = await barAndAbove(page);
+  expect(bar).toBeGreaterThanOrEqual(above);
+});
+
+test('on a landscape phone with the largest text the Cosmos keeps its band clear and every control in reach', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 915, height: 412 });
+  await setTextSize(page, '1.5');
+  await page.goto('/?chapter=9');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const bet = page.getByRole('dialog', { name: 'A bet' });
+  await expect(bet).toBeVisible({ timeout: 20_000 });
+  await bet.getByRole('button').first().click();
+  await expect(bet).toBeHidden({ timeout: 20_000 });
+  await page.getByRole('application', { name: 'The meadow' }).focus();
+  await page.keyboard.press('z');
+  const panel = page.getByRole('region', { name: 'Who is friends with whom' });
+  await expect(panel.getByLabel('Rewind')).toBeAttached();
+  await expect(page.getByText('Village size and trust this chapter')).toBeVisible();
+  expect(await controlClashes(page)).toEqual([]);
+  // The band, where the canvas draws the timeline, stays clear of the bar.
+  const { bar, above } = await barAndAbove(page);
+  expect(bar).toBeGreaterThanOrEqual(above);
+  const controls = [
+    panel.locator('summary'),
+    panel.getByRole('list', { name: 'Creatures here' }),
+    panel.getByLabel('Rewind'),
+    panel.getByRole('button', { name: 'Back to now' }),
+  ];
+  for (const control of controls) {
+    await control.scrollIntoViewIfNeeded();
+    await expect(control).toBeInViewport({ ratio: 0.99 });
+  }
 });
 
 test.describe('on a phone', () => {

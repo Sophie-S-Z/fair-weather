@@ -52,7 +52,7 @@
   import ModelLimits from './ModelLimits.svelte';
   import Journal from './Journal.svelte';
   import HelpSheet from '../components/HelpSheet.svelte';
-  import { PHONE, PORTRAIT, watchMedia } from '../phone.ts';
+  import { PHONE, PORTRAIT, SHORT_LANDSCAPE, watchMedia } from '../phone.ts';
 
   let {
     game,
@@ -203,6 +203,9 @@
   let hudHeight = $state(0);
   /** The viewport is taller than wide: the scene sits between the top row and the bottom bar (ADR 0014 item 15). */
   let portrait = $state(false);
+  /** In portrait and on a short landscape screen the Cosmos panel is part of the bottom bar. */
+  let shortLandscape = $state(false);
+  const panelInBar = $derived(portrait || shortLandscape);
   /** Below 600 pixels wide, where the open drawer is a modal sheet. */
   let phone = $state(false);
   /** The top row (title and drawer button), and the bottom bar without the story lines. */
@@ -754,6 +757,9 @@
       watchMedia(PORTRAIT, (m) => {
         portrait = m;
       }),
+      watchMedia(SHORT_LANDSCAPE, (m) => {
+        shortLandscape = m;
+      }),
       watchMedia(PHONE, (m) => {
         phone = m;
       }),
@@ -1016,12 +1022,13 @@
             </div>
           {/if}
         {/snippet}
-        <!-- In portrait the panel is part of the bottom bar, so no control is over the canvas. -->
-        {#if view === 'cosmos' && seen && ties && chapter && !portrait}
+        <!-- In portrait the panel is part of the bottom bar, so no control is over the canvas; on a short
+             landscape screen too, so it does not run into the tools. -->
+        {#if view === 'cosmos' && seen && ties && chapter && !panelInBar}
           {@render cosmosPanel()}
         {/if}
-        <div class="bottom" inert={sheet} bind:clientHeight={hudHeight}>
-          {#if view === 'cosmos' && seen && ties && chapter && portrait}
+        <div class="bottom" class:under-band={view === 'cosmos'} inert={sheet} bind:clientHeight={hudHeight}>
+          {#if view === 'cosmos' && seen && ties && chapter && panelInBar}
             {@render cosmosPanel()}
           {/if}
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
@@ -1290,29 +1297,41 @@
   }
   /*
    * A short landscape screen, such as a phone on its side: the time controls share a row with the
-   * tools, and the story strip is shorter. The bar ends under the title and the drawer button
-   * (3.25rem tall) and scrolls inside, so it never covers them at any text size. A wheel or a drag
-   * on a control scrolls it; the bar's empty space lets taps through to the scene.
+   * tools, the story strip is shorter, and the Cosmos panel is the bar's first row, with its own cap
+   * and scroll. The bar ends under the title and the drawer button (3.25rem tall), or in the Cosmos
+   * under its band (7.5rem), and scrolls inside, so it never covers them at any text size. A wheel
+   * or a drag on a control scrolls it; the bar's empty space lets taps through to the scene.
    */
   @media (orientation: landscape) and (max-height: 500px) {
     .bottom {
       display: grid;
       grid-template-columns: 1fr auto;
+      grid-auto-flow: row dense;
       align-items: end;
       max-height: calc(100dvh - 3.5rem);
       overflow-y: auto;
     }
+    .bottom.under-band {
+      max-height: calc(100dvh - 7.5rem);
+    }
+    .cosmos,
+    .bottom > :global(.ribbon) {
+      grid-column: 1 / -1;
+      justify-self: center;
+    }
+    .cosmos {
+      position: static;
+      max-width: calc(100% - 1.5rem);
+      max-height: 30vh;
+      overflow-y: auto;
+    }
     .play {
-      grid-area: 1 / 1;
+      grid-column: 1;
     }
     .time {
       position: static;
-      grid-area: 1 / 2;
+      grid-column: 2;
       margin-right: 0.75rem;
-    }
-    .bottom > :global(.ribbon) {
-      grid-area: 2 / 1 / 3 / 3;
-      justify-self: center;
     }
     .play :global(.beat-line) {
       max-height: 4rem;

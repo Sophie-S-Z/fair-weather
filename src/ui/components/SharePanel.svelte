@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { readValleyFile, saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     shared,
@@ -69,6 +70,7 @@
     tabindex="-1"
     bind:this={card}
     onkeydown={onKey}
+    use:trapFocus
   >
     <h2 id="share-title">Share this valley</h2>
     {#if shared.kind === 'link'}
@@ -157,11 +159,13 @@
     margin: 0.5rem 0;
   }
   /* Below 600 pixels the panel is a full-screen sheet (ADR 0014 item 15). */
-  @media (max-width: 600px) {
+  @media (max-width: 599.98px) {
     .card {
       width: 100vw;
       max-height: none;
       height: 100vh;
+      height: 100dvh;
+      border-width: 0;
       border-radius: 0;
     }
   }

@@ -14,6 +14,7 @@ function context(over: Partial<InputContext> = {}) {
   const sel: (string | null)[] = [];
   const zooms: ('in' | 'out')[] = [];
   const whispers: string[] = [];
+  let helps = 0;
   let cursor = { x: 100, y: 100 };
   let paused = 0;
   let tool: Verb | null = null;
@@ -59,6 +60,7 @@ function context(over: Partial<InputContext> = {}) {
     pathFrom: () => pathFrom,
     setPathFrom: (p) => (pathFrom = p),
     openWhisper: (target) => whispers.push(target),
+    help: () => helps++,
     manner: () => ({ reply: 'toward', gift: 'give' }),
     heroKind: () => 'lantern',
     heroBerries: () => 3,
@@ -72,6 +74,7 @@ function context(over: Partial<InputContext> = {}) {
     sel,
     zooms,
     whispers,
+    helps: () => helps,
     cursor: () => cursor,
     paused: () => paused,
     reply: () => reply,
@@ -95,6 +98,27 @@ function setup(over: Partial<InputContext> = {}) {
 }
 
 describe('keyboard', () => {
+  it('? opens the help and does nothing else', () => {
+    const s = setup();
+    const e = s.press('?', { shiftKey: true });
+    expect(s.helps()).toBe(1);
+    expect(e.defaultPrevented).toBe(true);
+    expect(s.acts).toEqual([]);
+    expect(s.sel).toEqual([]);
+    expect(s.zooms).toEqual([]);
+    expect(s.whispers).toEqual([]);
+    expect(s.paused()).toBe(0);
+    expect(s.cursor()).toEqual({ x: 100, y: 100 });
+  });
+  it('? does nothing in a text field, or with Ctrl, Meta, or Alt', () => {
+    const s = setup();
+    for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) s.press('?', { target: { tagName } });
+    s.press('?', { target: { tagName: 'DIV', isContentEditable: true } });
+    s.press('?', { ctrlKey: true });
+    s.press('?', { metaKey: true });
+    s.press('?', { altKey: true });
+    expect(s.helps()).toBe(0);
+  });
   it('Tab cycles in id order skipping away, Shift+Tab reverses; Enter wakes', () => {
     const s = setup();
     s.press('Tab');
@@ -175,9 +199,9 @@ describe('keyboard extras', () => {
       expect(e.defaultPrevented).toBe(false);
     }
   });
-  it('Z X J B ? are unhandled', () => {
+  it('Z X J B are unhandled', () => {
     const s = setup();
-    for (const k of ['z', 'x', 'j', 'b', '?']) {
+    for (const k of ['z', 'x', 'j', 'b']) {
       const e = s.press(k);
       expect(e.defaultPrevented).toBe(false);
     }

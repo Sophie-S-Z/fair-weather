@@ -7,6 +7,7 @@
   import type { JournalEntry } from '../journal-pages.ts';
   import { retryImage } from '../retry-image.ts';
   import { saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     entries,
@@ -88,24 +89,12 @@
     };
   });
 
-  /** Escape closes the dialog; Tab stays inside it. */
+  /** Escape closes the dialog. */
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close();
-    } else if (e.key === 'Tab') {
-      const items = [...(root?.querySelectorAll<HTMLElement>('button, input, a[href]') ?? [])];
-      const first = items[0];
-      const last = items[items.length - 1];
-      const inside = items.some((b) => b === document.activeElement);
-      if (e.shiftKey && (!inside || document.activeElement === first)) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -119,6 +108,7 @@
     tabindex="-1"
     bind:this={root}
     onkeydown={onKey}
+    use:trapFocus
   >
     <h2 id="journal-title" tabindex="-1">Travel journal</h2>
     {#if entries.length === 0}
@@ -255,5 +245,17 @@
   }
   .hint {
     color: var(--muted);
+  }
+
+  /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .card {
+      width: 100vw;
+      max-height: none;
+      height: 100vh;
+      height: 100dvh;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

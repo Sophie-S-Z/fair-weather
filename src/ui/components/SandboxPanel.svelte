@@ -30,11 +30,18 @@
     /** The panel's other controls, under its knobs. */
     children?: Snippet;
   } = $props();
+
+  let panel: HTMLDetailsElement;
+  let summary: HTMLElement;
+  function close(): void {
+    panel.open = false;
+    summary.focus();
+  }
 </script>
 
 <!-- A sandbox panel (spec 12.3): closed at first, so the scene shows. -->
-<details class="panel">
-  <summary>{title}</summary>
+<details class="panel" bind:this={panel}>
+  <summary bind:this={summary}>{title}</summary>
   <div class="body">
     {#each knobs as { knob, index, max, why } (knob.id)}
       <div class="knob">
@@ -80,6 +87,7 @@
         {/each}
       </fieldset>
     {/if}
+    <button type="button" class="close" onclick={close}>Close</button>
   </div>
 </details>
 
@@ -124,6 +132,30 @@
     align-items: center;
     gap: 0.3rem;
     min-height: 1.75rem;
+  }
+  /* Only the phone sheet has a Close button; the summary closes the panel elsewhere. */
+  .close {
+    display: none;
+  }
+  /* Below 600 pixels an open panel is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .panel[open] {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      box-sizing: border-box;
+      overflow-y: auto;
+      border-width: 0;
+      border-radius: 0;
+    }
+    /* Clear of the status line, which stays over the sheet's foot. */
+    .panel[open] .body {
+      padding-bottom: 3.5rem;
+    }
+    .panel[open] .close {
+      display: block;
+      align-self: flex-start;
+    }
   }
   kbd {
     font: inherit;

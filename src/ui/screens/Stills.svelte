@@ -107,4 +107,13 @@
     gap: 0.75rem;
     margin-top: 1.5rem;
   }
+  /* Below 600 pixels the page takes the whole viewport (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    main {
+      box-sizing: border-box;
+      max-width: none;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+  }
 </style>

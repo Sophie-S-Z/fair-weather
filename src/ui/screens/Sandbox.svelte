@@ -47,6 +47,7 @@
     whisperOthers,
   } from '../scene-helpers.ts';
   import type { Settings } from '../settings.ts';
+  import HelpSheet from '../components/HelpSheet.svelte';
 
   let {
     game,
@@ -236,6 +237,19 @@
   /** The open "Where this model is wrong" page, a modal dialog with the sim paused, and the speed it puts back. */
   let limits = $state(false);
   let speedBeforeLimits = 0;
+  /** The open key list (the ? key), a modal dialog with the sim paused, and the speed it puts back. */
+  let help = $state(false);
+  let speedBeforeHelp = 0;
+  function openHelp(): void {
+    if (help || limits || shared !== null || postcard || whisperCard !== null || setup === null) return;
+    speedBeforeHelp = game.currentSpeed();
+    setSpeed(0);
+    help = true;
+  }
+  function closeHelp(): void {
+    help = false;
+    setSpeed(speedBeforeHelp);
+  }
   function openLimits(): void {
     if (limits) return;
     speedBeforeLimits = game.currentSpeed();
@@ -573,6 +587,7 @@
         pathFrom: () => pathFrom,
         setPathFrom: (p) => (pathFrom = p),
         openWhisper,
+        help: openHelp,
         manner: () => ({ reply: 'toward', gift: 'give' }),
         heroKind: () => null,
         heroBerries: () => 0,
@@ -612,7 +627,10 @@
 </script>
 
 <div class="sandbox">
-  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null || postcard || limits}>
+  <div
+    class="layer"
+    inert={whisperCard !== null || setup === null || shared !== null || postcard || limits || help}
+  >
     <!-- The scene is a keyboard surface (spec 12.5), as on the game screen. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -627,7 +645,7 @@
     <p id="sandbox-help" class="sr-only">
       Keys 1 to 8 pick a tool. The arrow keys move the spot, and Tab picks a creature. Enter uses the tool.
       With Paths, Enter sets the start of a path, and Enter again sets its end. Space pauses, and Escape moves
-      to the panels.
+      to the panels. The question mark key lists the keys.
     </p>
     {#if setup}
       <main class="hud">
@@ -790,6 +808,8 @@
     </main>
   {:else if limits}
     <ModelLimits modal onBack={closeLimits} />
+  {:else if help}
+    <HelpSheet screen="sandbox" onClose={closeHelp} />
   {:else if shared}
     <SharePanel
       {shared}

@@ -41,6 +41,8 @@ export type InputContext = {
   setPathFrom: (p: Point | null) => void;
   /** Opens the whisper card for `target`, which sends the whisper. */
   openWhisper: (target: string) => void;
+  /** Opens the help sheet (the ? key), which lists the keys. */
+  help: () => void;
   /** The hero's standing manner (ADR 0013 item 2) that the manner keys change one half of. */
   manner: () => { reply: BidReply; gift: GiftMove };
   /** The player's hero kind, or null without a hero. */
@@ -220,6 +222,9 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
       if (ctx.threadFrom() === null && ctx.pathFrom() === null) return;
       ctx.setThreadFrom(null);
       ctx.setPathFrom(null);
+      k.preventDefault();
+    } else if (key === '?') {
+      ctx.help();
       k.preventDefault();
     } else if (key === ' ') {
       ctx.togglePause();

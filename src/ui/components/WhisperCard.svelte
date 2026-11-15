@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     target,
@@ -39,23 +40,12 @@
     card.querySelector('button')?.focus();
   }
 
-  /** Escape cancels; Tab stays inside the card. */
+  /** Escape cancels. */
   function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       onCancel();
-    } else if (e.key === 'Tab') {
-      const buttons = [...card.querySelectorAll('button')];
-      const first = buttons[0];
-      const last = buttons[buttons.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -70,6 +60,7 @@
     tabindex="-1"
     bind:this={card}
     onkeydown={onKey}
+    use:trapFocus
   >
     <h2 id="whisper-title">Whisper about whom?</h2>
     {#if about === null}

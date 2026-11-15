@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { characters } from '../../story/journey.ts';
   import { saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     onMake,
@@ -71,6 +72,7 @@
     tabindex="-1"
     bind:this={card}
     onkeydown={onKey}
+    use:trapFocus
   >
     <h2 id="postcard-title">Make a postcard</h2>
     <label for="postcard-caption">Caption (at most {CAPTION_LENGTH} characters)</label>
@@ -123,11 +125,13 @@
     border-radius: 0.4rem;
   }
   /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
-  @media (max-width: 600px) {
+  @media (max-width: 599.98px) {
     .card {
       width: 100vw;
       max-height: none;
       height: 100vh;
+      height: 100dvh;
+      border-width: 0;
       border-radius: 0;
     }
   }

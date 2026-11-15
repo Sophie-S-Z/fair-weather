@@ -220,7 +220,14 @@
     margin: 0;
     background: var(--bg);
     color: var(--fg);
-    font-family: system-ui, sans-serif;
+    font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  /* Titles use the face's bold, until the hand-lettered display face arrives (ADR 0014 item 14). */
+  :global(h1, h2, h3, h4) {
+    font-weight: 700;
+  }
+  :global(input, select, textarea) {
+    font-family: inherit;
   }
   :global(button) {
     font: inherit;

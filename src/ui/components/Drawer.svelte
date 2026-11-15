@@ -230,4 +230,15 @@
     padding: 0.1rem 0.5rem 0.1rem 0;
     text-align: left;
   }
+  /* Below 600 pixels the open drawer is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .panel {
+      position: fixed;
+      inset: 0;
+      width: auto;
+      max-height: none;
+      border-width: 0;
+      border-radius: 0;
+    }
+  }
 </style>

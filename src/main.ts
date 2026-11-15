@@ -1,4 +1,6 @@
 // The composition root (ADR 0011): the only file that imports every module.
+import '@fontsource/atkinson-hyperlegible/400.css';
+import '@fontsource/atkinson-hyperlegible/700.css';
 import { Application } from 'pixi.js';
 import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
@@ -958,6 +960,16 @@ const game: GameService = {
     }
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
+    // Pixi resizes with the window only; the phone layout also changes the element (the scene ends above the bottom bar).
+    // Resized in the next frame, as Pixi does, so the observer's own callback changes no layout.
+    let resizeFrame = 0;
+    const resized = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        if (el.clientWidth !== app.screen.width || el.clientHeight !== app.screen.height) app.resize();
+      });
+    });
+    resized.observe(el);
     let scene = firstScene;
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
@@ -1141,6 +1153,8 @@ const game: GameService = {
       destroy() {
         stage.setRecording(false); // the frames go with the stage
         stopCounting();
+        resized.disconnect();
+        cancelAnimationFrame(resizeFrame);
         app.destroy(true, true);
       },
     };

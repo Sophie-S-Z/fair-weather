@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { MODEL_LIMITS } from '../../story/limits.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     modal = false,
@@ -28,25 +29,13 @@
     };
   });
 
-  /** Escape closes the dialog; Tab stays inside it, across its links and its Back button. */
+  /** Escape closes the dialog. */
   function onKey(e: KeyboardEvent): void {
     if (!modal) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       onBack();
-    } else if (e.key === 'Tab') {
-      const stops = [...(root?.querySelectorAll<HTMLElement>('a[href], button') ?? [])];
-      const first = stops[0];
-      const last = stops[stops.length - 1];
-      const inside = stops.some((s) => s === document.activeElement);
-      if (e.shiftKey && (!inside || document.activeElement === first)) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && (!inside || document.activeElement === last)) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -79,6 +68,7 @@
       tabindex="-1"
       bind:this={root}
       onkeydown={onKey}
+      use:trapFocus={modal}
     >
       {@render limits()}
     </div>
@@ -128,5 +118,17 @@
   }
   a {
     color: var(--accent);
+  }
+
+  /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .card {
+      width: 100vw;
+      max-height: none;
+      height: 100vh;
+      height: 100dvh;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

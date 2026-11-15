@@ -5,6 +5,7 @@
   import { displayName } from '../../story/names.ts';
   import { mythBlocks } from '../journal-pages.ts';
   import { saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     pages,
@@ -54,25 +55,13 @@
     };
   });
 
-  /** Escape closes the dialog; Tab stays inside it. */
+  /** Escape closes the dialog. */
   function onKey(e: KeyboardEvent): void {
     if (!modal) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       onBack();
-    } else if (e.key === 'Tab') {
-      const buttons = [...(root?.querySelectorAll('button') ?? [])];
-      const first = buttons[0];
-      const last = buttons[buttons.length - 1];
-      const inButtons = buttons.some((b) => b === document.activeElement);
-      if (e.shiftKey && (!inButtons || document.activeElement === first)) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -123,6 +112,7 @@
       tabindex="-1"
       bind:this={root}
       onkeydown={onKey}
+      use:trapFocus={modal}
     >
       {@render book()}
     </div>
@@ -178,5 +168,17 @@
   }
   .hint {
     color: var(--muted);
+  }
+
+  /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .card {
+      width: 100vw;
+      max-height: none;
+      height: 100vh;
+      height: 100dvh;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

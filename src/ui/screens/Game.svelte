@@ -51,6 +51,7 @@
   import BookOfSkies from './BookOfSkies.svelte';
   import ModelLimits from './ModelLimits.svelte';
   import Journal from './Journal.svelte';
+  import HelpSheet from '../components/HelpSheet.svelte';
 
   let {
     game,
@@ -199,6 +200,22 @@
   /** The pixels the drawer takes from the scene's right edge, and the height of the HUD at the bottom. */
   let inset = $state(0);
   let hudHeight = $state(0);
+  /** The viewport is taller than wide: the scene ends above the bottom bar (ADR 0014 item 15). */
+  let portrait = $state(false);
+  /**
+   * The pixels the scene leaves for the bottom bar. Set in the next frame, so the scene does not
+   * resize inside the callback that measured the bar (the browser reports that as a resize loop).
+   */
+  let sceneBottom = $state(0);
+  $effect(() => {
+    const bottom = portrait ? hudHeight : 0;
+    const frame = requestAnimationFrame(() => {
+      sceneBottom = bottom;
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
   /** The Cosmos timeline band and the empty slot in it where the canvas draws the strip. */
   let bandEl: HTMLElement | undefined = $state();
   let stripEl: HTMLElement | undefined = $state();
@@ -213,6 +230,22 @@
   /** The open "Where this model is wrong" page, a modal dialog with the sim paused, and the speed it puts back. */
   let limits = $state(false);
   let speedBeforeLimits = 0;
+  /** The open key list (the ? key), a modal dialog with the sim paused, and the speed it puts back. */
+  let help = $state(false);
+  let speedBeforeHelp = 0;
+  function openHelp(): void {
+    if (help || limits || book || bookOpening || journal || betRunning || bet || postcard || whisperCard)
+      return;
+    if (!ended) {
+      speedBeforeHelp = game.currentSpeed();
+      setSpeed(0);
+    }
+    help = true;
+  }
+  function closeHelp(): void {
+    help = false;
+    if (!ended) setSpeed(speedBeforeHelp);
+  }
   /**
    * The open travel journal (Part 2), a modal dialog like the Book of Skies: the page to open at,
    * and what to do on close (a valley's end goes on to the next valley).
@@ -346,7 +379,7 @@
    * answer plays, since the pause would take the runner's speed.
    */
   async function openBook(): Promise<void> {
-    if (book || bookOpening || journal || limits || betRunning) return;
+    if (book || bookOpening || journal || limits || help || betRunning) return;
     bookOpening = true;
     if (!ended) {
       speedBeforeBook = game.currentSpeed();
@@ -368,7 +401,7 @@
    */
   function openJournal(at: string | null, after: (() => void) | null = null): void {
     const j = game.journey();
-    if (!j || journal || book || bookOpening || limits || betRunning) {
+    if (!j || journal || book || bookOpening || limits || help || betRunning) {
       after?.();
       return;
     }
@@ -392,7 +425,7 @@
     hasBook = (await game.book()).length > 0;
   }
   function openLimits(): void {
-    if (limits || book || bookOpening || journal || betRunning) return;
+    if (limits || help || book || bookOpening || journal || betRunning) return;
     if (!ended) {
       speedBeforeLimits = game.currentSpeed();
       setSpeed(0);
@@ -460,7 +493,18 @@
   }
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
-    if (!due || !stage || hidden || ended || book || bookOpening || journal || limits || view !== 'meadow')
+    if (
+      !due ||
+      !stage ||
+      hidden ||
+      ended ||
+      book ||
+      bookOpening ||
+      journal ||
+      limits ||
+      help ||
+      view !== 'meadow'
+    )
       return;
     if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
@@ -620,7 +664,7 @@
     inset = sceneEl.getBoundingClientRect().right - drawerEl.getBoundingClientRect().left;
   });
   $effect(() => {
-    stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: hudHeight });
+    stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: portrait ? 0 : hudHeight });
   });
   // The Cosmos draws its timeline strip in the band's slot, and the valley fits below the band.
   $effect(() => {
@@ -687,6 +731,15 @@
       due = true;
     });
     void loadHasBook();
+    const tall = window.matchMedia('(orientation: portrait)');
+    const onTall = (): void => {
+      portrait = tall.matches;
+    };
+    onTall();
+    tall.addEventListener('change', onTall);
+    offs.push(() => {
+      tall.removeEventListener('change', onTall);
+    });
     window.addEventListener('keydown', activity);
     window.addEventListener('pointerdown', activity);
     document.addEventListener('visibilitychange', onVisibility);
@@ -763,6 +816,7 @@
           pathFrom: () => null,
           setPathFrom: () => undefined,
           openWhisper,
+          help: openHelp,
           manner: () => mannerOf(next),
           heroKind: () => next?.hero?.kind ?? null,
           heroBerries: () => heroBerries(next),
@@ -825,7 +879,8 @@
       whisperCard !== null ||
       book !== null ||
       journal !== null ||
-      limits}
+      limits ||
+      help}
   >
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -836,6 +891,7 @@
       aria-describedby="scene-help"
       tabindex="0"
       bind:this={sceneEl}
+      style:bottom="{String(sceneBottom)}px"
       onkeydown={onSceneKey}
     ></div>
     <p id="scene-help" class="sr-only">
@@ -851,7 +907,8 @@
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
         ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
-        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''}
+        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''} The question mark key
+      lists the keys.
     </p>
 
     {#if ended}
@@ -1030,6 +1087,8 @@
     />
   {:else if limits}
     <ModelLimits modal onBack={closeLimits} />
+  {:else if help}
+    <HelpSheet screen="game" onClose={closeHelp} />
   {:else if journal}
     <Journal
       entries={journal.entries}

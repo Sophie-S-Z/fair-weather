@@ -79,8 +79,11 @@ export interface SandboxService {
   status(): Promise<{ unlocked: boolean; kith: boolean; valleys: SandboxValley[]; saved: boolean }>;
   /** Dev only: ?sandbox=new opens the sandbox on a new Kith valley instead of the title. */
   readonly devOpen: boolean;
-  /** The name a valley file saves under (ADR 0014 item 7). */
-  readonly valleyFile: string;
+  /**
+   * The name a valley file saves under (ADR 0014 item 7), and the most bytes of one that the game
+   * reads: a link's longest text and a line end.
+   */
+  readonly valleyFile: { name: string; maxBytes: number };
   /** The scene a valley's sandbox shows, whose bench spots `start` uses. */
   scene(valley: SandboxValley): string;
   /**
@@ -114,24 +117,31 @@ export interface SandboxService {
    */
   pin(tick: number, text: string): void;
   /**
-   * Shares the run now (ADR 0014 item 7). It pauses the run, and the link holds the setup, every
-   * command list accepted before the tick now, and that tick, so it opens to the same world. A link
-   * whose whole URL is too long comes as the text of a valley file; past 100 days (or another limit
-   * of a link) the run cannot be shared. Notes never go in a link. Rejects without a run.
+   * Shares the run now (ADR 0014 item 7). It pauses the run, steps it one tick when a command list
+   * waits at the paused tick, and the link holds the setup, every command list, and the tick, so it
+   * opens to the same world. A link whose whole URL is too long comes as the text of a valley file.
+   * Past 100 days the run cannot be shared (`tooOld`), nor past a link's other limits (`tooBig`).
+   * Notes never go in a link. Rejects without a run.
    */
-  share(): Promise<{ kind: 'link'; url: string } | { kind: 'file'; text: string } | { kind: 'tooOld' }>;
+  share(): Promise<
+    { kind: 'link'; url: string } | { kind: 'file'; text: string } | { kind: 'tooOld' } | { kind: 'tooBig' }
+  >;
   /**
    * Opens a link's or a valley file's `v1.<data>` text as a new run, paused at the link's tick, as
    * `start` does (it resolves at the run's first snapshot). Null, and the run before goes on, for an
    * old or broken link. A link at tick 0 opens at tick 1, since the first snapshot comes after a step.
    */
   open(text: string): Promise<SandboxRunner | null>;
-  /** Opens the sandbox save's link with its notes, as `open` does; null without a save. */
+  /**
+   * Opens the sandbox save's link with its notes, as `open` does; null without a save. A save that
+   * no longer opens is dropped, so it is not offered again.
+   */
   openSaved(): Promise<SandboxRunner | null>;
   /**
    * Keeps the run now as the sandbox save (its link and notes) when the player acted (a command or
    * a start from the run, such as a rule change) since the start choice or an open, then stops the
-   * run. A run that cannot be a link keeps the save as it was.
+   * run. A run that cannot be a link keeps the save as it was. A tab that goes hidden keeps the
+   * save in the same way.
    */
   leave(): Promise<void>;
   /** Stops the run. */

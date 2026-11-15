@@ -16,7 +16,18 @@ export function saveFile(blob: Blob, name: string): void {
   }, 0);
 }
 
-/** The `v1.<data>` text of a valley file: its line, trimmed and nothing else. */
-export async function readValleyFile(file: File): Promise<string> {
-  return (await file.text()).trim();
+/**
+ * The `v1.<data>` text of the valley file picked in `input`: its line, trimmed and nothing else;
+ * null when no file is picked. A file over `maxBytes`, which no link is, gives '' unread, and so
+ * does a file that cannot be read: no link decodes from ''.
+ */
+export async function readValleyFile(input: HTMLInputElement, maxBytes: number): Promise<string | null> {
+  const file = input.files?.[0];
+  if (!file) return null;
+  if (file.size > maxBytes) return '';
+  try {
+    return (await file.text()).trim();
+  } catch {
+    return '';
+  }
 }

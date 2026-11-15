@@ -52,6 +52,8 @@ export interface Profile {
   sandbox(): Promise<SandboxSave | null>;
   /** Keeps the sandbox, cutting each note to NOTE_LENGTH characters. */
   keepSandbox(save: SandboxSave): Promise<void>;
+  /** Forgets the kept sandbox: one that no longer opens (an older build's) is not offered again. */
+  dropSandbox(): Promise<void>;
 }
 
 const KEY = 'profile';
@@ -203,6 +205,11 @@ export async function createProfile(
       const kept = SandboxSchema.parse(save); // a bad link or tick is a caller bug: throw
       await write((d) => {
         d.sandbox = kept;
+      });
+    },
+    async dropSandbox() {
+      await write((d) => {
+        d.sandbox = null;
       });
     },
   };

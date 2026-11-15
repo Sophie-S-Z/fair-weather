@@ -30,6 +30,20 @@ const structures = (page: Page) =>
   );
 const running = (page: Page) =>
   page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox() !== null);
+/** The sandbox save the profile holds, or null. */
+const storedSandbox = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<unknown>((resolve) => {
+        const req = indexedDB.open('fair-weather', 1);
+        req.onsuccess = () => {
+          const get = req.result.transaction('saves').objectStore('saves').get('profile');
+          get.onsuccess = () => {
+            resolve((get.result as { sandbox?: unknown } | undefined)?.sandbox ?? null);
+          };
+        };
+      }),
+  );
 const heading = (page: Page) => page.getByRole('heading', { name: 'Sandbox: A new valley' });
 const scene = (page: Page) => page.getByRole('application', { name: 'The sandbox valley' });
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Share this valley' });
@@ -300,4 +314,136 @@ test('a challenge link opens with the challenge as it ended', async ({ page, con
   await other.goto(url);
   await pausedAt(other, want);
   await expect(card(other).getByRole('status')).toHaveText(ended ?? '');
+});
+
+// Fix round 1.
+
+test('a bench placed while paused is in the link: Share steps the run one tick first', async ({
+  page,
+  context,
+}) => {
+  await openNew(page);
+  await pauseNow(page);
+  const paused = await hash(page);
+  await scene(page).focus();
+  await page.keyboard.press('1');
+  await page.keyboard.press('Enter');
+  await share(page);
+  const url = await dialog(page).getByLabel('Link to this valley').inputValue();
+  const want = await hash(page);
+  expect(want.tick).toBe(paused.tick + 1);
+  expect(await structures(page)).toEqual(['bench']);
+  const other = await context.newPage();
+  await other.goto(url);
+  await pausedAt(other, want);
+  expect(await structures(other)).toEqual(['bench']);
+});
+
+test('an opened Bell link keeps its dance: Start the dance stays off', async ({ page, context }) => {
+  const card = (p: Page) => p.getByRole('region', { name: 'Challenges' });
+  await openNew(page);
+  await card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }).click();
+  await card(page).getByRole('button', { name: 'Start the dance' }).click();
+  await expect(card(page).getByRole('button', { name: 'Start the dance' })).toBeDisabled();
+  await share(page);
+  const url = await dialog(page).getByLabel('Link to this valley').inputValue();
+  const other = await context.newPage();
+  await other.goto(url);
+  await expect(card(other).getByRole('button', { name: 'Try again' })).toBeVisible();
+  await expect(card(other).getByRole('button', { name: 'Start the dance' })).toBeDisabled();
+});
+
+test('Share is off while the strip is rewound, and says why', async ({ page }) => {
+  await openNew(page, '&fast=10');
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox()?.lite.day ?? 0),
+      {
+        timeout: 30_000,
+      },
+    )
+    .toBeGreaterThan(0);
+  const button = page.getByRole('button', { name: 'Share this valley' });
+  await expect(button).toBeEnabled();
+  const range = page.getByRole('region', { name: 'Timeline' }).getByLabel('Rewind');
+  await range.focus();
+  await page.keyboard.press('Home');
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveAccessibleDescription('Go back to now to share this valley.');
+  await page.getByRole('region', { name: 'Timeline' }).getByRole('button', { name: 'Back to now' }).click();
+  await expect(button).toBeEnabled();
+});
+
+test('the valley is kept when the tab is hidden after the player acted', async ({ page }) => {
+  await openNew(page);
+  await keepProfile(page, []);
+  const want = await placeBench(page);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => storedSandbox(page)).not.toBeNull();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await pausedAt(page, want);
+});
+
+test('a last valley that no longer opens shows the lost page once, and is not offered again', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await keepProfile(page, []);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('fair-weather', 1);
+        req.onsuccess = () => {
+          const store = req.result.transaction('saves', 'readwrite').objectStore('saves');
+          const get = store.get('profile');
+          get.onsuccess = () => {
+            const put = store.put({ ...get.result, sandbox: { link: 'v1.AAAA', notes: [] } }, 'profile');
+            put.onsuccess = () => {
+              resolve();
+            };
+          };
+        };
+        req.onerror = () => {
+          reject(req.error ?? new Error('open failed'));
+        };
+      }),
+  );
+  await page.reload();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await expect(page.getByRole('heading', { name: 'This valley could not be found' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start fresh' }).click();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await expect(page.getByRole('button', { name: 'A new valley' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Go on with your last valley' })).toHaveCount(0);
+});
+
+test('a link says it is opening, and a worker that cannot run says the valley could not open', async ({
+  page,
+  context,
+}) => {
+  const { url } = await theirLink(context);
+  // A slow worker: the link waits for it, and says so.
+  await page.route('**/src/sim-host/worker.ts*', async (route) => {
+    await new Promise((r) => setTimeout(r, 3000));
+    await route.continue();
+  });
+  await page.goto(url);
+  await expect(page.getByRole('status').filter({ hasText: 'Opening' })).toHaveText('Opening the valley.');
+  await expect(heading(page)).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Opening' })).toHaveCount(0);
+  // No worker at all: the open fails, and the line says so.
+  await page.unroute('**/src/sim-host/worker.ts*');
+  await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
+  await page.goto('/');
+  await page.goto(url);
+  await expect(page.getByRole('status').filter({ hasText: 'could not open' })).toHaveText(
+    'The valley could not open. Go back to the title to try again.',
+  );
 });

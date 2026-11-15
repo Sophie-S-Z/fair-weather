@@ -348,3 +348,58 @@ test("the setup's bushes start empty, as a placed bush does", () => {
   const s = build({ bushes: [{ id: 'bush-3', x: 700, y: 300 }] });
   expect(s.bushes).toEqual([...m0Json.bushes, { id: 'bush-3', x: 700, y: 300, berries: 0 }]);
 });
+
+test('a runner that reads a Bell script with two bridges and the dance places no more bridges and does not dance again', () => {
+  const bell = setup({ challenge: 'bell' });
+  const water = [{ x: 780, y: 0, w: 60, h: 900 }];
+  const bridge = { t: 'place', kind: 'bridge', x: 810, y: 300 } as const;
+  const fresh = runnerWith(bell, water);
+  fresh.runner.setPlaceKind('bridge');
+  expect(fresh.runner.danced()).toBe(false);
+  expect(fresh.runner.verb({ verb: 'place', x: 810, y: 600 })).toBe(true);
+
+  const opened = runnerWith(bell, water);
+  opened.runner.forwarded(
+    [],
+    [
+      { tick: 5, list: [bridge] },
+      {
+        tick: 9,
+        list: [
+          { ...bridge, y: 600 },
+          { t: 'dance', who: 'pim' },
+        ],
+      },
+    ],
+  );
+  opened.runner.setPlaceKind('bridge');
+  expect(opened.runner.danced()).toBe(true);
+  expect(opened.runner.verb({ verb: 'place', x: 810, y: 450 })).toBe(false);
+  expect(opened.runner.startDance()).toBe(false);
+  expect(opened.sent).toEqual([]);
+});
+
+test('a runner that reads a script counts its structures and bushes toward MAX_ENTRIES', () => {
+  const many = Array.from({ length: MAX_ENTRIES - 1 }, (_, i) => ({
+    id: `bench-${String(i + 1)}`,
+    x: 10,
+    y: 10,
+  }));
+  const { runner } = runnerWith(
+    setup({
+      structures: many.map((b) => ({ ...b, kind: 'bench' as const })),
+      bushes: many.map((b) => ({ ...b, id: b.id.replace('bench', 'bush') })),
+    }),
+    [],
+  );
+  runner.forwarded(
+    [],
+    [
+      { tick: 3, list: [{ t: 'path', x: 50, y: 50, x2: 500, y2: 50 }] },
+      { tick: 4, list: [{ t: 'place', kind: 'bush', x: 60, y: 60 }] },
+    ],
+  );
+  expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+  runner.setPlaceKind('bush');
+  expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+});

@@ -454,10 +454,14 @@ export interface SandboxRunner {
   /** Called when the challenge passes or fails. */
   onChallenge(cb: (s: ChallengeState) => void): () => void;
   /**
-   * Reads the steps of a reported fast-forward (an opened seed link, ADR 0014 item 7) as live
-   * steps, in order, so the challenge check sees them. Call it before the next live snapshot.
+   * Reads an opened seed link's replay (ADR 0014 item 7): the `script` the worker ran without the
+   * runner counts toward the bridge limit, the dance, and MAX_ENTRIES as the runner's own sends do,
+   * and the steps of a reported fast-forward go to the challenge check as live steps, in order.
+   * Call it before the next live snapshot.
    */
-  forwarded(steps: readonly ForwardStep[]): void;
+  forwarded(steps: readonly ForwardStep[], script: readonly { tick: number; list: Command[] }[]): void;
+  /** Whether Pim's dance was sent in this run, by the runner or in an opened link's script. */
+  danced(): boolean;
   /**
    * The Bell challenge's "Start the dance" (ADR 0014 item 6): sends Pim's dance as a player
    * command, once per run. False in another challenge, before the first snapshot, after dispose,
@@ -494,6 +498,13 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
     const seen = events;
     events = [];
     judge(lite, seen);
+  };
+  /** Counts a sent command toward the bridge limit, the dance, and MAX_ENTRIES. */
+  const count = (cmd: Command): void => {
+    if (cmd.t === 'dance') danced = true;
+    if (cmd.t === 'place' && cmd.kind === 'bridge') bridges += 1;
+    if (cmd.t === 'place' && cmd.kind === 'bush') bushes += 1;
+    else if (cmd.t === 'path' || cmd.t === 'place') structures += 1;
   };
   const off = port.onMessage((m) => {
     if (m.t === 'events') events = m.list;
@@ -532,9 +543,7 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       const structure = cmd.t === 'path' || (cmd.t === 'place' && !bush);
       if ((bush && bushes >= MAX_ENTRIES) || (structure && structures >= MAX_ENTRIES)) return false;
       port.send([cmd]);
-      if (bridge) bridges += 1;
-      if (bush) bushes += 1;
-      if (structure) structures += 1;
+      count(cmd);
       return true;
     },
     setPlaceKind(kind) {
@@ -545,7 +554,8 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
       challengeListeners.add(cb);
       return () => challengeListeners.delete(cb);
     },
-    forwarded(steps) {
+    forwarded(steps, script) {
+      for (const e of script) for (const cmd of e.list) count(cmd);
       // A step without a world reads the last one: the season is the same until a step with a
       // world, and the check reads the creatures only when the season turns.
       let last: WorldLite | null = null;
@@ -554,10 +564,12 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
         if (last) judge(last, s.events);
       }
     },
+    danced: () => danced,
     startDance() {
       if (!ready || danced || setup.challenge !== 'bell') return false;
-      danced = true;
-      port.send([{ t: 'dance', who: 'pim' }]);
+      const cmd: Command = { t: 'dance', who: 'pim' };
+      port.send([cmd]);
+      count(cmd);
       return true;
     },
     dispose() {

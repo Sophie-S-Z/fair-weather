@@ -227,6 +227,17 @@ test('keepSandbox keeps the link and the notes, cutting each note to 80 characte
   expect(characters(kept?.notes[1]?.text ?? '')).toHaveLength(80);
 });
 
+test('dropSandbox forgets the kept sandbox and leaves the rest of the profile', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  await profile.addFeather();
+  await profile.keepSandbox({ link: 'v1.abc', notes: [] });
+  await profile.dropSandbox();
+  const again = await createProfile(factory);
+  expect(await again.sandbox()).toBeNull();
+  expect(await again.feathers()).toBe(1);
+});
+
 test('cutNote keeps 80 characters and cuts between graphemes, never inside one', () => {
   const family = '👩‍👩‍👧'; // one character, five code points
   const text = `${'a'.repeat(79)}${family}${family}b`;

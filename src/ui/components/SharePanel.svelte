@@ -4,14 +4,18 @@
 
   let {
     shared,
-    fileName,
+    valleyFile,
     onOpen,
     onClose,
   }: {
     /** What Share gave (ADR 0014 item 7): a link, the text of a valley file, or a run too long for either. */
-    shared: { kind: 'link'; url: string } | { kind: 'file'; text: string } | { kind: 'tooOld' };
-    /** The name a valley file saves under. */
-    fileName: string;
+    shared:
+      | { kind: 'link'; url: string }
+      | { kind: 'file'; text: string }
+      | { kind: 'tooOld' }
+      | { kind: 'tooBig' };
+    /** The name a valley file saves under, and the most bytes of one that the game reads. */
+    valleyFile: { name: string; maxBytes: number };
     /** Opens the `v1.<data>` text of a valley file the player picked. */
     onOpen: (text: string) => void;
     onClose: () => void;
@@ -43,8 +47,8 @@
   }
 
   async function pick(e: Event & { currentTarget: HTMLInputElement }): Promise<void> {
-    const file = e.currentTarget.files?.[0];
-    if (file) onOpen(await readValleyFile(file));
+    const text = await readValleyFile(e.currentTarget, valleyFile.maxBytes);
+    if (text !== null) onOpen(text);
   }
 
   function onKey(e: KeyboardEvent): void {
@@ -92,11 +96,13 @@
       <button
         type="button"
         onclick={() => {
-          saveFile(new Blob([`${text}\n`], { type: 'application/octet-stream' }), fileName);
+          saveFile(new Blob([`${text}\n`], { type: 'application/octet-stream' }), valleyFile.name);
         }}>Save the file</button
       >
-    {:else}
+    {:else if shared.kind === 'tooOld'}
       <p>A link can hold at most 100 days. Start the valley again to share it.</p>
+    {:else}
+      <p>This valley holds too many changes for a link. Start the valley again to share it.</p>
     {/if}
     <div class="open">
       <label for="share-open">Open a valley file</label>

@@ -53,6 +53,7 @@ import type { SaveV3 } from './persist/format.ts';
 import { createProfile, cutNote } from './persist/profile.ts';
 import {
   LINK_CHARS,
+  MAX_LINK_TEXT,
   MAX_LINK_TICKS,
   VALLEY_FILE,
   decodeLink,
@@ -503,17 +504,18 @@ const sandboxStart = (setup: SandboxSetup): Scenario =>
 let sandboxActed = false;
 /**
  * Starts a sandbox run of `setup` from `scenario`, and resolves with its runner at the run's first
- * snapshot. `go` sets the run going once the worker has the run's init; `fail` ends the start as a
+ * snapshot. `acted` is whether the player acted by starting it (sandboxActed). `go` sets the run going once the worker has the run's init; `fail` ends the start as a
  * failure in the worker.
  */
 function beginSandbox(
   setup: SandboxSetup,
   scenario: Scenario,
+  acted: boolean,
   go: (runner: SandboxRunner, fail: (why: string) => void) => void,
 ): Promise<SandboxRunner> {
   return new Promise((resolve, reject) => {
     workerFailed = false;
-    sandboxActed = sandboxRun !== null;
+    sandboxActed = acted;
     const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
     const made = new Set(
       [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
@@ -569,30 +571,51 @@ function beginSandbox(
 const devLinkChars = Number(params.get('linkChars'));
 const linkChars = import.meta.env.DEV && devLinkChars > 0 ? Math.min(devLinkChars, LINK_CHARS) : LINK_CHARS;
 /**
- * Pauses the sandbox run and gives its link now (ADR 0014 item 7), or null when the run cannot be
- * a link (past 100 days, or past a link's other limits). The tick is the worker's, after the
- * pause; a list accepted at that tick has not run yet, so the link leaves it out.
+ * Pauses the sandbox run (unless `pause` is false: the hidden tab has paused it) and gives its link
+ * now (ADR 0014 item 7): its text, or `tooOld` past 100 days, or `tooBig` past a link's other
+ * limits. The tick is the worker's, after the pause. A list accepted at that tick has not run yet,
+ * so the run first steps one tick, and the link keeps everything the player did.
  */
-async function sandboxLink(): Promise<string | null> {
+async function sandboxLink(
+  pause = true,
+): Promise<{ kind: 'link'; text: string } | { kind: 'tooOld' } | { kind: 'tooBig' }> {
   const run = sandboxRun;
   if (!run) throw new Error('No sandbox run to share');
-  speedControl.player(0);
-  const { tick } = await host.requestHash();
-  if (sandboxRun !== run) throw new Error('The sandbox run changed while it was shared');
-  if (tick > MAX_LINK_TICKS) return null;
+  if (pause) speedControl.player(0);
+  const now = async (): Promise<number> => {
+    const { tick } = await host.requestHash();
+    if (sandboxRun !== run) throw new Error('The sandbox run changed while it was shared');
+    return tick;
+  };
+  let tick = await now();
+  if (host.log().some((e) => e.tick >= tick)) {
+    host.post({ t: 'advance', ticks: 1 });
+    tick = await now();
+  }
+  if (tick > MAX_LINK_TICKS) return { kind: 'tooOld' };
   const script = host.log().filter((e) => e.tick < tick);
   try {
-    return await encodeLink({ v: 1, tuning: tuningHash, setup: run.runner.setup, script, tick });
+    const text = await encodeLink({ v: 1, tuning: tuningHash, setup: run.runner.setup, script, tick });
+    return { kind: 'link', text };
   } catch {
-    return null; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
+    return { kind: 'tooBig' }; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
   }
 }
 /** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
-async function keepSandboxRun(): Promise<void> {
+async function keepSandboxRun(pause = true): Promise<void> {
   const notes = sandboxRun?.notes ?? [];
-  const link = await sandboxLink();
-  if (link !== null) await (await profileReady).keepSandbox({ link, notes: notes.map((n) => ({ ...n })) });
+  const link = await sandboxLink(pause);
+  if (link.kind === 'link')
+    await (await profileReady).keepSandbox({ link: link.text, notes: notes.map((n) => ({ ...n })) });
 }
+// A tab that goes hidden may never come back (the player closes it): keep the run the player
+// acted in. The hidden tab has already paused the sim.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && sandboxRun && sandboxActed)
+    keepSandboxRun(false).catch((e: unknown) => {
+      console.error(e); // the save stays as it was
+    });
+});
 /**
  * Opens a link's `v1.<data>` text with `notes` as a new run (ADR 0014 item 7), or null for an old
  * or broken link, a setup that cannot be built included. The worker runs the script in one
@@ -609,15 +632,18 @@ async function openSandbox(text: string, notes: readonly { tick: number; text: s
     return null;
   }
   // The player's own run, when they acted in it, is their save before the link replaces it.
-  if (sandboxRun && sandboxActed) await keepSandboxRun().catch(() => undefined);
+  if (sandboxRun && sandboxActed)
+    await keepSandboxRun().catch((e: unknown) => {
+      console.error(e); // the save stays as it was, and the link opens
+    });
   const before = Math.max(link.tick - 1, 0);
-  const runner = await beginSandbox(link.setup, scenario, (r, fail) => {
+  const runner = await beginSandbox(link.setup, scenario, false, (r, fail) => {
     speedControl.runner(0);
     // A challenge's check reads the forward's steps (its events and season turns).
     host.fastForward(before, link.script, link.setup.challenge !== null).then(
       ({ steps }) => {
         if (sandboxRun?.runner !== r) return;
-        r.forwarded(steps ?? []);
+        r.forwarded(steps ?? [], link.script);
         for (const e of link.script) if (e.tick >= before) host.send(e.list);
         host.post({ t: 'advance', ticks: 1 });
       },
@@ -627,7 +653,6 @@ async function openSandbox(text: string, notes: readonly { tick: number; text: s
       },
     );
   });
-  sandboxActed = false;
   if (sandboxRun?.runner === runner) sandboxRun.notes = notes.map((n) => ({ ...n }));
   return runner;
 }
@@ -646,7 +671,7 @@ const game: GameService = {
       return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished, saved: save !== null };
     },
     devOpen: import.meta.env.DEV && params.get('sandbox') === 'new',
-    valleyFile: VALLEY_FILE,
+    valleyFile: { name: VALLEY_FILE, maxBytes: MAX_LINK_TEXT + 2 },
     scene: (valley) => SANDBOX_SCENES[valley],
     async newSetup(valley, fromKith) {
       const kith = fromKith && valley === 'kith' ? await (await profileReady).kith() : null;
@@ -670,7 +695,8 @@ const game: GameService = {
       } catch (e) {
         return Promise.reject(e instanceof Error ? e : new Error(String(e)));
       }
-      return beginSandbox(setup, scenario, () => {
+      // A start from a run (a rule change, a challenge) is the player's act.
+      return beginSandbox(setup, scenario, sandboxRun !== null, () => {
         // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
         speedControl.runner(1);
         speedControl.player(1);
@@ -702,15 +728,19 @@ const game: GameService = {
     },
     async share() {
       const link = await sandboxLink();
-      if (link === null) return { kind: 'tooOld' };
+      if (link.kind !== 'link') return link;
       // The page's own address with no query: a dev query is not part of the valley.
-      const url = `${location.origin}${location.pathname}#${link}`;
-      return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link };
+      const url = `${location.origin}${location.pathname}#${link.text}`;
+      return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link.text };
     },
     open: (text) => openSandbox(text, []),
     async openSaved() {
-      const save = await (await profileReady).sandbox();
-      return save ? openSandbox(save.link, save.notes) : null;
+      const profile = await profileReady;
+      const save = await profile.sandbox();
+      const runner = save ? await openSandbox(save.link, save.notes) : null;
+      // A save that no longer opens (an older build's) is not offered again.
+      if (!runner) await profile.dropSandbox();
+      return runner;
     },
     async leave() {
       try {

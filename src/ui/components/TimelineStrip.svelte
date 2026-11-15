@@ -97,7 +97,8 @@
           type="button"
           disabled={rewind.disabled}
           onclick={() => {
-            onRewind(note.tick);
+            // A note from before the strip's first tick (a saved valley, opened again) goes to that tick.
+            onRewind(Math.max(note.tick, first));
           }}>Note on day {dayOf(note.tick)}: {note.text}</button
         >
       </li>

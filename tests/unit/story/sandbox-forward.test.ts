@@ -8,10 +8,11 @@ import fenJson from '../../../content/scenarios/fen.json';
 import hollowJson from '../../../content/scenarios/hollow.json';
 import halcyonJson from '../../../content/scenarios/halcyon.json';
 import tuningJson from '../../../content/tuning.json';
-import type { FromWorker, SimPort, ToWorker } from '../../../src/sim-host/protocol.ts';
+import type { FromWorker, SimPort, ToWorker, WorldLite } from '../../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
 import type { Scenario } from '../../../src/sim/types.ts';
 import type { ChallengeId } from '../../../src/story/challenges.ts';
+import { feedsTheValley } from '../../golden/sandbox-players.ts';
 import {
   DEFAULT_SWITCHES,
   createSandboxRunner,
@@ -27,6 +28,22 @@ const BASES = {
   halcyon: halcyonJson as Scenario,
 };
 const NO_CLOCK = { now: () => 0, every: () => () => undefined };
+type Run = ReturnType<typeof runOn>;
+/** The steps of the reported forward `run` got last. */
+const stepsOf = (run: Run) => {
+  const m = run.got.findLast((x) => x.t === 'forwarded');
+  return m?.t === 'forwarded' ? (m.steps ?? []) : [];
+};
+/** Steps `run` one tick at a time, at most `most` ticks, until its challenge ends; gives the ticks. */
+function untilEnd(run: Run, most: number, each?: (tick: number) => void): number {
+  let ticks = 0;
+  while (run.runner.challenge() === 'open' && ticks < most) {
+    run.send({ t: 'advance', ticks: 1 });
+    ticks += 1;
+    each?.(ticks);
+  }
+  return ticks;
+}
 
 /** A challenge on a new Kith of seed 1, with the shortest seasons (two days), so it ends soon. */
 const setup = (challenge: ChallengeId): SandboxSetup => ({
@@ -81,7 +98,7 @@ for (const challenge of ['winter', 'bell', 'krit'] as const) {
     const opened = runOn(setup(challenge));
     opened.send({ t: 'fastForward', ticks: ticks + 200, id: 1, report: true });
     const forwarded = opened.got.find((m) => m.t === 'forwarded');
-    opened.runner.forwarded(forwarded?.t === 'forwarded' ? (forwarded.steps ?? []) : []);
+    opened.runner.forwarded(forwarded?.t === 'forwarded' ? (forwarded.steps ?? []) : [], []);
     opened.send({ t: 'advance', ticks: 1 });
     expect(opened.runner.challenge()).toBe(want);
   });
@@ -92,7 +109,43 @@ test('a run without a challenge reads forwarded steps and stays without one', ()
   const opened = runOn(s);
   opened.send({ t: 'fastForward', ticks: 900, id: 1, report: true });
   const forwarded = opened.got.find((m) => m.t === 'forwarded');
-  opened.runner.forwarded(forwarded?.t === 'forwarded' ? (forwarded.steps ?? []) : []);
+  opened.runner.forwarded(forwarded?.t === 'forwarded' ? (forwarded.steps ?? []) : [], []);
   opened.send({ t: 'advance', ticks: 1 });
   expect(opened.runner.challenge()).toBeNull();
+});
+
+for (const challenge of ['winter', 'bell', 'krit'] as const) {
+  test(`a ${challenge} run forwarded a day short of its end, then stepped live, ends at the same tick`, () => {
+    const live = runOn(setup(challenge));
+    const ticks = untilEnd(live, 4000);
+    const want = live.runner.challenge();
+
+    const opened = runOn(setup(challenge));
+    const forward = ticks - 400;
+    opened.send({ t: 'fastForward', ticks: forward, id: 1, report: true });
+    opened.runner.forwarded(stepsOf(opened), []);
+    expect(opened.runner.challenge()).toBe('open');
+    expect(forward + untilEnd(opened, 4000)).toBe(ticks);
+    expect(opened.runner.challenge()).toBe(want);
+  });
+}
+
+test('a winter run that the scripted player passes, forwarded with its script, has passed too', () => {
+  const live = runOn(setup('winter'));
+  const player = feedsTheValley();
+  let last: WorldLite | undefined;
+  const ticks = untilEnd(live, 4000, (tick) => {
+    const snap = live.got.findLast((m) => m.t === 'snapshot');
+    last = snap?.t === 'snapshot' ? snap.lite : last;
+    if (last) player.onTick?.(tick, live.runner, last);
+  });
+  expect(live.runner.challenge()).toBe('passed');
+  const script = live.got.flatMap((m) => (m.t === 'accepted' ? [{ tick: m.tick, list: m.list }] : []));
+  expect(script.length).toBeGreaterThan(0);
+
+  const opened = runOn(setup('winter'));
+  opened.send({ t: 'fastForward', ticks: ticks + 200, id: 1, script, report: true });
+  opened.runner.forwarded(stepsOf(opened), script);
+  opened.send({ t: 'advance', ticks: 1 });
+  expect(opened.runner.challenge()).toBe('passed');
 });

@@ -238,16 +238,17 @@
    * Starts a run with `begin` (a start of a setup from day 0, or an open of a link); the run before
    * stops once it has started. When the start fails, `undo` puts the control back to the setup's
    * value, and the status region says so. `from` is the control that asked, which gets the focus
-   * back if it lost it while it was off. An open that gives null (an old or broken link) shows the
-   * lost-valley page.
+   * back if it lost it while it was off. `opening` is an open of a link, which the status region
+   * says while it waits; one that gives null (an old or broken link) shows the lost-valley page.
    */
   async function run(
     begin: () => Promise<SandboxRunner | null>,
     undo?: () => void,
     from?: HTMLElement,
+    opening = false,
   ): Promise<void> {
     const token = (runs += 1);
-    notice = null;
+    notice = opening ? 'Opening the valley.' : null;
     starting = true;
     let r: SandboxRunner | null = null;
     let lost = false;
@@ -274,10 +275,12 @@
         loop.stop();
         runner = null;
       }
-      notice = dead
-        ? 'The valley could not start again. The rules did not change. Go back to the title to try again.'
-        : 'The valley could not start again. The rules did not change.';
-    }
+      notice = opening
+        ? 'The valley could not open. Go back to the title to try again.'
+        : dead
+          ? 'The valley could not start again. The rules did not change. Go back to the title to try again.'
+          : 'The valley could not start again. The rules did not change.';
+    } else notice = null;
     await tick();
     // A control that lost the focus while it was off gets it back; when it stays off, Back to title gets it.
     if (document.activeElement === document.body)
@@ -295,7 +298,8 @@
     notes = game.sandbox.notes();
     challengeState = r.challenge();
     r.onChallenge((st) => (challengeState = st));
-    danced = false;
+    // An opened Bell link may have danced already.
+    danced = r.danced();
     started += 1;
     runner = r;
     setup = s;
@@ -368,19 +372,21 @@
   /** Opens a valley file's text (ADR 0014 item 7), from the start choice or the Share panel. */
   function openText(text: string): void {
     shared = null;
-    void stageReady?.then(() => enter(() => game.sandbox.open(text)));
+    void stageReady?.then(() => enter(() => game.sandbox.open(text), true));
   }
   async function openFile(e: Event & { currentTarget: HTMLInputElement }): Promise<void> {
-    const file = e.currentTarget.files?.[0];
-    if (file) openText(await readValleyFile(file));
+    const text = await readValleyFile(e.currentTarget, game.sandbox.valleyFile.maxBytes);
+    if (text !== null) openText(text);
   }
   /**
-   * Starts the run of `begin` with the gate's lamp lit, then gives the focus to the scene, or after
-   * a failed start to the start choice.
+   * Starts the run of `begin` (an open of a link when `opening`) with the gate's lamp lit, then
+   * gives the focus to the scene, or after a failed start to the start choice. A valley from the
+   * start choice or a link has no setup from before a challenge pick.
    */
-  async function enter(begin: () => Promise<SandboxRunner | null>): Promise<void> {
+  async function enter(begin: () => Promise<SandboxRunner | null>, opening = false): Promise<void> {
     stage?.setGateLamp(true);
-    await run(begin);
+    beforeChallenge = null;
+    await run(begin, undefined, undefined, opening);
     await tick();
     // After a failed start the choice stays, with its enabled buttons (Back to title at least).
     if (setup) sceneEl.focus();
@@ -566,7 +572,7 @@
     const opening = untrack(() => link);
     if (opening !== null)
       void stageReady.then(async () => {
-        await enter(() => game.sandbox.open(opening));
+        await enter(() => game.sandbox.open(opening), true);
         // A reload does not open the link again (ADR 0014 item 7).
         history.replaceState(history.state, '', location.pathname + location.search);
       });
@@ -606,7 +612,15 @@
         <div class="top">
           <h1 class="title">Sandbox: {valleyName}</h1>
           <div class="actions">
-            <button type="button" disabled={locked} onclick={() => void share()}>Share this valley</button>
+            <button
+              type="button"
+              disabled={locked || rw.at !== null}
+              aria-describedby={rw.at === null ? undefined : 'share-why'}
+              onclick={() => void share()}>Share this valley</button
+            >
+            {#if rw.at !== null}
+              <p id="share-why" class="why">Go back to now to share this valley.</p>
+            {/if}
             <button type="button" onclick={() => void exit()}>Back to title</button>
           </div>
         </div>
@@ -739,7 +753,7 @@
           <button
             type="button"
             disabled={locked}
-            onclick={() => void stageReady?.then(() => enter(() => game.sandbox.openSaved()))}
+            onclick={() => void stageReady?.then(() => enter(() => game.sandbox.openSaved(), true))}
             >Go on with your last valley</button
           >
         {/if}
@@ -753,7 +767,7 @@
   {:else if shared}
     <SharePanel
       {shared}
-      fileName={game.sandbox.valleyFile}
+      valleyFile={game.sandbox.valleyFile}
       onOpen={openText}
       onClose={() => (shared = null)}
     />
@@ -907,6 +921,14 @@
   }
   .actions {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
+  }
+  .why {
+    order: -1;
+    margin: 0;
+    padding: 0 0.5rem;
+    background: var(--bg);
   }
 </style>

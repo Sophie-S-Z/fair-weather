@@ -17,37 +17,45 @@ export function retrySrc(src: string, n: number): string {
 
 export function retryImage(node: HTMLImageElement, opts: RetryOptions): { destroy(): void } {
   const first = node.getAttribute('src') ?? '';
-  let failures = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let usedFallback = false;
+  let stopListening = (): void => undefined;
+  let tries = 0;
 
-  function onError(): void {
-    if (usedFallback) return; // the fallback failed too: the alt text stays
-    const wait = opts.waits[failures];
-    failures += 1;
-    if (wait !== undefined) {
-      const n = failures;
-      timer = setTimeout(() => {
-        node.setAttribute('src', retrySrc(first, n));
-      }, wait);
-    } else if (opts.fallback !== null) {
-      usedFallback = true;
-      node.setAttribute('src', opts.fallback);
-    }
-  }
+  /** Sets `src` (the first try is the one already loading) and resolves when the image loads or fails. */
+  const attempt = (src: string): Promise<true | null> =>
+    new Promise((resolve) => {
+      const done = (loaded: boolean): void => {
+        stopListening();
+        resolve(loaded ? true : null);
+      };
+      const onLoad = (): void => done(true);
+      const onError = (): void => done(false);
+      stopListening = () => {
+        node.removeEventListener('load', onLoad);
+        node.removeEventListener('error', onError);
+      };
+      node.addEventListener('load', onLoad);
+      node.addEventListener('error', onError);
+      if (tries++ > 0) node.setAttribute('src', src);
+    });
+  const wait = (ms: number): Promise<void> =>
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, ms);
+    });
 
-  node.addEventListener('error', onError);
+  void tryThenFallback(attempt, first, opts.waits, opts.fallback, wait);
   return {
     destroy() {
       clearTimeout(timer);
-      node.removeEventListener('error', onError);
+      stopListening();
     },
   };
 }
 
 /**
  * The one rule for an image (ADR 0014 item 11), for the export: `attempt` tries `src`, and again
- * after each of `waits` with `?retry=n`; then the fallback gets one try. Null when all failed.
+ * after each of `waits` with `?retry=n`; then the fallback gets one try, unless it is `src`. Null
+ * when all failed.
  */
 export async function tryThenFallback<T>(
   attempt: (src: string) => Promise<T | null>,
@@ -62,7 +70,7 @@ export async function tryThenFallback<T>(
     const got = await attempt(n === 0 ? src : retrySrc(src, n));
     if (got !== null) return got;
   }
-  return fallback === null ? null : attempt(fallback);
+  return fallback === null || fallback === src ? null : attempt(fallback);
 }
 
 /** An image that loads and decodes, or null. */

@@ -26,6 +26,8 @@ const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
 export const paletteFor = (id: string): Palette =>
   PaletteSchema.parse(Object.values(paletteFiles).find((json) => (json as { id: string }).id === id));
 
+/** The brook, as chapter 9 lays it (content/chapters/ch9.json). */
+export const BROOK_WATER = [{ x: 780, y: 0, w: 60, h: 900 }];
 export const BROOK_MUSHROOM = { x: 1120, y: 560 };
 export const BROOK_PLACEMENTS: Command[] = [
   { t: 'place', kind: 'bridge', x: 810, y: 260 },

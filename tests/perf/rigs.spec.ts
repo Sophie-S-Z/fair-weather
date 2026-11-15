@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 // Frame times are asserted only on a real GPU (PERF_HEADED=1, ADR 0014 item 16). PERF_PHONE=1 adds
-// 4x CPU throttling at 412 x 915 and only prints.
+// 4x CPU throttling at 412 x 915 and only prints. The game draws at a device pixel ratio of 1
+// (createStage sets no resolution), so the phone run sets no device scale factor.
 const headed = process.env['PERF_HEADED'] === '1';
 const phone = process.env['PERF_PHONE'] === '1';
 const GIF_MAX_MS = 2000;
@@ -9,10 +10,10 @@ const GIF_MAX_MS = 2000;
 test.use(phone ? { viewport: { width: 412, height: 915 } } : {});
 
 for (const [name, query] of [
-  ['30 line rigs', 'n=30&seconds=30'],
-  ['the heaviest Meadow with 30 creatures', 'scene=meadow&n=30&seconds=30'],
+  ['30 line rigs hold the frame budget', 'n=30&seconds=30'],
+  ['the heaviest Meadow with 30 creatures stays within the frame budget', 'scene=meadow&n=30&seconds=30'],
 ] as const) {
-  test(`${name} hold the frame budget`, async ({ page }) => {
+  test(name, async ({ page }) => {
     test.setTimeout(120_000);
     if (phone)
       await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: 4 });

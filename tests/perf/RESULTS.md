@@ -61,5 +61,5 @@ Reference phone: ______________________
 
 Headless Chromium with software rendering and no GPU. The timing asserts do not apply there.
 
-- Meadow, 2026-11-15, smoke only: 189 frames, mean 160 ms, p95 200 ms, p99 200 ms, 9 draw calls, 60-frame GIF encode 175 ms. Software rendering fills every pixel, so the frame time says nothing about a GPU.
-- Meadow with `PERF_PHONE=1` (proxy, printed only): mean 230 ms, p95 267 ms, 9 draw calls, GIF encode 848 ms.
+- Meadow, 2026-11-15, smoke only: 189 frames, mean 159 ms, p95 183 ms, p99 200 ms, 10 draw calls, 60-frame GIF encode 201 ms. The frame holds 30 creatures, the brook, 2 bridges, 1 lantern, 2 paths, the mushroom, fog, the lens, and the heat map. Software rendering fills every pixel, so the frame time says nothing about a GPU.
+- Meadow with `PERF_PHONE=1` (proxy, printed only, 412 x 915 canvas): mean 93 ms, p95 117 ms, 10 draw calls, GIF encode 645 ms.

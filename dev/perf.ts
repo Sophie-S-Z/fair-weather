@@ -17,7 +17,15 @@ import { parseTuning } from '../src/sim/tuning.ts';
 import type { Command, Scenario } from '../src/sim/types.ts';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import type { Settings } from '../src/ui/settings.ts';
-import { BROOK_MUSHROOM, BROOK_PLACEMENTS, cast, paletteFor, rigs, SANDBOX_SETUP } from './meadow-setup.ts';
+import {
+  BROOK_MUSHROOM,
+  BROOK_WATER,
+  BROOK_PLACEMENTS,
+  cast,
+  paletteFor,
+  rigs,
+  SANDBOX_SETUP,
+} from './meadow-setup.ts';
 
 const W = 1280;
 const H = 720;
@@ -46,19 +54,27 @@ declare global {
       p99Ms: number;
       drawCalls: number;
       gifMs?: number;
+      /** What the measured Meadow holds, from its last snapshot (meadow scene only). */
+      world?: Record<string, number | boolean>;
     };
   }
 }
 
 const app = new Application();
 const palette = paletteFor('spring');
-await app.init({
-  width: W,
-  height: H,
-  background: meadow ? palette.background : PAPER,
-  antialias: true,
-  autoStart: false,
-});
+// The Meadow is sized to the window with the game's own Pixi options (createStage in src/main.ts).
+await app.init(
+  meadow
+    ? {
+        resizeTo: window,
+        background: palette.background,
+        antialias: true,
+        autoStart: false,
+        skipExtensionImports: true,
+      }
+    : { width: W, height: H, background: PAPER, antialias: true, autoStart: false },
+);
+app.canvas.style.display = 'block';
 document.body.appendChild(app.canvas);
 
 // Pixi 8 has no draw-call counter: count the WebGL2 draw calls per frame.
@@ -73,6 +89,8 @@ for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'draw
 }
 
 /** Puts the creatures where a snapshot pair says, `t` of the way from `prev` to `next`. */
+/** The scene's box on the canvas, in pixels (the Meadow only). */
+const sceneBox: () => [number, number, number, number] = () => [0, 0, W, H];
 let draw: (prev: WorldLite | null, next: WorldLite, t: number, now: number) => void;
 /** Called with each new snapshot. */
 let onSnapshot: (lite: WorldLite) => void = () => undefined;
@@ -81,7 +99,7 @@ let scenario = scenarioJson as Scenario;
 const setup: Command[] = [];
 
 if (meadow) {
-  scenario = { ...scenario, sandbox: true, mushroom: BROOK_MUSHROOM };
+  scenario = { ...scenario, sandbox: true, mushroom: BROOK_MUSHROOM, water: BROOK_WATER };
   setup.push(
     { t: 'shine', x: 820, y: 330 },
     { t: 'paintFog', x: 1300, y: 700, r: 180, amount: 0.9 },
@@ -96,7 +114,8 @@ if (meadow) {
     sound: false,
     analytics: false,
   };
-  const view = createMeadowView(app, SceneSchema.parse(meadowJson), rigs, palette, {
+  const sceneDef = SceneSchema.parse(meadowJson);
+  const view = createMeadowView(app, sceneDef, rigs, palette, {
     lensRadius: tuning.light.lensRadius,
     cast,
     gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
@@ -183,7 +202,7 @@ async function timeGifEncode(): Promise<number> {
     app.render();
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, GIF_W, GIF_H);
-    ctx.drawImage(app.canvas, 0, 0, GIF_W, GIF_SCENE_H);
+    ctx.drawImage(app.canvas, ...sceneBox(), 0, 0, GIF_W, GIF_SCENE_H);
     frames.push({
       width: GIF_W,
       height: GIF_H,
@@ -196,6 +215,24 @@ async function timeGifEncode(): Promise<number> {
   return performance.now() - start;
 }
 
+/** What the last snapshot holds, so a missing part of the Meadow shows in the numbers. */
+function describe(): Record<string, number | boolean> {
+  const count = (kind: string): number => last?.structures.filter((x) => x.kind === kind).length ?? 0;
+  return {
+    creatures: last?.creatures.length ?? 0,
+    water: last?.water.length ?? 0,
+    bridges: count('bridge'),
+    lanterns: count('lantern'),
+    paths: count('path'),
+    mushroom: last?.mushroom ? 1 : 0,
+    fog: last?.fog.cells.some((c) => c > 0) ?? false,
+    lens: last?.light != null,
+    heat: true,
+    canvasW: app.canvas.width,
+    canvasH: app.canvas.height,
+  };
+}
+
 async function finish(): Promise<void> {
   const sorted = [...times].sort((x, y) => x - y);
   const at = (p: number): number => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] ?? 0;
@@ -205,7 +242,7 @@ async function finish(): Promise<void> {
     p95Ms: at(0.95),
     p99Ms: at(0.99),
     drawCalls: maxCalls,
-    ...(meadow && { gifMs: await timeGifEncode() }),
+    ...(meadow && { gifMs: await timeGifEncode(), world: describe() }),
   };
   const text = document.createElement('pre');
   text.textContent = JSON.stringify(window.__perf);

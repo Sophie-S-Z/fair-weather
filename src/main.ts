@@ -50,7 +50,7 @@ import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
 import type { SaveV3 } from './persist/format.ts';
-import { createProfile } from './persist/profile.ts';
+import { createProfile, NOTE_LENGTH } from './persist/profile.ts';
 import type { BookPage } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
@@ -65,6 +65,7 @@ import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
 import { DEFAULT_FLAGS } from './story/flags.ts';
 import {
+  characters,
   FIRST_HERO,
   journeyStart,
   KITH_VALLEYS,
@@ -392,13 +393,15 @@ let lastRunner: ChapterRunner | null = null;
 let lastStart: ChapterStart | null = null;
 /**
  * The sandbox run now: its runner, the ids of the structures and bushes that the player did not
- * place (the base scenario's and the bench density's), and its newest snapshot and tick.
+ * place (the base scenario's and the bench density's), its newest snapshot and tick, and its notes
+ * in tick order.
  */
 let sandboxRun: {
   runner: SandboxRunner;
   made: ReadonlySet<string>;
   lite: WorldLite | null;
   tick: number;
+  notes: { tick: number; text: string }[];
 } | null = null;
 /** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
 let startWaiting: ((why: string) => void) | null = null;
@@ -524,7 +527,7 @@ const game: GameService = {
         sandboxRun?.runner.dispose();
         // Before the init, so the runner sees the run's first snapshot.
         const runner = createSandboxRunner(port, setup);
-        const run = { runner, made, lite: null, tick: 0 };
+        const run = { runner, made, lite: null, tick: 0, notes: [] };
         sandboxRun = run;
         const offs: (() => void)[] = [];
         const settle = (): void => {
@@ -578,6 +581,15 @@ const game: GameService = {
       if (!run) return [];
       const now = run.lite?.bushes ?? run.runner.setup.bushes;
       return now.filter((b) => !run.made.has(b.id)).map(({ id, x, y }) => ({ id, x, y }));
+    },
+    notes: () => sandboxRun?.notes ?? [],
+    pin(tick, text) {
+      const cut = characters(text).slice(0, NOTE_LENGTH).join('');
+      if (!sandboxRun || !Number.isInteger(tick) || tick < 0 || cut.trim() === '') return;
+      // A new array, so a screen that holds the last one sees the change; after the notes on the same tick.
+      const notes = [...sandboxRun.notes];
+      notes.splice(notes.filter((n) => n.tick <= tick).length, 0, { tick, text: cut });
+      sandboxRun.notes = notes;
     },
     stop() {
       startWaiting?.('the sandbox stopped');

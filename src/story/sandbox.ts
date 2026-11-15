@@ -203,6 +203,9 @@ export interface Switches {
 }
 export const DEFAULT_SWITCHES: Switches = { oneWay: true, weighted: false, mixed: true, drift: false };
 
+/** A sandbox day's ticks: a story day's. */
+export const SANDBOX_TICKS_PER_DAY = chapterTicksPerDay(tuning.story);
+
 /** A run's whole start (ADR 0014 item 2); knob values are step indices, and an absent knob is unset. */
 export interface SandboxSetup {
   seed: number;
@@ -388,7 +391,7 @@ export function sandboxScenario(
   const value = (id: KnobId) => setValue(setup, id) ?? KNOB[id].unset;
   if (setup.kith && setup.valley === 'kith') applyCarry(s, setup.kith);
   if (setup.valley === 'kith') s.season = 'spring';
-  s.ticksPerDay = chapterTicksPerDay(tuning.story);
+  s.ticksPerDay = SANDBOX_TICKS_PER_DAY;
   s.sandbox = true;
   s.seasonDays = value('seasonLength');
   const fog = setValue(setup, 'fogLevel');

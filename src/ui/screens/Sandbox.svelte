@@ -3,9 +3,10 @@
   import type { Writable } from 'svelte/store';
   import type { InputContext } from '../../input/keyboard.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
-  import type { Command } from '../../sim/types.ts';
+  import type { Command, Season } from '../../sim/types.ts';
+  import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
   import { displayName } from '../../story/names.ts';
-  import { KNOBS, SANDBOX_TOOLS, TOOL_PANEL } from '../../story/sandbox.ts';
+  import { KNOBS, SANDBOX_TICKS_PER_DAY, SANDBOX_TOOLS, TOOL_PANEL } from '../../story/sandbox.ts';
   import type {
     Knob,
     KnobId,
@@ -17,8 +18,10 @@
     Switches,
   } from '../../story/sandbox.ts';
   import type { Verb, VerbInput } from '../../story/verbs.ts';
+  import ChallengeCard from '../components/ChallengeCard.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
   import TimeControls from '../components/TimeControls.svelte';
+  import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
   import { createFrameLoop } from '../frame-loop.ts';
   import type { GameService, Stage } from '../game-service.ts';
@@ -110,6 +113,26 @@
   /** A start failed in the worker, so no run goes on until the title starts the worker again. */
   let dead = $state(false);
   const locked = $derived(starting || dead);
+  /** This run's timeline, and the tick of the snapshot drawn now, as the strip shows them. */
+  let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
+  let drawnTick = $state(0);
+  let liveTick = 0;
+  let drawn: WorldLite | null = null;
+  /**
+   * The tick the strip asks for, or null for now; the rewound world once it arrives. While rewound
+   * the sim is paused, and the tools, the pause, and Start the dance wait for Back to now. A rewind
+   * during a challenge changes nothing in it: its check reads only live snapshots, so a challenge
+   * that passed or failed stays so, and only Try again or Stop the challenge starts it again.
+   */
+  let rewindAt: number | null = $state(null);
+  let rewound: WorldLite | null = $state.raw(null);
+  /** Only the newest rewind request is drawn. */
+  let rewindRequest = 0;
+  let speedBeforeRewind = 1;
+  let notes: readonly { tick: number; text: string }[] = $state.raw([]);
+  let challengeState: ChallengeState | null = $state(null);
+  let season: Season = $state('spring');
+  let danced = $state(false);
   /** Counts starts, so only the newest one plays. */
   let runs = 0;
   let gone = false;
@@ -136,6 +159,7 @@
           : '',
       tool === 'path' && pathFrom ? `Path from ${spotName(pathFrom)}` : '',
       tool === 'thread' && threadFrom ? `Thread from ${displayName(threadFrom)}` : '',
+      rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
     ]
       .filter((part) => part !== '')
       .join('. '),
@@ -171,7 +195,17 @@
   const loop = createFrameLoop(
     (from, to, alpha) => {
       speedNow = game.currentSpeed();
-      stage?.draw(from, to, alpha, $settings);
+      if (!stage) return;
+      if (rewound) {
+        stage.draw(rewound, rewound, 1, $settings);
+        return;
+      }
+      if (drawn !== to) {
+        drawn = to;
+        drawnTick = liveTick;
+        timeline = stage.timeline();
+      }
+      stage.draw(from, to, alpha, $settings);
     },
     () => performance.now(),
   );
@@ -180,7 +214,37 @@
     game.speed(m);
     speedNow = m;
   }
-  const togglePause = createPauseToggle(() => game.currentSpeed(), setSpeed);
+  const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
+  function togglePause(): void {
+    if (rewindAt === null) pause();
+  }
+
+  /** Pauses the sim on the first move of the strip, and asks for the world at `t`. */
+  function rewindTo(t: number): void {
+    if (rewindAt === null) {
+      speedBeforeRewind = game.currentSpeed();
+      setSpeed(0);
+    }
+    rewindAt = t;
+    const request = (rewindRequest += 1);
+    game.rewind(t).then(
+      (lite) => {
+        if (request === rewindRequest) rewound = lite;
+      },
+      () => undefined, // the worker restarted; the strip asks again on its next move
+    );
+  }
+  function backToNow(): void {
+    if (rewindAt === null) return;
+    rewindAt = null;
+    rewound = null;
+    rewindRequest += 1;
+    setSpeed(speedBeforeRewind);
+  }
+  function pin(t: number, text: string): void {
+    game.sandbox.pin(t, text);
+    notes = game.sandbox.notes();
+  }
 
   /**
    * Starts a run of `s` from day 0; the run before stops once it has started. When the start fails,
@@ -218,7 +282,19 @@
       (dead ? document.querySelector<HTMLElement>('.top button') : from)?.focus();
     if (!r) return;
     loop.stop();
+    if (stage && s.valley !== setup?.valley) {
+      stage.setScene(game.sandbox.scene(s.valley));
+      cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
+    }
     next = null;
+    drawn = null;
+    rewindAt = null;
+    rewound = null;
+    rewindRequest += 1;
+    notes = game.sandbox.notes();
+    challengeState = r.challenge();
+    r.onChallenge((st) => (challengeState = st));
+    danced = false;
     runner = r;
     setup = s;
     r.setPlaceKind(placeKind);
@@ -276,13 +352,11 @@
     );
   }
 
-  /** Opens a valley from the start choice: its scene and the gate's lamp, then the run (the palette comes with its first snapshot). */
+  /** Opens a valley from the start choice: the gate's lamp, then the run (its scene comes with it, the palette with its first snapshot). */
   async function choose(valley: SandboxValley, fromKith: boolean): Promise<void> {
     const [s, st] = await Promise.all([game.sandbox.newSetup(valley, fromKith), stageReady]);
     if (!st || gone) return;
-    st.setScene(game.sandbox.scene(valley));
     st.setGateLamp(true);
-    cursor = st.benchSpots[0] ?? { x: 0, y: 0 };
     await run(s);
     await tick();
     // After a failed start the choice stays, with its enabled buttons (Back to title at least).
@@ -290,9 +364,37 @@
     else document.querySelector<HTMLElement>('.choice button:enabled')?.focus();
   }
 
+  /**
+   * Starts `s` from the card, and then gives the focus to the card's first control on, since the
+   * one pressed went away or was off while the start waited.
+   */
+  async function runFromCard(s: SandboxSetup): Promise<void> {
+    await run(s);
+    await tick();
+    if (document.activeElement === document.body)
+      document.querySelector<HTMLElement>('.challenges button:enabled')?.focus();
+  }
+  /**
+   * A challenge starts from a new Kith of this seed, with the player's knobs and switches, nothing
+   * placed, and its own start (ADR 0014 item 6). A knob of another valley does not go with it.
+   */
+  function pickChallenge(id: ChallengeId | null): void {
+    if (!setup) return;
+    const valley: SandboxValley = 'kith';
+    const knobs: SandboxSetup['knobs'] = {};
+    for (const k of KNOBS) {
+      const index = setup.knobs[k.id];
+      if (index !== undefined && (k.valley === null || k.valley === valley)) knobs[k.id] = index;
+    }
+    void runFromCard({ ...setup, valley, kith: null, challenge: id, knobs, structures: [], bushes: [] });
+  }
+  function dance(): void {
+    if (rewindAt === null && runner?.startDance()) danced = true;
+  }
+
   /** Uses a verb on the run; with a run going on, the player's verb also ends a failed start's notice. */
   function verb(v: VerbInput): boolean {
-    if (!runner) return false;
+    if (!runner || rewindAt !== null) return false;
     notice = null;
     return runner.verb(v);
   }
@@ -314,6 +416,7 @@
 
   /** Opens the whisper card for `target`, about every other named creature not gone, in id order. */
   function openWhisper(target: string): void {
+    if (rewindAt !== null) return;
     whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
   function whisper(about: string, sign: 1 | -1): void {
@@ -336,8 +439,11 @@
   onMount(() => {
     const offs: (() => void)[] = [];
     offs.push(
-      game.onSnapshot((lite) => {
+      game.onSnapshot((lite, at) => {
+        season = lite.season;
         if (!runner || !stage || !setup) return;
+        stage.snapshot(at, lite);
+        liveTick = at;
         next = lite;
         loop.push(lite);
         nearby = nearbyAt(cursor);
@@ -515,8 +621,41 @@
             {/each}
           </SandboxPanel>
         </div>
+        <section class="timeline" aria-labelledby="timeline-title">
+          <h2 id="timeline-title">Timeline</h2>
+          <TimelineStrip
+            {timeline}
+            rewind={{ now: drawnTick, at: rewindAt, ticksPerDay: SANDBOX_TICKS_PER_DAY, disabled: locked }}
+            onRewind={rewindTo}
+            onBackToNow={backToNow}
+            {notes}
+            onPin={pin}
+          />
+        </section>
+        <div class="challenges">
+          <ChallengeCard
+            challenge={setup.challenge}
+            state={challengeState}
+            {season}
+            canDance={!danced && rewindAt === null && !locked}
+            {locked}
+            onPick={pickChallenge}
+            onDance={dance}
+            onTryAgain={() => {
+              if (setup) void runFromCard({ ...setup, structures: [], bushes: [] });
+            }}
+            onStop={() => {
+              pickChallenge(null);
+            }}
+          />
+        </div>
         <div class="time">
-          <TimeControls speed={speedNow} disabled={false} onPause={togglePause} onSpeed={setSpeed} />
+          <TimeControls
+            speed={speedNow}
+            disabled={rewindAt !== null}
+            onPause={togglePause}
+            onSpeed={setSpeed}
+          />
         </div>
       </main>
     {/if}
@@ -574,6 +713,8 @@
   }
   .hud .top,
   .hud .panels,
+  .hud .timeline,
+  .hud .challenges,
   .hud .time {
     pointer-events: auto;
   }
@@ -606,6 +747,51 @@
   }
   .line {
     margin: 0;
+  }
+  /* Under the scene, between the panels and the time controls. */
+  .timeline {
+    position: absolute;
+    left: calc(min(20rem, 100vw - 1.5rem) + 1.5rem);
+    right: 12rem;
+    bottom: 3rem;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border: 2px solid var(--fg);
+    border-radius: 0.6rem;
+  }
+  .timeline h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+  }
+  .challenges {
+    position: absolute;
+    top: 3.75rem;
+    right: 0.75rem;
+    width: min(18rem, calc(100vw - 1.5rem));
+    max-height: calc(100vh - 18rem);
+    overflow-y: auto;
+  }
+  /*
+   * On a narrow screen the folded card takes a row above the panels, and the strip the width under
+   * them; the panels keep clear of both.
+   */
+  @media (max-width: 48rem) {
+    .challenges {
+      left: 0.75rem;
+      width: auto;
+    }
+    .timeline {
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: 6.5rem;
+      max-height: 30vh;
+    }
+    .panels {
+      top: 7.5rem;
+      bottom: calc(30vh + 7rem);
+    }
   }
   .status {
     pointer-events: none;

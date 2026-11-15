@@ -97,6 +97,16 @@ export interface SandboxService {
   placedStructures(): Structure[];
   /** The bushes in the run now that the player placed. */
   placedBushes(): SandboxSetup['bushes'];
+  /**
+   * The notes pinned on the run now, in tick order (ADR 0014 item 5). Each start drops them, a rule
+   * change too, since they mark moments of the run before.
+   */
+  notes(): readonly { tick: number; text: string }[];
+  /**
+   * Pins a note on `tick` of the run now, cut to 80 characters. Notes are the player's own words: they
+   * stay on the device and never go in a seed link. Does nothing without a run, or for a blank note.
+   */
+  pin(tick: number, text: string): void;
   /** Stops the run. */
   stop(): void;
 }
@@ -140,8 +150,8 @@ export interface GameService {
   /** Peek under the hood (spec 8, 9.3) at `dials`, by the rules of the chapter now playing. */
   peek(dials: Dials): ReturnType<typeof peekRule>;
   /**
-   * The world at an earlier tick of this chapter, clamped to what the worker kept; the live run
-   * does not change (ADR 0012 item 10).
+   * The world at an earlier tick of this chapter or sandbox run, clamped to what the worker kept;
+   * the live run does not change (ADR 0012 item 10).
    */
   rewind(tick: number): Promise<WorldLite>;
   /**

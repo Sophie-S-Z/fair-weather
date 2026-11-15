@@ -1,5 +1,6 @@
 // The sandbox screen (plan task M4.10, ADR 0014 items 1 to 5). Dev ?sandbox=new opens a new Kith
 // valley; the dev hook reads the run's newest snapshot.
+import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
@@ -281,4 +282,154 @@ test('a first start that the worker cannot run says so on the start choice', asy
   await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
   await page.getByRole('button', { name: 'Back to title' }).click();
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+});
+
+// The timeline strip, the notes, and the challenge card (plan task M4.11, ADR 0014 items 5 and 6).
+
+/** The dev hook's speeds sent to the sim and the command lists the runners sent. */
+const dev = (page: Page) =>
+  page.evaluate(() => {
+    const d = (window as unknown as { fairWeather: { speeds: number[]; sent: number } }).fairWeather;
+    return { speed: d.speeds.at(-1), sent: d.sent };
+  });
+const strip = (page: Page) => page.getByRole('region', { name: 'Timeline' });
+const card = (page: Page) => page.getByRole('region', { name: 'Challenges' });
+/** The range's text for a day (a pattern): its creatures and their mean warmth. */
+const dayText = (d: string) => new RegExp(`^Day ${d}: \\d+ creatures, mean warmth -?\\d\\.\\d\\d$`);
+
+/** Opens a new valley at ?fast=10 and waits for its second day, so the strip has room to move. */
+async function openDay2(page: Page): Promise<void> {
+  await open(page, '&fast=10');
+  await expect.poll(async () => (await run(page))?.lite.day ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
+}
+
+test('scrubbing the strip pauses the sim and shows the rewound day, and Back to now goes on', async ({
+  page,
+}) => {
+  await openDay2(page);
+  const range = strip(page).getByLabel('Rewind');
+  await expect(range).toHaveAttribute('aria-valuetext', dayText('[2-9]'));
+  await expect.poll(async () => (await dev(page)).speed).toBe(1);
+  await range.focus();
+  await page.keyboard.press('Home');
+  await expect(range).toHaveAttribute('aria-valuetext', dayText('1'));
+  await expect.poll(async () => (await dev(page)).speed).toBe(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Rewound' })).toBeVisible();
+  const paused = (await run(page))?.tick ?? 0;
+  await strip(page).getByRole('button', { name: 'Back to now' }).click();
+  await expect.poll(async () => (await dev(page)).speed).toBe(1);
+  await expect.poll(async () => (await run(page))?.tick ?? 0).toBeGreaterThan(paused);
+  await expect(page.getByRole('status').filter({ hasText: 'Rewound' })).toHaveCount(0);
+});
+
+/** Rewinds the strip to its first day, so a note pinned now is on day 1. */
+async function rewindToDay1(page: Page): Promise<void> {
+  const range = strip(page).getByLabel('Rewind');
+  await range.focus();
+  await page.keyboard.press('Home');
+  await expect(range).toHaveAttribute('aria-valuetext', dayText('1'));
+}
+
+test('a pinned note of 90 characters keeps 80 and shows on the strip, and a rule change drops it', async ({
+  page,
+}) => {
+  await openDay2(page);
+  await rewindToDay1(page);
+  const words = 'The bench by the crooked tree fills up at dusk, and Pim waits there for the others.';
+  const ninety = words.padEnd(90, '.');
+  expect(ninety).toHaveLength(90);
+  await strip(page).getByRole('button', { name: 'Pin a note' }).click();
+  const field = strip(page).getByLabel('Note (at most 80 characters)');
+  await expect(field).toBeFocused();
+  await field.fill(ninety);
+  await page.keyboard.press('Enter');
+  const note = strip(page).getByRole('button', { name: /^Note on day 1: / });
+  await expect(note).toHaveAccessibleName(`Note on day 1: ${ninety.slice(0, 80)}`);
+  await expect(note).toHaveText(`Note on day 1: ${ninety.slice(0, 80)}`);
+  await expect(strip(page).getByRole('button', { name: 'Pin a note' })).toBeFocused();
+  // The note's button rewinds to its tick.
+  await strip(page).getByRole('button', { name: 'Back to now' }).click();
+  const range = strip(page).getByLabel('Rewind');
+  await expect(range).toHaveAttribute('aria-valuetext', dayText('[2-9]'));
+  await note.click();
+  await expect(range).toHaveAttribute('aria-valuetext', dayText('1'));
+  await expect.poll(async () => (await dev(page)).speed).toBe(0);
+  await strip(page).getByRole('button', { name: 'Back to now' }).click();
+  // A rule change starts a new run, and the notes marked moments of the old one.
+  await page.getByText('Rules', { exact: true }).click();
+  await page.getByLabel('Gift value').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await run(page))?.lite.day).toBe(0);
+  await expect(strip(page).getByRole('button', { name: /^Note on day/ })).toHaveCount(0);
+});
+
+test("the Bell card's Start the dance works once", async ({ page }) => {
+  await open(page);
+  await card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }).click();
+  await expect(card(page)).toContainText('Make Bell dance with only two bridges.');
+  // The challenge's own start: chapter 9's brook.
+  await expect.poll(async () => (await run(page))?.lite.water).toEqual([{ x: 780, y: 0, w: 60, h: 900 }]);
+  const dance = card(page).getByRole('button', { name: 'Start the dance' });
+  await expect(dance).toBeEnabled();
+  const before = (await dev(page)).sent;
+  await dance.click();
+  await expect(dance).toBeDisabled();
+  expect((await dev(page)).sent).toBe(before + 1);
+  await expect(card(page).getByRole('button', { name: 'Try again' })).toBeEnabled();
+  // Try again starts the challenge again, and the dance is there once more.
+  await card(page).getByRole('button', { name: 'Try again' }).click();
+  await expect(dance).toBeEnabled();
+});
+
+test('picking winter starts in the season content/sandbox.json gives it, and Stop ends the challenge', async ({
+  page,
+}) => {
+  const file = JSON.parse(readFileSync('content/sandbox.json', 'utf8')) as {
+    challenges: { id: string; text: string; start: { season: string } }[];
+  };
+  const winter = file.challenges.find((c) => c.id === 'winter');
+  if (!winter) throw new Error('no winter challenge');
+  await open(page);
+  await card(page).getByRole('button', { name: winter.text }).click();
+  await expect(card(page).getByRole('status')).toHaveText(
+    `The challenge is not finished. Season: ${winter.start.season}.`,
+  );
+  await expect.poll(async () => (await run(page))?.lite.season).toBe(winter.start.season);
+  await expect(card(page).getByRole('button', { name: 'Start the dance' })).toHaveCount(0);
+  await card(page).getByRole('button', { name: 'Stop the challenge' }).click();
+  await expect(card(page).getByRole('button', { name: winter.text })).toBeFocused();
+  // Without the challenge, Kith starts in spring again.
+  await expect.poll(async () => (await run(page))?.lite.season).toBe('spring');
+});
+
+test('axe finds no serious issue with the card open and a note open', async ({ page }) => {
+  await open(page);
+  await card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }).click();
+  await expect(card(page).getByRole('button', { name: 'Start the dance' })).toBeVisible();
+  await strip(page).getByRole('button', { name: 'Pin a note' }).click();
+  await expect(strip(page).getByLabel('Note (at most 80 characters)')).toBeVisible();
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+});
+
+test('Tab reaches the strip, its notes, and the card in order', async ({ page }) => {
+  await openDay2(page);
+  await rewindToDay1(page);
+  await strip(page).getByRole('button', { name: 'Pin a note' }).click();
+  await strip(page).getByLabel('Note (at most 80 characters)').fill('Pim waits.');
+  await page.keyboard.press('Enter');
+  await strip(page).getByLabel('Rewind').focus();
+  await page.keyboard.press('Tab');
+  await expect(strip(page).getByRole('button', { name: 'Back to now' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(strip(page).getByRole('button', { name: 'Note on day 1: Pim waits.' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(strip(page).getByRole('button', { name: 'Pin a note' })).toBeFocused();
+  // The card's fold, then its first challenge.
+  await page.keyboard.press('Tab');
+  await expect(card(page).getByText('Challenges', { exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(
+    card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }),
+  ).toBeFocused();
 });

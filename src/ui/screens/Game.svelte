@@ -19,6 +19,7 @@
   import type { Settings } from '../settings.ts';
   import { chapterHeading } from '../chapter-label.ts';
   import { createFrameLoop } from '../frame-loop.ts';
+  import { createRewind } from '../rewind.svelte.ts';
   import {
     byId,
     clampToScene,
@@ -167,27 +168,18 @@
   let threadFrom: string | null = $state(null);
   /** The open whisper card: the creature it whispers to, and those it can be about. */
   let whisperCard: { target: string; others: string[] } | null = $state(null);
-  /** The newest live snapshot and its tick. */
+  /** The newest live snapshot. */
   let live: WorldLite | null = $state.raw(null);
-  let liveTick = 0;
   /**
-   * The live snapshot the last frame drew, its tick, and this run's Cosmos timeline then. The Cosmos
-   * panel and the drawer read these, so their text changes as often as the scene is drawn, not at
-   * every step: at a bet's reveal speed the sim steps hundreds of times a second, and rewriting the
-   * panel for each step costs the page more than the steps come in, so it falls behind the sim.
+   * The rewind range's tick and the rewound world; the live snapshot the last frame drew, its tick,
+   * and this run's Cosmos timeline then, which the Cosmos panel and the drawer read. While rewound
+   * the sim is paused and verbs send nothing (ADR 0012 item 10).
    */
-  let drawn: WorldLite | null = $state.raw(null);
-  let drawnTick = $state(0);
-  let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
-  /**
-   * The tick the rewind range asks for, or null for now; the rewound world once it arrives. While
-   * rewound the sim is paused and verbs send nothing (ADR 0012 item 10).
-   */
-  let rewindAt: number | null = $state(null);
-  let rewound: WorldLite | null = $state.raw(null);
-  /** Only the newest rewind request is drawn. */
-  let rewindRequest = 0;
-  let speedBeforeRewind = 1;
+  const rw = createRewind({
+    currentSpeed: () => game.currentSpeed(),
+    setSpeed,
+    rewind: (t) => game.rewind(t),
+  });
   /** Where the drawer opens next: P opens it at Under the hood, the Soul view at Diary. */
   let drawerAt: { section: 'diary' | 'peek'; focus: boolean } | null = $state.raw(null);
   let drawerEl: HTMLElement | undefined = $state();
@@ -247,9 +239,9 @@
   const chapter = $derived(game.chapters[index]);
   /** The world now, live or rewound: what the valley line says. */
   // In closures, so TypeScript does not narrow the state to its first value.
-  const shown = $derived.by(() => rewound ?? live);
+  const shown = $derived.by(() => rw.world ?? live);
   /** The same, as the last frame drew it: what the Cosmos panel and the drawer say about it. */
-  const seen = $derived.by(() => rewound ?? drawn);
+  const seen = $derived.by(() => rw.world ?? rw.drawn);
   /** A creature's name in the scene's text: the player's name for the hero. */
   const nameOf = (id: string): string => (id === 'hero' && live?.hero ? live.hero.name : displayName(id));
   const ties = $derived.by(() => (seen && (view === 'cosmos' || picked !== null) ? game.ties(seen) : null));
@@ -264,7 +256,7 @@
       name: nameOf(c.id),
       lines: runner?.diary(c.id) ?? [],
       // The diary lines are the live ones; the rest is the rewound world.
-      linesNow: rewound !== null,
+      linesNow: rw.world !== null,
       dials: c.dials,
       friends: (mine?.friends ?? []).map(named),
       scars: (mine?.scars ?? []).map(named),
@@ -293,7 +285,7 @@
       pointing && tool === 'walk' && picked ? `Picked: ${nameOf(picked)}` : '',
       tool === 'thread' && threadFrom !== null ? `Thread from ${nameOf(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
-      rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
+      rw.at === null ? '' : 'Rewound: the tools wait for Back to now',
     ]
       .filter((part) => part !== '')
       .join('. '),
@@ -313,7 +305,7 @@
 
   function act(v: VerbInput): void {
     hints.activity();
-    if (!runner || rewindAt !== null) return;
+    if (!runner || rw.at !== null) return;
     if (runner.verb(v)) {
       hints.used(unlockingVerb(v));
       if (v.verb === 'place') {
@@ -332,7 +324,7 @@
   }
   const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
   function togglePause(): void {
-    if (bet || betRunning || rewindAt !== null) return;
+    if (bet || betRunning || rw.at !== null) return;
     pause();
   }
 
@@ -400,34 +392,11 @@
     });
   }
 
-  /** Pauses the sim on the first move of the range, and asks for the world at `t`. */
-  function rewindTo(t: number): void {
-    if (rewindAt === null) {
-      speedBeforeRewind = game.currentSpeed();
-      setSpeed(0);
-    }
-    rewindAt = t;
-    const request = (rewindRequest += 1);
-    game.rewind(t).then(
-      (lite) => {
-        if (request === rewindRequest) rewound = lite;
-      },
-      () => undefined, // the worker restarted; the range asks again on its next move
-    );
-  }
-  function backToNow(): void {
-    if (rewindAt === null) return;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
-    setSpeed(speedBeforeRewind);
-  }
-
   function onPrompt(p: Prompt): void {
     if (p.kind === 'line') say(p.text);
     else if (p.kind === 'bet') {
       // Answering starts the sim, so a bet that arrives while rewound brings the world back to now.
-      backToNow();
+      rw.backToNow();
       bet = { question: p.question, options: p.options };
     } else if (p.kind === 'reveal') {
       betRunning = false;
@@ -493,9 +462,7 @@
     picked = null;
     threadFrom = null;
     whisperCard = null;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
+    rw.reset();
     used = [];
     placed = 0;
     next = null;
@@ -520,7 +487,6 @@
     // (host.ts connect), and only a microtask passes between that post and here, so no old world
     // comes back.
     live = null;
-    drawn = null;
     flagsNow = flags;
     myth = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
@@ -603,17 +569,7 @@
   const loop = createFrameLoop(
     (from, to, alpha) => {
       speedNow = game.currentSpeed();
-      if (!stage) return;
-      if (rewound) {
-        stage.draw(rewound, rewound, 1, $settings);
-        return;
-      }
-      if (drawn !== to) {
-        drawn = to;
-        drawnTick = liveTick;
-        timeline = stage.timeline();
-      }
-      stage.draw(from, to, alpha, $settings);
+      if (stage) rw.frame(stage, from, to, alpha, $settings);
     },
     () => performance.now(),
   );
@@ -674,7 +630,7 @@
 
   /** Opens the whisper card for `target`, about every other named creature (spec 5.3) not gone, in id order. */
   function openWhisper(target: string): void {
-    if (rewindAt !== null) return;
+    if (rw.at !== null) return;
     whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
 
@@ -709,7 +665,7 @@
         if (!runner) return;
         stage?.snapshot(at, lite);
         live = lite;
-        liveTick = at;
+        rw.live(at);
         if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
         next = lite;
         loop.push(lite);
@@ -752,7 +708,7 @@
         zoom: (dir) => {
           const v = game.input.nextView(view, dir, picked);
           if (v === view) return;
-          if (view === 'cosmos') backToNow();
+          if (view === 'cosmos') rw.backToNow();
           view = v;
           s.setView(v, picked);
           if (v === 'soul') drawerAt = { section: 'diary', focus: false };
@@ -898,18 +854,18 @@
             <CosmosPanel
               lite={seen}
               {ties}
-              {timeline}
+              timeline={rw.timeline}
               label={nameOf}
               rewind={chapter.verbs.includes('rewind')
                 ? {
-                    now: drawnTick,
-                    at: rewindAt,
+                    now: rw.drawnTick,
+                    at: rw.at,
                     ticksPerDay: chapterTicksPerDay(chapter),
                     disabled: bet !== null || betRunning,
                   }
                 : null}
-              onRewind={rewindTo}
-              onBackToNow={backToNow}
+              onRewind={rw.to}
+              onBackToNow={rw.backToNow}
             />
           </div>
         {/if}
@@ -998,7 +954,7 @@
         <div class="time">
           <TimeControls
             speed={speedNow}
-            disabled={betRunning || rewindAt !== null}
+            disabled={betRunning || rw.at !== null}
             onPause={togglePause}
             onSpeed={setSpeed}
           />

@@ -62,7 +62,7 @@ export default tseslint.config(
   },
   ...svelte.configs['flat/recommended'],
   {
-    files: ['**/*.svelte'],
+    files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: { parserOptions: { parser: tseslint.parser, extraFileExtensions: ['.svelte'] } },
   },
   { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },

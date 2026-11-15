@@ -2,13 +2,16 @@
   import { onMount, tick } from 'svelte';
   import { CAPTION_LENGTH, characters } from '../../story/journey.ts';
   import Note from '../components/Note.svelte';
-  import { inSentence } from '../journal-pages.ts';
+  import type { PageBlock } from '../../persist/page-image.ts';
+  import { inSentence, journalBlocks } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
+  import { saveFile } from '../save-file.ts';
 
   let {
     entries,
     at = null,
     onCaption,
+    onExport,
     onBack,
   }: {
     entries: readonly JournalEntry[];
@@ -16,6 +19,8 @@
     at?: string | null;
     /** Keeps the player's line for a valley's page. The line stays on the device. */
     onCaption: (valley: string, text: string) => void;
+    /** A page as a PNG made on the device (GameService.exportPage). */
+    onExport: (blocks: PageBlock[]) => Promise<Blob>;
     onBack: () => void;
   } = $props();
 
@@ -38,6 +43,22 @@
     const line = lines[valley] ?? '';
     const chars = characters(line);
     if (chars.length > CAPTION_LENGTH) lines[valley] = chars.slice(0, CAPTION_LENGTH).join('');
+  }
+  /** Whether a page image is being made, and the valley of the page that could not be made. */
+  let saving = $state(false);
+  let failed: string | null = $state(null);
+  /** Saves the page as the player sees it, with the line as typed now. */
+  async function savePage(entry: JournalEntry): Promise<void> {
+    saving = true;
+    failed = null;
+    try {
+      const blocks = journalBlocks({ ...entry, caption: lines[entry.valley] ?? '' });
+      saveFile(await onExport(blocks), `fair-weather-journal-${entry.valley}.png`);
+    } catch (e) {
+      console.error(e);
+      failed = entry.valley;
+    }
+    saving = false;
   }
   function close(): void {
     for (const e of entries) keep(e.valley);
@@ -137,6 +158,18 @@
         {#each entry.notes as note, i (i)}
           <Note {note} level={4} />
         {/each}
+        <p>
+          <button
+            type="button"
+            disabled={saving}
+            aria-describedby="export-{entry.valley}"
+            onclick={() => void savePage(entry)}>Save this page as an image</button
+          >
+        </p>
+        <p id="export-{entry.valley}" class="hint">
+          The image shows the words that you wrote. It stays on this device until you share it.
+        </p>
+        <p role="status">{failed === entry.valley ? 'The game could not make the image.' : ''}</p>
       </article>
     {/each}
     {#if entries.length > 0}

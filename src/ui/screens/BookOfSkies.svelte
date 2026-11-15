@@ -1,20 +1,41 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import type { PageBlock } from '../../persist/page-image.ts';
   import type { BookPage } from '../../persist/profile.ts';
   import { displayName } from '../../story/names.ts';
+  import { mythBlocks } from '../journal-pages.ts';
+  import { saveFile } from '../save-file.ts';
 
   let {
     pages,
     feathers,
     modal = false,
+    onExport,
     onBack,
   }: {
     pages: readonly BookPage[];
     feathers: number;
     /** In the game: a modal dialog that keeps focus, and Escape closes it. On the title: a page. */
     modal?: boolean;
+    /** A page as a PNG made on the device (GameService.exportPage). */
+    onExport: (blocks: PageBlock[]) => Promise<Blob>;
     onBack: () => void;
   } = $props();
+
+  /** Whether a page image is being made, and the year of the page that could not be made. */
+  let saving = $state(false);
+  let failed: number | null = $state(null);
+  async function savePage(page: BookPage): Promise<void> {
+    saving = true;
+    failed = null;
+    try {
+      saveFile(await onExport(mythBlocks(page)), `fair-weather-year-${String(page.year)}.png`);
+    } catch (e) {
+      console.error(e);
+      failed = page.year;
+    }
+    saving = false;
+  }
 
   let root: HTMLElement | undefined = $state();
   /** Heading levels: under the game's own heading in the dialog, the page's top heading on the title. */
@@ -75,6 +96,18 @@
           <aside>What the sky did: {verse.note}</aside>
         {/if}
       {/each}
+      <p>
+        <button
+          type="button"
+          disabled={saving}
+          aria-describedby="export-year-{page.year}"
+          onclick={() => void savePage(page)}>Save this page as an image</button
+        >
+      </p>
+      <p id="export-year-{page.year}" class="hint">
+        The image shows the words that you wrote. It stays on this device until you share it.
+      </p>
+      <p role="status">{failed === page.year ? 'The game could not make the image.' : ''}</p>
     </article>
   {/each}
   <button type="button" onclick={onBack}>Back</button>
@@ -142,5 +175,8 @@
   }
   aside {
     margin: 0.25rem 0 0.5rem;
+  }
+  .hint {
+    color: var(--muted);
   }
 </style>

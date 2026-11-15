@@ -963,9 +963,21 @@
     {/if}
   </div>
   {#if book}
-    <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
+    <BookOfSkies
+      pages={book.pages}
+      feathers={book.feathers}
+      modal
+      onExport={game.exportPage}
+      onBack={closeBook}
+    />
   {:else if journal}
-    <Journal entries={journal.entries} at={journal.at} onCaption={game.setCaption} onBack={closeJournal} />
+    <Journal
+      entries={journal.entries}
+      at={journal.at}
+      onCaption={game.setCaption}
+      onExport={game.exportPage}
+      onBack={closeJournal}
+    />
   {:else if bet}
     <BetCard
       question={bet.question}

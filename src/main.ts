@@ -51,6 +51,8 @@ import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
 import { encodeGif } from './persist/gif.ts';
+import { ATKINSON, layoutPage, PAGE_WIDTH } from './persist/page-image.ts';
+import type { PageBlock } from './persist/page-image.ts';
 import type { SaveV3 } from './persist/format.ts';
 import { createProfile, cutNote } from './persist/profile.ts';
 import {
@@ -621,10 +623,60 @@ const PAPER = '#f6f1e7';
 const INK = '#1f2a33';
 /** The caption band under the scene, in pixels. */
 const BAND = 48;
-/** The caption's face (ADR 0014 item 14), as a CSS font family. */
-const ATKINSON = '"Atkinson Hyperlegible"';
 /** The caption's room in the band: the postcard's 480 pixels less 12 at each side. */
 const CAPTION_WIDTH = 456;
+
+/** An image that has loaded, or null when it fails: the page then draws nothing in its place. */
+async function loadImage(src: string): Promise<HTMLImageElement | null> {
+  const img = new Image();
+  img.src = src;
+  try {
+    await img.decode();
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Draws `blocks` as a PAGE_WIDTH page (ADR 0014 item 8) in ink on the paper, whatever the contrast
+ * setting, and gives it as a PNG with no metadata. An image block whose source fails to load draws
+ * nothing in its place, and the page is still made (the retry and the still image come later).
+ */
+async function drawPage(blocks: readonly PageBlock[]): Promise<Blob> {
+  // Both weights of the face, if the page has it (ADR 0014 item 14); with no such face they resolve at once.
+  await Promise.all([document.fonts.load(`28px ${ATKINSON}`), document.fonts.load(`bold 28px ${ATKINSON}`)]);
+  const srcs = [...new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.src] : [])))];
+  const images = new Map(await Promise.all(srcs.map(async (src) => [src, await loadImage(src)] as const)));
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No 2D context for the page');
+  const { height, ops } = layoutPage(blocks, (font, text) => {
+    ctx.font = font;
+    return ctx.measureText(text).width;
+  });
+  // A new size clears the canvas and its state, so the fill and the text settings come after.
+  [canvas.width, canvas.height] = [PAGE_WIDTH, Math.ceil(height)];
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = INK;
+  ctx.textBaseline = 'middle';
+  for (const op of ops) {
+    if (op.op === 'text') {
+      ctx.font = op.font;
+      ctx.fillText(op.text, op.x, op.y);
+    } else {
+      const img = images.get(op.src);
+      if (img) ctx.drawImage(img, op.x, op.y, op.w, op.h);
+    }
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('The page did not encode as a PNG'));
+    }, 'image/png');
+  });
+}
 
 /** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
 async function keepSandboxRun(pause = true): Promise<void> {
@@ -1249,6 +1301,7 @@ const game: GameService = {
   async addFeather() {
     return (await profileReady).addFeather();
   },
+  exportPage: oneAtATime(drawPage),
   onSnapshot(cb) {
     return host.onMessage((m) => {
       if (m.t === 'snapshot') cb(m.lite, m.tick);

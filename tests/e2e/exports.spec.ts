@@ -209,3 +209,88 @@ test('the encoder output of a fixed 3-color frame set decodes to the same pixels
   });
   expect(same).toEqual({ count: 3, same: true });
 });
+
+// Pages as PNG (plan task M4.14, ADR 0014 item 8): a journal page and a Book of Skies year page,
+// drawn on the device into a 1080-pixel canvas and saved as a download.
+
+/** The PNG's width and height from its IHDR chunk, after the 8-byte signature. */
+function pngSize(path: string): { signature: string; width: number; height: number } {
+  const png = readFileSync(path);
+  return {
+    signature: png.subarray(0, 8).toString('hex'),
+    width: png.readUInt32BE(16),
+    height: png.readUInt32BE(20),
+  };
+}
+const PNG_SIGNATURE = '89504e470d0a1a0a';
+
+test('Save this page as an image downloads a 1080-wide PNG of a journal page', async ({ page }) => {
+  await page.goto('/?chapter=16');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await page.getByRole('button', { name: /^Wake as / }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  // The dev journey hook writes the Fen's page without playing the valley.
+  await page.evaluate(() => {
+    const j = (
+      window as unknown as {
+        fairWeather: { journey: () => { pages: unknown[]; keepsakes: unknown[] } | null };
+      }
+    ).fairWeather.journey();
+    if (!j) throw new Error('no journey');
+    j.pages = [
+      {
+        valley: 'fen',
+        stamp: 'welcomed',
+        said: { value: 0.8, strength: 0.9 },
+        keepsake: 'starling-feather',
+        postcard: null,
+        caption: '',
+      },
+    ];
+    j.keepsakes = [{ id: 'starling-feather', given: false }];
+  });
+  await page.keyboard.press('j');
+  const fen = page
+    .getByRole('dialog', { name: 'Travel journal' })
+    .getByRole('article', { name: 'Murmuration Fen' });
+  const save = fen.getByRole('button', { name: 'Save this page as an image' });
+  await expect(save).toHaveAccessibleDescription(EXPORT_LINE);
+  await fen.getByRole('textbox', { name: 'Your line' }).fill('Rain on the reeds');
+  const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
+  expect(download.suggestedFilename()).toBe('fair-weather-journal-fen.png');
+  const size = pngSize(await download.path());
+  expect(size.signature).toBe(PNG_SIGNATURE);
+  expect(size.width).toBe(1080);
+  expect(size.height).toBeGreaterThan(1080);
+  await expect(save).toBeEnabled();
+});
+
+test('Save this page as an image downloads a 1080-wide PNG of a Book of Skies year, in the game and on the title', async ({
+  page,
+}) => {
+  // The sky story at the fire writes year 1's page.
+  await page.goto('/?chapter=15');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const scroll = page.getByRole('region', { name: /^The Sky Story, told by \S/ });
+  await expect(scroll.getByRole('button', { name: 'Listen' })).toBeFocused();
+  for (let i = 0; i < 5; i += 1) await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'The Bridge' })).toBeVisible();
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  await page.getByRole('button', { name: 'Book of Skies' }).click();
+  const year = page.getByRole('dialog', { name: 'Book of Skies' }).getByRole('article', { name: 'Year 1' });
+  for (const where of [year, page.getByRole('article', { name: 'Year 1' })]) {
+    const save = where.getByRole('button', { name: 'Save this page as an image' });
+    await expect(save).toHaveAccessibleDescription(EXPORT_LINE);
+    const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
+    expect(download.suggestedFilename()).toBe('fair-weather-year-1.png');
+    const size = pngSize(await download.path());
+    expect(size.signature).toBe(PNG_SIGNATURE);
+    expect(size.width).toBe(1080);
+    // On the title next.
+    if (where === year) {
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Book of Skies' }).click();
+    }
+  }
+});

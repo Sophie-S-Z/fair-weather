@@ -8,6 +8,7 @@ import type { BenchSpot } from '../input/verbs.ts';
 import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MythPage } from '../myth/grammar.ts';
 import type { RgbaFrame } from '../persist/gif.ts';
+import type { PageBlock } from '../persist/page-image.ts';
 import type { Band } from '../render/cosmos-view.ts';
 import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
@@ -234,6 +235,12 @@ export interface GameService {
   feathers(): Promise<number>;
   /** Counts one more feather; returns the new count. */
   addFeather(): Promise<number>;
+  /**
+   * A journal page or a Book of Skies year page as a 1080-pixel-wide PNG made on the device (ADR
+   * 0014 item 8), from the same data as its HTML. An image block that does not load is left out,
+   * and the page is still made. One page at a time. Rejects when the page cannot be made.
+   */
+  exportPage: (blocks: PageBlock[]) => Promise<Blob>;
   /** Every live snapshot with its tick (the next tick to run). */
   onSnapshot(cb: (lite: WorldLite, tick: number) => void): () => void;
   /**

@@ -144,7 +144,12 @@
         }}
       />
     {:else if screen === 'book'}
-      <BookOfSkies pages={book.pages} feathers={book.feathers} onBack={() => (screen = 'title')} />
+      <BookOfSkies
+        pages={book.pages}
+        feathers={book.feathers}
+        onExport={game.exportPage}
+        onBack={() => (screen = 'title')}
+      />
     {:else}
       <SettingsScreen {settings} onBack={() => (screen = 'title')} />
     {/if}

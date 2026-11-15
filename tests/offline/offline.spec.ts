@@ -36,12 +36,13 @@ test('after one load the game starts with the network off', async ({ page, conte
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible();
+  // The sim worker's script must come from the worker's cache, so a worker that is not precached
+  // cannot pass. The page reports a dedicated worker's script request (assets/worker-<hash>.js).
+  const workerScript = page.waitForResponse((r) => /\/worker-[^/]*\.js$/.test(r.url()));
   await page.getByRole('button', { name: 'Begin' }).click();
+  expect((await workerScript).fromServiceWorker()).toBe(true);
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
   await expect(page.locator('canvas').first()).toBeVisible();
-  // The sim worker's script retries after 1 s and 2 s and then the still page shows (ADR 0014
-  // item 11): wait that long, so a worker that is not precached cannot pass.
-  await page.waitForTimeout(3500);
   expect(failed).toEqual([]);
   await expect(page.getByText('This browser cannot show the moving valley')).toHaveCount(0);
   expect(seen).toEqual([]);

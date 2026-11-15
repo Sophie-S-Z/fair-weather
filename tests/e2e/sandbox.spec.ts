@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { canvasPoints, keepProfile, sandboxRun as run } from './helpers.ts';
+import { canvasPoints, keepProfile, sandboxRun as run, seriousViolations, untilStatus } from './helpers.ts';
 
 /** A tool's radio, also in a closed panel. */
 const radio = (page: Page, name: string) => page.getByRole('radio', { name, includeHidden: true });
@@ -227,13 +227,13 @@ test('axe finds no serious issue on the start choice', async ({ page }) => {
   await page.reload();
   await page.getByRole('button', { name: 'Sandbox' }).click();
   await expect(page.getByRole('group', { name: 'Start from' })).toBeVisible();
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+  expect(await seriousViolations(page)).toEqual([]);
 });
 
 test('a rule change that the worker cannot start puts the knob back, says so, and keeps the rules off', async ({
   page,
 }) => {
+  await page.clock.install();
   await open(page);
   // The next run's worker does not load, so the host gives up before its first snapshot.
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
@@ -242,7 +242,9 @@ test('a rule change that the worker cannot start puts the knob back, says so, an
   await expect(gift).toHaveValue('3');
   await gift.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+  await untilStatus(
+    page,
+    'could not start',
     'The valley could not start again. The rules did not change. Go back to the title to try again.',
   );
   await expect(gift).toHaveValue('3');
@@ -255,7 +257,9 @@ test('a rule change that the worker cannot start puts the knob back, says so, an
   await page.getByRole('application', { name: 'The sandbox valley' }).focus();
   await page.keyboard.press('3');
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+  await untilStatus(
+    page,
+    'could not start',
     'The valley could not start again. The rules did not change. Go back to the title to try again.',
   );
   await page.getByRole('button', { name: 'Back to title' }).click();
@@ -333,13 +337,16 @@ test('while a rule change starts the run again, no other rule can change', async
 });
 
 test('a first start that the worker cannot run says so on the start choice', async ({ page }) => {
+  await page.clock.install();
   await page.goto('/');
   await keepProfile(page, []);
   await page.reload();
   await page.getByRole('button', { name: 'Sandbox' }).click();
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
   await page.getByRole('button', { name: 'A new valley' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'could not start' })).toHaveText(
+  await untilStatus(
+    page,
+    'could not start',
     'The game could not start this valley. Go back to the title to try again.',
   );
   await expect(page.getByRole('button', { name: 'A new valley' })).toBeDisabled();

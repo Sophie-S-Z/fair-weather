@@ -239,3 +239,22 @@ export async function press(page: Page, button: Locator): Promise<void> {
   if (!box) throw new Error('The button has no box to click');
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
+
+/**
+ * Waits until the status line with `hasText` reads `text`, jumping the page clock on 250 ms a round
+ * (install it before the first goto), so the host's waits to load a worker again (1 s, then 2 s)
+ * take a few real moments however slow the machine is.
+ */
+export const untilStatus = (page: Page, hasText: string, text: string) =>
+  expect
+    .poll(
+      async () => {
+        // fastForward fires the due timers once; runFor would also run every frame of a drawing scene.
+        await page.clock.fastForward(250);
+        // Not textContent: it waits for the line, and the line waits for the clock.
+        return (await page.getByRole('status').filter({ hasText }).allTextContents())[0] ?? null;
+      },
+      // A round each 50 ms, not the default back-off, so the page clock gets all of its 3 s.
+      { intervals: [50] },
+    )
+    .toBe(text);

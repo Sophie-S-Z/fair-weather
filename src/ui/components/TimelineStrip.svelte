@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { NOTE_LENGTH, cutNote } from '../../story/journey.ts';
+  import { NOTE_LENGTH, cutNote } from '../../story/sandbox.ts';
   import type { TimelinePoint } from '../../render/timeline.ts';
 
   let {
@@ -127,6 +127,7 @@
         bind:value={text}
         bind:this={field}
         oninput={limit}
+        oncompositionend={limit}
         onkeydown={onFieldKey}
       />
       <p id="note-hint">The note is for day {dayOf(pinAt)}. It stays on this device.</p>

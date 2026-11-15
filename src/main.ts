@@ -81,7 +81,6 @@ import type { ChapterRunner } from './story/chapter-runner.ts';
 import { DEFAULT_FLAGS } from './story/flags.ts';
 import {
   FIRST_HERO,
-  cutNote,
   journeyStart,
   KITH_VALLEYS,
   kithCarry,
@@ -101,6 +100,7 @@ import { stillPages } from './story/stills.ts';
 import { loadImageWithRetry } from './ui/retry-image.ts';
 import {
   createSandboxRunner,
+  cutNote,
   DEFAULT_SWITCHES,
   SANDBOX_VALLEYS,
   sandboxScenario,
@@ -508,7 +508,10 @@ function startKith(from: Carry | null): SimHost {
   if (!kith) {
     kith = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
     // Kith's silent run is part of the story: when its worker is lost, so is the chapter.
-    kith.onGiveUp(simLost);
+    // A sandbox run has its own give-up path; Kith's loss does not stop it.
+    kith.onGiveUp(() => {
+      if (!sandboxRun) simLost();
+    });
   }
   kith.post({
     t: 'init',

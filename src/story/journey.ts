@@ -62,11 +62,6 @@ export function characters(text: string): string[] {
   return Array.from(new Intl.Segmenter().segment(text), (g) => g.segment);
 }
 
-/** The longest sandbox note, in characters (graphemes). Notes are the player's own words and stay on the device. */
-export const NOTE_LENGTH = 80;
-/** `text` cut to NOTE_LENGTH characters, between graphemes. */
-export const cutNote = (text: string): string => characters(text).slice(0, NOTE_LENGTH).join('');
-
 /**
  * Keeps the player's own line on the journal page of `valley`, cut to CAPTION_LENGTH characters.
  * It stays on the device: nothing here logs or sends it. A valley with no page changes nothing.

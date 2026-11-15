@@ -9,6 +9,7 @@ import m0Json from '../../content/scenarios/m0.json' with { type: 'json' };
 import type { ForwardStep, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, NetworkSwitches, Rect, Scenario, SimEvent, Structure, Tuning } from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
+import { characters } from './journey.ts';
 import { CHALLENGES, CHALLENGE_IDS, applyStart, createChallengeCheck } from './challenges.ts';
 import type { ChallengeId, ChallengeState } from './challenges.ts';
 import type { Carry } from './carry.ts';
@@ -202,6 +203,11 @@ export interface Switches {
   drift: boolean;
 }
 export const DEFAULT_SWITCHES: Switches = { oneWay: true, weighted: false, mixed: true, drift: false };
+
+/** The longest sandbox note, in characters (graphemes). Notes are the player's own words and stay on the device. */
+export const NOTE_LENGTH = 80;
+/** `text` cut to NOTE_LENGTH characters, between graphemes. */
+export const cutNote = (text: string): string => characters(text).slice(0, NOTE_LENGTH).join('');
 
 /** A sandbox day's ticks: a story day's. */
 export const SANDBOX_TICKS_PER_DAY = chapterTicksPerDay(tuning.story);

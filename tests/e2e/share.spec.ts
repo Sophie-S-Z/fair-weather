@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { inflateRawSync } from 'node:zlib';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { hash, keepProfile, openNew, press, running, sandboxRun, sent } from './helpers.ts';
+import { hash, keepProfile, openNew, press, untilStatus, running, sandboxRun, sent } from './helpers.ts';
 
 // These tests check the round trip, not the layout, so the page is a small desktop one: with no GPU
 // every frame is drawn in software, and its cost grows with its pixels, so each step waits less.
@@ -411,6 +411,7 @@ test('a link says it is opening, and a worker that cannot run says the valley co
   context,
 }) => {
   const { url } = await theirLink(context);
+  await page.clock.install();
   // A slow worker: the link waits for it, and says so.
   await page.route('**/src/sim-host/worker.ts*', async (route) => {
     await new Promise((r) => setTimeout(r, 3000));
@@ -425,7 +426,5 @@ test('a link says it is opening, and a worker that cannot run says the valley co
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
   await page.goto('/');
   await page.goto(url);
-  await expect(page.getByRole('status').filter({ hasText: 'could not open' })).toHaveText(
-    'The valley could not open. Go back to the title to try again.',
-  );
+  await untilStatus(page, 'could not open', 'The valley could not open. Go back to the title to try again.');
 });

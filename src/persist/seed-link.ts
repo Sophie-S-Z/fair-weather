@@ -5,12 +5,19 @@ import { z } from 'zod';
 import type { Command } from '../sim/types.ts';
 import { CommandSchema } from '../story/action-log.ts';
 import { CHALLENGES } from '../story/challenges.ts';
-import { GUST_REACH, SandboxSetupSchema, bridgesIn, inScene, isCreatureId } from '../story/sandbox.ts';
+import {
+  GUST_REACH,
+  SANDBOX_TICKS_PER_DAY,
+  SandboxSetupSchema,
+  bridgesIn,
+  inScene,
+  isCreatureId,
+} from '../story/sandbox.ts';
 import type { SandboxSetup } from '../story/sandbox.ts';
 import { tuning } from '../story/tuning.ts';
 
-/** 100 days at the sandbox's 400 ticks a day. */
-export const MAX_LINK_TICKS = 40_000;
+/** 100 days of the sandbox's day length. */
+export const MAX_LINK_TICKS = 100 * SANDBOX_TICKS_PER_DAY;
 export const MAX_LINK_LISTS = 10_000;
 /** The most bytes of JSON a link holds; decoding stops reading there. */
 export const MAX_LINK_BYTES = 1_048_576;

@@ -509,6 +509,31 @@ test('the drawer opens Where this model is wrong as a modal dialog with the sim 
   await expect(open).toBeFocused();
 });
 
+test('Where this model is wrong in the game leaves a paused sim paused, and cannot open twice', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  const speeds = () =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+  await expect.poll(speeds).toBe(1);
+  await page.keyboard.press('Space');
+  await expect.poll(speeds).toBe(0);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('region', { name: 'Margin notes' }).getByRole('button', {
+    name: 'Where this model is wrong',
+  });
+  await open.click();
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect.poll(speeds).toBe(0);
+});
+
 test('the myth tells only this year: five gusts show behind a toggle, and the next year does not count them', async ({
   page,
 }) => {

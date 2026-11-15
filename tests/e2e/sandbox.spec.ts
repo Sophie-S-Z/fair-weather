@@ -64,9 +64,34 @@ test('the Rules panel opens Where this model is wrong as a modal dialog with the
     .toBe(0);
   const { violations } = await new AxeBuilder({ page }).analyze();
   expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+  // Tab stays inside the dialog: the links, then Back, and round again.
+  const count = await dialog.locator('a[href], button').count();
+  for (let i = 0; i < count + 1; i++) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Shift+Tab');
+  expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(button).toBeFocused();
+});
+
+test('Where this model is wrong in the sandbox leaves a paused sim paused', async ({ page }) => {
+  await open(page);
+  const speed = () =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+  await page.keyboard.press('Space');
+  await expect.poll(speed).toBe(0);
+  await page.getByText('Rules', { exact: true }).click();
+  await page.getByRole('button', { name: 'Where this model is wrong' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect.poll(speed).toBe(0);
 });
 
 test('keys only: 1 picks Place, Enter places a bench at the cursor, 8 picks Whisper', async ({ page }) => {

@@ -1,7 +1,14 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { MODEL_LIMITS, ModelLimitsSchema } from '../../../src/story/limits.ts';
 import { NoteSchema } from '../../../src/story/schema.ts';
+
+/** Every JSON file under a folder, however deep. */
+const jsonFiles = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? jsonFiles(join(dir, e.name)) : e.name.endsWith('.json') ? [join(dir, e.name)] : [],
+  );
 
 // Spec 19.1's four limits, word for word (the user's text, ADR 0010).
 const SPEC_LIMITS = [
@@ -30,10 +37,10 @@ test('the one further item is a tagged placeholder for the writer', () => {
 });
 
 test('only sources that are already in content/ are used', () => {
-  const known = [
-    readFileSync('content/chapters/ch0.json', 'utf8'),
-    readFileSync('content/chapters/ch3.json', 'utf8'),
-  ].join('\n');
+  const known = jsonFiles('content')
+    .filter((f) => !f.endsWith('model-limits.json'))
+    .map((f) => readFileSync(f, 'utf8'))
+    .join('\n');
   for (const item of MODEL_LIMITS.items)
     for (const s of item.sources) expect(known).toContain(`"url": "${s.url}"`);
 });

@@ -237,6 +237,7 @@
   let limits = $state(false);
   let speedBeforeLimits = 0;
   function openLimits(): void {
+    if (limits) return;
     speedBeforeLimits = game.currentSpeed();
     setSpeed(0);
     limits = true;

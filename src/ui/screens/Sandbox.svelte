@@ -26,6 +26,7 @@
   } from '../../story/sandbox.ts';
   import type { Verb, VerbInput } from '../../story/verbs.ts';
   import ChallengeCard from '../components/ChallengeCard.svelte';
+  import PostcardExport from '../components/PostcardExport.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
   import SharePanel from '../components/SharePanel.svelte';
   import TimeControls from '../components/TimeControls.svelte';
@@ -120,6 +121,8 @@
   /** What Share gave while the Share panel is open, or null. */
   type Shared = Awaited<ReturnType<GameService['sandbox']['share']>>;
   let shared: Shared | null = $state.raw(null);
+  /** Whether the postcard dialog is open (ADR 0014 item 8). */
+  let postcard = $state(false);
   let cursor = $state({ x: 0, y: 0 });
   let picked: string | null = $state(null);
   let nearby: string | null = $state(null);
@@ -521,6 +524,8 @@
         return s;
       }
       stage = s;
+      // Only the sandbox records the frames for a postcard; leaving destroys the stage, which forgets them.
+      s.setRecording(true);
       const ctx: InputContext = {
         tools: () => SANDBOX_TOOLS,
         creatures: () => [...(next?.creatures ?? [])].sort(byId),
@@ -590,7 +595,7 @@
 </script>
 
 <div class="sandbox">
-  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null}>
+  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null || postcard}>
     <!-- The scene is a keyboard surface (spec 12.5), as on the game screen. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -621,6 +626,7 @@
             {#if rw.at !== null}
               <p id="share-why" class="why">Go back to now to share this valley.</p>
             {/if}
+            <button type="button" disabled={locked} onclick={() => (postcard = true)}>Make a postcard</button>
             <button type="button" onclick={() => void exit()}>Back to title</button>
           </div>
         </div>
@@ -770,6 +776,11 @@
       valleyFile={game.sandbox.valleyFile}
       onOpen={openText}
       onClose={() => (shared = null)}
+    />
+  {:else if postcard}
+    <PostcardExport
+      onMake={(caption: string) => game.sandbox.postcard(caption)}
+      onClose={() => (postcard = false)}
     />
   {:else if whisperCard}
     <WhisperCard

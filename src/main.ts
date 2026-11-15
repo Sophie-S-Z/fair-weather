@@ -40,6 +40,7 @@ import { brushShare, extractFeatures } from './myth/features.ts';
 import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { SixthSchema, sixthFeatures, tellSixth } from './myth/sixth.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
+import { createFrameRing } from './render/frame-ring.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
@@ -49,6 +50,7 @@ import { createSoulView } from './render/soul-view.ts';
 import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
+import { encodeGif } from './persist/gif.ts';
 import type { SaveV3 } from './persist/format.ts';
 import { createProfile, cutNote } from './persist/profile.ts';
 import {
@@ -103,7 +105,7 @@ import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
 import type { Chapter } from './story/schema.ts';
 import App from './ui/App.svelte';
-import type { GameService } from './ui/game-service.ts';
+import type { GameService, Stage } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
 import { oneAtATime } from './ui/one-at-a-time.ts';
@@ -292,6 +294,8 @@ const dev = {
   sandbox: () => game.sandbox.snapshot(),
   /** The world's hash now and its tick, so e2e can see that an opened link gives the same world. */
   hash: () => host.requestHash(),
+  /** The postcard's encoder, so e2e can check that the browser decodes its output to the same pixels. */
+  encodeGif,
 };
 if (import.meta.env.DEV) {
   (window as unknown as { fairWeather: unknown }).fairWeather = dev;
@@ -606,6 +610,14 @@ const sandboxLink = oneAtATime(async function (
     return { kind: 'tooBig' }; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
   }
 });
+/** The stage that records the sandbox for the postcard (ADR 0014 item 8), or null. */
+let recording: Stage | null = null;
+/** The postcard paper and ink (ADR 0014 item 8), whatever the contrast setting. */
+const PAPER = '#f6f1e7';
+const INK = '#1f2a33';
+/** The caption band under the scene, in pixels. */
+const BAND = 48;
+
 /** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
 async function keepSandboxRun(pause = true): Promise<void> {
   const notes = sandboxRun?.notes ?? [];
@@ -744,6 +756,22 @@ const game: GameService = {
       return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link.text };
     },
     open: (text) => openSandbox(text, []),
+    // One at a time, so a second Save does not take the first one's pause for the player's speed.
+    postcard: oneAtATime(async (caption: string) => {
+      const stage = recording;
+      if (!stage) throw new Error('No sandbox stage records');
+      const before = speedControl.current();
+      speedControl.player(0);
+      try {
+        // A task for the pause to go out, and for the page to show Save off, before the encode
+        // holds the thread.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        // A copy on an ArrayBuffer, as a Blob takes.
+        return new Blob([encodeGif(stage.postcard(caption)).slice()], { type: 'image/gif' });
+      } finally {
+        speedControl.player(before);
+      }
+    }),
     async openSaved() {
       const profile = await profileReady;
       const save = await profile.sandbox();
@@ -845,7 +873,26 @@ const game: GameService = {
     // A node sits on its creature's body center, a villager's half height above its feet.
     const nodeAt = (x: number, y: number): [number, number] => view.toScreen(x, y - CREATURE_HEIGHT / 2);
     const views = { meadow: view, cosmos, soul };
-    return {
+    /** The 2D canvas a capture draws the scene into. */
+    const grab = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    /**
+     * The scene as the canvas shows it now, as `w` x `h` pixels: the WebGL canvas's scene box, read
+     * in the same task as its render, so the drawing buffer still holds the frame.
+     */
+    const capture = (w: number, h: number): Uint8ClampedArray => {
+      if (!grab) throw new Error('No 2D context for the postcard');
+      if (grab.canvas.width !== w || grab.canvas.height !== h)
+        [grab.canvas.width, grab.canvas.height] = [w, h];
+      const k = app.canvas.width / app.screen.width;
+      const [x0, y0] = view.toScreen(0, 0);
+      const [x1, y1] = view.toScreen(scene.width, scene.height);
+      grab.drawImage(app.canvas, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, 0, 0, w, h);
+      return grab.getImageData(0, 0, w, h).data;
+    };
+    let ring: ReturnType<typeof createFrameRing> | null = null;
+    const newRing = () =>
+      createFrameRing(capture, { seconds: 5, fps: 12, width: 480, aspect: scene.height / scene.width });
+    const stage: Stage = {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
         if (import.meta.env.DEV) dev.frames += 1;
         const cosmosBand = current === 'cosmos' ? band : null;
@@ -854,6 +901,37 @@ const game: GameService = {
         if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, cosmosBand, soulId);
         if (current === 'soul') soul.update(next, s, soulId, insets);
         app.ticker.update(); // advances the view's clock and renders
+        ring?.offer(performance.now());
+      },
+      setRecording(on) {
+        ring?.clear();
+        ring = on ? newRing() : null;
+        if (on) recording = stage;
+        else if (recording === stage) recording = null;
+      },
+      postcard(caption) {
+        const out = document.createElement('canvas');
+        const ctx = out.getContext('2d');
+        if (!ctx) throw new Error('No 2D context for the postcard');
+        // Atkinson Hyperlegible once the page has loaded it (ADR 0014 item 14), else the page's own font.
+        const atkinson = [...document.fonts].some(
+          (f) => f.family.replace(/"/g, '') === 'Atkinson Hyperlegible' && f.status === 'loaded',
+        );
+        const font = `20px ${atkinson ? '"Atkinson Hyperlegible"' : getComputedStyle(document.body).fontFamily}`;
+        return (ring?.frames() ?? []).map((f) => {
+          [out.width, out.height] = [f.width, f.height + BAND];
+          ctx.fillStyle = PAPER;
+          ctx.fillRect(0, 0, out.width, out.height);
+          const px = ctx.createImageData(f.width, f.height);
+          px.data.set(f.data);
+          ctx.putImageData(px, 0, 0);
+          ctx.font = font;
+          ctx.fillStyle = INK;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(caption, out.width / 2, f.height + BAND / 2, out.width - 24);
+          return { ...f, height: out.height, data: ctx.getImageData(0, 0, out.width, out.height).data };
+        });
       },
       pick: (x, y) => views[current].pick(...local(x, y)),
       toScene(x, y) {
@@ -897,6 +975,8 @@ const game: GameService = {
       setScene(id) {
         scene = sceneOf(id);
         view.setScene(scene);
+        // The frames keep one size: a new scene's aspect starts a new ring.
+        if (ring) ring = newRing();
       },
       setPalette(id) {
         const p = paletteOf(id);
@@ -925,10 +1005,12 @@ const game: GameService = {
         return { width: scene.width, height: scene.height };
       },
       destroy() {
+        stage.setRecording(false); // the frames go with the stage
         stopCounting();
         app.destroy(true, true);
       },
     };
+    return stage;
   },
   async resume() {
     const save = await (await slotsReady).load('auto');

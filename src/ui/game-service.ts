@@ -7,6 +7,7 @@ import type { createWait } from '../input/wait.ts';
 import type { BenchSpot } from '../input/verbs.ts';
 import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MythPage } from '../myth/grammar.ts';
+import type { RgbaFrame } from '../persist/gif.ts';
 import type { Band } from '../render/cosmos-view.ts';
 import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
@@ -60,6 +61,16 @@ export interface Stage extends Pick<
    */
   setTimelineBand(band: Band | null): void;
   draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
+  /**
+   * Only the sandbox records (ADR 0014 item 8). While on, each draw offers the scene to a ring of
+   * the last 5 seconds, at most 12 frames a second, 480 pixels wide. Off forgets the frames.
+   */
+  setRecording(on: boolean): void;
+  /**
+   * The ring's frames, each over a 48-pixel paper band with `caption` in 20-pixel ink: 480 x 318 for
+   * a 1600 x 900 scene. None when not recording.
+   */
+  postcard(caption: string): RgbaFrame[];
   /** The creature under a screen point in the current view, or null. Cosmos snaps within 44 pixels. */
   pick(x: number, y: number): string | null;
   toScene(x: number, y: number): { x: number; y: number };
@@ -144,6 +155,12 @@ export interface SandboxService {
    * save in the same way.
    */
   leave(): Promise<void>;
+  /**
+   * The postcard GIF (ADR 0014 item 8) of the recording stage's frames with `caption`, which the
+   * player wrote at the moment of export. The sim pauses while it encodes, and then goes on at the
+   * speed from before. One postcard at a time. Rejects without frames, or when it cannot be made.
+   */
+  postcard(caption: string): Promise<Blob>;
   /** Stops the run. */
   stop(): void;
 }

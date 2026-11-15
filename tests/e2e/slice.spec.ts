@@ -1,5 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
-import { canvasPoints, tabTo, tap } from './helpers.ts';
+import { canvasPoints, pausedFrames, tabTo, tap } from './helpers.ts';
 
 // The vertical slice (M1.8, M1.12). Dev builds only: ?chapter=N starts at chapter N, and ?fast=N
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
@@ -547,23 +547,6 @@ test.describe('on a phone', () => {
     await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
   });
 });
-
-/** Two shots of the paused scene, half a second apart. */
-async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
-  // Wait until the scene is being drawn from snapshots, so the pause holds a drawn world.
-  const frames = (await dev(page)).frames;
-  await expect.poll(async () => (await dev(page)).frames).toBeGreaterThan(frames);
-  await page.getByRole('button', { name: 'Pause' }).click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
-  await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
-  const canvas = page.locator('canvas');
-  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
-  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
-  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
-  const a = await canvas.screenshot({ style });
-  await page.waitForTimeout(500);
-  return [a, await canvas.screenshot({ style })];
-}
 
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });

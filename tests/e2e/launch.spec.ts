@@ -1,6 +1,7 @@
 // M4.19: the help sheet, the phone layout, and the bundled type (ADR 0014 items 14 and 15).
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
+import { controlClashes } from './helpers.ts';
 
 async function seriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).analyze();
@@ -238,46 +239,6 @@ test('in landscape the story strip comes before the tools in the tab order, as i
   await expect(wake).toBeFocused();
 });
 
-/**
- * The pairs of visible controls that overlap, by name. Each box is cut to the scroll boxes around it,
- * so a control scrolled out of its box counts only where it shows.
- */
-const controlClashes = (page: Page) =>
-  page.evaluate(() => {
-    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
-    const shown = (el: Element) => {
-      let r = el.getBoundingClientRect();
-      let { left, top, right, bottom } = r;
-      for (let p = el.parentElement; p; p = p.parentElement) {
-        if (getComputedStyle(p).overflowY === 'visible') continue;
-        r = p.getBoundingClientRect();
-        left = Math.max(left, r.left);
-        top = Math.max(top, r.top);
-        right = Math.min(right, r.right);
-        bottom = Math.min(bottom, r.bottom);
-      }
-      return { left, top, right, bottom };
-    };
-    const boxes = [...document.querySelectorAll(things)]
-      .filter((el) => el.checkVisibility({ visibilityProperty: true }))
-      .map((el) => ({ el, r: shown(el) }))
-      .filter(({ r }) => r.right - r.left > 1 && r.bottom - r.top > 1);
-    const name = (el: Element) =>
-      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
-    const hit: string[] = [];
-    for (let i = 0; i < boxes.length; i++)
-      for (let j = i + 1; j < boxes.length; j++) {
-        const a = (boxes[i] as (typeof boxes)[number]).r;
-        const b = (boxes[j] as (typeof boxes)[number]).r;
-        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
-        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (w > 0.5 && h > 0.5)
-          hit.push(
-            `${name((boxes[i] as (typeof boxes)[number]).el)} / ${name((boxes[j] as (typeof boxes)[number]).el)}`,
-          );
-      }
-    return hit;
-  });
 /** The top of the bottom bar, and the bottom of what sits above it: the title, the drawer button, and the Cosmos band. */
 const barAndAbove = (page: Page) =>
   page.evaluate(() => ({

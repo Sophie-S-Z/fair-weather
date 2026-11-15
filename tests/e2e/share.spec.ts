@@ -7,7 +7,7 @@ import { inflateRawSync } from 'node:zlib';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
-import { keepProfile } from './helpers.ts';
+import { keepProfile, press } from './helpers.ts';
 
 type Hash = { tick: number; value: string };
 type Dev = {
@@ -74,19 +74,19 @@ async function act(page: Page): Promise<void> {
   for (let i = 0; i < 40 && !(await picked.isVisible()); i++) await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   const card = page.getByRole('dialog', { name: 'Whisper about whom?' });
-  await card.getByRole('button').first().click();
-  await card.getByRole('button', { name: 'Kind', exact: true }).click();
+  await press(page, card.getByRole('button').first());
+  await press(page, card.getByRole('button', { name: 'Kind', exact: true }));
   await expect.poll(() => sent(page)).toBe(before + 1);
 }
 
 /** Opens the Share panel, which pauses the run. */
 async function share(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Share this valley' }).click();
+  await press(page, page.getByRole('button', { name: 'Share this valley' }));
   await expect(dialog(page)).toBeVisible();
   await expect(pause(page)).toHaveAttribute('aria-pressed', 'true');
 }
 async function pauseNow(page: Page): Promise<void> {
-  await pause(page).click();
+  await press(page, pause(page));
   await expect(pause(page)).toHaveAttribute('aria-pressed', 'true');
 }
 
@@ -102,7 +102,7 @@ async function pausedAt(page: Page, want: { tick: number; value: string }): Prom
 /** Pins `text` on the strip, at the tick drawn now. */
 async function pin(page: Page, text: string): Promise<void> {
   const strip = page.getByRole('region', { name: 'Timeline' });
-  await strip.getByRole('button', { name: 'Pin a note' }).click();
+  await press(page, strip.getByRole('button', { name: 'Pin a note' }));
   await strip.getByLabel('Note (at most 80 characters)').fill(text);
   await page.keyboard.press('Enter');
   await expect(strip.getByRole('button', { name: `Note on day 1: ${text}` })).toBeVisible();
@@ -130,10 +130,12 @@ test('a shared link opens the same valley at the same tick, paused, for a player
   expect(want.tick).toBeGreaterThan(0);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
-  await dialog(page).getByRole('button', { name: 'Close' }).click();
+  await press(page, dialog(page).getByRole('button', { name: 'Close' }));
   await expect(page.getByRole('button', { name: 'Share this valley' })).toBeFocused();
 
-  // Another player, before the end of Part 1: a profile of their own, with no kept year.
+  // Another player, before the end of Part 1: a profile of their own, with no kept year. The first
+  // page is done: closed, it stops drawing its frames, which the second page's steps would wait behind.
+  await page.close();
   const other = await (await browser.newContext()).newPage();
   await other.goto(url);
   await pausedAt(other, want);
@@ -155,9 +157,9 @@ test('Go on with your last valley after Back to title gives the same world, with
   await pin(page, 'Pim waits by the bench.');
   await pauseNow(page);
   const want = await hash(page);
-  await page.getByRole('button', { name: 'Back to title' }).click();
-  await page.getByRole('button', { name: 'Sandbox' }).click();
-  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await press(page, page.getByRole('button', { name: 'Back to title' }));
+  await press(page, page.getByRole('button', { name: 'Sandbox' }));
+  await press(page, page.getByRole('button', { name: 'Go on with your last valley' }));
   await pausedAt(page, want);
   await expect(
     page
@@ -179,7 +181,7 @@ test('Copy the link gives the link to the clipboard and says so', async ({ page 
   await share(page);
   const url = await dialog(page).getByLabel('Link to this valley').inputValue();
   await expect(dialog(page).getByRole('status')).toHaveText('');
-  await dialog(page).getByRole('button', { name: 'Copy the link' }).click();
+  await press(page, dialog(page).getByRole('button', { name: 'Copy the link' }));
   await expect(dialog(page).getByRole('status')).toHaveText('The link is copied.');
   expect(await page.evaluate(() => (window as unknown as { copied: string[] }).copied)).toEqual([url]);
 });
@@ -199,7 +201,7 @@ for (const [name, broken] of [
     expect(await page.evaluate(() => location.hash)).toBe('');
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
-    await page.getByRole('button', { name: 'Start fresh' }).click();
+    await press(page, page.getByRole('button', { name: 'Start fresh' }));
     await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
   });
 }
@@ -224,6 +226,7 @@ test('a valley too large for a link saves as a file, and opening that file gives
   const file = await download.path();
   expect(readFileSync(file, 'utf8')).toMatch(/^v1\.[A-Za-z0-9_-]+\n$/);
 
+  await page.close(); // done with: closed, it stops drawing frames that the next page's steps would wait behind
   const other = await context.newPage();
   await openNew(other);
   await share(other);
@@ -249,7 +252,7 @@ async function placeBench(page: Page): Promise<Hash> {
   await scene(page).focus();
   await page.keyboard.press('1');
   await page.keyboard.press('Enter');
-  await page.getByRole('group', { name: 'Time' }).getByRole('button', { name: '1×' }).click();
+  await press(page, page.getByRole('group', { name: 'Time' }).getByRole('button', { name: '1×' }));
   await expect.poll(() => structures(page)).toEqual(['bench']);
   await pauseNow(page);
   return hash(page);
@@ -260,16 +263,16 @@ async function keepOwnValley(page: Page): Promise<Hash> {
   await openNew(page);
   await keepProfile(page, []);
   const mine = await placeBench(page);
-  await page.getByRole('button', { name: 'Back to title' }).click();
+  await press(page, page.getByRole('button', { name: 'Back to title' }));
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
   return mine;
 }
 
 /** Back to title, then Go on with your last valley. */
 async function goOn(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Back to title' }).click();
-  await page.getByRole('button', { name: 'Sandbox' }).click();
-  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await press(page, page.getByRole('button', { name: 'Back to title' }));
+  await press(page, page.getByRole('button', { name: 'Sandbox' }));
+  await press(page, page.getByRole('button', { name: 'Go on with your last valley' }));
 }
 
 test('a link opened and left at once keeps the last valley the player had', async ({ page, context }) => {
@@ -296,10 +299,10 @@ test('a link opened and acted in becomes the last valley', async ({ page, contex
 test('a challenge link opens with the challenge as it ended', async ({ page, context }) => {
   const card = (p: Page) => p.getByRole('region', { name: 'Challenges' });
   await openNew(page, '&fast=10');
-  await card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }).click();
+  await press(page, card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }));
   await expect(card(page).getByRole('status')).toHaveText(/^The challenge is not finished/);
   // The shortest seasons, so winter ends in two days.
-  await page.getByText('Rules', { exact: true }).click();
+  await press(page, page.getByText('Rules', { exact: true }));
   await page.getByLabel('Season length').focus();
   await page.keyboard.press('Home');
   await expect(card(page).getByRole('status')).not.toHaveText(/^The challenge is not finished/, {
@@ -310,6 +313,7 @@ test('a challenge link opens with the challenge as it ended', async ({ page, con
   const url = await dialog(page).getByLabel('Link to this valley').inputValue();
   const want = await hash(page);
 
+  await page.close();
   const other = await context.newPage();
   await other.goto(url);
   await pausedAt(other, want);
@@ -342,8 +346,8 @@ test('a bench placed while paused is in the link: Share steps the run one tick f
 test('an opened Bell link keeps its dance: Start the dance stays off', async ({ page, context }) => {
   const card = (p: Page) => p.getByRole('region', { name: 'Challenges' });
   await openNew(page);
-  await card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }).click();
-  await card(page).getByRole('button', { name: 'Start the dance' }).click();
+  await press(page, card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }));
+  await press(page, card(page).getByRole('button', { name: 'Start the dance' }));
   await expect(card(page).getByRole('button', { name: 'Start the dance' })).toBeDisabled();
   await share(page);
   const url = await dialog(page).getByLabel('Link to this valley').inputValue();
@@ -371,7 +375,10 @@ test('Share is off while the strip is rewound, and says why', async ({ page }) =
   await page.keyboard.press('Home');
   await expect(button).toBeDisabled();
   await expect(button).toHaveAccessibleDescription('Go back to now to share this valley.');
-  await page.getByRole('region', { name: 'Timeline' }).getByRole('button', { name: 'Back to now' }).click();
+  await press(
+    page,
+    page.getByRole('region', { name: 'Timeline' }).getByRole('button', { name: 'Back to now' }),
+  );
   await expect(button).toBeEnabled();
 });
 
@@ -385,8 +392,8 @@ test('the valley is kept when the tab is hidden after the player acted', async (
   });
   await expect.poll(() => storedSandbox(page)).not.toBeNull();
   await page.goto('/');
-  await page.getByRole('button', { name: 'Sandbox' }).click();
-  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await press(page, page.getByRole('button', { name: 'Sandbox' }));
+  await press(page, page.getByRole('button', { name: 'Go on with your last valley' }));
   await pausedAt(page, want);
 });
 
@@ -415,11 +422,11 @@ test('a last valley that no longer opens shows the lost page once, and is not of
       }),
   );
   await page.reload();
-  await page.getByRole('button', { name: 'Sandbox' }).click();
-  await page.getByRole('button', { name: 'Go on with your last valley' }).click();
+  await press(page, page.getByRole('button', { name: 'Sandbox' }));
+  await press(page, page.getByRole('button', { name: 'Go on with your last valley' }));
   await expect(page.getByRole('heading', { name: 'This valley could not be found' })).toBeVisible();
-  await page.getByRole('button', { name: 'Start fresh' }).click();
-  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await press(page, page.getByRole('button', { name: 'Start fresh' }));
+  await press(page, page.getByRole('button', { name: 'Sandbox' }));
   await expect(page.getByRole('button', { name: 'A new valley' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Go on with your last valley' })).toHaveCount(0);
 });

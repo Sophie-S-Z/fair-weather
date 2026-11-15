@@ -229,6 +229,16 @@ test('the start choice lists the finished valleys in first-played order, and the
   await expect(page.getByLabel('Gift warmth')).toHaveCount(0);
 });
 
+test('axe finds no serious issue on the start choice', async ({ page }) => {
+  await page.goto('/');
+  await keepProfile(page, ['halcyon']);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await expect(page.getByRole('group', { name: 'Start from' })).toBeVisible();
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+});
+
 test('a rule change that the worker cannot start puts the knob back, says so, and keeps the rules off', async ({
   page,
 }) => {

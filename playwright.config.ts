@@ -18,7 +18,7 @@ const e2eChromium = {
 };
 
 /** The whole-year runs, which the e2e-year project plays on their own. */
-const YEAR = ['part1.spec.ts', 'part2.spec.ts'];
+const YEAR = ['part1.spec.ts', 'part2.spec.ts', 'launch-year.spec.ts'];
 
 export default defineConfig({
   // On CI the tests run one at a time. With no GPU a page draws flat out in software, on the CPUs its

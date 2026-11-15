@@ -74,6 +74,15 @@ noGl.describe('without WebGL', () => {
     },
   );
 
+  noGl('axe finds no serious issue on The End page', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    const next = page.getByRole('button', { name: 'Next' });
+    while ((await pageHeading(page).textContent()) !== 'The End') await next.click();
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+  });
+
   noGl('axe finds no serious issue on a page with margin notes', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Begin' }).click();

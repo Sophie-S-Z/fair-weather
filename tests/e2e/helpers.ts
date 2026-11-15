@@ -1,7 +1,7 @@
 // Helpers the e2e specs share. They read the screen in one page.evaluate where they can: locator
 // actions wait on animation frames, which software rendering (CI with no GPU) draws two or three
 // times a second, and at ?fast=10 a sky bid's 6 s reply window is only 0.6 s of real time.
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export type Point = { x: number; y: number };
 /** content/scenes/kith-meadow.json */
@@ -110,4 +110,83 @@ export async function keepProfile(page: Page, valleys: string[]): Promise<void> 
       }),
     valleys,
   );
+}
+
+/**
+ * The pairs of visible controls that overlap, by name. Each box is cut to the scroll boxes around it,
+ * so a control scrolled out of its box counts only where it shows. While a modal dialog is open the
+ * screen behind it is inert, so only the dialog's own controls count.
+ */
+export const controlClashes = (page: Page): Promise<string[]> =>
+  page.evaluate(() => {
+    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
+    const shown = (el: Element) => {
+      let r = el.getBoundingClientRect();
+      let { left, top, right, bottom } = r;
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (getComputedStyle(p).overflowY === 'visible') continue;
+        r = p.getBoundingClientRect();
+        left = Math.max(left, r.left);
+        top = Math.max(top, r.top);
+        right = Math.min(right, r.right);
+        bottom = Math.min(bottom, r.bottom);
+      }
+      return { left, top, right, bottom };
+    };
+    const modal = document.querySelector('[aria-modal="true"]');
+    const boxes = [...document.querySelectorAll(things)]
+      .filter((el) => !modal || modal.contains(el))
+      .filter((el) => el.checkVisibility({ visibilityProperty: true }))
+      .map((el) => ({ el, r: shown(el) }))
+      .filter(({ r }) => r.right - r.left > 1 && r.bottom - r.top > 1);
+    const name = (el: Element) =>
+      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
+    const hit: string[] = [];
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = (boxes[i] as (typeof boxes)[number]).r;
+        const b = (boxes[j] as (typeof boxes)[number]).r;
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 0.5 && h > 0.5)
+          hit.push(
+            `${name((boxes[i] as (typeof boxes)[number]).el)} / ${name((boxes[j] as (typeof boxes)[number]).el)}`,
+          );
+      }
+    return hit;
+  });
+
+/** Two shots of the paused scene, half a second apart; pauses it first unless it is paused already. */
+export async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
+  const pause = page.getByRole('button', { name: 'Pause' });
+  if ((await pause.getAttribute('aria-pressed')) !== 'true') {
+    // Wait until the scene is being drawn from snapshots, so the pause holds a drawn world.
+    const frames = () =>
+      page.evaluate(() => (window as unknown as { fairWeather: { frames: number } }).fairWeather.frames);
+    const before = await frames();
+    await expect.poll(frames).toBeGreaterThan(before);
+    await pause.click();
+    await expect(pause).toHaveAttribute('aria-pressed', 'true');
+  }
+  await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
+  const canvas = page.locator('canvas');
+  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
+  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
+  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
+  const a = await canvas.screenshot({ style });
+  await page.waitForTimeout(500);
+  return [a, await canvas.screenshot({ style })];
+}
+
+/**
+ * Clicks the middle of `button` once it is enabled. A locator click also waits for the element to
+ * hold still across two animation frames, and software rendering (CI with no GPU) keeps the page
+ * so busy that this costs about half a second; a mouse click at the box costs a third of that, and
+ * still goes to whatever is on top there, so a covered button is missed, as it would be for a player.
+ */
+export async function press(page: Page, button: Locator): Promise<void> {
+  await expect(button).toBeEnabled();
+  const box = await button.boundingBox();
+  if (!box) throw new Error('The button has no box to click');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }

@@ -3,6 +3,7 @@
     hasSave,
     hasBook,
     sandboxClosed,
+    notice,
     onBegin,
     onContinue,
     onBook,
@@ -14,6 +15,8 @@
     hasBook: boolean;
     /** Why the Sandbox button is disabled (ADR 0014 item 1), or null while it opens. */
     sandboxClosed: string | null;
+    /** A line for the status region (a seed link that needs WebGL); '' while there is none. */
+    notice: string;
     onBegin: () => void;
     onContinue: () => void;
     onBook: () => void;
@@ -23,6 +26,7 @@
 </script>
 
 <h1>Fair Weather</h1>
+<p role="status" class="notice">{notice}</p>
 <nav aria-label="Main menu">
   <button type="button" onclick={onBegin}>Begin</button>
   <button type="button" disabled={!hasSave} onclick={onContinue}>Continue</button>
@@ -45,6 +49,9 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+  .notice {
+    margin: 0 0 0.75rem;
   }
   .why {
     margin: -0.5rem 0 0;

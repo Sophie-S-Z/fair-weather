@@ -297,8 +297,7 @@ test('Save this page as an image downloads a 1080-wide PNG of a journal page', a
 test('a drawing that does not load leaves its place empty, and the page still downloads', async ({
   page,
 }) => {
-  // The drawing is a data: URL (the build inlines small files), so no request can fail: the image
-  // fails where the export reads it, as a broken or missing file does.
+  // Every try of the drawing fails where the export reads it, as a broken or missing file does.
   await page.addInitScript(() => {
     const w = window as unknown as { refused: number };
     w.refused = 0;
@@ -309,7 +308,9 @@ test('a drawing that does not load leaves its place empty, and the page still do
   });
   const fen = await openFenPage(page);
   await saveFenPage(page, fen);
-  expect(await page.evaluate(() => (window as unknown as { refused: number }).refused)).toBe(1);
+  // Three tries of the drawing, then three of its scene's still image (ADR 0014 item 11), and then
+  // nothing is drawn in its place.
+  expect(await page.evaluate(() => (window as unknown as { refused: number }).refused)).toBe(6);
 });
 
 test('a face that does not load leaves the fallback font, and the page still downloads', async ({ page }) => {

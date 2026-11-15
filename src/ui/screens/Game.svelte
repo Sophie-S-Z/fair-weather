@@ -44,6 +44,7 @@
   import Postcard from '../interludes/Postcard.svelte';
   import { inSentence, journalEntries } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
+  import { sceneStill } from '../../story/stills.ts';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
@@ -55,7 +56,15 @@
     settings,
     resume,
     onExit,
-  }: { game: GameService; settings: Writable<Settings>; resume: boolean; onExit: () => void } = $props();
+    onStills,
+  }: {
+    game: GameService;
+    settings: Writable<Settings>;
+    resume: boolean;
+    onExit: () => void;
+    /** The sim is lost or the scene cannot draw (ADR 0014 item 11): the still version at this chapter. */
+    onStills: (chapter: number) => void;
+  } = $props();
 
   /**
    * The verbs with a line of prompt text when new (spec 12.6, P1): each tray verb, also when a
@@ -344,6 +353,11 @@
     bookOpening = false;
     book = { pages, feathers };
   }
+  /** The scene's still image for a journal drawing that does not load (ADR 0014 item 11). */
+  function fallbackOf(valley: string): string | null {
+    const chapter = game.chapters.find((c) => c.id === valley);
+    return chapter ? game.stillUrl(sceneStill(chapter.scene)) : null;
+  }
   /**
    * Opens the travel journal at `at` (a valley's page; the title without one). Opened by the player
    * (`after` null) it pauses the sim; at a valley's end the sim has stopped, and closing runs `after`.
@@ -435,9 +449,13 @@
     untrack(visit);
   });
 
+  /** The chapter now starting or playing, where the still version opens when the sim is lost. */
+  let playingAt = untrack(() => game.firstChapter);
+
   async function begin(i: number, flags: Flags): Promise<void> {
     const chapter = game.chapters[i];
     if (!chapter || !stage) return;
+    playingAt = i;
     const token = (starting += 1);
     // A valley's start waits for Kith. Meanwhile there is no runner, so verbs send nothing, the last
     // world's snapshots are not drawn, and the heading changes only once Skip reaches the new runner.
@@ -660,6 +678,13 @@
       clearTimeout(ghostTimer);
       ghostTimer = setTimeout(() => (ghost = null), GHOST_MS);
     });
+    // The host stopped restarting the worker: the chapter goes on as the still version.
+    offs.push(
+      game.onSimLost(() => {
+        // A finished game keeps its end page; there is no sim left to lose.
+        if (!ended) onStills(playingAt);
+      }),
+    );
     offs.push(
       game.onSnapshot((lite, at) => {
         if (!runner) return;
@@ -675,74 +700,84 @@
       }),
     );
 
-    void game.createStage(sceneEl).then(async (s) => {
-      if (gone) {
-        s.destroy();
-        return;
-      }
-      stage = s;
-      const ctx: InputContext = {
-        // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
-        tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
-        creatures: () => [...(next?.creatures ?? [])].sort(byId),
-        benchSpots: () => s.benchSpots,
-        placeKind: () => placeKind,
-        water: () => next?.water ?? [],
-        cursor: () => cursor,
-        tool: () => tool,
-        setTool: (v) => (tool = v),
-        reply: () => reply,
-        setReply: (r) => (reply = r),
-        act,
-        togglePause,
-        picked: () => picked,
-        select: (id) => {
-          picked = id;
-          if (view !== 'meadow') s.setView(view, id);
-        },
-        moveCursor: (p) => {
-          cursor = clampToScene(p, s.sceneSize);
-          nearby = nearbyAt(cursor);
-        },
-        view: () => view,
-        zoom: (dir) => {
-          const v = game.input.nextView(view, dir, picked);
-          if (v === view) return;
-          if (view === 'cosmos') rw.backToNow();
-          view = v;
-          s.setView(v, picked);
-          if (v === 'soul') drawerAt = { section: 'diary', focus: false };
-        },
-        isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
-        threadFrom: () => threadFrom,
-        setThreadFrom: (id) => (threadFrom = id),
-        // Paths are a sandbox tool (ADR 0014 item 5); no chapter has them.
-        pathFrom: () => null,
-        setPathFrom: () => undefined,
-        openWhisper,
-        manner: () => mannerOf(next),
-        heroKind: () => next?.hero?.kind ?? null,
-        heroBerries: () => heroBerries(next),
-        heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
-        keepsakes: () => next?.hero?.keepsakes ?? [],
-      };
-      offs.push(game.input.createKeyboard(sceneEl, ctx));
-      offs.push(
-        game.input.createPointer(
-          sceneEl,
-          (x, y) => ({ creature: s.pick(x, y) }),
-          (x, y) => s.toScene(x, y),
-          ctx,
-        ),
-      );
-      // Continue starts the saved chapter over from its start; no save means a new game.
-      const saved = untrack(() => resume) ? await game.resume() : null;
-      if (isGone()) return;
-      if (saved) void begin(saved.index, saved.flags);
-      else void begin(game.firstChapter, game.defaultFlags);
-      sceneEl.focus();
-      loop.start();
-    });
+    void game.createStage(sceneEl).then(
+      async (s) => {
+        if (gone) {
+          s.destroy();
+          return;
+        }
+        stage = s;
+        const ctx: InputContext = {
+          // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
+          tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
+          creatures: () => [...(next?.creatures ?? [])].sort(byId),
+          benchSpots: () => s.benchSpots,
+          placeKind: () => placeKind,
+          water: () => next?.water ?? [],
+          cursor: () => cursor,
+          tool: () => tool,
+          setTool: (v) => (tool = v),
+          reply: () => reply,
+          setReply: (r) => (reply = r),
+          act,
+          togglePause,
+          picked: () => picked,
+          select: (id) => {
+            picked = id;
+            if (view !== 'meadow') s.setView(view, id);
+          },
+          moveCursor: (p) => {
+            cursor = clampToScene(p, s.sceneSize);
+            nearby = nearbyAt(cursor);
+          },
+          view: () => view,
+          zoom: (dir) => {
+            const v = game.input.nextView(view, dir, picked);
+            if (v === view) return;
+            if (view === 'cosmos') rw.backToNow();
+            view = v;
+            s.setView(v, picked);
+            if (v === 'soul') drawerAt = { section: 'diary', focus: false };
+          },
+          isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
+          threadFrom: () => threadFrom,
+          setThreadFrom: (id) => (threadFrom = id),
+          // Paths are a sandbox tool (ADR 0014 item 5); no chapter has them.
+          pathFrom: () => null,
+          setPathFrom: () => undefined,
+          openWhisper,
+          manner: () => mannerOf(next),
+          heroKind: () => next?.hero?.kind ?? null,
+          heroBerries: () => heroBerries(next),
+          heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+          keepsakes: () => next?.hero?.keepsakes ?? [],
+        };
+        offs.push(game.input.createKeyboard(sceneEl, ctx));
+        offs.push(
+          game.input.createPointer(
+            sceneEl,
+            (x, y) => ({ creature: s.pick(x, y) }),
+            (x, y) => s.toScene(x, y),
+            ctx,
+          ),
+        );
+        // Continue starts the saved chapter over from its start; no save means a new game.
+        const saved = untrack(() => resume) ? await game.resume() : null;
+        if (isGone()) return;
+        if (saved) void begin(saved.index, saved.flags);
+        else void begin(game.firstChapter, game.defaultFlags);
+        sceneEl.focus();
+        loop.start();
+      },
+      (e: unknown) => {
+        // The WebGL context did not start: the still version at once, with no retry (ADR 0014 item 11).
+        console.error(e);
+        if (gone) return;
+        void (untrack(() => resume) ? game.savedChapter() : Promise.resolve(null)).then((saved) => {
+          if (!gone) onStills(saved ?? game.firstChapter);
+        });
+      },
+    );
 
     return () => {
       gone = true;
@@ -974,6 +1009,8 @@
     <Journal
       entries={journal.entries}
       at={journal.at}
+      waits={game.assetWaits}
+      {fallbackOf}
       onCaption={game.setCaption}
       onExport={game.exportPage}
       onBack={closeJournal}

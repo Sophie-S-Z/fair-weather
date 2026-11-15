@@ -76,6 +76,22 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
   });
+  test('reports a chapter whose still image has no file, and accepts the scene placeholder', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
+    for (const dir of ['chapters', 'scenes', 'placeholder'])
+      mkdirSync(join(root, 'content', dir), { recursive: true });
+    const copy = (from: string): void => {
+      writeFileSync(join(root, 'content', from), readFileSync(join(repoRoot, 'content', from), 'utf8'));
+    };
+    copy('chapters/ch0.json');
+    copy('scenes/kith-meadow.json');
+    const missing = validateContent(root).errors.filter((e) => e.includes('still image'));
+    expect(missing).toEqual([
+      'ch0.json: still image PLACEHOLDER-still-kith-meadow has no file content/stills/PLACEHOLDER-still-kith-meadow.svg or content/placeholder/PLACEHOLDER-still-kith-meadow.svg',
+    ]);
+    copy('placeholder/PLACEHOLDER-still-kith-meadow.svg');
+    expect(validateContent(root).errors.filter((e) => e.includes('still image'))).toEqual([]);
+  });
   test('reports a bad myth verses file', () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'myth'), { recursive: true });
@@ -140,8 +156,11 @@ describe('validateContent', () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'chapters'), { recursive: true });
     mkdirSync(join(root, 'content', 'scenes'), { recursive: true });
+    mkdirSync(join(root, 'content', 'placeholder'), { recursive: true });
     const read = (path: string): string => readFileSync(join(repoRoot, 'content', path), 'utf8');
     writeFileSync(join(root, 'content', 'scenes', 'kith-meadow.json'), read('scenes/kith-meadow.json'));
+    const still = 'placeholder/PLACEHOLDER-still-kith-meadow.svg';
+    writeFileSync(join(root, 'content', still), read(still));
     const chapter = JSON.parse(read('chapters/ch1.json')) as {
       scene: string;
       beats: { actions: object[] }[];

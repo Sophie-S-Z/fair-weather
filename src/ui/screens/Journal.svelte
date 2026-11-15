@@ -5,11 +5,14 @@
   import type { PageBlock } from '../../persist/page-image.ts';
   import { inSentence, journalBlocks } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
+  import { retryImage } from '../retry-image.ts';
   import { saveFile } from '../save-file.ts';
 
   let {
     entries,
     at = null,
+    waits,
+    fallbackOf,
     onCaption,
     onExport,
     onBack,
@@ -17,6 +20,10 @@
     entries: readonly JournalEntry[];
     /** The valley whose page takes focus and scrolls into view; the title without one. */
     at?: string | null;
+    /** The waits before each new try of a drawing that fails to load (ASSET_WAITS_MS). */
+    waits: readonly number[];
+    /** The image a valley's drawing gives way to after the last try, or null for the alt text. */
+    fallbackOf: (valley: string) => string | null;
     /** Keeps the player's line for a valley's page. The line stays on the device. */
     onCaption: (valley: string, text: string) => void;
     /** A page as a PNG made on the device (GameService.exportPage). */
@@ -118,7 +125,13 @@
       <article aria-labelledby="page-{entry.valley}">
         <h3 id="page-{entry.valley}" tabindex="-1" data-page={entry.valley}>{entry.title}</h3>
         {#if entry.drawing}
-          <img src={entry.drawing.src} alt={entry.drawing.alt} width="160" height="100" />
+          <img
+            src={entry.drawing.src}
+            alt={entry.drawing.alt}
+            width="160"
+            height="100"
+            use:retryImage={{ waits, fallback: fallbackOf(entry.valley) }}
+          />
         {/if}
         {#if entry.keepsake}
           <p>

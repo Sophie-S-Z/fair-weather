@@ -1,0 +1,10 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The still version's picture of Halcyon: a quiet shore and a long ridge with a path over it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+  <g fill="none" stroke="#2b2b2b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 160 L 320 160" />
+    <path d="M 0 176 Q 40 168 80 176 Q 120 184 160 176 Q 200 168 240 176 Q 280 184 320 176" />
+    <path d="M 0 110 L 70 70 L 120 96 L 190 40 L 250 90 L 320 64" />
+    <path d="M 150 160 Q 170 130 160 110 Q 150 90 190 40" stroke-dasharray="2 8" />
+    <circle cx="276" cy="30" r="14" />
+  </g>
+</svg>

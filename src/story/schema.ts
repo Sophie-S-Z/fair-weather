@@ -248,6 +248,8 @@ const ChapterObject = z.strictObject({
   valley: ValleySchema.optional(),
   /** The chapter's name (spec 6.2), shown in the heading. */
   title: z.string().min(1),
+  /** The still version's image (ADR 0014 item 10); absent means the scene's placeholder. */
+  still: id.optional(),
   season,
   scene: id,
   dayLengthSeconds: z.number().positive(),

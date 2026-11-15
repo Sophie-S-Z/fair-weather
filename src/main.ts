@@ -94,6 +94,8 @@ import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
+import { sceneStill, stillPages } from './story/stills.ts';
+import { loadImageWithRetry } from './ui/retry-image.ts';
 import {
   createSandboxRunner,
   DEFAULT_SWITCHES,
@@ -277,6 +279,16 @@ const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHO
   query: '?url',
   import: 'default',
 });
+/** The still images by path (ADR 0010: placeholders; a chapter's own `still` joins them later). */
+const stillImages = import.meta.glob<string>(
+  ['../content/placeholder/PLACEHOLDER-still-*.svg', '../content/stills/*.svg'],
+  { eager: true, query: '?url', import: 'default' },
+);
+/**
+ * The waits before each new try of an asset that fails after the page loads: the sim worker's
+ * script, the journal drawings and stills, and the PNG export's images (ADR 0014 item 11).
+ */
+const ASSET_WAITS_MS = [1000, 2000] as const;
 const ink = createInk(inkStory);
 const verses = VersesSchema.parse(versesJson);
 const sixth = SixthSchema.parse(sixthJson);
@@ -285,7 +297,7 @@ const songFrom = chapters.findIndex((c) => c.activity === 'rhythm');
 
 const spawnWorker = (): Worker =>
   new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' });
-const host = createSimHost(spawnWorker);
+const host = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
 /**
  * Dev only: every speed sent to the sim, frames drawn, command lists the runner sent, and snapshots
  * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
@@ -482,7 +494,7 @@ function kithAt(answer: Promise<{ lite: WorldLite }>): void {
 /** Starts Kith's silent run on its own worker from `from`, Kith at the end of Part 1 (ADR 0013 item 10). */
 function startKith(from: Carry | null): SimHost {
   kithStart = from;
-  kith ??= createSimHost(spawnWorker);
+  kith ??= createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
   kith.post({
     t: 'init',
     seed: yearSeed,
@@ -645,27 +657,42 @@ async function loadFaces(...fonts: string[]): Promise<void> {
   }
 }
 
-/** An image that has loaded, or null when it fails: the page then draws nothing in its place. */
-async function loadImage(src: string): Promise<HTMLImageElement | null> {
-  const img = new Image();
-  img.src = src;
-  try {
-    await img.decode();
-    return img;
-  } catch {
-    return null;
-  }
+/** The scene's still image for a journal drawing's URL, or undefined for any other source. */
+function stillOfDrawing(src: string): string | undefined {
+  const path = Object.keys(journalDrawings).find((p) => journalDrawings[p] === src);
+  const chapter = chapters.find((c) => path?.endsWith(`PLACEHOLDER-journal-${c.id}.svg`));
+  return chapter && stillUrl(sceneStill(chapter.scene));
+}
+
+/** The URL of a still image by id (`PLACEHOLDER-still-<scene>` or a chapter's own `still`). */
+function stillUrl(id: string): string {
+  const url = stillImages[`../content/placeholder/${id}.svg`] ?? stillImages[`../content/stills/${id}.svg`];
+  if (!url) throw new Error(`No still image ${id}`);
+  return url;
+}
+
+/**
+ * An image that has loaded, or null when it fails. A failed load waits and tries again after each
+ * of ASSET_WAITS_MS (ADR 0014 item 11); after the last, `fallback` (the scene's still image) gets
+ * the same tries once, and then the page draws nothing in its place.
+ */
+async function loadImage(src: string, fallback?: string): Promise<HTMLImageElement | null> {
+  const img = await loadImageWithRetry(src, ASSET_WAITS_MS);
+  if (img || fallback === undefined || fallback === src) return img;
+  return loadImageWithRetry(fallback, ASSET_WAITS_MS);
 }
 
 /**
  * Draws `blocks` as a PAGE_WIDTH page (ADR 0014 item 8) in ink on the paper, whatever the contrast
- * setting, and gives it as a PNG with no metadata. An image block whose source fails to load draws
- * nothing in its place, and the page is still made (the retry and the still image come later).
+ * setting, and gives it as a PNG with no metadata. An image block whose source fails to load is
+ * tried again, then replaced by its scene's still image, then left out; the page is still made.
  */
 async function drawPage(blocks: readonly PageBlock[]): Promise<Blob> {
   await loadFaces(`28px ${ATKINSON}`, `bold 28px ${ATKINSON}`);
   const srcs = [...new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.src] : [])))];
-  const images = new Map(await Promise.all(srcs.map(async (src) => [src, await loadImage(src)] as const)));
+  const images = new Map(
+    await Promise.all(srcs.map(async (src) => [src, await loadImage(src, stillOfDrawing(src))] as const)),
+  );
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('No 2D context for the page');
@@ -1320,6 +1347,18 @@ const game: GameService = {
   setCaption: (valley, text) => {
     if (journeyNow) setCaption(journeyNow, valley, text);
   },
+  assetWaits: ASSET_WAITS_MS,
+  stills: () => stillPages(chapters, createInk(inkStory), DEFAULT_FLAGS),
+  stillUrl,
+  async savedChapter() {
+    const save = await (await slotsReady).load('auto');
+    const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
+    return index < 0 ? null : index;
+  },
+  onSimLost: (cb) =>
+    host.onGiveUp(() => {
+      cb();
+    }),
   journalDrawing: (valley) =>
     journalDrawings[`../content/placeholder/PLACEHOLDER-journal-${valley}.svg`] ?? null,
   sixthVerse(flags) {

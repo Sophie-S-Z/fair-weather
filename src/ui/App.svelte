@@ -10,6 +10,7 @@
   import BookOfSkies from './screens/BookOfSkies.svelte';
   import Sandbox from './screens/Sandbox.svelte';
   import LostValley from './screens/LostValley.svelte';
+  import Stills from './screens/Stills.svelte';
   import type { SandboxValley } from '../story/sandbox.ts';
 
   let {
@@ -32,9 +33,22 @@
   let sandboxLink = $state(untrack(() => link));
   /** A dev build's ?sandbox=new opens the sandbox on a new Kith valley, once; a link comes first. */
   let sandboxNew = $state(untrack(() => game.sandbox.devOpen && link === null));
-  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' | 'lost' = $state(
+  /**
+   * The sandbox cannot draw without WebGL, so a link or a dev start does not open it there (ADR
+   * 0014 item 10). The title opens instead, with a line that says why.
+   */
+  const noWebGL = untrack(() => !game.webgl);
+  if (noWebGL) {
+    sandboxLink = null;
+    sandboxNew = false;
+  }
+  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' | 'lost' | 'stills' = $state(
     untrack(() => sandboxNew || sandboxLink !== null) ? 'sandbox' : 'title',
   );
+  /** The chapter whose page the still version opens at. */
+  let stillsAt = $state(0);
+  /** Said on the title when a seed link met a browser without WebGL; set once the screen shows. */
+  let linkNotice = $state('');
   let saved = $state(false);
   let resume = $state(false);
   let book: { pages: BookPage[]; feathers: number } = $state.raw({ pages: [], feathers: 0 });
@@ -68,11 +82,22 @@
 
   // The title shows Continue and the Book of Skies once the saves have been read.
   onMount(() => {
+    if (noWebGL && link !== null)
+      linkNotice = 'This link opens the sandbox. The sandbox needs WebGL, and this browser does not have it.';
     if (hasSave) saved = true;
     readStore();
   });
 
   function play(fromSave: boolean): void {
+    linkNotice = '';
+    if (!game.webgl) {
+      // Without WebGL the game opens as the still version: Continue at the autosave's chapter.
+      void (fromSave ? game.savedChapter() : Promise.resolve(null)).then((chapter) => {
+        stillsAt = chapter ?? game.firstChapter;
+        screen = 'stills';
+      });
+      return;
+    }
     resume = fromSave;
     screen = 'game';
   }
@@ -104,7 +129,18 @@
 </script>
 
 {#if screen === 'game'}
-  <Game {game} {settings} {resume} onExit={leaveGame} />
+  <Game
+    {game}
+    {settings}
+    {resume}
+    onExit={leaveGame}
+    onStills={(chapter: number) => {
+      stillsAt = chapter;
+      screen = 'stills';
+    }}
+  />
+{:else if screen === 'stills'}
+  <Stills {game} at={stillsAt} onExit={leaveGame} />
 {:else if screen === 'sandbox'}
   <Sandbox
     {game}
@@ -133,6 +169,7 @@
           play(true);
         }}
         {sandboxClosed}
+        notice={linkNotice}
         onSandbox={() => (screen = 'sandbox')}
         onSettings={() => (screen = 'settings')}
       />

@@ -9,5 +9,8 @@ export default defineConfig({
   plugins: [svelte(), inkPlugin(), placeholderGuard()],
   build: {
     rolldownOptions: { input: 'index.html' },
+    // The pictures under content/ (journal drawings, stills) stay files, not data: URLs, so a failed
+    // load is a request that the game can try again (ADR 0014 item 11).
+    assetsInlineLimit: (file) => (file.includes('/content/') ? false : undefined),
   },
 });

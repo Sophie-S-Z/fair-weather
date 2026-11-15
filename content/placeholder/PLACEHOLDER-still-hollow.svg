@@ -1,0 +1,8 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The still version's picture of the Hollow: a bowl of land with the press and its lens. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+  <g fill="none" stroke="#2b2b2b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 90 Q 60 170 160 170 Q 260 170 320 90" />
+    <path d="M 128 170 L 128 104 L 192 104 L 192 170 M 160 104 L 160 130 M 140 92 L 180 92 M 136 130 L 184 130 L 184 142 L 136 142 Z" />
+    <circle cx="160" cy="70" r="40" />
+  </g>
+</svg>

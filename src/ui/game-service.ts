@@ -21,6 +21,7 @@ import type { Journey } from '../story/journey.ts';
 import type { peekRule } from '../story/peek.ts';
 import type { SandboxRunner, SandboxSetup, SandboxValley } from '../story/sandbox.ts';
 import type { Chapter } from '../story/schema.ts';
+import type { StillPage } from '../story/stills.ts';
 import type { Settings } from './settings.ts';
 
 /**
@@ -230,6 +231,19 @@ export interface GameService {
    * the journey (saved with the next autosave) and stays on the device. Does nothing without a page.
    */
   setCaption: (valley: string, text: string) => void;
+  /** The waits before each new try of an asset that fails to load (ADR 0014 item 11): the worker, images. */
+  assetWaits: readonly number[];
+  /** The still version (ADR 0014 item 10): one page per chapter in play order, read with the default flags. */
+  stills(): StillPage[];
+  /** The URL of a still image by id (`StillPage.still`). Throws for an id with no file. */
+  stillUrl(id: string): string;
+  /** The autosave's chapter index, or null without one. It reads no Ink and changes no save. */
+  savedChapter(): Promise<number | null>;
+  /**
+   * Calls `cb` when the sim is lost: the worker failed to load on every try, or failed again with
+   * nothing new played (ADR 0014 item 11). Returns an unsubscribe.
+   */
+  onSimLost(cb: () => void): () => void;
   /** The journal's drawing of a valley (a placeholder, ADR 0010), as a URL, or null without one. */
   journalDrawing: (valley: string) => string | null;
   /** The sixth verse (ADR 0013 item 13) of the journey and the homecoming's `flags`. Throws with no journey. */

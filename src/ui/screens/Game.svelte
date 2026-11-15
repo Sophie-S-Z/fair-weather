@@ -52,6 +52,7 @@
   import ModelLimits from './ModelLimits.svelte';
   import Journal from './Journal.svelte';
   import HelpSheet from '../components/HelpSheet.svelte';
+  import { PHONE, PORTRAIT, watchMedia } from '../phone.ts';
 
   let {
     game,
@@ -200,22 +201,32 @@
   /** The pixels the drawer takes from the scene's right edge, and the height of the HUD at the bottom. */
   let inset = $state(0);
   let hudHeight = $state(0);
-  /** The viewport is taller than wide: the scene ends above the bottom bar (ADR 0014 item 15). */
+  /** The viewport is taller than wide: the scene sits between the top row and the bottom bar (ADR 0014 item 15). */
   let portrait = $state(false);
+  /** Below 600 pixels wide, where the open drawer is a modal sheet. */
+  let phone = $state(false);
+  /** The top row (title and drawer button), and the bottom bar without the story lines. */
+  let topHeight = $state(0);
   /**
-   * The pixels the scene leaves for the bottom bar. Set in the next frame, so the scene does not
-   * resize inside the callback that measured the bar (the browser reports that as a resize loop).
+   * The pixels the scene leaves above and below. Set in the next frame, so the scene does not resize
+   * inside the callback that measured the bars (the browser reports that as a resize loop). On a wide
+   * portrait screen the open drawer makes the top row taller; the scene keeps its place under it.
    */
+  let sceneTop = $state(0);
   let sceneBottom = $state(0);
   $effect(() => {
     const bottom = portrait ? hudHeight : 0;
+    const top = !portrait ? 0 : drawerOpen ? untrack(() => sceneTop) : topHeight;
     const frame = requestAnimationFrame(() => {
+      sceneTop = top;
       sceneBottom = bottom;
     });
     return () => {
       cancelAnimationFrame(frame);
     };
   });
+  /** The drawer is a full-screen sheet: the rest of the screen is inert behind it. */
+  const sheet = $derived(drawerOpen && phone);
   /** The Cosmos timeline band and the empty slot in it where the canvas draws the strip. */
   let bandEl: HTMLElement | undefined = $state();
   let stripEl: HTMLElement | undefined = $state();
@@ -233,9 +244,17 @@
   /** The open key list (the ? key), a modal dialog with the sim paused, and the speed it puts back. */
   let help = $state(false);
   let speedBeforeHelp = 0;
+  let helpRows: { keys: string; does: string }[] = $state.raw([]);
   function openHelp(): void {
     if (help || limits || book || bookOpening || journal || betRunning || bet || postcard || whisperCard)
       return;
+    helpRows = game.input.keyRows({
+      screen: 'game',
+      verbs: chapter?.verbs ?? [],
+      activity: Boolean(chapter?.activity),
+      journey: hasJourney,
+      heroKind: next?.hero?.kind ?? null,
+    });
     if (!ended) {
       speedBeforeHelp = game.currentSpeed();
       setSpeed(0);
@@ -731,15 +750,16 @@
       due = true;
     });
     void loadHasBook();
-    const tall = window.matchMedia('(orientation: portrait)');
-    const onTall = (): void => {
-      portrait = tall.matches;
-    };
-    onTall();
-    tall.addEventListener('change', onTall);
-    offs.push(() => {
-      tall.removeEventListener('change', onTall);
-    });
+    offs.push(
+      watchMedia(PORTRAIT, (m) => {
+        portrait = m;
+      }),
+      watchMedia(PHONE, (m) => {
+        phone = m;
+      }),
+      // ? opens the keys from any focus on the screen; the scene's own handler takes it first.
+      game.input.createHelpKey(window, openHelp),
+    );
     window.addEventListener('keydown', activity);
     window.addEventListener('pointerdown', activity);
     document.addEventListener('visibilitychange', onVisibility);
@@ -891,7 +911,9 @@
       aria-describedby="scene-help"
       tabindex="0"
       bind:this={sceneEl}
+      style:top="{String(sceneTop)}px"
       style:bottom="{String(sceneBottom)}px"
+      inert={sheet}
       onkeydown={onSceneKey}
     ></div>
     <p id="scene-help" class="sr-only">
@@ -941,31 +963,39 @@
       </main>
     {:else}
       <main class="hud">
-        <h1 class="title">{heading}</h1>
-        <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
-          <Drawer
-            notes={chapter?.notes ?? []}
-            {diary}
-            openAt={drawerAt}
-            bind:open={drawerOpen}
-            onBook={hasBook ? () => void openBook() : undefined}
-            onLimits={openLimits}
-            onJournal={hasJourney
-              ? () => {
-                  openJournal(null);
-                }
-              : undefined}
-          />
+        <div class="top" bind:clientHeight={topHeight}>
+          <h1 class="title" inert={sheet}>{heading}</h1>
+          <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
+            <Drawer
+              notes={chapter?.notes ?? []}
+              {diary}
+              openAt={drawerAt}
+              bind:open={drawerOpen}
+              onBook={hasBook ? () => void openBook() : undefined}
+              onLimits={openLimits}
+              onJournal={hasJourney
+                ? () => {
+                    openJournal(null);
+                  }
+                : undefined}
+            />
+          </div>
         </div>
         {#if view === 'cosmos'}
-          <div class="band" bind:this={bandEl} bind:clientWidth={bandWidth} bind:clientHeight={bandHeight}>
+          <div
+            class="band"
+            inert={sheet}
+            bind:this={bandEl}
+            bind:clientWidth={bandWidth}
+            bind:clientHeight={bandHeight}
+          >
             <p class="band-label">Village size and trust this chapter</p>
             <!-- The canvas draws the strip here; the Cosmos panel says the same in words. -->
             <div class="strip" bind:this={stripEl}></div>
           </div>
         {/if}
         {#if view === 'cosmos' && seen && ties && chapter}
-          <div class="cosmos">
+          <div class="cosmos" inert={sheet}>
             <CosmosPanel
               lite={seen}
               {ties}
@@ -984,10 +1014,11 @@
             />
           </div>
         {/if}
-        <div class="bottom" bind:clientHeight={hudHeight}>
+        <div class="bottom" inert={sheet} bind:clientHeight={hudHeight}>
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
           <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
-            <BeatLine {lines} />
+            <!-- Over the scene's foot in portrait, so a story line never resizes the canvas. -->
+            <div class="beat"><BeatLine {lines} /></div>
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
@@ -1065,14 +1096,14 @@
             </div>
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
-        </div>
-        <div class="time">
-          <TimeControls
-            speed={speedNow}
-            disabled={betRunning || rw.at !== null}
-            onPause={togglePause}
-            onSpeed={setSpeed}
-          />
+          <div class="time">
+            <TimeControls
+              speed={speedNow}
+              disabled={betRunning || rw.at !== null}
+              onPause={togglePause}
+              onSpeed={setSpeed}
+            />
+          </div>
         </div>
       </main>
     {/if}
@@ -1088,7 +1119,7 @@
   {:else if limits}
     <ModelLimits modal onBack={closeLimits} />
   {:else if help}
-    <HelpSheet screen="game" onClose={closeHelp} />
+    <HelpSheet rows={helpRows} onClose={closeHelp} />
   {:else if journal}
     <Journal
       entries={journal.entries}
@@ -1150,6 +1181,11 @@
   }
   .hud {
     pointer-events: none;
+  }
+  /* In landscape the title and the drawer button place themselves; the row is for portrait. */
+  .top,
+  .beat {
+    display: contents;
   }
   .hud :global(button),
   .hud :global(section) {
@@ -1237,6 +1273,50 @@
     position: absolute;
     right: 0.75rem;
     bottom: 3.5rem;
+  }
+  /*
+   * Portrait (ADR 0014 item 15): the title and the drawer button take a row above the scene, and the
+   * time controls a row in the bottom bar, so no control is over the canvas. The story lines float
+   * over the scene's foot, outside the bar, so a new line does not move the canvas.
+   */
+  @media (orientation: portrait) {
+    .top {
+      display: flex;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      box-sizing: border-box;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .title,
+    .drawer {
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
+    }
+    .beat {
+      display: flex;
+      justify-content: center;
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      right: 0;
+      padding-bottom: 0.5rem;
+    }
+    /* Only the newest line floats over the scene, so the lines never reach the top row. */
+    .beat :global(p.old) {
+      display: none;
+    }
+    .time {
+      position: static;
+      align-self: flex-end;
+      margin: 0 0.75rem 0.5rem;
+    }
   }
   .end {
     position: absolute;

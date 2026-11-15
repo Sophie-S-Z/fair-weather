@@ -1,9 +1,19 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { Dials } from '../../sim/types.ts';
   import type { peekRule } from '../../story/peek.ts';
   import type { Note as NoteData } from '../../story/schema.ts';
   import Note from './Note.svelte';
+  import { PHONE, watchMedia } from '../phone.ts';
+  import { trapFocus } from '../trap-focus.ts';
+
+  /** Below 600 pixels wide the open drawer is a modal sheet: Tab stays in it (the screen makes the rest inert). */
+  let phone = $state(false);
+  onMount(() =>
+    watchMedia(PHONE, (m) => {
+      phone = m;
+    }),
+  );
 
   type Section = 'diary' | 'peek' | 'notes';
 
@@ -108,7 +118,7 @@
   {#if open}
     <!-- Escape from anywhere inside the open drawer closes it. -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div id="drawer-panel" class="panel" bind:this={panel} onkeydown={onKey}>
+    <div id="drawer-panel" class="panel" bind:this={panel} onkeydown={onKey} use:trapFocus={phone}>
       {#if diary}
         <section aria-labelledby="diary-title" tabindex="-1" bind:this={sections.diary}>
           <h2 id="diary-title">Diary: {diary.name}</h2>

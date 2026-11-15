@@ -48,6 +48,7 @@
   } from '../scene-helpers.ts';
   import type { Settings } from '../settings.ts';
   import HelpSheet from '../components/HelpSheet.svelte';
+  import { PHONE, watchMedia } from '../phone.ts';
 
   let {
     game,
@@ -240,8 +241,23 @@
   /** The open key list (the ? key), a modal dialog with the sim paused, and the speed it puts back. */
   let help = $state(false);
   let speedBeforeHelp = 0;
+  let helpRows: { keys: string; does: string }[] = $state.raw([]);
+  /** Below 600 pixels wide, where an open panel is a modal sheet, and which panels are open. */
+  let phone = $state(false);
+  let opened: Record<string, boolean> = $state({});
+  function setOpened(title: string, open: boolean): void {
+    opened = { ...opened, [title]: open };
+  }
+  const sheetOpen = $derived(phone && Object.values(opened).some(Boolean));
   function openHelp(): void {
     if (help || limits || shared !== null || postcard || whisperCard !== null || setup === null) return;
+    helpRows = game.input.keyRows({
+      screen: 'sandbox',
+      verbs: SANDBOX_TOOLS,
+      activity: false,
+      journey: false,
+      heroKind: null,
+    });
     speedBeforeHelp = game.currentSpeed();
     setSpeed(0);
     help = true;
@@ -547,7 +563,14 @@
   onMount(() => {
     const endVisit = game.sandbox.visit();
     const offs: (() => void)[] = [];
-    offs.push(game.onSnapshot(show));
+    offs.push(
+      game.onSnapshot(show),
+      watchMedia(PHONE, (m) => {
+        phone = m;
+      }),
+      // ? opens the keys from any focus on the screen; the scene's own handler takes it first.
+      game.input.createHelpKey(window, openHelp),
+    );
     stageReady = game.createStage(sceneEl).then((s) => {
       if (gone) {
         s.destroy();
@@ -640,6 +663,7 @@
       aria-describedby="sandbox-help"
       tabindex="0"
       bind:this={sceneEl}
+      inert={sheetOpen}
       onkeydown={onSceneKey}
     ></div>
     <p id="sandbox-help" class="sr-only">
@@ -649,7 +673,7 @@
     </p>
     {#if setup}
       <main class="hud">
-        <div class="top">
+        <div class="top" inert={sheetOpen}>
           <h1 class="title">Sandbox: {valleyName}</h1>
           <div class="actions">
             <button
@@ -671,6 +695,9 @@
             knobs={knobsOf('population')}
             onKnob={setKnob}
             {locked}
+            {phone}
+            {sheetOpen}
+            onOpen={setOpened}
             tools={toolsOf('population')}
             {tool}
             onTool={pickTool}
@@ -701,6 +728,9 @@
             knobs={knobsOf('rules')}
             onKnob={setKnob}
             {locked}
+            {phone}
+            {sheetOpen}
+            onOpen={setOpened}
             tools={[]}
             {tool}
             onTool={pickTool}
@@ -713,6 +743,9 @@
             knobs={knobsOf('weather')}
             onKnob={setKnob}
             {locked}
+            {phone}
+            {sheetOpen}
+            onOpen={setOpened}
             tools={toolsOf('weather')}
             {tool}
             onTool={pickTool}
@@ -722,6 +755,9 @@
             knobs={knobsOf('network')}
             onKnob={setKnob}
             {locked}
+            {phone}
+            {sheetOpen}
+            onOpen={setOpened}
             tools={toolsOf('network')}
             {tool}
             onTool={pickTool}
@@ -741,7 +777,7 @@
             {/each}
           </SandboxPanel>
         </div>
-        <section class="timeline" aria-labelledby="timeline-title">
+        <section class="timeline" aria-labelledby="timeline-title" inert={sheetOpen}>
           <h2 id="timeline-title">Timeline</h2>
           {#key started}
             <TimelineStrip
@@ -754,7 +790,7 @@
             />
           {/key}
         </section>
-        <div class="challenges">
+        <div class="challenges" inert={sheetOpen}>
           <ChallengeCard
             challenge={setup.challenge}
             state={challengeState}
@@ -769,7 +805,7 @@
             onStop={stopChallenge}
           />
         </div>
-        <div class="time">
+        <div class="time" inert={sheetOpen}>
           <TimeControls speed={speedNow} disabled={rw.at !== null} onPause={togglePause} onSpeed={setSpeed} />
         </div>
       </main>
@@ -809,7 +845,7 @@
   {:else if limits}
     <ModelLimits modal onBack={closeLimits} />
   {:else if help}
-    <HelpSheet screen="sandbox" onClose={closeHelp} />
+    <HelpSheet rows={helpRows} onClose={closeHelp} />
   {:else if shared}
     <SharePanel
       {shared}
@@ -981,5 +1017,71 @@
     margin: 0;
     padding: 0 0.5rem;
     background: var(--bg);
+  }
+  /*
+   * Portrait (ADR 0014 item 15): a column of the top bar, the challenge card, the scene, and a bottom
+   * bar of the timeline, the time controls, the status line, and the panel buttons, so no control is
+   * over the canvas. The layers stop being boxes of their own, and the order puts the scene between.
+   */
+  @media (orientation: portrait) {
+    .sandbox {
+      display: flex;
+      flex-direction: column;
+    }
+    .layer,
+    .hud {
+      display: contents;
+    }
+    .scene {
+      position: relative;
+      order: 0;
+      flex: 1 1 0;
+      min-height: 8rem;
+      overflow: hidden;
+    }
+    .top,
+    .challenges,
+    .timeline,
+    .time,
+    .panels {
+      position: static;
+      box-sizing: border-box;
+      width: auto;
+      max-height: none;
+    }
+    .top {
+      order: -3;
+      flex-wrap: wrap;
+      padding: 0.5rem 0.75rem;
+    }
+    .challenges {
+      order: -2;
+      margin: 0 0.75rem 0.5rem;
+    }
+    .timeline {
+      order: 1;
+      max-height: 25vh;
+      margin: 0.5rem 0.75rem 0;
+    }
+    .time {
+      order: 2;
+      align-self: flex-end;
+      margin: 0.5rem 0.75rem 0;
+    }
+    .status {
+      order: 3;
+      position: static;
+      transform: none;
+      align-self: center;
+      margin-top: 0.25rem;
+    }
+    .panels {
+      order: 4;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+      overflow: visible;
+      padding: 0.5rem 0.75rem;
+    }
   }
 </style>

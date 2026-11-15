@@ -68,7 +68,7 @@
       tabindex="-1"
       bind:this={root}
       onkeydown={onKey}
-      use:trapFocus={modal}
+      use:trapFocus
     >
       {@render limits()}
     </div>

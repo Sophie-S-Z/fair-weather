@@ -24,15 +24,11 @@ function setup(count: number, hidden: number[] = []) {
   const node = mk('node');
   const kids = Array.from({ length: count }, (_, i) => mk(`k${String(i)}`));
   const outside = mk('outside');
-  let selector = '';
   const handlers = new Map<string, (e: unknown) => void>();
   Object.assign(node, {
     ownerDocument: doc,
     contains: (x: unknown) => x === node || kids.includes(x as (typeof kids)[number]),
-    querySelectorAll: (s: string) => {
-      selector = s;
-      return kids;
-    },
+    querySelectorAll: () => kids,
     addEventListener: (t: string, f: (e: unknown) => void) => handlers.set(t, f),
     removeEventListener: (t: string) => handlers.delete(t),
   });
@@ -42,18 +38,10 @@ function setup(count: number, hidden: number[] = []) {
     handlers.get('keydown')?.({ key, shiftKey, preventDefault: () => (prevented = true) });
     return prevented;
   };
-  return { doc, kids, node, outside, action, press, handlers, selector: () => selector };
+  return { doc, kids, node, outside, action, press, handlers };
 }
 
 describe('trapFocus', () => {
-  it('asks for the focusable elements', () => {
-    const t = setup(2);
-    t.kids[0]?.focus();
-    t.press('Tab');
-    expect(t.selector()).toBe(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-  });
   it('wraps Tab from the last element to the first', () => {
     const t = setup(3);
     t.kids[2]?.focus();

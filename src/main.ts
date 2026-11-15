@@ -33,7 +33,7 @@ import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
 import { createHints, realTimer } from './input/hints.ts';
 import { createHoldStill } from './input/hold-still.ts';
-import { createKeyboard } from './input/keyboard.ts';
+import { createHelpKey, createKeyboard, keyRows } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
 import { createWait } from './input/wait.ts';
@@ -960,16 +960,6 @@ const game: GameService = {
     }
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
-    // Pixi resizes with the window only; the phone layout also changes the element (the scene ends above the bottom bar).
-    // Resized in the next frame, as Pixi does, so the observer's own callback changes no layout.
-    let resizeFrame = 0;
-    const resized = new ResizeObserver(() => {
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => {
-        if (el.clientWidth !== app.screen.width || el.clientHeight !== app.screen.height) app.resize();
-      });
-    });
-    resized.observe(el);
     let scene = firstScene;
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
@@ -1030,6 +1020,16 @@ const game: GameService = {
     let ring: ReturnType<typeof createFrameRing> | null = null;
     const newRing = () =>
       createFrameRing(capture, { seconds: 5, fps: 12, width: 480, aspect: scene.height / scene.width });
+    // Pixi resizes with the window only; the phone layout also changes the element (the scene ends above the bottom bar).
+    // Resized in the next frame, as Pixi does, so the observer's own callback changes no layout.
+    let resizeFrame = 0;
+    const resized = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        if (el.clientWidth !== app.screen.width || el.clientHeight !== app.screen.height) app.resize();
+      });
+    });
+    resized.observe(el);
     const stage: Stage = {
       draw(prev: WorldLite, next: WorldLite, alpha, s) {
         if (import.meta.env.DEV) dev.frames += 1;
@@ -1413,6 +1413,8 @@ const game: GameService = {
   currentSpeed: () => speedControl.current(),
   input: {
     createKeyboard,
+    createHelpKey,
+    keyRows,
     createPointer,
     createHints: () => createHints(),
     createOverPoke: () =>

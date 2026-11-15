@@ -73,15 +73,34 @@ test.describe('the help sheet', () => {
     await expect(help).toBeVisible();
     await expect(help.getByRole('heading', { name: 'Keys' })).toBeFocused();
     await expect(help.getByRole('row', { name: /Tab Move to the next creature/ })).toBeVisible();
-    await expect(help.getByRole('row', { name: /J, B Journal, Book of Skies/ })).toBeVisible();
-    await expect(help.getByRole('row', { name: /^P / })).toBeVisible();
-    await expect(help.getByRole('row', { name: /^1 to 8 / })).toHaveCount(0);
+    await expect(help.getByRole('row', { name: /^B Book of Skies/ })).toBeVisible();
+    await expect(help.getByRole('row', { name: /Move to the tools/ })).toBeVisible();
+    // Chapter 0 has one tool and no zoom, peek, walk, replies, or journal: no row for what does not work.
+    for (const name of [/^P /, /^W /, /^Z, X /, /^G, H, R /, /^O, K /, /^L /, /^J, B /, /^1 to 8 /]) {
+      await expect(help.getByRole('row', { name })).toHaveCount(0);
+    }
     await expect.poll(() => speeds(page)).toBe(0);
     expect(await seriousViolations(page)).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(help).toBeHidden();
     await expect(scene).toBeFocused();
     await expect.poll(() => speeds(page)).toBe(1);
+  });
+
+  test('? opens the keys from a button too, and not while typing in a field', async ({ page }) => {
+    await startGame(page);
+    await page.getByRole('button', { name: 'Diary and notes' }).focus();
+    await page.keyboard.press('?');
+    await expect(page.getByRole('dialog', { name: 'Keys' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Keys' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Diary and notes' })).toBeFocused();
+  });
+
+  test('the Settings screen says that ? shows the keys', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByText('Press ? in the game or the sandbox to see the keys.')).toBeVisible();
   });
 
   test('Close gives focus back, and Tab stays inside the sheet', async ({ page }) => {
@@ -133,6 +152,36 @@ test.describe('on a phone', () => {
       const r = document.querySelector(s)?.getBoundingClientRect();
       return r ? { left: r.left, right: r.right, top: r.top, bottom: r.bottom } : null;
     }, selector);
+  /**
+   * The visible buttons, inputs, and status lines that the canvas covers or that cover it, by
+   * name; the page's own sr-only text has no size.
+   */
+  const overlaps = (page: Page) =>
+    page.evaluate(() => {
+      const c = document.querySelector('canvas')?.getBoundingClientRect();
+      if (!c) return ['no canvas'];
+      const hit: string[] = [];
+      for (const el of document.querySelectorAll('button, input, [role="status"]')) {
+        const r = el.getBoundingClientRect();
+        // Folded content (a closed panel) is not shown, though it has a box.
+        if (r.width <= 1 || r.height <= 1 || !el.checkVisibility({ visibilityProperty: true })) continue;
+        const w = Math.min(r.right, c.right) - Math.max(r.left, c.left);
+        const h = Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top);
+        if (w > 0.5 && h > 0.5)
+          hit.push(
+            `${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)}`,
+          );
+      }
+      return hit;
+    });
+  /** Whether the button named `name` is what a tap at its middle reaches. */
+  const reachable = (page: Page, name: string) =>
+    page.evaluate((n) => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === n);
+      const r = b?.getBoundingClientRect();
+      if (!b || !r) return false;
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('button') === b;
+    }, name);
   const noSidewaysScroll = async (page: Page) => {
     const fits = await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -153,6 +202,81 @@ test.describe('on a phone', () => {
       .poll(() => page.evaluate(() => document.querySelector('canvas')?.getBoundingClientRect().height))
       .toBeLessThan(await page.evaluate(() => window.innerHeight));
     await noSidewaysScroll(page);
+  });
+
+  test('in the game no button, field, or status line is over the canvas, and Pause and 1x can be tapped', async ({
+    page,
+  }) => {
+    await startGame(page);
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    expect(await overlaps(page)).toEqual([]);
+    expect(await reachable(page, 'Pause')).toBe(true);
+    expect(await reachable(page, '1×')).toBe(true);
+    // The story line floats over the scene's foot, so a new line never resizes the canvas.
+    await expect(page.locator('[aria-live="polite"]')).toContainText('The dawn');
+    const beat = await box(page, '.beat-line');
+    const canvas = await box(page, 'canvas');
+    expect(beat?.bottom).toBeLessThanOrEqual((canvas?.bottom ?? 0) + 1);
+  });
+
+  test('in the sandbox no button, field, or status line is over the canvas, and Pause and 1x can be tapped', async ({
+    page,
+  }) => {
+    await startSandbox(page);
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    expect(await overlaps(page)).toEqual([]);
+    expect(await reachable(page, 'Pause')).toBe(true);
+    expect(await reachable(page, '1×')).toBe(true);
+    const canvas = await box(page, 'canvas');
+    expect(canvas?.bottom).toBeGreaterThan(200);
+  });
+
+  test('an open drawer sheet keeps Tab inside it', async ({ page }) => {
+    await startGame(page);
+    await page.getByRole('button', { name: 'Diary and notes' }).tap();
+    await expect(page.locator('#drawer-panel')).toBeVisible();
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      expect(
+        await page.evaluate(() => document.querySelector('#drawer-panel')?.contains(document.activeElement)),
+      ).toBe(true);
+    }
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(
+        await page.evaluate(() => document.querySelector('#drawer-panel')?.contains(document.activeElement)),
+      ).toBe(true);
+    }
+    // The page behind the sheet is inert, and Escape closes the sheet and gives the button focus back.
+    expect(
+      await page.evaluate(() => document.querySelector('[role="application"]')?.closest('[inert]') !== null),
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#drawer-panel')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Diary and notes' })).toBeFocused();
+  });
+
+  test('an open sandbox panel sheet keeps Tab inside it, and Close gives focus back', async ({ page }) => {
+    await startSandbox(page);
+    await page.getByText('Weather', { exact: true }).tap();
+    const panel = page.locator('details[open]');
+    await expect(panel).toBeVisible();
+    const inside = () =>
+      page.evaluate(() => document.querySelector('details[open]')?.contains(document.activeElement));
+    for (let i = 0; i < 14; i++) {
+      await page.keyboard.press('Tab');
+      expect(await inside()).toBe(true);
+    }
+    for (let i = 0; i < 14; i++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(await inside()).toBe(true);
+    }
+    expect(
+      await page.evaluate(() => document.querySelector('[role="application"]')?.closest('[inert]') !== null),
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('details[open]')).toHaveCount(0);
+    await expect(page.getByText('Weather', { exact: true })).toBeFocused();
   });
 
   test('the type is Atkinson Hyperlegible', async ({ page }) => {

@@ -3,44 +3,13 @@
   import { trapFocus } from '../trap-focus.ts';
 
   let {
-    screen,
+    rows,
     onClose,
   }: {
-    /** The screen the sheet opened on, which decides the rows. */
-    screen: 'game' | 'sandbox';
+    /** The keys that work on the screen the sheet opened on (keyRows in input/keyboard.ts). */
+    rows: readonly { keys: string; does: string }[];
     onClose: () => void;
   } = $props();
-
-  type Row = { keys: string; does: string };
-  /** Spec 12.5's rows, in its words, then the keys that Part 2 and peek add. */
-  const GAME: readonly Row[] = [
-    { keys: '1, 2, 3', does: 'Pick a tool' },
-    { keys: 'Arrow keys', does: 'Move the lens or cursor' },
-    { keys: 'Tab', does: 'Move to the next creature' },
-    { keys: 'Enter', does: 'Act on the picked creature' },
-    { keys: 'Space', does: 'Pause' },
-    { keys: 'Z, X', does: 'Zoom out, zoom in' },
-    { keys: 'J, B', does: 'Journal, Book of Skies' },
-    { keys: 'Escape', does: 'Move to the tools' },
-    { keys: '?', does: 'Help' },
-    { keys: 'W', does: 'With Walk: wave at the picked creature' },
-    { keys: 'G, H, R', does: 'With Respond: glow back, hold still, or rumble' },
-    { keys: 'O, K', does: 'With Manner: give a gift, or keep it' },
-    { keys: 'L', does: 'With Manner: plant a seed. Your hero must carry enough berries' },
-    { keys: 'P', does: 'Look under the hood of the picked creature' },
-  ];
-  /** The sandbox has eight tools, and paths. */
-  const SANDBOX: readonly Row[] = [
-    { keys: '1 to 8', does: 'Pick a tool' },
-    { keys: 'Arrow keys', does: 'Move the lens or cursor' },
-    { keys: 'Tab', does: 'Move to the next creature' },
-    { keys: 'Enter', does: 'Use the tool' },
-    { keys: 'Enter, then Enter', does: 'With Paths: set the start of a path, then its end' },
-    { keys: 'Space', does: 'Pause' },
-    { keys: 'Escape', does: 'Move to the panels' },
-    { keys: '?', does: 'Help' },
-  ];
-  const rows = $derived(screen === 'sandbox' ? SANDBOX : GAME);
 
   let root: HTMLElement | undefined = $state();
 
@@ -83,7 +52,7 @@
         <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
       </thead>
       <tbody>
-        {#each rows as row (row.keys)}
+        {#each rows as row (`${row.keys} ${row.does}`)}
           <tr><th scope="row"><kbd>{row.keys}</kbd></th><td>{row.does}</td></tr>
         {/each}
       </tbody>

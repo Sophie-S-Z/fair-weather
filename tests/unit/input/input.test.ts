@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createKeyboard, type InputContext } from '../../../src/input/keyboard.ts';
+import {
+  createHelpKey,
+  createKeyboard,
+  keyRows,
+  type InputContext,
+  type KeyScreen,
+} from '../../../src/input/keyboard.ts';
 import { createHints, type HintTimer } from '../../../src/input/hints.ts';
 import { createOverPoke } from '../../../src/input/over-poke.ts';
 import { createPointer } from '../../../src/input/pointer.ts';
@@ -826,5 +832,118 @@ describe('Part 2 pointer', () => {
     const pose = mk('pose');
     pose.click(30, 40);
     expect([...join.acts, ...pose.acts]).toEqual([{ verb: 'join', on: true }, { verb: 'pose' }]);
+  });
+});
+
+describe('help key everywhere', () => {
+  function helpSetup() {
+    const t = new EventTarget();
+    let opened = 0;
+    createHelpKey(t, () => opened++);
+    const press = (key: string, init: Record<string, unknown> = {}) => {
+      const { target, ...rest } = init;
+      const e = Object.assign(new Event('keydown', { cancelable: true }), { key, ...rest });
+      if (target !== undefined) Object.defineProperty(e, 'target', { value: target });
+      t.dispatchEvent(e);
+      return e;
+    };
+    return { press, opened: () => opened };
+  }
+  it('? opens the help from a button, a link, or the page', () => {
+    const h = helpSetup();
+    h.press('?', { target: { tagName: 'BUTTON' } });
+    h.press('?', { target: { tagName: 'A' } });
+    h.press('?');
+    expect(h.opened()).toBe(3);
+  });
+  it('? does nothing when another handler took it', () => {
+    const t = new EventTarget();
+    t.addEventListener('keydown', (e) => {
+      e.preventDefault();
+    });
+    let opened = 0;
+    createHelpKey(t, () => opened++);
+    t.dispatchEvent(Object.assign(new Event('keydown', { cancelable: true }), { key: '?' }));
+    expect(opened).toBe(0);
+  });
+  it('? does nothing in a text field, or with a modifier', () => {
+    const h = helpSetup();
+    for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) h.press('?', { target: { tagName } });
+    h.press('?', { target: { tagName: 'DIV', isContentEditable: true } });
+    h.press('?', { ctrlKey: true });
+    h.press('?', { metaKey: true });
+    h.press('?', { altKey: true });
+    h.press('a');
+    expect(h.opened()).toBe(0);
+  });
+});
+
+describe('keyRows', () => {
+  const game = (over: Partial<KeyScreen> = {}): KeyScreen => ({
+    screen: 'game',
+    verbs: ['wake'],
+    activity: false,
+    journey: false,
+    heroKind: null,
+    ...over,
+  });
+  const keys = (s: KeyScreen) => keyRows(s).map((r) => r.keys);
+  const row = (s: KeyScreen, k: string) => keyRows(s).find((r) => r.keys === k)?.does;
+
+  it('lists only the keys that work now', () => {
+    expect(keys(game())).toEqual(['1', 'Arrow keys', 'Tab', 'Enter', 'Space', 'B', 'Escape', '?']);
+  });
+  it('counts the tools, and skips verbs that are not tools', () => {
+    expect(keys(game({ verbs: ['wake', 'respond', 'place'] }))).toContain('1, 2, 3');
+    expect(keys(game({ verbs: ['wake', 'respond'] }))).toContain('1, 2');
+    expect(keys(game({ verbs: ['wake', 'listen', 'peek'] }))).toContain('1');
+  });
+  it('adds zoom, peek, walk, and the journal only when they are unlocked', () => {
+    const all = keys(game({ verbs: ['wake', 'walk', 'zoom', 'peek'], journey: true }));
+    expect(all).toEqual(expect.arrayContaining(['Z, X', 'P', 'W', 'J, B']));
+    const none = keys(game());
+    for (const k of ['Z, X', 'P', 'W', 'J, B', 'J']) expect(none).not.toContain(k);
+  });
+  it('says what G, H, and R do with the tool that unlocked them', () => {
+    expect(row(game({ verbs: ['respond'] }), 'G, H, R')).toBe(
+      'With Respond: glow back, hold still, or rumble',
+    );
+    expect(row(game({ verbs: ['manner'] }), 'G, H, R')).toBe('With Manner: wave back, stay still, or snap');
+    expect(row(game({ verbs: ['manner'] }), 'O, K')).toBe('With Manner: give a gift, or keep it');
+    expect(keys(game())).not.toContain('G, H, R');
+    expect(keys(game())).not.toContain('O, K');
+  });
+  it('offers L only to a seedcarrier hero with Manner', () => {
+    expect(keys(game({ verbs: ['manner'], heroKind: 'seedcarrier' }))).toContain('L');
+    expect(keys(game({ verbs: ['manner'], heroKind: 'lantern' }))).not.toContain('L');
+    expect(keys(game({ heroKind: 'seedcarrier' }))).not.toContain('L');
+  });
+  it('sends Escape to the activity in an activity chapter, and drops the tool keys', () => {
+    const a = game({ activity: true, verbs: ['wake', 'respond'] });
+    expect(row(a, 'Escape')).toBe('Move to the activity');
+    expect(keys(a)).toEqual(['Tab', 'Space', 'B', 'Escape', '?']);
+    expect(row(game(), 'Escape')).toBe('Move to the tools');
+  });
+  it('lists the sandbox keys, with paths only when the tool is there', () => {
+    const sb: KeyScreen = {
+      screen: 'sandbox',
+      verbs: ['wake', 'place', 'path'],
+      activity: false,
+      journey: false,
+      heroKind: null,
+    };
+    expect(keys(sb)).toEqual([
+      '1, 2, 3',
+      'Arrow keys',
+      'Tab',
+      'Enter',
+      'Enter, then Enter',
+      'Space',
+      'Escape',
+      '?',
+    ]);
+    expect(row(sb, 'Escape')).toBe('Move to the panels');
+    expect(keys({ ...sb, verbs: SANDBOX_TOOLS })).toContain('1 to 8');
+    expect(keys({ ...sb, verbs: ['wake'] })).not.toContain('Enter, then Enter');
   });
 });

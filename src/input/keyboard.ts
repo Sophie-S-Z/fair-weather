@@ -177,6 +177,103 @@ export function useTool(ctx: InputContext, at: Point, clear: boolean, dir: Point
   }
 }
 
+/** Whether a key event's target takes typing, so a key there is the player's text and not a command. */
+function isTextField(target: unknown): boolean {
+  const t = target as { tagName?: string; isContentEditable?: boolean } | null;
+  const tag = t?.tagName?.toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable === true;
+}
+
+/**
+ * ? from anywhere on the screen `target` covers (the window), not only the scene: the scene's own
+ * handler takes it first when the scene has focus. Never in a text field.
+ */
+export function createHelpKey(target: EventTarget, help: () => void): () => void {
+  const onKey = (e: Event): void => {
+    const k = e as KeyboardEvent;
+    if (k.key !== '?' || k.defaultPrevented || k.ctrlKey || k.metaKey || k.altKey) return;
+    if (isTextField(k.target)) return;
+    help();
+    k.preventDefault();
+  };
+  target.addEventListener('keydown', onKey);
+  return () => {
+    target.removeEventListener('keydown', onKey);
+  };
+}
+
+export type KeyRow = { keys: string; does: string };
+/** What the help sheet needs to know about the screen it opens on. */
+export type KeyScreen = {
+  screen: 'game' | 'sandbox';
+  /** The unlocked verbs: the chapter's, or the sandbox's tools. */
+  verbs: readonly Verb[];
+  /** An activity stands in for the tools in this chapter. */
+  activity: boolean;
+  /** The travel journal exists (J). */
+  journey: boolean;
+  heroKind: HeroKind | null;
+};
+
+const upper = (keys: readonly string[]): string => keys.map((k) => k.toUpperCase()).join(', ');
+/** What each reply key does, with the respond tool and with the manner tool. */
+const RESPOND_WORDS: Record<BidReply, string> = {
+  toward: 'glow back',
+  away: 'hold still',
+  against: 'rumble',
+};
+const MANNER_WORDS: Record<BidReply, string> = { toward: 'wave back', away: 'stay still', against: 'snap' };
+const GIFT_WORDS: Record<GiftMove, string> = { give: 'give a gift', keep: 'keep it' };
+const words = (map: Record<BidReply, string>): string =>
+  Object.values(REPLY_KEYS)
+    .map((r) => map[r])
+    .join(', ')
+    .replace(/, ([^,]*)$/, ', or $1');
+
+/** The tool keys: 1, 1 and 2, 1 to 3 as a list, and 1 to N past three. */
+function toolKeys(n: number): string {
+  if (n > 3) return `1 to ${String(n)}`;
+  return Array.from({ length: n }, (_, i) => String(i + 1)).join(', ');
+}
+
+/**
+ * The keys that work on this screen now, in the help sheet's order. The rows read the same key maps
+ * that the handler above reads, and the same conditions, so the two stay together. Spec 12.5's
+ * words are used where it gives them.
+ */
+export function keyRows(s: KeyScreen): KeyRow[] {
+  const has = (v: Verb): boolean => s.verbs.includes(v);
+  const tools = keyboardTools(s.verbs).length;
+  const sandbox = s.screen === 'sandbox';
+  const rows: KeyRow[] = [];
+  const add = (keys: string, does: string): void => {
+    rows.push({ keys, does });
+  };
+  if (!s.activity && tools > 0) add(toolKeys(tools), 'Pick a tool');
+  if (!s.activity) add('Arrow keys', 'Move the lens or cursor');
+  add('Tab', 'Move to the next creature');
+  if (!s.activity) {
+    add('Enter', sandbox ? 'Use the tool' : 'Act on the picked creature');
+    if (sandbox && has('path')) add('Enter, then Enter', 'With Paths: set the start of a path, then its end');
+  }
+  add('Space', 'Pause');
+  if (!s.activity && has('zoom')) add(upper(Object.keys(ZOOM_KEYS)), 'Zoom out, zoom in');
+  if (!sandbox) add(s.journey ? 'J, B' : 'B', s.journey ? 'Journal, Book of Skies' : 'Book of Skies');
+  add('Escape', sandbox ? 'Move to the panels' : s.activity ? 'Move to the activity' : 'Move to the tools');
+  add('?', 'Help');
+  if (s.activity) return rows;
+  if (has('walk')) add('W', 'With Walk: wave at the picked creature');
+  if (has('respond')) add(upper(Object.keys(REPLY_KEYS)), `With Respond: ${words(RESPOND_WORDS)}`);
+  if (has('manner')) {
+    add(upper(Object.keys(REPLY_KEYS)), `With Manner: ${words(MANNER_WORDS)}`);
+    add(upper(Object.keys(GIFT_KEYS)), `With Manner: ${GIFT_WORDS.give}, or ${GIFT_WORDS.keep}`);
+    if (s.heroKind === 'seedcarrier')
+      add('L', 'With Manner: plant a seed. Your hero must carry enough berries');
+  }
+  if (has('peek')) add('P', 'Look under the hood of the picked creature');
+  return rows;
+}
+
 export function createKeyboard(target: EventTarget, ctx: InputContext): () => void {
   /** The last arrow's direction, which the blow tool gusts in. */
   let dir = EAST;
@@ -184,9 +281,8 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
   const onKey = (e: Event): void => {
     const k = e as KeyboardEvent;
     if (k.ctrlKey || k.metaKey || k.altKey) return;
-    const t = k.target as { tagName?: string; isContentEditable?: boolean } | null;
-    const tag = t?.tagName?.toUpperCase();
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+    if (isTextField(k.target)) return;
+    const tag = (k.target as { tagName?: string } | null)?.tagName?.toUpperCase();
 
     const key = k.key;
     const lower = key.toLowerCase();

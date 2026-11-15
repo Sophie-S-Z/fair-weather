@@ -1,5 +1,5 @@
 // What the game screen gets from main.ts (ADR 0011): types only, so ui imports no render or input.
-import type { createKeyboard } from '../input/keyboard.ts';
+import type { createHelpKey, createKeyboard, keyRows } from '../input/keyboard.ts';
 import type { createPointer } from '../input/pointer.ts';
 import type { Hints } from '../input/hints.ts';
 import type { createHoldStill } from '../input/hold-still.ts';
@@ -271,6 +271,9 @@ export interface GameService {
   currentSpeed(): number;
   input: {
     createKeyboard: typeof createKeyboard;
+    /** ? from anywhere on the screen, and the rows the help sheet lists. */
+    createHelpKey: typeof createHelpKey;
+    keyRows: typeof keyRows;
     createPointer: typeof createPointer;
     createHints: () => Hints;
     /** An over-poke detector with the tuning's window and count. */

@@ -86,7 +86,7 @@
     overflow-y: auto;
   }
   /* On a phone the chapter ribbon wraps to several rows: leave room for it and the story line. */
-  @media (max-width: 600px) {
+  @media (max-width: 599.98px) {
     section {
       max-height: calc(100dvh - 22rem);
     }

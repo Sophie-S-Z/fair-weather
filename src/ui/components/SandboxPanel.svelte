@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { trapFocus } from '../trap-focus.ts';
   import { knobValue } from '../../story/sandbox.ts';
   import type { Knob, KnobId, SandboxTool } from '../../story/sandbox.ts';
 
@@ -8,6 +9,9 @@
     knobs,
     onKnob,
     locked,
+    phone,
+    sheetOpen,
+    onOpen,
     tools,
     tool,
     onTool,
@@ -20,6 +24,12 @@
     onKnob: (id: KnobId, index: number, input: HTMLInputElement) => void;
     /** The knobs are off while a start waits, and after the worker failed (each one restarts the run). */
     locked: boolean;
+    /** Below 600 pixels wide, where an open panel is a modal sheet. */
+    phone: boolean;
+    /** Some panel is an open sheet, so a closed one is inert behind it. */
+    sheetOpen: boolean;
+    /** The panel opened or closed. */
+    onOpen: (title: string, open: boolean) => void;
     /**
      * The panel's tools with their keys (1 to 8). Each panel's are a radio group of their own, all
      * set from `tool`, so an open panel's radios are in the Tab order when the tool is another panel's.
@@ -33,14 +43,33 @@
 
   let panel: HTMLDetailsElement;
   let summary: HTMLElement;
+  let open = $state(false);
   function close(): void {
     panel.open = false;
     summary.focus();
   }
+  /** Escape closes a sheet and gives the summary the focus. */
+  function onKey(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || !phone || !open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
+  }
 </script>
 
 <!-- A sandbox panel (spec 12.3): closed at first, so the scene shows. -->
-<details class="panel" bind:this={panel}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<details
+  class="panel"
+  bind:this={panel}
+  inert={sheetOpen && !open}
+  ontoggle={() => {
+    open = panel.open;
+    onOpen(title, open);
+  }}
+  onkeydown={onKey}
+  use:trapFocus={phone && open}
+>
   <summary bind:this={summary}>{title}</summary>
   <div class="body">
     {#each knobs as { knob, index, max, why } (knob.id)}

@@ -73,6 +73,7 @@
       </p>
     </div>
   {/if}
+  <p>Press ? in the game or the sandbox to see the keys.</p>
   <button type="button" onclick={onBack}>Back</button>
 </div>
 

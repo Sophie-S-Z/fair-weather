@@ -6,7 +6,7 @@ export interface Settings {
   highContrast: boolean;
   reducedMotion: boolean;
   sound: boolean;
-  analytics: false;
+  analytics: boolean;
 }
 
 export interface SettingsStorage {
@@ -39,7 +39,7 @@ export function createSettingsStore(
     highContrast: z.boolean().catch(defaults.highContrast).parse(o['highContrast']),
     reducedMotion: z.boolean().catch(defaults.reducedMotion).parse(o['reducedMotion']),
     sound: z.boolean().catch(defaults.sound).parse(o['sound']),
-    analytics: false,
+    analytics: z.boolean().catch(defaults.analytics).parse(o['analytics']),
   };
   const store = writable<Settings>(settings);
   let first = true;
@@ -49,7 +49,7 @@ export function createSettingsStore(
       return;
     }
     try {
-      storage.save({ ...s, analytics: false });
+      storage.save(s);
     } catch {
       // Blocked storage must not break the game.
     }

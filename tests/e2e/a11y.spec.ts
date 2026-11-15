@@ -45,6 +45,8 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
     page.getByLabel('High contrast'),
     page.getByLabel('Reduced motion'),
     page.getByLabel('Sound'),
+    // The e2e dev server names an analytics address, so the switch shows (ADR 0014 item 9).
+    page.getByLabel('Send counts to help us make the game better'),
     page.getByRole('button', { name: 'Back' }),
   ];
   for (const el of order) {

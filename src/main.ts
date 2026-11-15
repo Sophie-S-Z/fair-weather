@@ -109,6 +109,7 @@ import type { Chapter } from './story/schema.ts';
 import App from './ui/App.svelte';
 import type { GameService, Stage } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
+import { betCounts, createAnalytics, createVisibleTimer, fetchPost } from './persist/analytics.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
 import { oneAtATime } from './ui/one-at-a-time.ts';
 import { createSpeedControl } from './ui/speed.ts';
@@ -140,6 +141,11 @@ const storage: SettingsStorage = {
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const settings = createSettingsStore(storage, reduced);
+let analyticsOn = false;
+settings.subscribe((s) => {
+  analyticsOn = s.analytics;
+});
+const analytics = createAnalytics(import.meta.env.VITE_ANALYTICS_URL || null, () => analyticsOn, fetchPost);
 
 const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
 const rigs = new Map<string, Rig>(
@@ -511,6 +517,11 @@ const sandboxStart = (setup: SandboxSetup): Scenario =>
  * an opened link replaces the player's own save only once the player acts (ADR 0014 item 7).
  */
 let sandboxActed = false;
+/** The visible time of the sandbox visit, from its first run to the player leaving (analytics only). */
+let sandboxTimer: ReturnType<typeof createVisibleTimer> | null = null;
+document.addEventListener('visibilitychange', () => {
+  sandboxTimer?.setHidden(document.visibilityState === 'hidden');
+});
 /** How many times the sandbox stopped: an open that waited across a stop gives up. */
 let sandboxStops = 0;
 /**
@@ -527,6 +538,7 @@ function beginSandbox(
   return new Promise((resolve, reject) => {
     workerFailed = false;
     sandboxActed = acted;
+    sandboxTimer ??= createVisibleTimer(Date.now, document.visibilityState === 'hidden');
     // A new run starts a new postcard: no frame of the run before it (ADR 0014 item 8).
     recording?.setRecording(true);
     const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
@@ -860,6 +872,9 @@ const game: GameService = {
         console.error(e); // the save stays as it was
       }
       game.sandbox.stop();
+      const minutes = sandboxTimer?.stop() ?? 0;
+      sandboxTimer = null;
+      if (minutes >= 1) analytics.count({ v: 1, e: 'sandbox', minutes });
     },
     stop() {
       sandboxStops += 1;
@@ -1200,6 +1215,9 @@ const game: GameService = {
         () => undefined, // the worker gave up; the chapter plays without this save
       );
     }
+    // A content id from the fixed chapter list; a chapter that Continue resumes was counted when it began.
+    if (!resumed && chapters.some((c) => c.id === chapter.id))
+      analytics.count({ v: 1, e: 'chapter', chapter: chapter.id });
     const made = createChapterRunner(
       port,
       ink,
@@ -1223,6 +1241,13 @@ const game: GameService = {
       if (start === starts) yearLog.push({ chapterId: chapter.id, log: runner.log });
     };
     runner.done.then(keep, keep);
+    runner.done.then(
+      () => {
+        if (start === starts && chapters.some((c) => c.id === chapter.id))
+          for (const c of betCounts(chapter.id, runner.log)) analytics.count(c);
+      },
+      () => undefined,
+    );
     /**
      * Runs `update` once this runner is done, unless a newer start or a stop dropped it. A failure
      * makes the next valley's start fail ("This chapter stopped"), so nothing plays out of step.

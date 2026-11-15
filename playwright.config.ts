@@ -25,7 +25,12 @@ export default defineConfig({
   // sim worker needs too, so a second page on the runner halves the first one's frames and its sim's
   // share: waits double, and a real-time run falls behind its sim. One worker costs a little time.
   ...(process.env['CI'] ? { workers: 1 } : {}),
-  webServer: { command: 'npx vite --port 5179 --strictPort', port: 5179 },
+  // Only this dev server names an analytics address, so the e2e tests see the Settings switch.
+  webServer: {
+    command: 'npx vite --port 5179 --strictPort',
+    port: 5179,
+    env: { VITE_ANALYTICS_URL: 'http://localhost:5179/__count' },
+  },
   use: { baseURL: 'http://localhost:5179', trace: 'off' },
   projects: [
     // The whole-year runs (Part 1, and Part 2 from the bridge) play in real time at ?fast=10, so they

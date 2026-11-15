@@ -65,6 +65,7 @@ export default tseslint.config(
     files: ['**/*.svelte', '**/*.svelte.ts'],
     languageOptions: { parserOptions: { parser: tseslint.parser, extraFileExtensions: ['.svelte'] } },
   },
+  { files: ['tools/service-worker.js'], languageOptions: { globals: { ...globals.serviceworker } } },
   { files: ['**/*.js'], extends: [tseslint.configs.disableTypeChecked] },
   {
     files: ['src/sim/**/*.ts'],

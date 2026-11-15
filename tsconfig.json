@@ -21,6 +21,7 @@
     "dev",
     "vite.config.ts",
     "vitest.config.ts",
+    "playwright.offline.config.ts",
     "playwright.config.ts",
     "eslint.config.js"
   ]

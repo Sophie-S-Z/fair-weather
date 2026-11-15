@@ -21,6 +21,9 @@ jobs:
         run: npx vite build --mode development
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      # Offline play over the development-mode build above (the production build refuses placeholders).
+      - name: Offline after the first load
+        run: npm run test:offline
       # Chromium e2e only (axe, keyboard-only and auto-player runs). Visual stays a manual gate: its
       # baselines are renders from the cloud container's Chromium build, not CI's.
       - name: E2E (Chromium)

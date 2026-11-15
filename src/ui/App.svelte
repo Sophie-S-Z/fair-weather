@@ -8,6 +8,7 @@
   import SettingsScreen from './screens/Settings.svelte';
   import Game from './screens/Game.svelte';
   import BookOfSkies from './screens/BookOfSkies.svelte';
+  import ModelLimits from './screens/ModelLimits.svelte';
   import Sandbox from './screens/Sandbox.svelte';
   import LostValley from './screens/LostValley.svelte';
   import Stills from './screens/Stills.svelte';
@@ -42,7 +43,7 @@
     sandboxLink = null;
     sandboxNew = false;
   }
-  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' | 'lost' | 'stills' = $state(
+  let screen: 'title' | 'settings' | 'game' | 'book' | 'limits' | 'sandbox' | 'lost' | 'stills' = $state(
     untrack(() => sandboxNew || sandboxLink !== null) ? 'sandbox' : 'title',
   );
   /** The chapter whose page the still version opens at. */
@@ -171,6 +172,7 @@
         {sandboxClosed}
         notice={linkNotice}
         onSandbox={() => (screen = 'sandbox')}
+        onLimits={() => (screen = 'limits')}
         onSettings={() => (screen = 'settings')}
       />
     {:else if screen === 'lost'}
@@ -178,6 +180,14 @@
         onStartFresh={() => {
           screen = 'title';
           readStore();
+        }}
+      />
+    {:else if screen === 'limits'}
+      <ModelLimits
+        onBack={() => {
+          screen = 'title';
+          // Focus goes back to the button that opened the page.
+          void tick().then(() => document.querySelector<HTMLElement>('#title-limits')?.focus());
         }}
       />
     {:else if screen === 'book'}

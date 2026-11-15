@@ -20,6 +20,7 @@ import { ChallengesSchema } from '../../src/story/challenges.ts';
 import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { HeroesSchema, JournalSchema } from '../../src/story/journey.ts';
+import { ModelLimitsSchema } from '../../src/story/limits.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
@@ -126,6 +127,14 @@ export function validateContent(root: string): ValidationResult {
       JournalSchema.parse(JSON.parse(readFileSync(journalPath, 'utf8')));
     } catch (e) {
       errors.push(`journal.json: ${(e as Error).message}`);
+    }
+  }
+  const limitsPath = join(content, 'notes', 'model-limits.json');
+  if (existsSync(limitsPath)) {
+    try {
+      ModelLimitsSchema.parse(JSON.parse(readFileSync(limitsPath, 'utf8')));
+    } catch (e) {
+      errors.push(`notes/model-limits.json: ${(e as Error).message}`);
     }
   }
   const versesPath = join(content, 'myth', 'verses.json');

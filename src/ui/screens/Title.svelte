@@ -8,6 +8,7 @@
     onContinue,
     onBook,
     onSandbox,
+    onLimits,
     onSettings,
   }: {
     hasSave: boolean;
@@ -21,6 +22,7 @@
     onContinue: () => void;
     onBook: () => void;
     onSandbox: () => void;
+    onLimits: () => void;
     onSettings: () => void;
   } = $props();
 </script>
@@ -41,6 +43,7 @@
   {#if sandboxClosed !== null}
     <p id="sandbox-closed" class="why">{sandboxClosed}</p>
   {/if}
+  <button type="button" id="title-limits" onclick={onLimits}>Where this model is wrong</button>
   <button type="button" onclick={onSettings}>Settings</button>
 </nav>
 

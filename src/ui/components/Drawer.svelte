@@ -13,6 +13,7 @@
     openAt,
     open = $bindable(false),
     onBook,
+    onLimits,
     onJournal,
   }: {
     notes: readonly NoteData[];
@@ -36,6 +37,8 @@
     open?: boolean;
     /** Opens the Book of Skies; the button shows only when this is given. */
     onBook?: (() => void) | undefined;
+    /** Opens the "Where this model is wrong" page; the button shows under the margin notes when this is given. */
+    onLimits?: (() => void) | undefined;
     /** Opens the travel journal; the button shows only when this is given (Part 2). */
     onJournal?: (() => void) | undefined;
   } = $props();
@@ -157,6 +160,9 @@
         {#each notes as note, i (i)}
           <Note {note} />
         {/each}
+        {#if onLimits}
+          <button type="button" onclick={onLimits}>Where this model is wrong</button>
+        {/if}
       </section>
       {#if onJournal}
         <button type="button" onclick={onJournal}>Travel journal</button>

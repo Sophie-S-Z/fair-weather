@@ -37,6 +37,8 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Begin' })).toBeFocused();
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Where this model is wrong' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Settings' })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
@@ -443,6 +445,68 @@ test('B opens the Book of Skies as a modal dialog with the sim paused; Escape cl
   await book.getByRole('button', { name: 'Back' }).click();
   await expect(book).toBeHidden();
   await expect(scene).toBeFocused();
+});
+
+test('the title opens Where this model is wrong as a page; Back gives focus back to its button', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const open = page.getByRole('button', { name: 'Where this model is wrong' });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Where this model is wrong' })).toBeFocused();
+  const copycat = page.getByRole('region', { name: 'Copycat does not always win' });
+  await expect(copycat).toContainText('"Copycat wins" holds only under some noise levels and payoffs.');
+  // A link opens in the same tab, and its text is its label.
+  const link = copycat.getByRole('link', { name: 'The Evolution of Trust, full text' });
+  await expect(link).toHaveAttribute('href', 'https://ncase.me/trust/words.html');
+  await expect(link).not.toHaveAttribute('target', /.+/);
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  await expect(open).toBeFocused();
+});
+
+test('the drawer opens Where this model is wrong as a modal dialog with the sim paused; Escape closes it and gives focus back', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  const speeds = () =>
+    page.evaluate(() =>
+      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+    );
+  await expect.poll(speeds).toBe(1);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('region', { name: 'Margin notes' }).getByRole('button', {
+    name: 'Where this model is wrong',
+  });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog.getByRole('heading', { name: 'Where this model is wrong', level: 2 })).toBeFocused();
+  await expect.poll(speeds).toBe(0);
+  expect(await seriousViolations(page)).toEqual([]);
+  // Tab stays inside the dialog: the links, then Back, and round again.
+  const stops = dialog.locator('a[href], button');
+  const count = await stops.count();
+  for (let i = 0; i < count + 1; i++) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Shift+Tab');
+  expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(open).toBeFocused();
+  await expect.poll(speeds).toBe(1);
+  // Back closes it too.
+  await open.click();
+  await dialog.getByRole('button', { name: 'Back' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(open).toBeFocused();
 });
 
 test('the myth tells only this year: five gusts show behind a toggle, and the next year does not count them', async ({

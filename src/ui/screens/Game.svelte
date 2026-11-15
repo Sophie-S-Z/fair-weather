@@ -49,6 +49,7 @@
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
   import BookOfSkies from './BookOfSkies.svelte';
+  import ModelLimits from './ModelLimits.svelte';
   import Journal from './Journal.svelte';
 
   let {
@@ -209,6 +210,9 @@
   /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
   let hasBook = $state(false);
   let speedBeforeBook = 0;
+  /** The open "Where this model is wrong" page, a modal dialog with the sim paused, and the speed it puts back. */
+  let limits = $state(false);
+  let speedBeforeLimits = 0;
   /**
    * The open travel journal (Part 2), a modal dialog like the Book of Skies: the page to open at,
    * and what to do on close (a valley's end goes on to the next valley).
@@ -342,7 +346,7 @@
    * answer plays, since the pause would take the runner's speed.
    */
   async function openBook(): Promise<void> {
-    if (book || bookOpening || journal || betRunning) return;
+    if (book || bookOpening || journal || limits || betRunning) return;
     bookOpening = true;
     if (!ended) {
       speedBeforeBook = game.currentSpeed();
@@ -364,7 +368,7 @@
    */
   function openJournal(at: string | null, after: (() => void) | null = null): void {
     const j = game.journey();
-    if (!j || journal || book || bookOpening || betRunning) {
+    if (!j || journal || book || bookOpening || limits || betRunning) {
       after?.();
       return;
     }
@@ -386,6 +390,18 @@
   }
   async function loadHasBook(): Promise<void> {
     hasBook = (await game.book()).length > 0;
+  }
+  function openLimits(): void {
+    if (limits || book || bookOpening || journal || betRunning) return;
+    if (!ended) {
+      speedBeforeLimits = game.currentSpeed();
+      setSpeed(0);
+    }
+    limits = true;
+  }
+  function closeLimits(): void {
+    limits = false;
+    if (!ended) setSpeed(speedBeforeLimits);
   }
   function closeBook(): void {
     book = null;
@@ -444,7 +460,8 @@
   }
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
-    if (!due || !stage || hidden || ended || book || bookOpening || journal || view !== 'meadow') return;
+    if (!due || !stage || hidden || ended || book || bookOpening || journal || limits || view !== 'meadow')
+      return;
     if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
   });
@@ -803,7 +820,12 @@
   <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
   <div
     class="layer"
-    inert={bet !== null || postcard !== null || whisperCard !== null || book !== null || journal !== null}
+    inert={bet !== null ||
+      postcard !== null ||
+      whisperCard !== null ||
+      book !== null ||
+      journal !== null ||
+      limits}
   >
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -870,6 +892,7 @@
             openAt={drawerAt}
             bind:open={drawerOpen}
             onBook={hasBook ? () => void openBook() : undefined}
+            onLimits={openLimits}
             onJournal={hasJourney
               ? () => {
                   openJournal(null);
@@ -1005,6 +1028,8 @@
       onExport={game.exportPage}
       onBack={closeBook}
     />
+  {:else if limits}
+    <ModelLimits modal onBack={closeLimits} />
   {:else if journal}
     <Journal
       entries={journal.entries}

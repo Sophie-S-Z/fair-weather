@@ -199,13 +199,15 @@ export const ExitSpecSchema = z.union([
 
 /** A margin note (spec 10.5, ADR 0012 item 13). */
 const text = z.string().min(1);
+/** A source link, shared by margin notes and the model-limits page so the two cannot drift. */
+export const SourceSchema = z.strictObject({ label: text, url: z.url() });
 export const NoteSchema = z.strictObject({
   title: text,
   science: text,
   limits: text,
   counter: text,
   question: text,
-  sources: z.array(z.strictObject({ label: text, url: z.url() })).min(1),
+  sources: z.array(SourceSchema).min(1),
 });
 export type Note = z.infer<typeof NoteSchema>;
 

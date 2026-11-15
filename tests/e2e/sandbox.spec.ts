@@ -46,6 +46,29 @@ for (const name of PANELS) {
   });
 }
 
+test('the Rules panel opens Where this model is wrong as a modal dialog with the sim paused', async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByText('Rules', { exact: true }).click();
+  const button = page.getByRole('button', { name: 'Where this model is wrong' });
+  await button.click();
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog.getByRole('heading', { level: 2, name: 'Where this model is wrong' })).toBeFocused();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
+      ),
+    )
+    .toBe(0);
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(button).toBeFocused();
+});
+
 test('keys only: 1 picks Place, Enter places a bench at the cursor, 8 picks Whisper', async ({ page }) => {
   await open(page);
   await page.keyboard.press('1');

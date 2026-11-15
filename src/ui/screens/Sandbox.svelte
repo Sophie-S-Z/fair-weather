@@ -32,6 +32,7 @@
   import TimeControls from '../components/TimeControls.svelte';
   import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
+  import ModelLimits from './ModelLimits.svelte';
   import { createFrameLoop } from '../frame-loop.ts';
   import { createRewind } from '../rewind.svelte.ts';
   import { readValleyFile } from '../save-file.ts';
@@ -230,6 +231,19 @@
   const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
   function togglePause(): void {
     if (rw.at === null) pause();
+  }
+
+  /** The open "Where this model is wrong" page, a modal dialog with the sim paused, and the speed it puts back. */
+  let limits = $state(false);
+  let speedBeforeLimits = 0;
+  function openLimits(): void {
+    speedBeforeLimits = game.currentSpeed();
+    setSpeed(0);
+    limits = true;
+  }
+  function closeLimits(): void {
+    limits = false;
+    setSpeed(speedBeforeLimits);
   }
 
   function pin(t: number, text: string): void {
@@ -597,7 +611,7 @@
 </script>
 
 <div class="sandbox">
-  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null || postcard}>
+  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null || postcard || limits}>
     <!-- The scene is a keyboard surface (spec 12.5), as on the game screen. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -673,6 +687,7 @@
             onTool={pickTool}
           >
             <p class="line">When you change a rule, the valley starts again from its first day.</p>
+            <button type="button" onclick={openLimits}>Where this model is wrong</button>
           </SandboxPanel>
           <SandboxPanel
             title={PANEL_TITLES.weather}
@@ -772,6 +787,8 @@
       </label>
       <button type="button" onclick={onExit}>Back to title</button>
     </main>
+  {:else if limits}
+    <ModelLimits modal onBack={closeLimits} />
   {:else if shared}
     <SharePanel
       {shared}

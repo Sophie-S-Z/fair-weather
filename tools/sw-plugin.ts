@@ -9,12 +9,16 @@ export function precacheList(fileNames: readonly string[], base: string): string
   return [base, ...files.sort()];
 }
 
-/** The cache name's suffix: 8 hex digits of a hash of the list. */
-export function precacheVersion(list: readonly string[]): string {
-  return createHash('sha256')
-    .update([...list].sort().join('\n'))
-    .digest('hex')
-    .slice(0, 8);
+/** The cache name's suffix: 8 hex digits of a hash of every precached file's name and contents. */
+export function precacheVersion(files: Readonly<Record<string, string | Uint8Array>>): string {
+  const hash = createHash('sha256');
+  for (const name of Object.keys(files).sort()) {
+    hash
+      .update(`${name}\0`)
+      .update(files[name] ?? '')
+      .update('\0');
+  }
+  return hash.digest('hex').slice(0, 8);
 }
 
 /** Emits `sw.js` at build time: tools/service-worker.js after the precache list and its version. */
@@ -23,16 +27,22 @@ export function swPlugin(): Plugin {
   return {
     name: 'fair-weather-sw',
     apply: 'build',
+    // After the plugins that emit index.html and prune chunks, so the list is the bundle's final one.
+    enforce: 'post',
     configResolved(config) {
       base = config.base;
     },
     generateBundle(_options, bundle) {
       const list = precacheList(Object.keys(bundle), base);
+      const contents: Record<string, string | Uint8Array> = {};
+      for (const [name, file] of Object.entries(bundle)) {
+        contents[base + name] = file.type === 'chunk' ? file.code : file.source;
+      }
       const source = readFileSync(join(import.meta.dirname, 'service-worker.js'), 'utf8');
       this.emitFile({
         type: 'asset',
         fileName: 'sw.js',
-        source: `self.PRECACHE = ${JSON.stringify(list)};\nself.VERSION = '${precacheVersion(list)}';\n${source}`,
+        source: `self.PRECACHE = ${JSON.stringify(list)};\nself.VERSION = '${precacheVersion(Object.fromEntries(list.map((u) => [u, contents[u] ?? ''])))}';\n${source}`,
       });
     },
   };

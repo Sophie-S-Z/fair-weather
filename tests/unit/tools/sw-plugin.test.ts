@@ -39,10 +39,12 @@ describe('service worker precache list', () => {
     ]);
   });
 
-  test('the version is 8 hex digits that change with the list and not with its order', () => {
-    const a = precacheVersion(['/', '/a.js']);
+  test('the version is 8 hex digits of the names and contents, not of their order', () => {
+    const a = precacheVersion({ '/': 'page', '/a.js': 'one' });
     expect(a).toMatch(/^[0-9a-f]{8}$/);
-    expect(precacheVersion(['/', '/b.js'])).not.toBe(a);
-    expect(precacheVersion(['/', '/a.js'])).toBe(a);
+    expect(precacheVersion({ '/a.js': 'one', '/': 'page' })).toBe(a);
+    expect(precacheVersion({ '/': 'page', '/b.js': 'one' })).not.toBe(a);
+    expect(precacheVersion({ '/': 'page2', '/a.js': 'one' })).not.toBe(a);
+    expect(precacheVersion({ '/': 'page', '/a.js': 'two' })).not.toBe(a);
   });
 });

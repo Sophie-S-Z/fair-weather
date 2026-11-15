@@ -1426,6 +1426,7 @@ if (app) mount(App, { target: app, props: { settings, hasSave: false, game, link
 // Offline after the first load (ADR 0014 item 12). A build registers the worker; the dev server never does.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+    // Playing offline is a bonus: a refused registration (blocked site data) changes nothing else.
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
   });
 }

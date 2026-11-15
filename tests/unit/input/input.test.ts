@@ -933,6 +933,12 @@ describe('keyRows', () => {
     expect(keys(a)).toEqual(['Tab', 'Space', 'B', 'Escape', '?']);
     expect(row(game(), 'Escape')).toBe('Move to the tools');
   });
+  it('names the way from the tools back to the Cosmos panel once Rewind is unlocked', () => {
+    expect(row(game({ verbs: ['wake', 'zoom', 'rewind'] }), 'Escape, then Shift+Tab')).toBe(
+      'In the Cosmos: move back through the story lines to the Cosmos panel and its Rewind range',
+    );
+    expect(keys(game({ verbs: ['wake', 'zoom'] }))).not.toContain('Escape, then Shift+Tab');
+  });
   it('lists the sandbox keys, with paths only when the tool is there', () => {
     const sb: KeyScreen = {
       screen: 'sandbox',

@@ -282,6 +282,11 @@ export function keyRows(s: KeyScreen): KeyRow[] {
       add('L', 'With Manner: plant a seed. Your hero must carry enough berries');
   }
   if (has('peek')) add('P', 'Look under the hood of the picked creature');
+  if (!sandbox && has('rewind'))
+    add(
+      'Escape, then Shift+Tab',
+      'In the Cosmos: move back through the story lines to the Cosmos panel and its Rewind range',
+    );
   return rows;
 }
 

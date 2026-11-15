@@ -928,7 +928,7 @@
       )
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
-        ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
+        ? ' In the Cosmos, Escape moves to the tools, and Shift+Tab then moves back through the story lines to the Cosmos panel and its Rewind range.'
         : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''} The question mark key
       lists the keys.
     </p>
@@ -1026,6 +1026,8 @@
           {/if}
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
           <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
+            <!-- First on screen and in the tab order: Shift+Tab from the tools reaches it, then the Cosmos panel. -->
+            <div class="beat"><BeatLine {lines} fixed={portrait} /></div>
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
@@ -1101,8 +1103,6 @@
                 />
               {/if}
             </div>
-            <!-- Last in the tab order, so Shift+Tab from the tools still reaches the Cosmos panel; first on screen. -->
-            <div class="beat"><BeatLine {lines} fixed={portrait} /></div>
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
           <div class="time">
@@ -1196,13 +1196,14 @@
   .beat {
     display: contents;
   }
-  .beat,
-  .beat :global(.beat-line) {
-    order: -1;
-  }
   .hud :global(button),
   .hud :global(section) {
     pointer-events: auto;
+  }
+  /* The strip scrolls by wheel and by a finger drag; the rest of the HUD lets taps through to the scene. */
+  .hud :global(.beat-line) {
+    pointer-events: auto;
+    touch-action: pan-y;
   }
   .title {
     position: absolute;
@@ -1286,6 +1287,36 @@
     position: absolute;
     right: 0.75rem;
     bottom: 3.5rem;
+  }
+  /*
+   * A short landscape screen, such as a phone on its side: the time controls share a row with the
+   * tools, and the story strip is shorter. The bar ends under the title and the drawer button
+   * (3.25rem tall) and scrolls inside, so it never covers them at any text size. A wheel or a drag
+   * on a control scrolls it; the bar's empty space lets taps through to the scene.
+   */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      max-height: calc(100dvh - 3.5rem);
+      overflow-y: auto;
+    }
+    .play {
+      grid-area: 1 / 1;
+    }
+    .time {
+      position: static;
+      grid-area: 1 / 2;
+      margin-right: 0.75rem;
+    }
+    .bottom > :global(.ribbon) {
+      grid-area: 2 / 1 / 3 / 3;
+      justify-self: center;
+    }
+    .play :global(.beat-line) {
+      max-height: 4rem;
+    }
   }
   /*
    * Portrait (ADR 0014 item 15): the title and the drawer button take a row above the scene, and the

@@ -168,6 +168,114 @@ test('in landscape the chapter 2 intro shows all of its lines in the story strip
   await expectAllLines(page);
 });
 
+/** Starts chapter 2 and answers its bet, so the story strip overflows with the chapter's lines. */
+async function startChapter2(page: Page) {
+  await page.goto('/?chapter=2');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const bet = page.getByRole('dialog', { name: 'A bet' });
+  await expect(bet).toBeVisible({ timeout: 20_000 });
+  await bet.getByRole('button', { name: 'Pim' }).click();
+  await expect(bet).toBeHidden();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  const strip = page.getByRole('group', { name: 'Story lines' });
+  await expect(strip).toHaveAttribute('tabindex', '0');
+  return { scene, strip };
+}
+
+test('in landscape a wheel over the story strip scrolls its lines', async ({ page }) => {
+  const { strip } = await startChapter2(page);
+  const r = await strip.boundingBox();
+  if (!r) throw new Error('no strip');
+  const x = r.x + r.width / 2;
+  const y = r.y + r.height / 2;
+  // The strip, not the scene under it, takes the pointer, and a finger drag scrolls it.
+  expect(
+    await page.evaluate((at) => document.elementFromPoint(at.x, at.y)?.closest('.beat-line') !== null, {
+      x,
+      y,
+    }),
+  ).toBe(true);
+  expect(await strip.evaluate((el) => getComputedStyle(el).touchAction)).toBe('pan-y');
+  await strip.evaluate((el) => {
+    el.scrollTop = 0;
+  });
+  await page.mouse.move(x, y);
+  await page.mouse.wheel(0, 120);
+  await expect.poll(() => strip.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+});
+
+test('in landscape a tap on the scene beside the story strip reaches the scene', async ({ page }) => {
+  const { scene, strip } = await startChapter2(page);
+  const r = await strip.boundingBox();
+  if (!r) throw new Error('no strip');
+  const x = r.x - 20;
+  const y = r.y + r.height / 2;
+  expect(
+    await page.evaluate(
+      (at) => document.elementFromPoint(at.x, at.y)?.closest('[role="application"]') !== null,
+      { x, y },
+    ),
+  ).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(scene).not.toBeFocused();
+  await page.mouse.click(x, y);
+  await expect(scene).toBeFocused();
+});
+
+test('in landscape the story strip comes before the tools in the tab order, as it does on screen', async ({
+  page,
+}) => {
+  const { strip } = await startChapter2(page);
+  const wake = page.getByRole('button', { name: /Wake/ });
+  const top = async (l: typeof strip) => (await l.boundingBox())?.y ?? 0;
+  expect(await top(strip)).toBeLessThan(await top(wake));
+  await page.keyboard.press('Escape');
+  await expect(wake).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(strip).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(wake).toBeFocused();
+});
+
+test('on a landscape phone with the largest text no control covers another, and the bar is below the top row', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 915, height: 412 });
+  await setTextSize(page, '1.5');
+  await startChapter2(page);
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  const clashes = await page.evaluate(() => {
+    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
+    const shown = [...document.querySelectorAll(things)].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 1 && r.height > 1 && el.checkVisibility({ visibilityProperty: true });
+    });
+    const name = (el: Element) =>
+      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
+    const hit: string[] = [];
+    for (let i = 0; i < shown.length; i++)
+      for (let j = i + 1; j < shown.length; j++) {
+        const a = (shown[i] as Element).getBoundingClientRect();
+        const b = (shown[j] as Element).getBoundingClientRect();
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 0.5 && h > 0.5) hit.push(`${name(shown[i] as Element)} / ${name(shown[j] as Element)}`);
+      }
+    return hit;
+  });
+  expect(clashes).toEqual([]);
+  const rowBottom = await page.evaluate(() =>
+    Math.max(
+      ...[document.querySelector('.title'), document.querySelector('.drawer')].map(
+        (el) => el?.getBoundingClientRect().bottom ?? Infinity,
+      ),
+    ),
+  );
+  const bar = await page.evaluate(() => document.querySelector('.bottom')?.getBoundingClientRect().top ?? 0);
+  expect(bar).toBeGreaterThanOrEqual(rowBottom);
+});
+
 test.describe('on a phone', () => {
   // Firefox has no isMobile emulation; it still gets the phone viewport and touch.
   const { viewport, userAgent, deviceScaleFactor, hasTouch } = devices['Pixel 7'];

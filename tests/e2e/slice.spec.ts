@@ -606,8 +606,13 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
   await page.keyboard.press('z');
   const range = page.getByLabel('Rewind');
   await expect(range).toBeEnabled();
-  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab.
+  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab back through
+  // the story lines, which sit above the tools, to the panel's Rewind range.
+  const strip = page.getByRole('group', { name: 'Story lines' });
+  await expect(strip).toHaveAttribute('tabindex', '0');
   await page.keyboard.press('Escape');
+  await page.keyboard.press('Shift+Tab');
+  await expect(strip).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(range).toBeFocused();
   // A few seconds of chapter, so the range has room to move.

@@ -25,6 +25,7 @@
     Switches,
   } from '../../story/sandbox.ts';
   import type { Verb, VerbInput } from '../../story/verbs.ts';
+  import { TOOL_LABELS } from '../tool-labels.ts';
   import ChallengeCard from '../components/ChallengeCard.svelte';
   import PostcardExport from '../components/PostcardExport.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
@@ -77,16 +78,6 @@
     rules: 'Rules',
     weather: 'Weather',
     network: 'Network',
-  };
-  const TOOL_LABELS: Record<SandboxTool, string> = {
-    place: 'Place',
-    path: 'Paths',
-    shine: 'Sunlight',
-    fog: 'Fog',
-    blow: 'Wind',
-    rain: 'Rain',
-    thread: 'Thread',
-    whisper: 'Whisper',
   };
   type PlaceKind = Extract<Command, { t: 'place' }>['kind'];
   const PLACE_KINDS: { kind: PlaceKind; label: string }[] = [

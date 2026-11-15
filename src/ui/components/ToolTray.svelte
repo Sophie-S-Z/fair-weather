@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BidReply, GiftMove, Structure } from '../../sim/types.ts';
   import type { Verb, WorldVerb } from '../../story/verbs.ts';
+  import { TOOL_LABELS } from '../tool-labels.ts';
 
   let {
     tools,
@@ -49,23 +50,6 @@
     onGive: (id: string) => void;
   } = $props();
 
-  const LABELS: Record<Exclude<WorldVerb, 'place'>, string> = {
-    wake: 'Wake',
-    respond: 'Respond',
-    shine: 'Sunlight',
-    whisper: 'Whisper',
-    thread: 'Thread',
-    fog: 'Fog',
-    blow: 'Wind',
-    walk: 'Walk',
-    manner: 'Manner',
-    join: 'Join',
-    pose: 'Pose',
-    keepsake: 'Keepsake',
-    rain: 'Rain',
-    path: 'Paths',
-    welcome: 'Gate',
-  };
   const PLACE_LABELS: Record<Exclude<Structure['kind'], 'path'>, string> = {
     bench: 'Bench',
     bridge: 'Bridge',
@@ -100,7 +84,7 @@
           }}
         >
           <kbd>{i + 1}</kbd>
-          {tool === 'place' ? PLACE_LABELS[placeKind] : LABELS[tool]}{used.includes(tool)
+          {tool === 'place' ? PLACE_LABELS[placeKind] : TOOL_LABELS[tool]}{used.includes(tool)
             ? ' ([PLACEHOLDER] used)'
             : ''}
         </button>

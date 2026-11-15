@@ -1264,7 +1264,7 @@ test('a grounded starling lower on screen than Tove and over her draws in front 
   expect(far[0]?.maxY).toBeLessThan(510);
 });
 
-test('flying starlings are drawn in the sky band and drift slowly, even with reduced motion', () => {
+test('flying starlings are drawn in the sky band and drift slowly, even with reduced motion while the game runs', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
   const ids = Array.from({ length: 40 }, (_, i) => `starling-${String(i + 1)}`);
@@ -1276,12 +1276,32 @@ test('flying starlings are drawn in the sky band and drift slowly, even with red
   const [top, bottom] = fenScene.sky;
   expect(minY).toBeGreaterThanOrEqual(top - 10);
   expect(maxY).toBeLessThanOrEqual(bottom + 10);
+  // Running: a new snapshot comes each tick.
   (app.ticker as { lastTime: number }).lastTime = 3000;
-  view.update(world, world, 1, still);
+  const running = { ...world };
+  view.update(world, running, 1, still);
   const after = graphicsIn(app, 'flock').getLocalBounds().minX;
   expect(after).not.toBe(minX);
   // Slow: three seconds move the flock a few units, not across the sky.
   expect(Math.abs(after - minX)).toBeLessThan(20);
+});
+
+test('flying starlings hold still with reduced motion while no new snapshot comes, and move on when one does', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const ids = Array.from({ length: 40 }, (_, i) => `starling-${String(i + 1)}`);
+  const world = fen(40, ids);
+  const still = { ...settings, reducedMotion: true };
+  const at = (seconds: number, next: WorldLite): number => {
+    (app.ticker as { lastTime: number }).lastTime = seconds * 1000;
+    view.update(world, next, 1, still);
+    return graphicsIn(app, 'flock').getLocalBounds().minX;
+  };
+  at(0, world);
+  const held = at(1, world); // a second with the same snapshot: paused
+  expect(at(4, world)).toBe(held);
+  expect(at(9, world)).toBe(held);
+  expect(at(10, { ...world })).not.toBe(held);
 });
 
 /** The fills of the flock in the given color. */

@@ -27,9 +27,9 @@ Do these five checks on every screen in section 3. Use the same words in the res
 
 1. **Heading.** When the screen opens, the screen reader reads the screen heading, or the dialog name and its heading. Write what it says.
 2. **Names and states.** Move through the screen with Tab. For each control, the screen reader says its name and its state (for example "pressed", "expanded", "dimmed", "checked"). A control with no name, or with a wrong name, fails.
-3. **Live lines.** When the game changes a status or story line, the screen reader reads the line one time. It does not read the line two times, and it does not stay silent. Wait for a line to change, or press a key that makes one change (for example, pick a creature with Tab on the scene).
+3. **Live lines.** When the game changes a status or story line, the screen reader reads the line one time. It does not read the line two times, and it does not stay silent. Wait for a line to change. Or press a key that changes one. For example, pick a creature with Tab on the scene.
 4. **Focus.** On a screen that opens as a dialog, focus moves into the dialog when it opens. Tab stays inside the dialog. Escape or Close closes it. Focus then goes back to the control that opened it, and the screen reader says that control.
-5. **The canvas.** Nothing that carries meaning is only in the canvas. Find each fact that you see in the picture (who is near whom, who holds what, the time of day, the weather). Find it as text. If you can see a fact that you cannot hear, it fails.
+5. **The canvas.** Nothing that carries meaning is only in the canvas. Look at the picture. Find each fact in it as text. The facts are who is near whom, who holds what, the time of day, and the weather. If you can see a fact that you cannot hear, it fails.
 
 If a check does not apply to a screen, write "n/a" and the reason.
 
@@ -55,7 +55,7 @@ Open `?chapter=2` at the end of the address. Select Begin. A bet card opens afte
 
 ### 3.5 Drawer
 
-In the game, select "Diary and notes". Check the button state (expanded). Check the diary lines, the numbers under the hood (press P on a picked creature), and the other buttons in the drawer. Close the drawer and check where focus goes.
+In the game, select "Diary and notes". Check the button state (expanded). Check the diary lines and the other buttons in the drawer. Pick a creature and press P. Check the numbers under the hood. Close the drawer and check where focus goes.
 
 ### 3.6 Journal
 
@@ -79,11 +79,11 @@ On the title, select Sandbox. Or open `?sandbox=new` at the end of the address. 
 
 ### 3.9 Share panel
 
-In the sandbox, select "Share this valley". The Share panel opens as a dialog. Check the heading, the link field, the Copy the link button, and the line "The link is copied." (it must be read one time). Check the Open a valley file field. Select Close. Focus goes back to the Share button.
+In the sandbox, select "Share this valley". The Share panel opens as a dialog. Check the heading, the link field, and the Copy the link button. Check the line "The link is copied." It must be read one time. Check the Open a valley file field. Select Close. Focus goes back to the Share button.
 
 ### 3.10 Postcard dialog
 
-In the sandbox, select "Make a postcard". The "Make a postcard" dialog opens. Check the heading, the line that the postcard will say, the save button, the status line while the file is made, and Close.
+In the sandbox, select "Make a postcard". The "Make a postcard" dialog opens. Check the heading, the line that the postcard will say, and the save button. Check the status line while the file is made. Check Close.
 
 ### 3.11 Help sheet
 
@@ -100,7 +100,7 @@ The still version is for a browser with no WebGL. To see it:
 - In Firefox: open `about:config`, find `webgl.disabled`, and set it to `true`. Reload the game. Select Begin. Set it back to `false` after the pass.
 - In Safari: if you cannot turn WebGL off, write "not tested in Safari" in the results table.
 
-Check the notice at the top of the page, the page heading, the count ("Page 1 of ..."), the picture and its text alternative, every story line, the margin notes, and the Back and Next buttons. Page to the end ("The End"). Check that the heading takes focus on each page and that the screen reader reads it.
+Check the notice at the top of the page and the page heading. Check the count ("Page 1 of ..."). Check the picture and its text alternative. Check every story line and the margin notes. Check the Back and Next buttons. Page to the end ("The End"). On each page, check that the heading takes focus. Check that the screen reader reads it.
 
 ### 3.14 Other screens
 
@@ -160,4 +160,4 @@ Pass: ______ (NVDA with Firefox, or VoiceOver with Safari). Date: ______. Tester
 1. Count the fails for each check and for each screen.
 2. For each fail, write one line: the screen, the key, what you heard, and what you expected.
 3. Put the results in `docs/playtest/screen-reader-results.md`.
-4. Tell the project owner. Each fail is a bug to fix before the launch. The launch needs no fail on the Title, Game, Bet card, Sandbox, Share panel, Postcard dialog, Help sheet, and Still pages.
+4. Tell the project owner. Each fail is a bug to fix before the launch. The launch needs no fail on these screens: Title, Game, Bet card, Sandbox, Share panel, Postcard dialog, Help sheet, and Still pages.

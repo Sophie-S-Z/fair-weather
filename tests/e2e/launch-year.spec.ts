@@ -3,8 +3,8 @@
 // draws or steps. On the way each checks that no two visible controls overlap, and axe checks every
 // screen. The no-WebGL run that pages the still version to "The End" is in stills.spec.ts.
 import AxeBuilder from '@axe-core/playwright';
-import { devices, expect as baseExpect, test, type Page } from '@playwright/test';
-import { buttonAt, controlClashes, pausedFrames, tap } from './helpers.ts';
+import { devices, expect as baseExpect, test, type Locator, type Page } from '@playwright/test';
+import { buttonAt, controlClashes, pausedFrames, press, tap } from './helpers.ts';
 
 // Each screen is scanned and measured on software rendering, where a valley draws about once a second.
 const expect = baseExpect.configure({ timeout: 20_000 });
@@ -43,18 +43,17 @@ const BET_AT_START = new Set(['Chapter 2', 'Chapter 4', 'Chapter 6', 'Chapter 8'
 const snapshots = (page: Page) =>
   page.evaluate(() => (window as unknown as { fairWeather: { snapshots: number } }).fairWeather.snapshots);
 
-/** The screens with no Skip: the fire is told by Listening, the bridge by choosing a hero, and the end is the end. */
-const NO_SKIP = new Set(['Chapter 10', 'The Bridge', 'The End']);
-
 /**
  * Runs Begin to "The End". `press` presses the button named `name` (a tap or a click) and returns
  * whether it was there. `freeze` stops a screen where it is, so a chapter that ends on its own
- * (a twist can come in seconds) is not skipped by a Skip meant for the one before it.
+ * (a twist can come in seconds) is not skipped by a Skip meant for the one before it. `answer`
+ * presses the first choice of a bet card the same way.
  */
 async function playToTheEnd(
   page: Page,
   press: (name: string) => Promise<boolean>,
   freeze: (name: string) => Promise<void>,
+  answer: (choice: Locator) => Promise<void>,
 ): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
@@ -75,16 +74,23 @@ async function playToTheEnd(
       const bet = page.getByRole('dialog', { name: 'A bet' });
       await expect(bet).toBeVisible();
       await layoutAndAxe(page, name);
-      await bet.getByRole('button').first().click();
+      await answer(bet.getByRole('button').first());
       await expect(bet).toBeHidden();
       await freeze(name);
       // The answer runs the bet's reveal, which can end the chapter before the freeze: then it is over.
       if (!(await page.getByRole('heading', { level: 1 }).innerText()).includes(name)) continue;
+      await layoutAndAxe(page, `${name} after its bet`);
     } else {
-      if (!NO_SKIP.has(name)) await freeze(name);
+      await freeze(name);
       await layoutAndAxe(page, name);
     }
     if (name === 'The End') break;
+    if (name === 'Chapter 10' || name === 'The Bridge') {
+      // A frozen fire or bridge does not hear Listen or Wake: the player lets it go on first.
+      const pause = page.getByRole('button', { name: 'Pause' });
+      if ((await pause.isVisible()) && (await pause.getAttribute('aria-pressed')) === 'true')
+        expect(await press('Pause')).toBe(true);
+    }
     if (name === 'Chapter 10') {
       for (let k = 0; k < 5; k++) expect(await press('Listen')).toBe(true);
     } else if (name === 'The Bridge') {
@@ -125,11 +131,21 @@ test.describe('on a phone, by taps only', () => {
       await page.touchscreen.tap(at.x, at.y);
       return true;
     };
-    await playToTheEnd(page, touch, async () => {
-      // Pause toggles, and a bet's reveal may already have moved the game to a screen paused by the last tap.
-      const pause = page.getByRole('button', { name: 'Pause' });
-      if ((await pause.getAttribute('aria-pressed')) !== 'true') await touch('Pause');
-    });
+    await playToTheEnd(
+      page,
+      touch,
+      async () => {
+        // Pause toggles, and a bet's reveal may already have moved the game to a screen paused by the last tap.
+        const pause = page.getByRole('button', { name: 'Pause' });
+        if (!(await pause.isVisible())) return;
+        if ((await pause.getAttribute('aria-pressed')) !== 'true') await touch('Pause');
+      },
+      async (choice) => {
+        const box = await choice.boundingBox();
+        if (!box) throw new Error('The bet choice has no box to tap');
+        await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+      },
+    );
   });
 });
 
@@ -141,13 +157,16 @@ test.describe('with reduced motion', () => {
   }) => {
     test.setTimeout(600_000);
     const click = async (name: string) => (await tap(page, 'main', name)) !== null;
-    await playToTheEnd(page, click, async (name) => {
-      if (!(await page.getByRole('button', { name: 'Pause' }).isVisible())) return;
-      const [a, b] = await pausedFrames(page);
-      // The Fen's flying starlings drift slowly with reduced motion too, paused or not (meadow-view.ts, and
-      // its unit test "drift slowly, even with reduced motion"): that is a kept choice, not a boil.
-      if (name === 'Murmuration Fen') return;
-      expect(a.equals(b), `${name}: the paused scene does not change`).toBe(true);
-    });
+    await playToTheEnd(
+      page,
+      click,
+      async (name) => {
+        // The bridge and The End have no Pause: there is no paused scene to compare.
+        if (!(await page.getByRole('button', { name: 'Pause' }).isVisible())) return;
+        const [a, b] = await pausedFrames(page);
+        expect(a.equals(b), `${name}: the paused scene does not change`).toBe(true);
+      },
+      (choice) => press(page, choice),
+    );
   });
 });

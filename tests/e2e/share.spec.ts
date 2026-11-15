@@ -9,6 +9,10 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { keepProfile, press } from './helpers.ts';
 
+// These tests check the round trip, not the layout, so the page is a small desktop one: with no GPU
+// every frame is drawn in software, and its cost grows with its pixels, so each step waits less.
+test.use({ viewport: { width: 960, height: 540 } });
+
 type Hash = { tick: number; value: string };
 type Dev = {
   sandbox(): { tick: number; lite: WorldLite } | null;
@@ -136,7 +140,7 @@ test('a shared link opens the same valley at the same tick, paused, for a player
   // Another player, before the end of Part 1: a profile of their own, with no kept year. The first
   // page is done: closed, it stops drawing its frames, which the second page's steps would wait behind.
   await page.close();
-  const other = await (await browser.newContext()).newPage();
+  const other = await (await browser.newContext({ viewport: { width: 960, height: 540 } })).newPage();
   await other.goto(url);
   await pausedAt(other, want);
   expect(await other.evaluate(() => location.hash)).toBe('');

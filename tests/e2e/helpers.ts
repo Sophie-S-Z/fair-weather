@@ -179,13 +179,15 @@ export async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
 }
 
 /**
- * Clicks the middle of `button` once it is enabled. A locator click also waits for the element to
+ * Clicks the middle of `button` once it is visible and enabled, scrolled into view. A locator click also waits for the element to
  * hold still across two animation frames, and software rendering (CI with no GPU) keeps the page
  * so busy that this costs about half a second; a mouse click at the box costs a third of that, and
  * still goes to whatever is on top there, so a covered button is missed, as it would be for a player.
  */
 export async function press(page: Page, button: Locator): Promise<void> {
+  await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
+  await button.scrollIntoViewIfNeeded();
   const box = await button.boundingBox();
   if (!box) throw new Error('The button has no box to click');
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

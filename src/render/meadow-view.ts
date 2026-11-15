@@ -78,6 +78,8 @@ const REFLECT_TINT = 0.45;
 const REFLECT_ALPHA = 0.5;
 const DRIFT = 24;
 const DRIFT_SECONDS = 30;
+/** With reduced motion the drift holds still once no new snapshot has come for this long: the game is paused. */
+const DRIFT_HOLD_SECONDS = 0.5;
 /** A flying flock spreads this wide about its birds' places on the ground. */
 const SPREAD = 200;
 const GROUND_SPREAD = 40;
@@ -830,6 +832,11 @@ export function createMeadowView(
   const perched: number[] = [];
   const reflected: number[] = [];
   const fliers: number[] = [];
+  /** The flock's drift clock with reduced motion: real time, but stopped while no new snapshot comes. */
+  let driftClock = 0;
+  let clockAt = 0;
+  let lastNext: WorldLite | null = null;
+  let nextAt = 0;
   const order: number[] = [];
   /** Each body with a rig drawn this frame, as flat feet y, left, right, top, bottom quints. */
   const bodies: number[] = [];
@@ -885,6 +892,13 @@ export function createMeadowView(
     update(prev, next, alpha, settings) {
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
       const motion = !settings.reducedMotion;
+      if (next !== lastNext) {
+        lastNext = next;
+        nextAt = seconds;
+      }
+      if (seconds - nextAt <= DRIFT_HOLD_SECONDS) driftClock += seconds - clockAt;
+      clockAt = seconds;
+      const drift = settings.reducedMotion ? driftClock : seconds;
       const widthScale = settings.highContrast ? HIGH_CONTRAST_WIDTH : 1;
       const w = SCENERY_WIDTH * widthScale;
 
@@ -1007,7 +1021,7 @@ export function createMeadowView(
           const phase = phaseOf(c.id);
           if (up) {
             // Each bird keeps its own place in the band, above its place on the ground, and drifts about it.
-            const turn = 2 * Math.PI * (seconds / DRIFT_SECONDS + phase);
+            const turn = 2 * Math.PI * (drift / DRIFT_SECONDS + phase);
             const x = c.x + SPREAD * (across - 0.5);
             const y = skyTop + (skyBottom - skyTop) * high;
             const k = BIRD * skyDepth * (FLIER_MIN + FLIER_RANGE * ((phase * 7) % 1));

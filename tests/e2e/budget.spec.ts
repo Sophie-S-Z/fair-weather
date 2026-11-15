@@ -15,7 +15,6 @@ test('the heaviest Meadow frame takes at most 100 draw calls', async ({ page }) 
     mushroom: 1,
     fog: true,
     lens: true,
-    heat: true,
   });
   const calls = Number(await page.locator('body').getAttribute('data-calls'));
   expect(calls).toBeGreaterThan(0);

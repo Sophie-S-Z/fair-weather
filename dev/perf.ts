@@ -89,8 +89,6 @@ for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'draw
 }
 
 /** Puts the creatures where a snapshot pair says, `t` of the way from `prev` to `next`. */
-/** The scene's box on the canvas, in pixels (the Meadow only). */
-const sceneBox: () => [number, number, number, number] = () => [0, 0, W, H];
 let draw: (prev: WorldLite | null, next: WorldLite, t: number, now: number) => void;
 /** Called with each new snapshot. */
 let onSnapshot: (lite: WorldLite) => void = () => undefined;
@@ -114,8 +112,7 @@ if (meadow) {
     sound: false,
     analytics: false,
   };
-  const sceneDef = SceneSchema.parse(meadowJson);
-  const view = createMeadowView(app, sceneDef, rigs, palette, {
+  const view = createMeadowView(app, SceneSchema.parse(meadowJson), rigs, palette, {
     lensRadius: tuning.light.lensRadius,
     cast,
     gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
@@ -202,7 +199,8 @@ async function timeGifEncode(): Promise<number> {
     app.render();
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, GIF_W, GIF_H);
-    ctx.drawImage(app.canvas, ...sceneBox(), 0, 0, GIF_W, GIF_SCENE_H);
+    // The whole canvas, squeezed: the encode cost does not depend on the crop.
+    ctx.drawImage(app.canvas, 0, 0, GIF_W, GIF_SCENE_H);
     frames.push({
       width: GIF_W,
       height: GIF_H,
@@ -227,7 +225,6 @@ function describe(): Record<string, number | boolean> {
     mushroom: last?.mushroom ? 1 : 0,
     fog: last?.fog.cells.some((c) => c > 0) ?? false,
     lens: last?.light != null,
-    heat: true,
     canvasW: app.canvas.width,
     canvasH: app.canvas.height,
   };

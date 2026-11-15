@@ -72,8 +72,9 @@ describe('journalBlocks', () => {
     const texts = blocks.flatMap((b) => (b.kind === 'image' ? [] : [b.text]));
     for (const line of fen.locals) expect(texts).toContain(line);
     expect(texts).toContain(fen.stamp);
-    const heard = texts.indexOf('What they say about you');
-    expect(texts.slice(heard + 1, heard + 3)).toEqual([fen.said, 'Reeds']);
+    // As on the HTML page: the stamp, the player's line, then what they say about you.
+    const stamp = texts.indexOf(fen.stamp);
+    expect(texts.slice(stamp, stamp + 4)).toEqual([fen.stamp, 'Reeds', 'What they say about you', fen.said]);
     const note = fen.notes[0];
     expect(blocks).toContainEqual({ kind: 'heading', text: note?.title });
     expect(blocks).toContainEqual({ kind: 'note', text: `Limits: ${note?.limits ?? ''}` });

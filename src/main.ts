@@ -626,6 +626,19 @@ const BAND = 48;
 /** The caption's room in the band: the postcard's 480 pixels less 12 at each side. */
 const CAPTION_WIDTH = 456;
 
+/**
+ * Loads the face (ADR 0014 item 14) in each of `fonts` (CSS font shorthands) if the page has it;
+ * with no such face it resolves at once. A face that fails to load leaves the fallback font, and
+ * the export goes on.
+ */
+async function loadFaces(...fonts: string[]): Promise<void> {
+  try {
+    await Promise.all(fonts.map((f) => document.fonts.load(f)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
 /** An image that has loaded, or null when it fails: the page then draws nothing in its place. */
 async function loadImage(src: string): Promise<HTMLImageElement | null> {
   const img = new Image();
@@ -644,8 +657,7 @@ async function loadImage(src: string): Promise<HTMLImageElement | null> {
  * nothing in its place, and the page is still made (the retry and the still image come later).
  */
 async function drawPage(blocks: readonly PageBlock[]): Promise<Blob> {
-  // Both weights of the face, if the page has it (ADR 0014 item 14); with no such face they resolve at once.
-  await Promise.all([document.fonts.load(`28px ${ATKINSON}`), document.fonts.load(`bold 28px ${ATKINSON}`)]);
+  await loadFaces(`28px ${ATKINSON}`, `bold 28px ${ATKINSON}`);
   const srcs = [...new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.src] : [])))];
   const images = new Map(await Promise.all(srcs.map(async (src) => [src, await loadImage(src)] as const)));
   const canvas = document.createElement('canvas');
@@ -822,10 +834,9 @@ const game: GameService = {
       if (!stage) throw new Error('No sandbox stage records');
       const back = speedControl.hold();
       try {
-        // Loads the caption's face if the page has it (ADR 0014 item 14); with no such face it
-        // resolves at once. The wait also lets the pause go out, and the page show Save off, before
-        // the encode holds the thread.
-        await document.fonts.load(`20px ${ATKINSON}`);
+        // The caption's face. The wait also lets the pause go out, and the page show Save off,
+        // before the encode holds the thread.
+        await loadFaces(`20px ${ATKINSON}`);
         await new Promise((resolve) => setTimeout(resolve, 0));
         // A copy on an ArrayBuffer, as a Blob takes.
         return new Blob([encodeGif(stage.postcard(caption)).slice()], { type: 'image/gif' });

@@ -83,4 +83,23 @@ describe('layoutPage', () => {
     const { ops } = layoutPage([{ kind: 'image', src: '/a.svg', width: 1872, height: 1000 }], measure);
     expect(ops).toEqual([{ op: 'image', src: '/a.svg', x: 72, y: 72, w: 936, h: 500 }]);
   });
+
+  test('a text block that is empty or only white space takes no room and draws nothing', () => {
+    const one = layoutPage([{ kind: 'text', text: 'Reeds' }], measure);
+    const blanks: PageBlock[] = [
+      { kind: 'text', text: '' },
+      { kind: 'note', text: '   ' },
+      { kind: 'heading', text: ' \n\t ' },
+    ];
+    expect(layoutPage([...blanks, { kind: 'text', text: 'Reeds' }], measure)).toEqual(one);
+  });
+
+  test('an image block with no width or no height takes no room and draws nothing', () => {
+    const one = layoutPage([{ kind: 'text', text: 'Reeds' }], measure);
+    const flat: PageBlock[] = [
+      { kind: 'image', src: '/a.svg', width: 0, height: 200 },
+      { kind: 'image', src: '/b.svg', width: 320, height: 0 },
+    ];
+    expect(layoutPage([...flat, { kind: 'text', text: 'Reeds' }], measure)).toEqual(one);
+  });
 });

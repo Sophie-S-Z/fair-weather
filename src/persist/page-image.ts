@@ -55,8 +55,9 @@ function wrap(text: string, font: string, measure: (font: string, text: string) 
 
 /**
  * Lays out `blocks` from the top of a PAGE_WIDTH page with 72-pixel margins: each line of text is
- * 1.4 times its size, and an image wider than the line is set to the line width. `measure` gives
- * the width of a text in a CSS font.
+ * 1.4 times its size, and an image wider than the line is set to the line width. A text block with
+ * only white space, and an image with no width or height, take no room. `measure` gives the width
+ * of a text in a CSS font.
  */
 export function layoutPage(
   blocks: readonly PageBlock[],
@@ -66,12 +67,14 @@ export function layoutPage(
   let y = MARGIN;
   for (const b of blocks) {
     if (b.kind === 'image') {
+      if (b.width <= 0 || b.height <= 0) continue;
       const w = Math.min(b.width, LINE_WIDTH);
       const h = (b.height * w) / b.width;
       ops.push({ op: 'image', src: b.src, x: MARGIN, y, w, h });
       y += h;
       continue;
     }
+    if (b.text.trim() === '') continue;
     const { style, size } = TYPE[b.kind];
     // The page's own font (App.svelte) while the face is not there.
     const font = `${style}${String(size)}px ${ATKINSON}, system-ui, sans-serif`;

@@ -58,9 +58,9 @@ export function journalEntries(
 }
 
 /**
- * The image of a journal page (ADR 0014 item 8), from the same entry as its HTML: the title, the
- * drawing, the keepsake line, the locals, the stamp, what they say about you, the player's line,
- * and the notes. A page without a drawing, keepsake, or line has no block for it.
+ * The image of a journal page (ADR 0014 item 8), from the same entry as its HTML and in its order:
+ * the title, the drawing, the keepsake line, the locals, the stamp, the player's line, what they
+ * say about you, and the notes. A page without a drawing, keepsake, or line has no block for it.
  */
 export function journalBlocks(entry: JournalEntry): PageBlock[] {
   const { drawing, keepsake } = entry;
@@ -80,9 +80,9 @@ export function journalBlocks(entry: JournalEntry): PageBlock[] {
       : []),
     ...entry.locals.map((text) => ({ kind: 'text', text }) as const),
     { kind: 'text', text: entry.stamp },
+    ...(entry.caption.trim() === '' ? [] : [{ kind: 'text', text: entry.caption } as const]),
     { kind: 'heading', text: 'What they say about you' },
     { kind: 'text', text: entry.said },
-    ...(entry.caption.trim() === '' ? [] : [{ kind: 'text', text: entry.caption } as const]),
     ...entry.notes.flatMap((n): PageBlock[] => [
       { kind: 'heading', text: n.title },
       { kind: 'note', text: n.science },

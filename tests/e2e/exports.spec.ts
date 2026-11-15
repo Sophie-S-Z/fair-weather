@@ -3,7 +3,7 @@
 // download. The browser's own ImageDecoder reads the GIF back.
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 type Dev = {
   sandbox(): unknown;
@@ -174,6 +174,22 @@ test('a postcard that cannot be made says so once, and the game goes on', async 
   await expect.poll(() => frames(page)).toBeGreaterThan(drawn);
 });
 
+test('a face that does not load leaves the fallback font, and the postcard still downloads', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    FontFaceSet.prototype.load = () => Promise.reject(new DOMException('No face', 'NetworkError'));
+  });
+  await openNew(page);
+  await page.getByRole('button', { name: 'Make a postcard' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    dialog(page).getByRole('button', { name: 'Save the postcard' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('fair-weather-postcard.gif');
+  await expect(dialog(page).getByRole('status')).toHaveText('');
+});
+
 test('the encoder output of a fixed 3-color frame set decodes to the same pixels', async ({ page }) => {
   await page.goto('/');
   const same = await page.evaluate(async () => {
@@ -224,7 +240,8 @@ function pngSize(path: string): { signature: string; width: number; height: numb
 }
 const PNG_SIGNATURE = '89504e470d0a1a0a';
 
-test('Save this page as an image downloads a 1080-wide PNG of a journal page', async ({ page }) => {
+/** Starts the Fen, writes its journal page with the dev journey hook, and opens the journal at it. */
+async function openFenPage(page: Page) {
   await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
   await page.getByRole('button', { name: /^Wake as / }).click();
@@ -251,12 +268,14 @@ test('Save this page as an image downloads a 1080-wide PNG of a journal page', a
     j.keepsakes = [{ id: 'starling-feather', given: false }];
   });
   await page.keyboard.press('j');
-  const fen = page
+  return page
     .getByRole('dialog', { name: 'Travel journal' })
     .getByRole('article', { name: 'Murmuration Fen' });
+}
+
+/** Saves the Fen's page and checks that the download is a 1080-wide PNG with that name. */
+async function saveFenPage(page: Page, fen: Locator): Promise<void> {
   const save = fen.getByRole('button', { name: 'Save this page as an image' });
-  await expect(save).toHaveAccessibleDescription(EXPORT_LINE);
-  await fen.getByRole('textbox', { name: 'Your line' }).fill('Rain on the reeds');
   const [download] = await Promise.all([page.waitForEvent('download'), save.click()]);
   expect(download.suggestedFilename()).toBe('fair-weather-journal-fen.png');
   const size = pngSize(await download.path());
@@ -264,6 +283,42 @@ test('Save this page as an image downloads a 1080-wide PNG of a journal page', a
   expect(size.width).toBe(1080);
   expect(size.height).toBeGreaterThan(1080);
   await expect(save).toBeEnabled();
+  await expect(fen.getByRole('status')).toHaveText('');
+}
+
+test('Save this page as an image downloads a 1080-wide PNG of a journal page', async ({ page }) => {
+  const fen = await openFenPage(page);
+  const save = fen.getByRole('button', { name: 'Save this page as an image' });
+  await expect(save).toHaveAccessibleDescription(EXPORT_LINE);
+  await fen.getByRole('textbox', { name: 'Your line' }).fill('Rain on the reeds');
+  await saveFenPage(page, fen);
+});
+
+test('a drawing that does not load leaves its place empty, and the page still downloads', async ({
+  page,
+}) => {
+  // The drawing is a data: URL (the build inlines small files), so no request can fail: the image
+  // fails where the export reads it, as a broken or missing file does.
+  await page.addInitScript(() => {
+    const w = window as unknown as { refused: number };
+    w.refused = 0;
+    HTMLImageElement.prototype.decode = () => {
+      w.refused += 1;
+      return Promise.reject(new DOMException('No image', 'EncodingError'));
+    };
+  });
+  const fen = await openFenPage(page);
+  await saveFenPage(page, fen);
+  expect(await page.evaluate(() => (window as unknown as { refused: number }).refused)).toBe(1);
+});
+
+test('a face that does not load leaves the fallback font, and the page still downloads', async ({ page }) => {
+  // As FontFaceSet.load does when a declared face fails to fetch.
+  await page.addInitScript(() => {
+    FontFaceSet.prototype.load = () => Promise.reject(new DOMException('No face', 'NetworkError'));
+  });
+  const fen = await openFenPage(page);
+  await saveFenPage(page, fen);
 });
 
 test('Save this page as an image downloads a 1080-wide PNG of a Book of Skies year, in the game and on the title', async ({

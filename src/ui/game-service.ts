@@ -162,6 +162,11 @@ export interface SandboxService {
    * speed from before. One postcard at a time. Rejects without frames, or when it cannot be made.
    */
   postcard(caption: string): Promise<Blob>;
+  /**
+   * Starts counting the visible time in the sandbox screen (opt-in analytics only); the returned
+   * function ends the visit, once, when the screen closes.
+   */
+  visit(): () => void;
   /** Stops the run. */
   stop(): void;
 }

@@ -517,11 +517,6 @@ const sandboxStart = (setup: SandboxSetup): Scenario =>
  * an opened link replaces the player's own save only once the player acts (ADR 0014 item 7).
  */
 let sandboxActed = false;
-/** The visible time of the sandbox visit, from its first run to the player leaving (analytics only). */
-let sandboxTimer: ReturnType<typeof createVisibleTimer> | null = null;
-document.addEventListener('visibilitychange', () => {
-  sandboxTimer?.setHidden(document.visibilityState === 'hidden');
-});
 /** How many times the sandbox stopped: an open that waited across a stop gives up. */
 let sandboxStops = 0;
 /**
@@ -538,7 +533,6 @@ function beginSandbox(
   return new Promise((resolve, reject) => {
     workerFailed = false;
     sandboxActed = acted;
-    sandboxTimer ??= createVisibleTimer(Date.now, document.visibilityState === 'hidden');
     // A new run starts a new postcard: no frame of the run before it (ADR 0014 item 8).
     recording?.setRecording(true);
     const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
@@ -872,9 +866,19 @@ const game: GameService = {
         console.error(e); // the save stays as it was
       }
       game.sandbox.stop();
-      const minutes = sandboxTimer?.stop() ?? 0;
-      sandboxTimer = null;
-      if (minutes >= 1) analytics.count({ v: 1, e: 'sandbox', minutes });
+    },
+    visit() {
+      // The timer lives from the sandbox screen's opening to its closing, on every exit (analytics only).
+      const timer = createVisibleTimer(Date.now, document.visibilityState === 'hidden');
+      const onVisibility = (): void => {
+        timer.setHidden(document.visibilityState === 'hidden');
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibility);
+        const minutes = timer.stop();
+        if (minutes >= 1) analytics.count({ v: 1, e: 'sandbox', minutes });
+      };
     },
     stop() {
       sandboxStops += 1;

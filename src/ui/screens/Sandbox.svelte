@@ -516,6 +516,7 @@
   });
 
   onMount(() => {
+    const endVisit = game.sandbox.visit();
     const offs: (() => void)[] = [];
     offs.push(game.onSnapshot(show));
     stageReady = game.createStage(sceneEl).then((s) => {
@@ -588,6 +589,7 @@
       for (const off of offs) off();
       loop.stop();
       game.sandbox.stop();
+      endVisit();
       stage?.setGateLamp(false);
       stage?.destroy();
     };

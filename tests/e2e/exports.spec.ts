@@ -294,23 +294,44 @@ test('Save this page as an image downloads a 1080-wide PNG of a journal page', a
   await saveFenPage(page, fen);
 });
 
-test('a drawing that does not load leaves its place empty, and the page still downloads', async ({
+test('a drawing that does not load is tried three times, then its scene still once, then left out, and the page still downloads', async ({
   page,
 }) => {
-  // Every try of the drawing fails where the export reads it, as a broken or missing file does.
+  // The waits run on the page clock, so the test names them without waiting for them.
+  await page.clock.install();
+  // Every try fails where the export reads it, as a broken or missing file does.
   await page.addInitScript(() => {
-    const w = window as unknown as { refused: number };
-    w.refused = 0;
-    HTMLImageElement.prototype.decode = () => {
-      w.refused += 1;
+    const w = window as unknown as { tried: string[] };
+    w.tried = [];
+    HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
+      w.tried.push(this.getAttribute('src') ?? '');
       return Promise.reject(new DOMException('No image', 'EncodingError'));
     };
   });
   const fen = await openFenPage(page);
-  await saveFenPage(page, fen);
-  // Three tries of the drawing, then three of its scene's still image (ADR 0014 item 11), and then
-  // nothing is drawn in its place.
-  expect(await page.evaluate(() => (window as unknown as { refused: number }).refused)).toBe(6);
+  const tried = () => page.evaluate(() => (window as unknown as { tried: string[] }).tried);
+  const advance = expect
+    .poll(async () => {
+      await page.clock.runFor(500);
+      return (await tried()).length;
+    })
+    .toBe(4);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    fen.getByRole('button', { name: 'Save this page as an image' }).click(),
+    advance,
+  ]);
+  const order = await tried();
+  // The drawing and its two retries, then the Fen's still image, once; nothing after.
+  expect(order).toHaveLength(4);
+  expect(order[1]).toBe(`${order[0] ?? ''}${order[0]?.includes('?') ? '&' : '?'}retry=1`);
+  expect(order[2]).toBe(`${order[0] ?? ''}${order[0]?.includes('?') ? '&' : '?'}retry=2`);
+  expect(order[0]).toMatch(/PLACEHOLDER-journal-fen\.svg/);
+  expect(order[3]).toMatch(/PLACEHOLDER-still-fen\.svg$/);
+  const size = pngSize(await download.path());
+  expect(size.signature).toBe(PNG_SIGNATURE);
+  expect(size.width).toBe(1080);
+  await expect(fen.getByRole('button', { name: 'Save this page as an image' })).toBeEnabled();
 });
 
 test('a face that does not load leaves the fallback font, and the page still downloads', async ({ page }) => {

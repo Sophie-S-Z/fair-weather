@@ -12,6 +12,7 @@ import { SixthSchema } from '../../src/myth/sixth.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
+import { sceneStill } from '../../src/story/stills.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { HERO_KINDS } from '../../src/sim/types.ts';
@@ -206,7 +207,7 @@ export function validateContent(root: string): ValidationResult {
       continue;
     }
     // The still version's picture (ADR 0014 item 10): the config's `still`, or its scene's placeholder.
-    const still = c.still ?? `PLACEHOLDER-still-${c.scene}`;
+    const still = c.still ?? sceneStill(c.scene);
     if (!['stills', 'placeholder'].some((dir) => existsSync(join(content, dir, `${still}.svg`))))
       errors.push(
         `${f}: still image ${still} has no file content/stills/${still}.svg or content/placeholder/${still}.svg`,

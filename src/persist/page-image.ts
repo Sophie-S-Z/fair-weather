@@ -4,7 +4,14 @@ import { characters } from '../story/journey.ts';
 
 export type PageBlock =
   | { kind: 'title' | 'heading' | 'text' | 'note'; text: string }
-  | { kind: 'image'; src: string; width: number; height: number };
+  | {
+      kind: 'image';
+      src: string;
+      width: number;
+      height: number;
+      /** What the export loads, once, when every try of `src` failed. */
+      fallback?: string;
+    };
 
 /** A line of text, with `y` at the middle of its line box, or an image with its top-left corner. */
 export type DrawOp =

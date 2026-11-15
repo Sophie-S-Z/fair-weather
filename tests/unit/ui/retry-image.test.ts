@@ -76,3 +76,33 @@ test('a data URL is set again as it is, and destroy stops a wait and removes the
   expect(other.listeners.size).toBe(0);
   action.destroy();
 });
+
+// The PNG export loads by the same rule as the action: the waits, then the fallback once.
+test('tryThenFallback tries the source after each wait, then the fallback once, then gives up', async () => {
+  const { tryThenFallback } = await import('../../../src/ui/retry-image.ts');
+  const tried: string[] = [];
+  const waited: number[] = [];
+  const wait = (ms: number) => {
+    waited.push(ms);
+    return Promise.resolve();
+  };
+  const never = (src: string) => {
+    tried.push(src);
+    return Promise.resolve(null);
+  };
+  expect(await tryThenFallback(never, '/a.svg', [1000, 2000], '/scene.svg', wait)).toBeNull();
+  expect(tried).toEqual(['/a.svg', '/a.svg?retry=1', '/a.svg?retry=2', '/scene.svg']);
+  expect(waited).toEqual([1000, 2000]);
+
+  tried.length = 0;
+  expect(await tryThenFallback(never, '/a.svg', [1000], null, wait)).toBeNull();
+  expect(tried).toEqual(['/a.svg', '/a.svg?retry=1']);
+
+  const second = (src: string) => {
+    tried.push(src);
+    return Promise.resolve(src.endsWith('retry=1') ? 'ok' : null);
+  };
+  tried.length = 0;
+  expect(await tryThenFallback(second, '/a.svg', [1000, 2000], '/scene.svg', wait)).toBe('ok');
+  expect(tried).toEqual(['/a.svg', '/a.svg?retry=1']);
+});

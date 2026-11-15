@@ -50,7 +50,11 @@
     flex-direction: column;
     gap: 0.75rem;
   }
+  /* The region stays in the page so that its text is announced, but it takes no room while empty. */
   .notice {
+    margin: 0;
+  }
+  .notice:not(:empty) {
     margin: 0 0 0.75rem;
   }
   .why {

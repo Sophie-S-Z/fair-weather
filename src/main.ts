@@ -94,7 +94,7 @@ import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
-import { sceneStill, stillPages } from './story/stills.ts';
+import { stillPages } from './story/stills.ts';
 import { loadImageWithRetry } from './ui/retry-image.ts';
 import {
   createSandboxRunner,
@@ -297,7 +297,13 @@ const songFrom = chapters.findIndex((c) => c.activity === 'rhythm');
 
 const spawnWorker = (): Worker =>
   new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' });
+/** Called when a story host stops restarting its worker (GameService.onSimLost). */
+const simLostListeners = new Set<() => void>();
+const simLost = (): void => {
+  for (const cb of [...simLostListeners]) cb();
+};
 const host = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
+host.onGiveUp(simLost);
 /**
  * Dev only: every speed sent to the sim, frames drawn, command lists the runner sent, and snapshots
  * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
@@ -494,7 +500,11 @@ function kithAt(answer: Promise<{ lite: WorldLite }>): void {
 /** Starts Kith's silent run on its own worker from `from`, Kith at the end of Part 1 (ADR 0013 item 10). */
 function startKith(from: Carry | null): SimHost {
   kithStart = from;
-  kith ??= createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
+  if (!kith) {
+    kith = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
+    // Kith's silent run is part of the story: when its worker is lost, so is the chapter.
+    kith.onGiveUp(simLost);
+  }
   kith.post({
     t: 'init',
     seed: yearSeed,
@@ -657,13 +667,6 @@ async function loadFaces(...fonts: string[]): Promise<void> {
   }
 }
 
-/** The scene's still image for a journal drawing's URL, or undefined for any other source. */
-function stillOfDrawing(src: string): string | undefined {
-  const path = Object.keys(journalDrawings).find((p) => journalDrawings[p] === src);
-  const chapter = chapters.find((c) => path?.endsWith(`PLACEHOLDER-journal-${c.id}.svg`));
-  return chapter && stillUrl(sceneStill(chapter.scene));
-}
-
 /** The URL of a still image by id (`PLACEHOLDER-still-<scene>` or a chapter's own `still`). */
 function stillUrl(id: string): string {
   const url = stillImages[`../content/placeholder/${id}.svg`] ?? stillImages[`../content/stills/${id}.svg`];
@@ -672,26 +675,24 @@ function stillUrl(id: string): string {
 }
 
 /**
- * An image that has loaded, or null when it fails. A failed load waits and tries again after each
- * of ASSET_WAITS_MS (ADR 0014 item 11); after the last, `fallback` (the scene's still image) gets
- * the same tries once, and then the page draws nothing in its place.
- */
-async function loadImage(src: string, fallback?: string): Promise<HTMLImageElement | null> {
-  const img = await loadImageWithRetry(src, ASSET_WAITS_MS);
-  if (img || fallback === undefined || fallback === src) return img;
-  return loadImageWithRetry(fallback, ASSET_WAITS_MS);
-}
-
-/**
  * Draws `blocks` as a PAGE_WIDTH page (ADR 0014 item 8) in ink on the paper, whatever the contrast
  * setting, and gives it as a PNG with no metadata. An image block whose source fails to load is
- * tried again, then replaced by its scene's still image, then left out; the page is still made.
+ * tried again, then replaced by the block's fallback (its scene's still image) once, then left out;
+ * the page is still made.
  */
 async function drawPage(blocks: readonly PageBlock[]): Promise<Blob> {
   await loadFaces(`28px ${ATKINSON}`, `bold 28px ${ATKINSON}`);
   const srcs = [...new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.src] : [])))];
+  const fallbacks = new Map(
+    blocks.flatMap((b) => (b.kind === 'image' && b.fallback ? [[b.src, b.fallback] as const] : [])),
+  );
   const images = new Map(
-    await Promise.all(srcs.map(async (src) => [src, await loadImage(src, stillOfDrawing(src))] as const)),
+    await Promise.all(
+      srcs.map(
+        async (src) =>
+          [src, await loadImageWithRetry(src, ASSET_WAITS_MS, fallbacks.get(src) ?? null)] as const,
+      ),
+    ),
   );
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -949,6 +950,12 @@ const game: GameService = {
       autoStart: false,
       skipExtensionImports: true,
     });
+    // Pixi falls back to a canvas renderer when the browser gives no WebGL context. That cannot draw
+    // the valley, so it is a failed start: the still version at once, with no retry (ADR 0014 item 11).
+    if (app.renderer.name !== 'webgl') {
+      app.destroy(true, true);
+      throw new Error('The browser gave no WebGL context');
+    }
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
     let scene = firstScene;
@@ -1355,10 +1362,10 @@ const game: GameService = {
     const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
     return index < 0 ? null : index;
   },
-  onSimLost: (cb) =>
-    host.onGiveUp(() => {
-      cb();
-    }),
+  onSimLost: (cb) => {
+    simLostListeners.add(cb);
+    return () => simLostListeners.delete(cb);
+  },
   journalDrawing: (valley) =>
     journalDrawings[`../content/placeholder/PLACEHOLDER-journal-${valley}.svg`] ?? null,
   sixthVerse(flags) {

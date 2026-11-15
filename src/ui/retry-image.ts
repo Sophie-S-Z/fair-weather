@@ -46,24 +46,42 @@ export function retryImage(node: HTMLImageElement, opts: RetryOptions): { destro
 }
 
 /**
- * Loads an image off the page, as the PNG export does: it tries `src`, and after each of `waits` it
- * tries again with `?retry=n`. Null when every try failed.
+ * The one rule for an image (ADR 0014 item 11), for the export: `attempt` tries `src`, and again
+ * after each of `waits` with `?retry=n`; then the fallback gets one try. Null when all failed.
  */
-export async function loadImageWithRetry(
+export async function tryThenFallback<T>(
+  attempt: (src: string) => Promise<T | null>,
   src: string,
   waits: readonly number[],
-): Promise<HTMLImageElement | null> {
+  fallback: string | null,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<T | null> {
   for (let n = 0; n <= waits.length; n++) {
-    const wait = n > 0 ? waits[n - 1] : undefined;
-    if (wait !== undefined) await new Promise((resolve) => setTimeout(resolve, wait));
-    const img = new Image();
-    img.src = n === 0 ? src : retrySrc(src, n);
-    try {
-      await img.decode();
-      return img;
-    } catch {
-      // A failed try: the next wait, or null after the last.
-    }
+    const ms = n > 0 ? waits[n - 1] : undefined;
+    if (ms !== undefined) await wait(ms);
+    const got = await attempt(n === 0 ? src : retrySrc(src, n));
+    if (got !== null) return got;
   }
-  return null;
+  return fallback === null ? null : attempt(fallback);
+}
+
+/** An image that loads and decodes, or null. */
+async function decoded(src: string): Promise<HTMLImageElement | null> {
+  const img = new Image();
+  img.src = src;
+  try {
+    await img.decode();
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+/** Loads an image off the page, as the PNG export does, by `tryThenFallback`. */
+export function loadImageWithRetry(
+  src: string,
+  waits: readonly number[],
+  fallback: string | null,
+): Promise<HTMLImageElement | null> {
+  return tryThenFallback(decoded, src, waits, fallback);
 }

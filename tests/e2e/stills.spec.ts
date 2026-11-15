@@ -14,13 +14,20 @@ const WORKER = '**/src/sim-host/worker.ts*';
 // A page in a Chromium of its own, started with --disable-3d-apis (the project's other launch options
 // stay, PW_CHROMIUM_PATH included), so the rest of this file runs in the project's browser as it is.
 const noGl = test.extend<{ page: Page }>({
-  page: async ({ baseURL }, use) => {
+  page: async ({ baseURL, playwright }, use) => {
     const browser = await chromium.launch({
       ...(executablePath ? { executablePath } : {}),
       args: ['--disable-3d-apis'],
     });
-    await use(await (await browser.newContext(baseURL ? { baseURL } : {})).newPage());
-    await browser.close();
+    try {
+      const context = await browser.newContext({
+        ...playwright.devices['Desktop Chrome'],
+        ...(baseURL ? { baseURL } : {}),
+      });
+      await use(await context.newPage());
+    } finally {
+      await browser.close();
+    }
   },
 });
 
@@ -89,25 +96,36 @@ noGl.describe('without WebGL', () => {
     },
   );
 
-  noGl('Continue opens the page of the autosave chapter and changes no save', async ({ page }) => {
-    // A save made by a browser that has WebGL, since this one cannot play to make its own.
-    const browser = await chromium.launch(executablePath ? { executablePath } : {});
-    const maker = await browser.newPage({ baseURL: 'http://localhost:5179' });
-    await maker.goto('/?chapter=3');
-    await maker.getByRole('button', { name: 'Begin' }).click();
-    await expect(maker.getByRole('heading', { name: 'Chapter 3' })).toBeVisible();
-    await expect.poll(() => autosave(maker)).not.toBeNull();
-    const save = await autosave(maker);
-    await browser.close();
-    if (save === null) throw new Error('no autosave');
+  noGl(
+    'Continue opens the page of the autosave chapter and changes no save',
+    async ({ page, baseURL, playwright }) => {
+      // A save made by a browser that has WebGL, since this one cannot play to make its own.
+      const browser = await chromium.launch(executablePath ? { executablePath } : {});
+      let save: string | null;
+      try {
+        const context = await browser.newContext({
+          ...playwright.devices['Desktop Chrome'],
+          ...(baseURL ? { baseURL } : {}),
+        });
+        const maker = await context.newPage();
+        await maker.goto('/?chapter=3');
+        await maker.getByRole('button', { name: 'Begin' }).click();
+        await expect(maker.getByRole('heading', { name: 'Chapter 3' })).toBeVisible();
+        await expect.poll(() => autosave(maker)).not.toBeNull();
+        save = await autosave(maker);
+      } finally {
+        await browser.close();
+      }
+      if (save === null) throw new Error('no autosave');
 
-    await page.goto('/');
-    await putAutosave(page, save);
-    await page.reload();
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(pageHeading(page)).toHaveText('The Bench');
-    expect(await autosave(page)).toEqual(save);
-  });
+      await page.goto('/');
+      await putAutosave(page, save);
+      await page.reload();
+      await page.getByRole('button', { name: 'Continue' }).click();
+      await expect(pageHeading(page)).toHaveText('The Bench');
+      expect(await autosave(page)).toEqual(save);
+    },
+  );
 });
 
 // The autosave holds a Map and a Float32Array, which Playwright's own serializer drops, so it
@@ -264,6 +282,35 @@ test('a worker that fails twice and then loads plays on', async ({ page }) => {
   await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
   await expect(page.locator('.beat-line')).toContainText('The dawn touches the meadow');
   await expect(page.getByText(STILL_LINE)).toHaveCount(0);
+});
+
+test('a WebGL context that fails to start gives the still page of the chapter at once, with no retry', async ({
+  page,
+}) => {
+  // The probe at load gets its context; the stage's own request finds none.
+  await page.addInitScript(() => {
+    const real = Reflect.get(HTMLCanvasElement.prototype, 'getContext') as (...a: unknown[]) => unknown;
+    let probed = false;
+    const patched = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+        if (!probed) {
+          probed = true;
+        } else {
+          return null;
+        }
+      }
+      return real.call(this, type, ...rest);
+    };
+    Reflect.set(HTMLCanvasElement.prototype, 'getContext', patched);
+  });
+  const worker = await failWorker(page, 0);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByText(STILL_LINE)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('First Light');
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  // No worker was asked for, and none is tried again.
+  expect(worker.requests()).toBe(0);
 });
 
 // The journal's drawing of the Fen, written with the dev journey hook as in exports.spec.ts.

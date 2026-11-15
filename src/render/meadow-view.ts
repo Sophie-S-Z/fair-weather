@@ -594,7 +594,8 @@ function drawGateLamp(
     .fill(bodyColor(palette.paper, palette.ink, GATE_ROOF_FILL))
     .stroke(fine);
   disc(g, x, top - (GATE_ROOF.rise + 1.5) * k, 1.5 * k, DEW_POINTS).fill(ink);
-  if (lit) g.circle(x, mid - 2 * k, GATE_RING_RADIUS * k).stroke({ color: palette.accent, width: w * 0.6 });
+  if (lit)
+    g.circle(x, mid - 2 * k, GATE_RING_RADIUS * k).stroke({ color: palette.accent, width: w * 0.6 * k });
 }
 
 /** A bush: three leafy lobes [dx, dy, r] from its foot, and where up to five berries show. */

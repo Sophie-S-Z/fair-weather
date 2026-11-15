@@ -12,9 +12,12 @@ import fen from '../../../content/valleys/fen.json';
 const chapters = [ch0, ch1, fen].map((c) => ChapterSchema.parse(c));
 
 /** An Ink runner that gives one line per knot and keeps the knots it played. */
-function fakeInk(played: string[] = []): InkRunner {
+/** `vars` records each value set, with the number of knots played before it. */
+function fakeInk(played: string[] = [], vars: [string, unknown, number][] = []): InkRunner {
   return {
-    setVar: () => undefined,
+    setVar: (name, value) => {
+      vars.push([name, value, played.length]);
+    },
     state: () => '{}',
     load: () => undefined,
     play(knot) {
@@ -68,4 +71,11 @@ test('the lines hold no #beat tag and no empty line', () => {
     expect(line).not.toMatch(/#|beat:/);
     expect(line.trim()).not.toBe('');
   }
+});
+
+test('the default flags reach Ink before any knot plays', () => {
+  const vars: [string, unknown, number][] = [];
+  stillPages(chapters, fakeInk([], vars), DEFAULT_FLAGS);
+  expect(Object.fromEntries(vars.map(([name, value]) => [name, value]))).toEqual(DEFAULT_FLAGS);
+  expect(vars.every(([, , playedBefore]) => playedBefore === 0)).toBe(true);
 });

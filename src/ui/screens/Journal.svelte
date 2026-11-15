@@ -59,7 +59,10 @@
     saving = true;
     failed = null;
     try {
-      const blocks = journalBlocks({ ...entry, caption: lines[entry.valley] ?? '' });
+      const fallback = fallbackOf(entry.valley);
+      const blocks = journalBlocks({ ...entry, caption: lines[entry.valley] ?? '' }).map((b) =>
+        b.kind === 'image' && fallback !== null ? { ...b, fallback } : b,
+      );
       saveFile(await onExport(blocks), `fair-weather-journal-${entry.valley}.png`);
     } catch (e) {
       console.error(e);

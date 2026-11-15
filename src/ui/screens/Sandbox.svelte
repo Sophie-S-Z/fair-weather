@@ -1024,9 +1024,11 @@
    * over the canvas. The layers stop being boxes of their own, and the order puts the scene between.
    */
   @media (orientation: portrait) {
+    /* The column scrolls when its bars do not fit (a large text size), and only the scene shrinks. */
     .sandbox {
       display: flex;
       flex-direction: column;
+      overflow: hidden auto;
     }
     .layer,
     .hud {
@@ -1036,8 +1038,17 @@
       position: relative;
       order: 0;
       flex: 1 1 0;
-      min-height: 8rem;
+      /* Never less than this, whatever is open under it. */
+      min-height: 12rem;
       overflow: hidden;
+    }
+    .top,
+    .challenges,
+    .timeline,
+    .time,
+    .status,
+    .panels {
+      flex: 0 0 auto;
     }
     .top,
     .challenges,

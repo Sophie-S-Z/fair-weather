@@ -994,31 +994,40 @@
             <div class="strip" bind:this={stripEl}></div>
           </div>
         {/if}
-        {#if view === 'cosmos' && seen && ties && chapter}
-          <div class="cosmos" inert={sheet}>
-            <CosmosPanel
-              lite={seen}
-              {ties}
-              timeline={rw.timeline}
-              label={nameOf}
-              rewind={chapter.verbs.includes('rewind')
-                ? {
-                    now: rw.drawnTick,
-                    at: rw.at,
-                    ticksPerDay: chapterTicksPerDay(chapter),
-                    disabled: bet !== null || betRunning,
-                  }
-                : null}
-              onRewind={rw.to}
-              onBackToNow={rw.backToNow}
-            />
-          </div>
+        {#snippet cosmosPanel()}
+          {#if seen && ties && chapter}
+            <div class="cosmos" inert={sheet}>
+              <CosmosPanel
+                lite={seen}
+                {ties}
+                timeline={rw.timeline}
+                label={nameOf}
+                rewind={chapter.verbs.includes('rewind')
+                  ? {
+                      now: rw.drawnTick,
+                      at: rw.at,
+                      ticksPerDay: chapterTicksPerDay(chapter),
+                      disabled: bet !== null || betRunning,
+                    }
+                  : null}
+                onRewind={rw.to}
+                onBackToNow={rw.backToNow}
+              />
+            </div>
+          {/if}
+        {/snippet}
+        <!-- In portrait the panel is part of the bottom bar, so no control is over the canvas. -->
+        {#if view === 'cosmos' && seen && ties && chapter && !portrait}
+          {@render cosmosPanel()}
         {/if}
         <div class="bottom" inert={sheet} bind:clientHeight={hudHeight}>
+          {#if view === 'cosmos' && seen && ties && chapter && portrait}
+            {@render cosmosPanel()}
+          {/if}
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
           <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
-            <!-- Over the scene's foot in portrait, so a story line never resizes the canvas. -->
-            <div class="beat"><BeatLine {lines} /></div>
+            <!-- In portrait a strip of a fixed height, so a new line never resizes the canvas. -->
+            <div class="beat"><BeatLine {lines} strip={portrait} /></div>
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
@@ -1276,8 +1285,8 @@
   }
   /*
    * Portrait (ADR 0014 item 15): the title and the drawer button take a row above the scene, and the
-   * time controls a row in the bottom bar, so no control is over the canvas. The story lines float
-   * over the scene's foot, outside the bar, so a new line does not move the canvas.
+   * time controls and the Cosmos panel rows in the bottom bar, so no control is over the canvas. The
+   * story lines scroll in a strip of a fixed height, so a new line does not move the canvas.
    */
   @media (orientation: portrait) {
     .top {
@@ -1300,17 +1309,14 @@
       right: auto;
     }
     .beat {
-      display: flex;
-      justify-content: center;
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      right: 0;
-      padding-bottom: 0.5rem;
+      display: block;
+      align-self: stretch;
+      padding: 0 0.75rem;
     }
-    /* Only the newest line floats over the scene, so the lines never reach the top row. */
-    .beat :global(p.old) {
-      display: none;
+    .cosmos {
+      position: static;
+      align-self: center;
+      max-width: calc(100% - 1.5rem);
     }
     .time {
       position: static;

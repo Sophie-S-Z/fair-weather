@@ -119,4 +119,10 @@
     margin: 0 0 0.5rem;
     padding-left: 1.25rem;
   }
+  /* Portrait: the panel is in the bottom bar, so the list leaves the canvas room. */
+  @media (orientation: portrait) {
+    .list {
+      max-height: 12vh;
+    }
+  }
 </style>

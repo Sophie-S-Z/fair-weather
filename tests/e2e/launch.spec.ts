@@ -161,7 +161,9 @@ test.describe('on a phone', () => {
       const c = document.querySelector('canvas')?.getBoundingClientRect();
       if (!c) return ['no canvas'];
       const hit: string[] = [];
-      for (const el of document.querySelectorAll('button, input, [role="status"]')) {
+      // The scene itself is the canvas's box; every other control, focusable region, and status line counts.
+      const things = 'button, input, summary, [tabindex="0"]:not([role="application"]), [role="status"]';
+      for (const el of document.querySelectorAll(things)) {
         const r = el.getBoundingClientRect();
         // Folded content (a closed panel) is not shown, though it has a box.
         if (r.width <= 1 || r.height <= 1 || !el.checkVisibility({ visibilityProperty: true })) continue;
@@ -212,11 +214,13 @@ test.describe('on a phone', () => {
     expect(await overlaps(page)).toEqual([]);
     expect(await reachable(page, 'Pause')).toBe(true);
     expect(await reachable(page, '1×')).toBe(true);
-    // The story line floats over the scene's foot, so a new line never resizes the canvas.
-    await expect(page.locator('[aria-live="polite"]')).toContainText('The dawn');
+    // The story lines scroll in a strip of a fixed height inside the bottom bar, under the canvas.
     const beat = await box(page, '.beat-line');
     const canvas = await box(page, 'canvas');
-    expect(beat?.bottom).toBeLessThanOrEqual((canvas?.bottom ?? 0) + 1);
+    expect(beat?.top).toBeGreaterThanOrEqual((canvas?.bottom ?? 0) - 1);
+    expect(
+      await page.evaluate(() => getComputedStyle(document.querySelector('.beat-line') as Element).height),
+    ).toBe('96px');
   });
 
   test('in the sandbox no button, field, or status line is over the canvas, and Pause and 1x can be tapped', async ({
@@ -277,6 +281,107 @@ test.describe('on a phone', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('details[open]')).toHaveCount(0);
     await expect(page.getByText('Weather', { exact: true })).toBeFocused();
+  });
+
+  test('in the Cosmos view the panel is in the bottom bar, and nothing is over the canvas', async ({
+    page,
+  }) => {
+    await page.goto('/?chapter=9');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    // On a phone the opening bet card appears at once.
+    const bet = page.getByRole('dialog', { name: 'A bet' });
+    await expect(bet).toBeVisible({ timeout: 20_000 });
+    await bet.getByRole('button').first().tap();
+    await expect(bet).toBeHidden({ timeout: 20_000 });
+    const scene = page.getByRole('application', { name: 'The meadow' });
+    await scene.focus();
+    await page.keyboard.press('z');
+    const panel = page.getByRole('region', { name: 'Who is friends with whom' });
+    await expect(panel.getByRole('listitem').first()).toBeVisible();
+    await expect(panel.getByLabel('Rewind')).toBeVisible();
+    expect(await overlaps(page)).toEqual([]);
+    const bar = await box(page, '.bottom');
+    const cosmos = await box(page, '[aria-labelledby="cosmos-title"]');
+    expect(cosmos?.top).toBeGreaterThanOrEqual((bar?.top ?? 0) - 1);
+    await noSidewaysScroll(page);
+  });
+
+  test('a beat with several lines shows all of them in the story strip, newest in view', async ({ page }) => {
+    await page.goto('/?chapter=2');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    const lines = page.locator('.beat-line p');
+    await expect.poll(() => lines.count()).toBeGreaterThanOrEqual(3);
+    const strip = page.getByRole('group', { name: 'Story lines' });
+    await expect(strip).toHaveAttribute('tabindex', '0');
+    // The newest line is in view as it arrives, and each older one scrolls into view.
+    const inside = (i: number) =>
+      page.evaluate((n) => {
+        const box = document.querySelector('.beat-line')?.getBoundingClientRect();
+        const r = document.querySelectorAll('.beat-line p')[n]?.getBoundingClientRect();
+        return !!box && !!r && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+      }, i);
+    const count = await lines.count();
+    expect(await inside(count - 1)).toBe(true);
+    for (let i = 0; i < count; i++) {
+      await lines.nth(i).scrollIntoViewIfNeeded();
+      expect(await inside(i)).toBe(true);
+      await expect(lines.nth(i)).not.toHaveCSS('display', 'none');
+    }
+  });
+
+  test('at 360x640 with the largest text every sandbox control can be scrolled to', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await startSandbox(page);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '150%';
+    });
+    // What does not fit is reached by the player's own scrolling, not only by a script.
+    const scrolls = await page.evaluate(() => {
+      const column = document.querySelector('.sandbox') as HTMLElement;
+      return (
+        column.scrollHeight <= column.clientHeight ||
+        ['auto', 'scroll'].includes(getComputedStyle(column).overflowY)
+      );
+    });
+    expect(scrolls).toBe(true);
+    for (const name of ['Population', 'Rules', 'Weather', 'Network']) {
+      const summary = page.getByText(name, { exact: true });
+      await summary.scrollIntoViewIfNeeded();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+    }
+    const status = page.getByRole('status').filter({ hasText: /^Tool: / });
+    await status.scrollIntoViewIfNeeded();
+    await expect(status).toBeInViewport({ ratio: 1 });
+    await page.getByRole('button', { name: 'Pause' }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeInViewport({ ratio: 1 });
+    await noSidewaysScroll(page);
+  });
+
+  test('on a wide portrait screen two open panels leave the scene a usable height', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await startSandbox(page);
+    await page.getByText('Population', { exact: true }).click();
+    await page.getByText('Network', { exact: true }).click();
+    await expect(page.locator('details.panel[open]')).toHaveCount(2);
+    for (const panel of await page.locator('details.panel[open]').all()) {
+      const h = (await panel.boundingBox())?.height ?? 0;
+      expect(h).toBeLessThanOrEqual(1024 * 0.4 + 1);
+    }
+    // At least 12rem, the scene's own minimum.
+    const canvas = await box(page, 'canvas');
+    expect((canvas?.bottom ?? 0) - (canvas?.top ?? 0)).toBeGreaterThanOrEqual(190);
+    expect(await overlaps(page)).toEqual([]);
+  });
+
+  test('on a wide portrait screen the open drawer is clear of the story lines', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await startGame(page);
+    await expect(page.locator('[aria-live="polite"]')).toContainText('The dawn');
+    await page.getByRole('button', { name: 'Diary and notes' }).click();
+    await expect(page.locator('#drawer-panel')).toBeVisible();
+    const strip = await box(page, '.beat-line');
+    const drawer = await box(page, '#drawer-panel');
+    expect(strip?.right).toBeLessThanOrEqual((drawer?.left ?? 0) + 0.5);
   });
 
   test('the type is Atkinson Hyperlegible', async ({ page }) => {

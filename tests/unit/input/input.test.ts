@@ -856,6 +856,13 @@ describe('help key everywhere', () => {
     h.press('?');
     expect(h.opened()).toBe(3);
   });
+  it('? opens the help from a range, a radio, a checkbox, and a list', () => {
+    const h = helpSetup();
+    for (const type of ['range', 'radio', 'checkbox', 'button'])
+      h.press('?', { target: { tagName: 'INPUT', type } });
+    h.press('?', { target: { tagName: 'SELECT' } });
+    expect(h.opened()).toBe(5);
+  });
   it('? does nothing when another handler took it', () => {
     const t = new EventTarget();
     t.addEventListener('keydown', (e) => {
@@ -868,7 +875,9 @@ describe('help key everywhere', () => {
   });
   it('? does nothing in a text field, or with a modifier', () => {
     const h = helpSetup();
-    for (const tagName of ['INPUT', 'TEXTAREA', 'SELECT']) h.press('?', { target: { tagName } });
+    for (const type of ['text', 'search', 'email', 'number', 'password', 'url', 'tel'])
+      h.press('?', { target: { tagName: 'INPUT', type } });
+    h.press('?', { target: { tagName: 'TEXTAREA' } });
     h.press('?', { target: { tagName: 'DIV', isContentEditable: true } });
     h.press('?', { ctrlKey: true });
     h.press('?', { metaKey: true });

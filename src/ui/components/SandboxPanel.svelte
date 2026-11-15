@@ -166,6 +166,13 @@
   .close {
     display: none;
   }
+  /* Portrait: an open panel is at most 40vh, and scrolls inside. */
+  @media (orientation: portrait) {
+    .panel[open] {
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+  }
   /* Below 600 pixels an open panel is a full-screen sheet (ADR 0014 item 15). */
   @media (max-width: 599.98px) {
     .panel[open] {
@@ -173,6 +180,7 @@
       inset: 0;
       z-index: 2;
       box-sizing: border-box;
+      max-height: none;
       overflow-y: auto;
       border-width: 0;
       border-radius: 0;

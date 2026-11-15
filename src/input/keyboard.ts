@@ -184,15 +184,26 @@ function isTextField(target: unknown): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable === true;
 }
 
+/** The input types that take typed text; the others (range, radio, checkbox, buttons) take no letters. */
+const TEXT_INPUTS = new Set(['', 'text', 'search', 'email', 'number', 'password', 'url', 'tel']);
+
+/** Whether the target takes typed text: a text-entry input, a textarea, or editable content. */
+function takesText(target: unknown): boolean {
+  const t = target as { tagName?: string; type?: string; isContentEditable?: boolean } | null;
+  const tag = t?.tagName?.toUpperCase();
+  if (tag === 'INPUT') return TEXT_INPUTS.has((t?.type ?? '').toLowerCase());
+  return tag === 'TEXTAREA' || t?.isContentEditable === true;
+}
+
 /**
  * ? from anywhere on the screen `target` covers (the window), not only the scene: the scene's own
- * handler takes it first when the scene has focus. Never in a text field.
+ * handler takes it first when the scene has focus. Never in a field that takes text.
  */
 export function createHelpKey(target: EventTarget, help: () => void): () => void {
   const onKey = (e: Event): void => {
     const k = e as KeyboardEvent;
     if (k.key !== '?' || k.defaultPrevented || k.ctrlKey || k.metaKey || k.altKey) return;
-    if (isTextField(k.target)) return;
+    if (takesText(k.target)) return;
     help();
     k.preventDefault();
   };

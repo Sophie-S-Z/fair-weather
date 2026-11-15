@@ -452,6 +452,8 @@ let sandboxRun: {
 } | null = null;
 /** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
 let startWaiting: ((why: string) => void) | null = null;
+/** Ends the give-up listener of the sandbox run now, which lives as long as the run does. */
+let endRunGiveUp: (() => void) | null = null;
 /** Whether the last sandbox start failed in the worker (an error or a give-up before its first snapshot). */
 let workerFailed = false;
 const sandboxWorkerFailed = (): boolean => workerFailed;
@@ -565,6 +567,7 @@ function beginSandbox(
     );
     startWaiting?.('a newer start replaced this one');
     sandboxRun?.runner.dispose();
+    endRunGiveUp?.();
     // Before the init, so the runner sees the run's first snapshot.
     const runner = createSandboxRunner(port, setup);
     const run = { runner, made, lite: null, tick: 0, notes: [] };
@@ -578,7 +581,8 @@ function beginSandbox(
       settle();
       reject(new Error(`The sandbox run did not start: ${why}`));
     };
-    // The worker refused the run, or the host gave up: no run goes on (`workerFailed` is true).
+    // The worker refused the run, or the host gave up, before or after its first snapshot: no run
+    // goes on (`workerFailed` is true).
     const fail = (why: string): void => {
       workerFailed = true;
       if (sandboxRun === run) {
@@ -597,8 +601,8 @@ function beginSandbox(
           resolve(runner);
         } else if (m.t === 'error') fail(m.message);
       }),
-      host.onGiveUp(fail),
     );
+    endRunGiveUp = host.onGiveUp(fail);
     season = scenario.season;
     greeting = undefined;
     host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
@@ -913,6 +917,8 @@ const game: GameService = {
     stop() {
       sandboxStops += 1;
       startWaiting?.('the sandbox stopped');
+      endRunGiveUp?.();
+      endRunGiveUp = null;
       sandboxRun?.runner.dispose();
       sandboxRun = null;
       speedControl.runner(0);

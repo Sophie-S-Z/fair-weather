@@ -111,7 +111,8 @@
   let setup = $state.raw<SandboxSetup | null>(null);
   let runner: SandboxRunner | null = null;
   let stage: Stage | null = $state.raw(null);
-  let stageReady: Promise<Stage> | null = null;
+  /** The stage, or null when it could not start. */
+  let stageReady: Promise<Stage | null> | null = null;
   /** The newest snapshot of the run now, which the tools act on. */
   let next: WorldLite | null = null;
   /** The palette drawn now: in Kith the season's, in a valley its own (spec 7.3). */
@@ -422,7 +423,7 @@
   /** Opens a valley file's text (ADR 0014 item 7), from the start choice or the Share panel. */
   function openText(text: string): void {
     shared = null;
-    void stageReady?.then(() => enter(() => game.sandbox.open(text), true));
+    void stageReady?.then((st) => st && enter(() => game.sandbox.open(text), true));
   }
   async function openFile(e: Event & { currentTarget: HTMLInputElement }): Promise<void> {
     const text = await readValleyFile(e.currentTarget, game.sandbox.valleyFile.maxBytes);
@@ -573,66 +574,87 @@
       // ? opens the keys from any focus on the screen; the scene's own handler takes it first.
       game.input.createHelpKey(window, openHelp),
     );
-    stageReady = game.createStage(sceneEl).then((s) => {
-      if (gone) {
-        s.destroy();
+    // The host stopped restarting the worker after the run began: the same state as a failed start.
+    offs.push(
+      game.onSimLost(() => {
+        if (gone || starting || !setup) return;
+        dead = true;
+        loop.stop();
+        runner = null;
+        notice = 'The game could not run this valley. Go back to the title to try again.';
+        void tick().then(() => document.querySelector<HTMLElement>('.top button:enabled')?.focus());
+      }),
+    );
+    stageReady = game
+      .createStage(sceneEl)
+      .then((s) => {
+        if (gone) {
+          s.destroy();
+          return s;
+        }
+        stage = s;
+        // Only the sandbox records the frames for a postcard; leaving destroys the stage, which forgets them.
+        s.setRecording(true);
+        const ctx: InputContext = {
+          tools: () => SANDBOX_TOOLS,
+          creatures: () => [...(next?.creatures ?? [])].sort(byId),
+          // A bench goes at the cursor in the sandbox, not at the nearest bench spot.
+          benchSpots: () => [],
+          placeKind: () => placeKind,
+          water: () => next?.water ?? [],
+          cursor: () => cursor,
+          tool: () => tool,
+          setTool: (v: Verb) => {
+            const t = SANDBOX_TOOLS.find((x) => x === v);
+            if (t) tool = t;
+          },
+          reply: () => 'toward',
+          setReply: () => undefined,
+          act,
+          togglePause,
+          picked: () => picked,
+          select: (id) => (picked = id),
+          moveCursor: (p) => {
+            cursor = clampToScene(p, s.sceneSize);
+            nearby = nearbyAt(cursor);
+          },
+          view: () => 'meadow',
+          zoom: () => undefined,
+          isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
+          threadFrom: () => threadFrom,
+          setThreadFrom: (id) => (threadFrom = id),
+          pathFrom: () => pathFrom,
+          setPathFrom: (p) => (pathFrom = p),
+          openWhisper,
+          help: openHelp,
+          manner: () => ({ reply: 'toward', gift: 'give' }),
+          heroKind: () => null,
+          heroBerries: () => 0,
+          heroFlying: () => false,
+          keepsakes: () => [],
+        };
+        offs.push(game.input.createKeyboard(sceneEl, ctx));
+        offs.push(
+          game.input.createPointer(
+            sceneEl,
+            (x, y) => ({ creature: s.pick(x, y) }),
+            (x, y) => s.toScene(x, y),
+            ctx,
+          ),
+        );
         return s;
-      }
-      stage = s;
-      // Only the sandbox records the frames for a postcard; leaving destroys the stage, which forgets them.
-      s.setRecording(true);
-      const ctx: InputContext = {
-        tools: () => SANDBOX_TOOLS,
-        creatures: () => [...(next?.creatures ?? [])].sort(byId),
-        // A bench goes at the cursor in the sandbox, not at the nearest bench spot.
-        benchSpots: () => [],
-        placeKind: () => placeKind,
-        water: () => next?.water ?? [],
-        cursor: () => cursor,
-        tool: () => tool,
-        setTool: (v: Verb) => {
-          const t = SANDBOX_TOOLS.find((x) => x === v);
-          if (t) tool = t;
-        },
-        reply: () => 'toward',
-        setReply: () => undefined,
-        act,
-        togglePause,
-        picked: () => picked,
-        select: (id) => (picked = id),
-        moveCursor: (p) => {
-          cursor = clampToScene(p, s.sceneSize);
-          nearby = nearbyAt(cursor);
-        },
-        view: () => 'meadow',
-        zoom: () => undefined,
-        isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
-        threadFrom: () => threadFrom,
-        setThreadFrom: (id) => (threadFrom = id),
-        pathFrom: () => pathFrom,
-        setPathFrom: (p) => (pathFrom = p),
-        openWhisper,
-        help: openHelp,
-        manner: () => ({ reply: 'toward', gift: 'give' }),
-        heroKind: () => null,
-        heroBerries: () => 0,
-        heroFlying: () => false,
-        keepsakes: () => [],
-      };
-      offs.push(game.input.createKeyboard(sceneEl, ctx));
-      offs.push(
-        game.input.createPointer(
-          sceneEl,
-          (x, y) => ({ creature: s.pick(x, y) }),
-          (x, y) => s.toScene(x, y),
-          ctx,
-        ),
-      );
-      return s;
-    });
+      })
+      .catch((e: unknown) => {
+        // The stage could not start (no WebGL context): no run can be drawn, and the title is the way on.
+        console.error(e);
+        dead = true;
+        notice = 'The game could not draw the sandbox. Go back to the title to try again.';
+        return null;
+      });
     const opening = untrack(() => link);
     if (opening !== null)
-      void stageReady.then(async () => {
+      void stageReady.then(async (st) => {
+        if (!st) return;
         await enter(() => game.sandbox.open(opening), true);
         // A reload does not open the link again (ADR 0014 item 7).
         history.replaceState(history.state, '', location.pathname + location.search);
@@ -833,7 +855,7 @@
           <button
             type="button"
             disabled={locked}
-            onclick={() => void stageReady?.then(() => enter(() => game.sandbox.openSaved(), true))}
+            onclick={() => void stageReady?.then((st) => st && enter(() => game.sandbox.openSaved(), true))}
             >Go on with your last valley</button
           >
         {/if}

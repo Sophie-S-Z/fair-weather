@@ -322,6 +322,33 @@ test('a WebGL context that fails to start gives the still page of the chapter at
   expect(worker.requests()).toBe(0);
 });
 
+test('a sandbox whose WebGL context fails to start says so and goes back to the title, with no error', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // The probe at load gets its context; the stage's own request finds none.
+  await page.addInitScript(() => {
+    const real = Reflect.get(HTMLCanvasElement.prototype, 'getContext') as (...a: unknown[]) => unknown;
+    let probed = false;
+    const patched = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+        if (!probed) probed = true;
+        else return null;
+      }
+      return real.call(this, type, ...rest);
+    };
+    Reflect.set(HTMLCanvasElement.prototype, 'getContext', patched);
+  });
+  await page.goto('/?sandbox=new&seed=7');
+  await expect(page.getByRole('status').filter({ hasText: 'could not draw' })).toHaveText(
+    'The game could not draw the sandbox. Go back to the title to try again.',
+  );
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 // The journal's drawing of the Fen, written with the dev journey hook as in exports.spec.ts.
 // Not the dev server's `?import` module of the same file, which the page needs to start.
 const DRAWING = (url: URL): boolean =>

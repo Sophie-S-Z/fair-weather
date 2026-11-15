@@ -270,6 +270,49 @@ test('a rule change that the worker cannot start puts the knob back, says so, an
   await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
 });
 
+test('a worker that gives up after the first snapshot stops the run with the same notice and state', async ({
+  page,
+}) => {
+  // Every worker the page spawns, and whether it has posted a message yet.
+  await page.addInitScript(() => {
+    const seen: { worker: Worker; loaded: boolean }[] = [];
+    (window as unknown as { workers: typeof seen }).workers = seen;
+    const Real = window.Worker;
+    window.Worker = class extends Real {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        const entry = { worker: this, loaded: false };
+        seen.push(entry);
+        this.addEventListener('message', () => (entry.loaded = true), { once: true });
+      }
+    };
+  });
+  await open(page);
+  // Paused, so no new tick comes: the second error is at the tick of the first, and the host gives up.
+  await page.getByRole('group', { name: 'Time' }).getByRole('button', { name: 'Pause' }).click();
+  const fail = () =>
+    page.evaluate(() => {
+      const seen = (window as unknown as { workers: { worker: Worker; loaded: boolean }[] }).workers;
+      seen.at(-1)?.worker.dispatchEvent(new ErrorEvent('error'));
+    });
+  await fail();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { workers: { loaded: boolean }[] }).workers.at(-1)?.loaded ?? false,
+      ),
+    )
+    .toBe(true);
+  await fail();
+  await expect(page.getByRole('status').filter({ hasText: 'could not run' })).toHaveText(
+    'The game could not run this valley. Go back to the title to try again.',
+  );
+  await expect(page.getByLabel('Gift value')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+});
+
 test('while a rule change starts the run again, no other rule can change', async ({ page }) => {
   await open(page);
   // The next run's worker loads only when the test lets it, so the start waits.

@@ -78,8 +78,6 @@ const REFLECT_TINT = 0.45;
 const REFLECT_ALPHA = 0.5;
 const DRIFT = 24;
 const DRIFT_SECONDS = 30;
-/** With reduced motion the drift holds still once no new snapshot has come for this long: the game is paused. */
-const DRIFT_HOLD_SECONDS = 0.5;
 /** A flying flock spreads this wide about its birds' places on the ground. */
 const SPREAD = 200;
 const GROUND_SPREAD = 40;
@@ -144,7 +142,8 @@ const FEATHER_OFFSET = 30;
 const VISIT_STEP_MAX = 0.25;
 
 export interface MeadowView {
-  update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
+  /** `paused`: the game is paused, so with reduced motion the Fen flock holds still. */
+  update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings, paused?: boolean): void;
   /** The creature under a screen point, or null. */
   pick(x: number, y: number): string | null;
   /** The scene point under a screen point, through the camera of the last update. */
@@ -832,11 +831,9 @@ export function createMeadowView(
   const perched: number[] = [];
   const reflected: number[] = [];
   const fliers: number[] = [];
-  /** The flock's drift clock with reduced motion: real time, but stopped while no new snapshot comes. */
+  /** The flock's drift clock with reduced motion: real time, but stopped while the game is paused. */
   let driftClock = 0;
-  let clockAt = 0;
-  let lastNext: WorldLite | null = null;
-  let nextAt = 0;
+  let clockAt: number | null = null;
   const order: number[] = [];
   /** Each body with a rig drawn this frame, as flat feet y, left, right, top, bottom quints. */
   const bodies: number[] = [];
@@ -889,14 +886,10 @@ export function createMeadowView(
   }
 
   return {
-    update(prev, next, alpha, settings) {
+    update(prev, next, alpha, settings, paused = false) {
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
       const motion = !settings.reducedMotion;
-      if (next !== lastNext) {
-        lastNext = next;
-        nextAt = seconds;
-      }
-      if (seconds - nextAt <= DRIFT_HOLD_SECONDS) driftClock += seconds - clockAt;
+      if (!paused && clockAt !== null) driftClock += seconds - clockAt;
       clockAt = seconds;
       const drift = settings.reducedMotion ? driftClock : seconds;
       const widthScale = settings.highContrast ? HIGH_CONTRAST_WIDTH : 1;

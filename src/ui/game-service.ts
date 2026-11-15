@@ -62,7 +62,7 @@ export interface Stage extends Pick<
    * fits below the band, so no node sits on the strip.
    */
   setTimelineBand(band: Band | null): void;
-  draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
+  draw(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings, paused: boolean): void;
   /**
    * Only the sandbox records (ADR 0014 item 8). While on, each draw offers the scene to a ring of
    * the last 5 seconds, at most 12 frames a second, 480 pixels wide. Off forgets the frames.

@@ -1031,11 +1031,11 @@ const game: GameService = {
     });
     resized.observe(el);
     const stage: Stage = {
-      draw(prev: WorldLite, next: WorldLite, alpha, s) {
+      draw(prev: WorldLite, next: WorldLite, alpha, s, paused) {
         if (import.meta.env.DEV) dev.frames += 1;
         const cosmosBand = current === 'cosmos' ? band : null;
         view.setTopInset(cosmosBand ? valleyTop(cosmosBand, app.screen.height, scene.height) : 0);
-        view.update(prev, next, alpha, s);
+        view.update(prev, next, alpha, s, paused);
         if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, cosmosBand, soulId);
         if (current === 'soul') soul.update(next, s, soulId, insets);
         app.ticker.update(); // advances the view's clock and renders

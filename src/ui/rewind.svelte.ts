@@ -80,9 +80,16 @@ export function createRewind(deps: {
       drawn = null;
     },
     /** Draws one frame: the rewound world while there is one, else the live tween. */
-    frame(stage: Stage, from: WorldLite, to: WorldLite, alpha: number, settings: Settings): void {
+    frame(
+      stage: Stage,
+      from: WorldLite,
+      to: WorldLite,
+      alpha: number,
+      settings: Settings,
+      paused: boolean,
+    ): void {
       if (world) {
-        stage.draw(world, world, 1, settings);
+        stage.draw(world, world, 1, settings, paused);
         return;
       }
       if (drawn !== to) {
@@ -90,7 +97,7 @@ export function createRewind(deps: {
         drawnTick = liveTick;
         timeline = stage.timeline();
       }
-      stage.draw(from, to, alpha, settings);
+      stage.draw(from, to, alpha, settings, paused);
     },
   };
 }

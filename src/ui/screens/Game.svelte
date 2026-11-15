@@ -670,7 +670,7 @@
   const loop = createFrameLoop(
     (from, to, alpha) => {
       speedNow = game.currentSpeed();
-      if (stage) rw.frame(stage, from, to, alpha, $settings);
+      if (stage) rw.frame(stage, from, to, alpha, $settings, speedNow === 0);
     },
     () => performance.now(),
   );

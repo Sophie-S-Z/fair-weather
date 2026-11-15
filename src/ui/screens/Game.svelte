@@ -149,7 +149,7 @@
   /** How many things the place tool has set in this chapter. */
   let placed = 0;
   let reply: BidReply = $state('toward');
-  /** The last few story lines, hints, and results; new ones are announced. */
+  /** The chapter's story lines, hints, and results, in order; new ones are announced. */
   let lines: { id: number; text: string; reveal: boolean }[] = $state([]);
   let lineId = 0;
   /** How long a bet's answer stays into the next chapter. */
@@ -365,7 +365,7 @@
   }
 
   function say(text: string, reveal = false): void {
-    lines = [...lines.slice(-2), { id: (lineId += 1), text, reveal }];
+    lines = [...lines, { id: (lineId += 1), text, reveal }];
   }
 
   function act(v: VerbInput): void {
@@ -890,7 +890,7 @@
   });
 </script>
 
-<div class="game">
+<div class="game" style:--top-row="{String(sceneTop)}px">
   <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
   <div
     class="layer"
@@ -1026,8 +1026,6 @@
           {/if}
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
           <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
-            <!-- In portrait a strip of a fixed height, so a new line never resizes the canvas. -->
-            <div class="beat"><BeatLine {lines} strip={portrait} /></div>
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
@@ -1103,6 +1101,8 @@
                 />
               {/if}
             </div>
+            <!-- Last in the tab order, so Shift+Tab from the tools still reaches the Cosmos panel; first on screen. -->
+            <div class="beat"><BeatLine {lines} fixed={portrait} /></div>
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
           <div class="time">
@@ -1195,6 +1195,10 @@
   .top,
   .beat {
     display: contents;
+  }
+  .beat,
+  .beat :global(.beat-line) {
+    order: -1;
   }
   .hud :global(button),
   .hud :global(section) {
@@ -1317,6 +1321,18 @@
       position: static;
       align-self: center;
       max-width: calc(100% - 1.5rem);
+      /* The panel scrolls inside, so its controls stay in reach and the canvas keeps its height. */
+      max-height: 30vh;
+      overflow-y: auto;
+    }
+    /* The bar has a ceiling that leaves the scene its 12rem, and scrolls inside it. */
+    .bottom {
+      max-height: calc(100dvh - var(--top-row, 0px) - 12rem);
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+    .bottom > :global(*) {
+      flex: none;
     }
     .time {
       position: static;

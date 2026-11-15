@@ -134,6 +134,40 @@ test.describe('the help sheet', () => {
   });
 });
 
+/** Sets the real text-size setting (it is kept in the browser, so later pages use it). */
+async function setTextSize(page: Page, size: '1.25' | '1.5') {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByLabel('Text size').selectOption(size);
+  await page.getByRole('button', { name: 'Back' }).click();
+}
+
+/** Every line of chapter 2's intro is in the story strip, which scrolls to it, and none steals focus. */
+async function expectAllLines(page: Page) {
+  await page.goto('/?chapter=2');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const lines = page.locator('.beat-line p');
+  await expect.poll(() => lines.count()).toBeGreaterThanOrEqual(6);
+  const strip = page.getByRole('group', { name: 'Story lines' });
+  await expect(strip).toHaveAttribute('tabindex', '0');
+  const count = await lines.count();
+  for (let i = 0; i < count; i++) {
+    await lines.nth(i).scrollIntoViewIfNeeded();
+    const inside = await page.evaluate((n) => {
+      const box = document.querySelector('.beat-line')?.getBoundingClientRect();
+      const r = document.querySelectorAll('.beat-line p')[n]?.getBoundingClientRect();
+      return !!box && !!r && r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+    }, i);
+    expect(inside).toBe(true);
+  }
+  // The strip never took the focus.
+  expect(await page.evaluate(() => document.activeElement?.classList.contains('beat-line'))).toBe(false);
+}
+
+test('in landscape the chapter 2 intro shows all of its lines in the story strip', async ({ page }) => {
+  await expectAllLines(page);
+});
+
 test.describe('on a phone', () => {
   // Firefox has no isMobile emulation; it still gets the phone viewport and touch.
   const { viewport, userAgent, deviceScaleFactor, hasTouch } = devices['Pixel 7'];
@@ -382,6 +416,78 @@ test.describe('on a phone', () => {
     const strip = await box(page, '.beat-line');
     const drawer = await box(page, '#drawer-panel');
     expect(strip?.right).toBeLessThanOrEqual((drawer?.left ?? 0) + 0.5);
+  });
+
+  /**
+   * The canvas is at least 12rem tall, nothing is over it, and every control of the top row and the
+   * bottom bar can be scrolled to and seen.
+   */
+  async function expectUsablePortraitGame(page: Page) {
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+    const canvas = await box(page, 'canvas');
+    expect((canvas?.bottom ?? 0) - (canvas?.top ?? 0)).toBeGreaterThanOrEqual(12 * rem - 1);
+    expect(await overlaps(page)).toEqual([]);
+    const scrolls = await page.evaluate(() => {
+      const bar = document.querySelector('.bottom') as HTMLElement;
+      return (
+        bar.scrollHeight <= bar.clientHeight || ['auto', 'scroll'].includes(getComputedStyle(bar).overflowY)
+      );
+    });
+    expect(scrolls).toBe(true);
+    const controls = page.locator(
+      '.top button, .bottom button, .bottom input, .bottom summary, .bottom [tabindex="0"]',
+    );
+    // Handles, not indexes: the story strip joins the tab order only while its lines overflow.
+    for (const control of await controls.elementHandles()) {
+      if (!(await control.evaluate((el) => (el as Element).checkVisibility()))) continue;
+      await control.scrollIntoViewIfNeeded();
+      const seen = await control.evaluate((el) => {
+        const r = (el as Element).getBoundingClientRect();
+        return (
+          r.top >= -0.5 && r.left >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5
+        );
+      });
+      expect(seen).toBe(true);
+    }
+    await noSidewaysScroll(page);
+  }
+
+  test('at 360x640 with the largest text the meadow keeps a 12rem canvas and reaches every control', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await setTextSize(page, '1.5');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeAttached();
+    await expectUsablePortraitGame(page);
+  });
+
+  test('at 360x640 with the largest text the Cosmos keeps a 12rem canvas and reaches every control', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 640 });
+    await setTextSize(page, '1.5');
+    await page.goto('/?chapter=9');
+    await page.getByRole('button', { name: 'Begin' }).click();
+    const bet = page.getByRole('dialog', { name: 'A bet' });
+    await expect(bet).toBeVisible({ timeout: 20_000 });
+    await bet.getByRole('button').first().tap();
+    await expect(bet).toBeHidden({ timeout: 20_000 });
+    await page.getByRole('application', { name: 'The meadow' }).focus();
+    await page.keyboard.press('z');
+    const panel = page.getByRole('region', { name: 'Who is friends with whom' });
+    await expect(panel.getByLabel('Rewind')).toBeAttached();
+    await expectUsablePortraitGame(page);
+    for (const name of ['Rewind', 'Back to now']) {
+      const control = name === 'Rewind' ? panel.getByLabel('Rewind') : panel.getByRole('button', { name });
+      await control.scrollIntoViewIfNeeded();
+      await expect(control).toBeInViewport({ ratio: 0.99 });
+    }
+  });
+
+  test('in portrait the chapter 2 intro shows all of its lines in the story strip', async ({ page }) => {
+    await expectAllLines(page);
   });
 
   test('the type is Atkinson Hyperlegible', async ({ page }) => {

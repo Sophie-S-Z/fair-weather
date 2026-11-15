@@ -169,6 +169,7 @@
   /* Portrait: an open panel is at most 40vh, and scrolls inside. */
   @media (orientation: portrait) {
     .panel[open] {
+      box-sizing: border-box;
       max-height: 40vh;
       overflow-y: auto;
     }

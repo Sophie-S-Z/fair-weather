@@ -228,6 +228,8 @@ test('a rule change that the worker cannot start puts the knob back, says so, an
   // No run goes on, so no control that starts one again works, and a new tool does not hide the notice.
   await expect(gift).toBeDisabled();
   await expect(page.getByLabel('Mixed thresholds', { exact: true })).toBeDisabled();
+  // The knob is off, so the focus goes to the one way on.
+  await expect(page.getByRole('button', { name: 'Back to title' })).toBeFocused();
   await page.getByRole('application', { name: 'The sandbox valley' }).focus();
   await page.keyboard.press('3');
   await page.keyboard.press('ArrowRight');

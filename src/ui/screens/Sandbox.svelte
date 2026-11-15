@@ -213,7 +213,9 @@
         : 'The valley could not start again. The rules did not change.';
     }
     await tick();
-    if (!dead && document.activeElement === document.body) from?.focus();
+    // A control that lost the focus while it was off gets it back; when it stays off, Back to title gets it.
+    if (document.activeElement === document.body)
+      (dead ? document.querySelector<HTMLElement>('.top button') : from)?.focus();
     if (!r) return;
     loop.stop();
     next = null;

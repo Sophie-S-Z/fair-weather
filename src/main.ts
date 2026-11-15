@@ -508,6 +508,8 @@ const game: GameService = {
     },
     start: (setup) =>
       new Promise((resolve, reject) => {
+        // First, so a setup that does not build is never taken for the last visit's failed worker.
+        workerFailed = false;
         // Built first, so a setup that throws (and rejects) leaves the run before going on.
         const scenario = sandboxScenario(
           setup,
@@ -544,7 +546,6 @@ const game: GameService = {
           drop(why);
         };
         startWaiting = drop;
-        workerFailed = false;
         // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
         offs.push(
           host.onMessage((m) => {

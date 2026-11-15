@@ -426,6 +426,11 @@ test('fitsInLink is true at 2000 characters and false at 2001', () => {
   expect(fitsInLink('x'.repeat(2001))).toBe(false);
 });
 
+test("fitsInLink takes a lower limit, as a dev build's ?linkChars=N sets", () => {
+  expect(fitsInLink('x'.repeat(200), 200)).toBe(true);
+  expect(fitsInLink('x'.repeat(201), 200)).toBe(false);
+});
+
 test('the runner refuses an off-scene point and clamps a path, so its sends always encode', async () => {
   const sent: Command[] = [];
   const listeners = new Set<(m: FromWorker) => void>();

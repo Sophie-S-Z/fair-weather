@@ -93,12 +93,13 @@ export interface WorldLite {
  * structured clone of a World from a `checkpoint` message. A new worker starts paused.
  * `checkpoint` asks for a `checkpoint` message with the world now, between steps; the answer
  * carries the request's `id`, and a daily checkpoint (at dusk) carries none.
- * `advance` steps `ticks` ticks at once; only tests and dev pages send it.
+ * `advance` steps `ticks` ticks at once; only tests, dev pages, and an opened seed link's last step
+ * send it.
  * `rewind` asks for the world at an earlier tick without changing the run (ADR 0012 item 10).
  * `fastForward` steps `ticks` ticks silently, keeping the dusk copies for rewind, and answers
  * with one `forwarded` (Kith's run while the player is away, ADR 0013 item 10). Each `script`
  * list runs in the step at its tick, as a `commands` list sent then would, and rewind replays it;
- * no `accepted` comes for it.
+ * no `accepted` comes for it. With `report`, the `forwarded` answer carries the forward's steps.
  */
 export type ToWorker =
   | { t: 'init'; seed: number; tuning: unknown; scenario: Scenario; checkpoint?: World }
@@ -108,15 +109,34 @@ export type ToWorker =
   | { t: 'checkpoint'; id?: number }
   | { t: 'advance'; ticks: number }
   | { t: 'rewind'; tick: number; id: number }
-  | { t: 'fastForward'; ticks: number; id: number; script?: { tick: number; list: Command[] }[] };
+  | {
+      t: 'fastForward';
+      ticks: number;
+      id: number;
+      script?: { tick: number; list: Command[] }[];
+      report?: true;
+    };
+
+/**
+ * A step of a reported fast-forward (an opened seed link's challenge reads them, ADR 0014 item 7):
+ * the tick it ran and its events, and the world after it when it is the forward's first step or
+ * the season turned in it. Only those steps and the steps with events are reported, so between
+ * two reported worlds the season stays the same.
+ */
+export interface ForwardStep {
+  tick: number;
+  events: SimEvent[];
+  lite?: WorldLite;
+}
 
 /**
  * Worker to main thread. `accepted.tick` and `events.tick` are the tick the step ran;
  * `snapshot`, `checkpoint`, and `hash` carry `world.tick` after it, the next tick to run.
  * `lastGoodTick` is `world.tick` before the step that failed. `rewound` answers the `rewind` with
  * the same `id`; its `tick` is the requested tick clamped to [the first world's tick, now].
- * `forwarded` answers the `fastForward` with the same `id`, with the world after it; no events,
- * snapshot, or checkpoint come for the ticks it ran.
+ * `forwarded` answers the `fastForward` with the same `id`, with the world after it, and with
+ * `steps` when the forward asked for a report; no events, snapshot, or checkpoint come for the
+ * ticks it ran.
  */
 export type FromWorker =
   | { t: 'accepted'; tick: number; list: Command[] }
@@ -126,7 +146,7 @@ export type FromWorker =
   | { t: 'hash'; tick: number; value: string }
   | { t: 'error'; message: string; lastGoodTick: number }
   | { t: 'rewound'; id: number; tick: number; lite: WorldLite }
-  | { t: 'forwarded'; id: number; tick: number; lite: WorldLite };
+  | { t: 'forwarded'; id: number; tick: number; lite: WorldLite; steps?: ForwardStep[] };
 
 export interface SimPort {
   send(list: Command[]): void;

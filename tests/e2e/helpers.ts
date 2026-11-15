@@ -82,3 +82,32 @@ export async function tabTo(page: Page, name: string): Promise<void> {
   for (let i = 0; i < 40 && (await picked()) !== name; i++) await page.keyboard.press('Tab');
   await expect.poll(picked).toBe(name);
 }
+
+/** Writes a profile with one kept year, as a finished Part 1 leaves it, and the finished `valleys`. */
+export async function keepProfile(page: Page, valleys: string[]): Promise<void> {
+  await page.evaluate(
+    (valleys) =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('fair-weather', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('saves');
+        req.onerror = () => {
+          reject(req.error ?? new Error('open failed'));
+        };
+        req.onsuccess = () => {
+          const tx = req.result.transaction('saves', 'readwrite');
+          const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
+          tx.objectStore('saves').put(
+            { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0, valleys },
+            'profile',
+          );
+          tx.oncomplete = () => {
+            resolve();
+          };
+          tx.onerror = () => {
+            reject(tx.error ?? new Error('put failed'));
+          };
+        };
+      }),
+    valleys,
+  );
+}

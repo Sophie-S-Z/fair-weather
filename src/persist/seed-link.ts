@@ -191,5 +191,8 @@ export async function decodeLink(text: string, tuningHash: string): Promise<Seed
   }
 }
 
-/** Whether the whole URL is short enough to share as a link (ADR 0014 item 7). */
-export const fitsInLink = (url: string): boolean => url.length <= LINK_CHARS;
+/**
+ * Whether the whole URL is short enough to share as a link (ADR 0014 item 7). `limit` is LINK_CHARS
+ * but in a dev build, whose ?linkChars=N lowers it so e2e reaches the valley file.
+ */
+export const fitsInLink = (url: string, limit = LINK_CHARS): boolean => url.length <= limit;

@@ -6,7 +6,7 @@ import fenJson from '../../content/scenarios/fen.json' with { type: 'json' };
 import halcyonJson from '../../content/scenarios/halcyon.json' with { type: 'json' };
 import hollowJson from '../../content/scenarios/hollow.json' with { type: 'json' };
 import m0Json from '../../content/scenarios/m0.json' with { type: 'json' };
-import type { SimPort, WorldLite } from '../sim-host/protocol.ts';
+import type { ForwardStep, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, NetworkSwitches, Rect, Scenario, SimEvent, Structure, Tuning } from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
 import { CHALLENGES, CHALLENGE_IDS, applyStart, createChallengeCheck } from './challenges.ts';
@@ -454,6 +454,11 @@ export interface SandboxRunner {
   /** Called when the challenge passes or fails. */
   onChallenge(cb: (s: ChallengeState) => void): () => void;
   /**
+   * Reads the steps of a reported fast-forward (an opened seed link, ADR 0014 item 7) as live
+   * steps, in order, so the challenge check sees them. Call it before the next live snapshot.
+   */
+  forwarded(steps: readonly ForwardStep[]): void;
+  /**
    * The Bell challenge's "Start the dance" (ADR 0014 item 6): sends Pim's dance as a player
    * command, once per run. False in another challenge, before the first snapshot, after dispose,
    * and after the first.
@@ -477,14 +482,18 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
   // The events of the step whose snapshot comes next (the worker posts them first).
   let events: readonly SimEvent[] = [];
   const challengeListeners = new Set<(s: ChallengeState) => void>();
+  /** One step for the check: its world and its events. */
+  const judge = (lite: WorldLite, seen: readonly SimEvent[]): void => {
+    if (!check || state !== 'open') return;
+    state = check.step(lite, seen);
+    if (state !== 'open') for (const cb of [...challengeListeners]) cb(state);
+  };
   const onSnapshot = (lite: WorldLite): void => {
     ready = true;
     water = lite.water;
     const seen = events;
     events = [];
-    if (!check || state !== 'open') return;
-    state = check.step(lite, seen);
-    if (state !== 'open') for (const cb of [...challengeListeners]) cb(state);
+    judge(lite, seen);
   };
   const off = port.onMessage((m) => {
     if (m.t === 'events') events = m.list;
@@ -535,6 +544,15 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
     onChallenge(cb) {
       challengeListeners.add(cb);
       return () => challengeListeners.delete(cb);
+    },
+    forwarded(steps) {
+      // A step without a world reads the last one: the season is the same until a step with a
+      // world, and the check reads the creatures only when the season turns.
+      let last: WorldLite | null = null;
+      for (const s of steps) {
+        last = s.lite ?? last;
+        if (last) judge(last, s.events);
+      }
     },
     startDance() {
       if (!ready || danced || setup.challenge !== 'bell') return false;

@@ -49,6 +49,8 @@ export interface Stage extends Pick<
   snapshot(tick: number, lite: WorldLite): void;
   /** This run's timeline points and the ticks at which a two-sided friendship ended. */
   timeline(): { points: readonly TimelinePoint[]; breaks: readonly number[] };
+  /** Forgets the timeline, for a new run that may start at a later tick (an opened seed link). */
+  clearTimeline(): void;
   /** The screen pixels the HTML takes on the right and at the bottom; the Soul view centers in the rest. */
   setInsets(insets: { right: number; bottom: number }): void;
   /**
@@ -72,11 +74,13 @@ export interface Stage extends Pick<
 export interface SandboxService {
   /**
    * Whether the title's Sandbox button opens (the Book of Skies has a page), whether the profile
-   * keeps a Kith, and the finished valleys in first-played order.
+   * keeps a Kith, the finished valleys in first-played order, and whether a sandbox save exists.
    */
-  status(): Promise<{ unlocked: boolean; kith: boolean; valleys: SandboxValley[] }>;
+  status(): Promise<{ unlocked: boolean; kith: boolean; valleys: SandboxValley[]; saved: boolean }>;
   /** Dev only: ?sandbox=new opens the sandbox on a new Kith valley instead of the title. */
   readonly devOpen: boolean;
+  /** The name a valley file saves under (ADR 0014 item 7). */
+  readonly valleyFile: string;
   /** The scene a valley's sandbox shows, whose bench spots `start` uses. */
   scene(valley: SandboxValley): string;
   /**
@@ -93,6 +97,8 @@ export interface SandboxService {
   start(setup: SandboxSetup): Promise<SandboxRunner>;
   /** Whether the last start failed in the worker, so no run goes on until the title starts the worker again. */
   workerFailed(): boolean;
+  /** The run's newest snapshot and its tick, or null without a run or before its first. */
+  snapshot(): { tick: number; lite: WorldLite } | null;
   /** The structures in the run now that the player placed: neither the base scenario nor bench density made them. */
   placedStructures(): Structure[];
   /** The bushes in the run now that the player placed. */
@@ -107,6 +113,27 @@ export interface SandboxService {
    * stay on the device and never go in a seed link. Does nothing without a run, or for a blank note.
    */
   pin(tick: number, text: string): void;
+  /**
+   * Shares the run now (ADR 0014 item 7). It pauses the run, and the link holds the setup, every
+   * command list accepted before the tick now, and that tick, so it opens to the same world. A link
+   * whose whole URL is too long comes as the text of a valley file; past 100 days (or another limit
+   * of a link) the run cannot be shared. Notes never go in a link. Rejects without a run.
+   */
+  share(): Promise<{ kind: 'link'; url: string } | { kind: 'file'; text: string } | { kind: 'tooOld' }>;
+  /**
+   * Opens a link's or a valley file's `v1.<data>` text as a new run, paused at the link's tick, as
+   * `start` does (it resolves at the run's first snapshot). Null, and the run before goes on, for an
+   * old or broken link. A link at tick 0 opens at tick 1, since the first snapshot comes after a step.
+   */
+  open(text: string): Promise<SandboxRunner | null>;
+  /** Opens the sandbox save's link with its notes, as `open` does; null without a save. */
+  openSaved(): Promise<SandboxRunner | null>;
+  /**
+   * Keeps the run now as the sandbox save (its link and notes) when the player acted (a command or
+   * a start from the run, such as a rule change) since the start choice or an open, then stops the
+   * run. A run that cannot be a link keeps the save as it was.
+   */
+  leave(): Promise<void>;
   /** Stops the run. */
   stop(): void;
 }

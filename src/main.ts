@@ -51,6 +51,14 @@ import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/t
 import { hashTuning } from './persist/format.ts';
 import type { SaveV3 } from './persist/format.ts';
 import { createProfile, cutNote } from './persist/profile.ts';
+import {
+  LINK_CHARS,
+  MAX_LINK_TICKS,
+  VALLEY_FILE,
+  decodeLink,
+  encodeLink,
+  fitsInLink,
+} from './persist/seed-link.ts';
 import type { BookPage } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
@@ -88,7 +96,7 @@ import {
   sandboxScenario,
   sandboxTuning,
 } from './story/sandbox.ts';
-import type { SandboxRunner, SandboxValley } from './story/sandbox.ts';
+import type { SandboxRunner, SandboxSetup, SandboxValley } from './story/sandbox.ts';
 import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
 import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
@@ -279,7 +287,9 @@ const dev = {
   /** The journey now (undefined outside Part 2), so e2e can write pages without playing whole valleys. */
   journey: (): Journey | null => journeyNow,
   /** The sandbox run's newest snapshot and its tick, or null outside a run or before its first. */
-  sandbox: () => (sandboxRun?.lite ? { tick: sandboxRun.tick, lite: sandboxRun.lite } : null),
+  sandbox: () => game.sandbox.snapshot(),
+  /** The world's hash now and its tick, so e2e can see that an opened link gives the same world. */
+  hash: () => host.requestHash(),
 };
 if (import.meta.env.DEV) {
   (window as unknown as { fairWeather: unknown }).fairWeather = dev;
@@ -314,6 +324,8 @@ const port: SimPort = {
   ...host,
   send: (list) => {
     if (import.meta.env.DEV) dev.sent += 1;
+    // Only the sandbox runner sends while a sandbox run goes on: the player acted.
+    if (sandboxRun) sandboxActed = true;
     host.send(list);
   },
   speed: (m) => {
@@ -480,20 +492,161 @@ async function continueJourney(journey: Journey, chapterId: string): Promise<voi
   for (const leg of kithLegsBefore(journey, chapterId, homecoming)) runKithLeg(host, leg);
 }
 
+/** The scenario a sandbox setup starts from; throws when it cannot be built. */
+const sandboxStart = (setup: SandboxSetup): Scenario =>
+  sandboxScenario(setup, SANDBOX_BASES, sceneOf(SANDBOX_SCENES[setup.valley]).benchSpots);
+/**
+ * Whether the player acted (sent a command, or started a run from a run, such as a rule change)
+ * since the start choice or an open. Only then does leaving keep the run as the sandbox save, so
+ * an opened link replaces the player's own save only once the player acts (ADR 0014 item 7).
+ */
+let sandboxActed = false;
+/**
+ * Starts a sandbox run of `setup` from `scenario`, and resolves with its runner at the run's first
+ * snapshot. `go` sets the run going once the worker has the run's init; `fail` ends the start as a
+ * failure in the worker.
+ */
+function beginSandbox(
+  setup: SandboxSetup,
+  scenario: Scenario,
+  go: (runner: SandboxRunner, fail: (why: string) => void) => void,
+): Promise<SandboxRunner> {
+  return new Promise((resolve, reject) => {
+    workerFailed = false;
+    sandboxActed = sandboxRun !== null;
+    const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
+    const made = new Set(
+      [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
+    );
+    startWaiting?.('a newer start replaced this one');
+    sandboxRun?.runner.dispose();
+    // Before the init, so the runner sees the run's first snapshot.
+    const runner = createSandboxRunner(port, setup);
+    const run = { runner, made, lite: null, tick: 0, notes: [] };
+    sandboxRun = run;
+    const offs: (() => void)[] = [];
+    const settle = (): void => {
+      for (const off of offs) off();
+      if (startWaiting === drop) startWaiting = null;
+    };
+    const drop = (why: string): void => {
+      settle();
+      reject(new Error(`The sandbox run did not start: ${why}`));
+    };
+    // The worker refused the run, or the host gave up: no run goes on (`workerFailed` is true).
+    const fail = (why: string): void => {
+      workerFailed = true;
+      if (sandboxRun === run) {
+        runner.dispose();
+        sandboxRun = null;
+        speedControl.runner(0);
+      }
+      drop(why);
+    };
+    startWaiting = drop;
+    // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
+    offs.push(
+      host.onMessage((m) => {
+        if (m.t === 'snapshot') {
+          settle();
+          resolve(runner);
+        } else if (m.t === 'error') fail(m.message);
+      }),
+      host.onGiveUp(fail),
+    );
+    season = scenario.season;
+    greeting = undefined;
+    host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
+    // A worker that cannot spawn gives up inside the post: that start failed, and gets no speed.
+    if (sandboxWorkerFailed()) return;
+    go(runner, fail);
+  });
+}
+/**
+ * The longest whole URL that Share offers as a link: LINK_CHARS, or less in a dev build with
+ * ?linkChars=N, so e2e reaches the valley file.
+ */
+const devLinkChars = Number(params.get('linkChars'));
+const linkChars = import.meta.env.DEV && devLinkChars > 0 ? Math.min(devLinkChars, LINK_CHARS) : LINK_CHARS;
+/**
+ * Pauses the sandbox run and gives its link now (ADR 0014 item 7), or null when the run cannot be
+ * a link (past 100 days, or past a link's other limits). The tick is the worker's, after the
+ * pause; a list accepted at that tick has not run yet, so the link leaves it out.
+ */
+async function sandboxLink(): Promise<string | null> {
+  const run = sandboxRun;
+  if (!run) throw new Error('No sandbox run to share');
+  speedControl.player(0);
+  const { tick } = await host.requestHash();
+  if (sandboxRun !== run) throw new Error('The sandbox run changed while it was shared');
+  if (tick > MAX_LINK_TICKS) return null;
+  const script = host.log().filter((e) => e.tick < tick);
+  try {
+    return await encodeLink({ v: 1, tuning: tuningHash, setup: run.runner.setup, script, tick });
+  } catch {
+    return null; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
+  }
+}
+/** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
+async function keepSandboxRun(): Promise<void> {
+  const notes = sandboxRun?.notes ?? [];
+  const link = await sandboxLink();
+  if (link !== null) await (await profileReady).keepSandbox({ link, notes: notes.map((n) => ({ ...n })) });
+}
+/**
+ * Opens a link's `v1.<data>` text with `notes` as a new run (ADR 0014 item 7), or null for an old
+ * or broken link, a setup that cannot be built included. The worker runs the script in one
+ * forward to the tick before the link's, and the lists of that tick and the last step live, so
+ * the run's first snapshot is at the link's tick; the run waits there, paused.
+ */
+async function openSandbox(text: string, notes: readonly { tick: number; text: string }[]) {
+  const link = await decodeLink(text, tuningHash);
+  if (!link) return null;
+  let scenario: Scenario;
+  try {
+    scenario = sandboxStart(link.setup);
+  } catch {
+    return null;
+  }
+  // The player's own run, when they acted in it, is their save before the link replaces it.
+  if (sandboxRun && sandboxActed) await keepSandboxRun().catch(() => undefined);
+  const before = Math.max(link.tick - 1, 0);
+  const runner = await beginSandbox(link.setup, scenario, (r, fail) => {
+    speedControl.runner(0);
+    // A challenge's check reads the forward's steps (its events and season turns).
+    host.fastForward(before, link.script, link.setup.challenge !== null).then(
+      ({ steps }) => {
+        if (sandboxRun?.runner !== r) return;
+        r.forwarded(steps ?? []);
+        for (const e of link.script) if (e.tick >= before) host.send(e.list);
+        host.post({ t: 'advance', ticks: 1 });
+      },
+      (e: unknown) => {
+        // A newer start's init rejects the forward too, and that start is no failure.
+        if (sandboxRun?.runner === r) fail(e instanceof Error ? e.message : String(e));
+      },
+    );
+  });
+  sandboxActed = false;
+  if (sandboxRun?.runner === runner) sandboxRun.notes = notes.map((n) => ({ ...n }));
+  return runner;
+}
+
 const game: GameService = {
   chapters,
   webgl: hasWebGL(),
   sandbox: {
     async status() {
       const p = await profileReady;
-      const [pages, kith, valleys] = await Promise.all([p.pages(), p.kith(), p.valleys()]);
+      const [pages, kith, valleys, save] = await Promise.all([p.pages(), p.kith(), p.valleys(), p.sandbox()]);
       // The profile's order, which is the order the valleys were first played in.
       const finished = valleys.filter(
         (v): v is SandboxValley => v !== 'kith' && (SANDBOX_VALLEYS as readonly string[]).includes(v),
       );
-      return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished };
+      return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished, saved: save !== null };
     },
     devOpen: import.meta.env.DEV && params.get('sandbox') === 'new',
+    valleyFile: VALLEY_FILE,
     scene: (valley) => SANDBOX_SCENES[valley],
     async newSetup(valley, fromKith) {
       const kith = fromKith && valley === 'kith' ? await (await profileReady).kith() : null;
@@ -508,66 +661,23 @@ const game: GameService = {
         bushes: [],
       };
     },
-    start: (setup) =>
-      new Promise((resolve, reject) => {
-        // First, so a setup that does not build is never taken for the last visit's failed worker.
-        workerFailed = false;
-        // Built first, so a setup that throws (and rejects) leaves the run before going on.
-        const scenario = sandboxScenario(
-          setup,
-          SANDBOX_BASES,
-          sceneOf(SANDBOX_SCENES[setup.valley]).benchSpots,
-        );
-        const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
-        const made = new Set(
-          [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
-        );
-        startWaiting?.('a newer start replaced this one');
-        sandboxRun?.runner.dispose();
-        // Before the init, so the runner sees the run's first snapshot.
-        const runner = createSandboxRunner(port, setup);
-        const run = { runner, made, lite: null, tick: 0, notes: [] };
-        sandboxRun = run;
-        const offs: (() => void)[] = [];
-        const settle = (): void => {
-          for (const off of offs) off();
-          if (startWaiting === drop) startWaiting = null;
-        };
-        const drop = (why: string): void => {
-          settle();
-          reject(new Error(`The sandbox run did not start: ${why}`));
-        };
-        // The worker refused the run, or the host gave up: no run goes on (`workerFailed` is true).
-        const fail = (why: string): void => {
-          workerFailed = true;
-          if (sandboxRun === run) {
-            runner.dispose();
-            sandboxRun = null;
-            speedControl.runner(0);
-          }
-          drop(why);
-        };
-        startWaiting = drop;
-        // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
-        offs.push(
-          host.onMessage((m) => {
-            if (m.t === 'snapshot') {
-              settle();
-              resolve(runner);
-            } else if (m.t === 'error') fail(m.message);
-          }),
-          host.onGiveUp(fail),
-        );
-        season = scenario.season;
-        greeting = undefined;
-        host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
-        // A worker that cannot spawn gives up inside the post: that start failed, and gets no speed.
-        if (sandboxWorkerFailed()) return;
+    start(setup) {
+      // First, so a setup that does not build is never taken for the last visit's failed worker.
+      workerFailed = false;
+      let scenario: Scenario;
+      try {
+        scenario = sandboxStart(setup);
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+      }
+      return beginSandbox(setup, scenario, () => {
         // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
         speedControl.runner(1);
         speedControl.player(1);
-      }),
+      });
+    },
     workerFailed: sandboxWorkerFailed,
+    snapshot: () => (sandboxRun?.lite ? { tick: sandboxRun.tick, lite: sandboxRun.lite } : null),
     placedStructures() {
       const run = sandboxRun;
       if (!run) return [];
@@ -589,6 +699,26 @@ const game: GameService = {
       const notes = [...sandboxRun.notes];
       notes.splice(notes.filter((n) => n.tick <= tick).length, 0, { tick, text: cut });
       sandboxRun.notes = notes;
+    },
+    async share() {
+      const link = await sandboxLink();
+      if (link === null) return { kind: 'tooOld' };
+      // The page's own address with no query: a dev query is not part of the valley.
+      const url = `${location.origin}${location.pathname}#${link}`;
+      return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link };
+    },
+    open: (text) => openSandbox(text, []),
+    async openSaved() {
+      const save = await (await profileReady).sandbox();
+      return save ? openSandbox(save.link, save.notes) : null;
+    },
+    async leave() {
+      try {
+        if (sandboxRun && sandboxActed) await keepSandboxRun();
+      } catch (e) {
+        console.error(e); // the save stays as it was
+      }
+      game.sandbox.stop();
     },
     stop() {
       startWaiting?.('the sandbox stopped');
@@ -711,6 +841,11 @@ const game: GameService = {
         lastSeen = lite;
       },
       timeline: () => ({ points, breaks }),
+      clearTimeline() {
+        points.length = 0;
+        breaks.length = 0;
+        lastSeen = null;
+      },
       setInsets(i) {
         insets = i;
       },
@@ -994,4 +1129,15 @@ const game: GameService = {
 };
 
 const app = document.getElementById('app');
-if (app) mount(App, { target: app, props: { settings, hasSave: false, game } });
+/**
+ * A seed link in the address (ADR 0014 item 7): a fragment `#v<n>.`, which opens the sandbox on it.
+ * Only `v1` decodes; any other version opens the lost-valley page.
+ */
+const LINK_FRAGMENT = /^#v[0-9]+\./;
+const link = LINK_FRAGMENT.test(location.hash) ? location.hash.slice(1) : null;
+// A link pasted into this page's address changes only the fragment, which loads nothing: load
+// the page again, so it opens the link as a new page would.
+window.addEventListener('hashchange', () => {
+  if (LINK_FRAGMENT.test(location.hash)) location.reload();
+});
+if (app) mount(App, { target: app, props: { settings, hasSave: false, game, link } });

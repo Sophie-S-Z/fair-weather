@@ -361,3 +361,25 @@ test('a rewind into the forwarded range replays the script', () => {
   ]);
   expect(ofType(got, 'forwarded')[0]?.lite).toEqual(snapshots.at(-1)?.lite);
 });
+
+test('a reported fastForward carries the events of each step, and the lite after the first step and each season turn', () => {
+  // The seasons turn at every dusk, so 900 ticks hold two turns (after ticks 399 and 799).
+  const init: ToWorker = { ...initGolden, scenario: { ...scenario, seasonDays: 1 } } as ToWorker;
+  const paced = directCore();
+  paced.send(init);
+  paced.send({ t: 'advance', ticks: 900 });
+  const events = ofType(paced.got, 'events');
+  const snapshots = ofType(paced.got, 'snapshot');
+  const want = events.flatMap((e, i) => {
+    const lite = snapshots[i]?.lite;
+    const turned = i > 0 && lite?.season !== snapshots[i - 1]?.lite.season;
+    if (i > 0 && !turned && e.list.length === 0) return [];
+    return [{ tick: e.tick, events: e.list, ...(i === 0 || turned ? { lite } : {}) }];
+  });
+  expect(want.filter((s) => s.lite).map((s) => s.tick)).toEqual([0, 399, 799]);
+
+  const { send, got } = directCore();
+  send(init);
+  send({ t: 'fastForward', ticks: 900, id: 2, report: true });
+  expect(got).toEqual([{ t: 'forwarded', id: 2, tick: 900, lite: snapshots.at(-1)?.lite, steps: want }]);
+});

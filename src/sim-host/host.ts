@@ -1,7 +1,7 @@
 // The main-thread side of the worker (ADR 0009 items 1 and 5): the accepted log, the last
 // checkpoint, and restart with replay.
 import type { Command, World } from '../sim/types.ts';
-import type { FromWorker, SimPort, ToWorker, WorldLite } from './protocol.ts';
+import type { ForwardStep, FromWorker, SimPort, ToWorker, WorldLite } from './protocol.ts';
 
 export interface SimHost extends SimPort {
   /** Sends any message. `init` starts a new run; `commands` is the same as `send`. */
@@ -20,11 +20,13 @@ export interface SimHost extends SimPort {
    * list run at its tick. Once it answers, `log()` holds the script's lists in tick order, so a
    * restart replays them. Rejects, and the run and the log stay where they were, when the worker
    * fails or restarts first. Commands sent after a rejected forward replay at the tick before it.
+   * With `report`, it also gives the forward's steps (ForwardStep).
    */
   fastForward(
     ticks: number,
     script?: readonly { tick: number; list: Command[] }[],
-  ): Promise<{ tick: number; lite: WorldLite }>;
+    report?: boolean,
+  ): Promise<{ tick: number; lite: WorldLite; steps?: ForwardStep[] }>;
   log(): readonly { tick: number; list: Command[] }[];
   /** Calls `cb` each time the host stops restarting the worker; returns an unsubscribe. */
   onGiveUp(cb: (reason: string) => void): () => void;
@@ -70,7 +72,7 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
     {
       ticks: number;
       script: { tick: number; list: Command[] }[] | undefined;
-      resolve(r: { tick: number; lite: WorldLite }): void;
+      resolve(r: { tick: number; lite: WorldLite; steps?: ForwardStep[] }): void;
       reject(e: Error): void;
     }
   >();
@@ -204,7 +206,11 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
       }
       // falls through
       case 'rewound':
-        liteWaiters.get(m.id)?.resolve({ tick: m.tick, lite: m.lite });
+        liteWaiters.get(m.id)?.resolve({
+          tick: m.tick,
+          lite: m.lite,
+          ...(m.t === 'forwarded' && m.steps ? { steps: m.steps } : {}),
+        });
         liteWaiters.delete(m.id);
         return;
       case 'error':
@@ -280,7 +286,7 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
     make: (id: number) => ToWorker,
     ticks = 0,
     script?: { tick: number; list: Command[] }[],
-  ): Promise<{ tick: number; lite: WorldLite }> {
+  ): Promise<{ tick: number; lite: WorldLite; steps?: ForwardStep[] }> {
     return new Promise((resolve, reject) => {
       if (gaveUp !== null) {
         reject(new Error(gaveUp));
@@ -366,10 +372,16 @@ export function createSimHost(spawn: () => Endpoint, opts: HostOptions = {}): Si
     rewind(tick) {
       return askLite((id) => ({ t: 'rewind', tick, id }));
     },
-    fastForward(ticks, script) {
+    fastForward(ticks, script, report = false) {
       const lists = script?.map((e) => ({ tick: e.tick, list: [...e.list] }));
       return askLite(
-        (id) => ({ t: 'fastForward', ticks, id, ...(lists ? { script: lists } : {}) }),
+        (id) => ({
+          t: 'fastForward',
+          ticks,
+          id,
+          ...(lists ? { script: lists } : {}),
+          ...(report ? { report: true as const } : {}),
+        }),
         ticks,
         lists,
       );

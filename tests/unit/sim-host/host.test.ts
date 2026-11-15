@@ -455,3 +455,20 @@ test('a script entry whose tick is not a whole number is not logged, as the core
   s.spawned[0]?.port.dispatchEvent(new Event('error'));
   expect(await host.requestHash()).toEqual(want);
 });
+
+test("a reported fastForward resolves with the worker's steps, and an unreported one with none", async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  const seen: FromWorker[] = [];
+  host.onMessage((m) => seen.push(m));
+  host.post(initGolden);
+  const plain = await host.fastForward(50);
+  expect(plain.steps).toBeUndefined();
+  const done = await host.fastForward(50, undefined, true);
+  expect(done.tick).toBe(100);
+  // Its first step is tick 50, with the world after it; every other step has events.
+  expect(done.steps?.[0]?.tick).toBe(50);
+  expect(done.steps?.[0]?.lite?.creatures).toHaveLength(plain.lite.creatures.length);
+  expect(done.steps?.slice(1).every((st) => st.lite === undefined && st.events.length > 0)).toBe(true);
+  expect(seen).toEqual([]);
+});

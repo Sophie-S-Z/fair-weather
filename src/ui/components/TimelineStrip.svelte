@@ -24,7 +24,8 @@
 
   const first = $derived(timeline.points[0]?.tick ?? 0);
   const value = $derived(rewind.at ?? rewind.now);
-  const dayOf = (t: number): number => Math.floor((t - first) / rewind.ticksPerDay) + 1;
+  /** The world's own day at `t`, also in a run whose strip starts later (an opened seed link). */
+  const dayOf = (t: number): number => Math.floor(t / rewind.ticksPerDay) + 1;
   const dayText = $derived(`Day ${String(dayOf(value))}${rewind.at === null ? ', now' : ''}`);
   /** "Day 3: 12 creatures, mean warmth 0.41", from the last point at or before the strip's tick. */
   const valueText = $derived.by(() => {

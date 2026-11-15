@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
-import { canvasPoints } from './helpers.ts';
+import { canvasPoints, keepProfile } from './helpers.ts';
 
 /** The sandbox run's newest snapshot and its tick, or null before the first. */
 const run = (page: Page) =>
@@ -24,35 +24,6 @@ async function open(page: Page, query = ''): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
   await expect(page.getByRole('application', { name: 'The sandbox valley' })).toBeFocused();
   await expect.poll(async () => (await run(page)) !== null).toBe(true);
-}
-
-/** Writes a profile with one kept year, as a finished Part 1 leaves it, and the finished `valleys`. */
-async function keepProfile(page: Page, valleys: string[]): Promise<void> {
-  await page.evaluate(
-    (valleys) =>
-      new Promise<void>((resolve, reject) => {
-        const req = indexedDB.open('fair-weather', 1);
-        req.onupgradeneeded = () => req.result.createObjectStore('saves');
-        req.onerror = () => {
-          reject(req.error ?? new Error('open failed'));
-        };
-        req.onsuccess = () => {
-          const tx = req.result.transaction('saves', 'readwrite');
-          const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
-          tx.objectStore('saves').put(
-            { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0, valleys },
-            'profile',
-          );
-          tx.oncomplete = () => {
-            resolve();
-          };
-          tx.onerror = () => {
-            reject(tx.error ?? new Error('put failed'));
-          };
-        };
-      }),
-    valleys,
-  );
 }
 
 const PANELS = ['Population', 'Rules', 'Weather', 'Network'];

@@ -27,11 +27,13 @@
   import type { Verb, VerbInput } from '../../story/verbs.ts';
   import ChallengeCard from '../components/ChallengeCard.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
+  import SharePanel from '../components/SharePanel.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
   import { createFrameLoop } from '../frame-loop.ts';
   import { createRewind } from '../rewind.svelte.ts';
+  import { readValleyFile } from '../save-file.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import {
     byId,
@@ -49,14 +51,20 @@
     settings,
     status,
     openNew,
+    link,
+    onLost,
     onExit,
   }: {
     game: GameService;
     settings: Writable<Settings>;
     /** What the start choice offers (ADR 0014 item 1). */
-    status: { kith: boolean; valleys: readonly SandboxValley[] };
+    status: { kith: boolean; valleys: readonly SandboxValley[]; saved: boolean };
     /** Opens a new Kith valley at once, without the start choice (dev ?sandbox=new). */
     openNew: boolean;
+    /** A seed link's `v1.<data>` text to open at once, without the start choice (ADR 0014 item 7). */
+    link: string | null;
+    /** An old or broken link or valley file: the lost-valley page shows. */
+    onLost: () => void;
     onExit: () => void;
   } = $props();
 
@@ -107,6 +115,11 @@
   let tool = $state<SandboxTool>('place');
   let placeKind = $state<PlaceKind>('bench');
   let gateLit = $state(true);
+  /** Whether a snapshot of the run now told the gate's lamp yet: an opened link may start with it dark. */
+  let gateRead = false;
+  /** What Share gave while the Share panel is open, or null. */
+  type Shared = Awaited<ReturnType<GameService['sandbox']['share']>>;
+  let shared: Shared | null = $state.raw(null);
   let cursor = $state({ x: 0, y: 0 });
   let picked: string | null = $state(null);
   let nearby: string | null = $state(null);
@@ -222,23 +235,37 @@
   }
 
   /**
-   * Starts a run of `s` from day 0; the run before stops once it has started. When the start fails,
-   * `undo` puts the control back to the setup's value, and the status region says so. `from` is the
-   * control that asked, which gets the focus back if it lost it while it was off.
+   * Starts a run with `begin` (a start of a setup from day 0, or an open of a link); the run before
+   * stops once it has started. When the start fails, `undo` puts the control back to the setup's
+   * value, and the status region says so. `from` is the control that asked, which gets the focus
+   * back if it lost it while it was off. An open that gives null (an old or broken link) shows the
+   * lost-valley page.
    */
-  async function run(s: SandboxSetup, undo?: () => void, from?: HTMLElement): Promise<void> {
+  async function run(
+    begin: () => Promise<SandboxRunner | null>,
+    undo?: () => void,
+    from?: HTMLElement,
+  ): Promise<void> {
     const token = (runs += 1);
     notice = null;
     starting = true;
     let r: SandboxRunner | null = null;
+    let lost = false;
     try {
-      r = await game.sandbox.start(s);
+      r = await begin();
+      lost = r === null;
     } catch (e) {
       // Ids only, for whoever reads the console.
       console.error(e);
     }
     if (token !== runs || gone) return;
     starting = false;
+    if (lost) {
+      // The player's own run, when they acted in it, stays as the save.
+      await game.sandbox.leave();
+      onLost();
+      return;
+    }
     if (!r) {
       undo?.();
       dead = game.sandbox.workerFailed();
@@ -254,13 +281,15 @@
     await tick();
     // A control that lost the focus while it was off gets it back; when it stays off, Back to title gets it.
     if (document.activeElement === document.body)
-      (dead ? document.querySelector<HTMLElement>('.top button') : from)?.focus();
+      (dead ? document.querySelector<HTMLElement>('.top button:enabled') : from)?.focus();
     if (!r) return;
+    const s = r.setup;
     loop.stop();
     if (stage && s.valley !== setup?.valley) {
       stage.setScene(game.sandbox.scene(s.valley));
       cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     }
+    stage?.clearTimeline();
     next = null;
     rw.reset();
     notes = game.sandbox.notes();
@@ -272,12 +301,17 @@
     setup = s;
     r.setPlaceKind(placeKind);
     gateLit = true;
+    gateRead = false;
     threadFrom = null;
     pathFrom = null;
     whisperCard = null;
     speedNow = game.currentSpeed();
     loop.start();
+    // The run's first snapshot came before the start resolved: an opened link waits paused there.
+    const first = game.sandbox.snapshot();
+    if (first) show(first.lite, first.tick);
   }
+  const startOf = (s: SandboxSetup) => () => game.sandbox.start(s);
 
   /**
    * A knob or a switch changed: the run starts again from day 0, keeping what the player placed
@@ -290,12 +324,12 @@
   ): void {
     if (!setup) return;
     void run(
-      {
+      startOf({
         ...setup,
         ...change,
         structures: game.sandbox.placedStructures(),
         bushes: game.sandbox.placedBushes(),
-      },
+      }),
       undo,
       from,
     );
@@ -329,8 +363,24 @@
   async function choose(valley: SandboxValley, fromKith: boolean): Promise<void> {
     const [s, st] = await Promise.all([game.sandbox.newSetup(valley, fromKith), stageReady]);
     if (!st || gone) return;
-    st.setGateLamp(true);
-    await run(s);
+    await enter(startOf(s));
+  }
+  /** Opens a valley file's text (ADR 0014 item 7), from the start choice or the Share panel. */
+  function openText(text: string): void {
+    shared = null;
+    void stageReady?.then(() => enter(() => game.sandbox.open(text)));
+  }
+  async function openFile(e: Event & { currentTarget: HTMLInputElement }): Promise<void> {
+    const file = e.currentTarget.files?.[0];
+    if (file) openText(await readValleyFile(file));
+  }
+  /**
+   * Starts the run of `begin` with the gate's lamp lit, then gives the focus to the scene, or after
+   * a failed start to the start choice.
+   */
+  async function enter(begin: () => Promise<SandboxRunner | null>): Promise<void> {
+    stage?.setGateLamp(true);
+    await run(begin);
     await tick();
     // After a failed start the choice stays, with its enabled buttons (Back to title at least).
     if (setup) sceneEl.focus();
@@ -342,7 +392,7 @@
    * one pressed went away or was off while the start waited.
    */
   async function runFromCard(s: SandboxSetup): Promise<void> {
-    await run(s);
+    await run(startOf(s));
     await tick();
     if (document.activeElement === document.body)
       document.querySelector<HTMLElement>('.challenges button:enabled')?.focus();
@@ -374,6 +424,21 @@
   }
   function dance(): void {
     if (rw.at === null && runner?.startDance()) danced = true;
+  }
+  /** Share pauses the run and opens the Share panel with what it gave (ADR 0014 item 7). */
+  async function share(): Promise<void> {
+    try {
+      shared = await game.sandbox.share();
+    } catch (e) {
+      console.error(e);
+      notice = 'The valley could not be shared.';
+    }
+  }
+  /** Back to title keeps the run as the sandbox save when the player acted in it. */
+  async function exit(): Promise<void> {
+    shared = null;
+    await game.sandbox.leave();
+    onExit();
   }
 
   /** Uses a verb on the run; with a run going on, the player's verb also ends a failed start's notice. */
@@ -415,6 +480,27 @@
       document.querySelector<HTMLElement>('.panels summary')?.focus();
   }
 
+  /** A live snapshot of the run now, which the scene draws and the tools act on. */
+  function show(lite: WorldLite, at: number): void {
+    season = lite.season;
+    if (!runner || !stage || !setup) return;
+    if (!gateRead) {
+      gateRead = true;
+      gateLit = !lite.gateDark;
+    }
+    stage.snapshot(at, lite);
+    rw.live(at);
+    next = lite;
+    loop.push(lite);
+    nearby = nearbyAt(cursor);
+    const valley = valleyChapter(setup.valley);
+    const palette = valley ? (valley.palette ?? valley.season) : lite.season;
+    if (palette !== paletteNow) {
+      stage.setPalette(palette);
+      paletteNow = palette;
+    }
+  }
+
   // The Meadow draws the cursor while a tool acts at it.
   $effect(() => {
     stage?.setCursor(setup && pointing ? { x: cursor.x, y: cursor.y } : null);
@@ -422,23 +508,7 @@
 
   onMount(() => {
     const offs: (() => void)[] = [];
-    offs.push(
-      game.onSnapshot((lite, at) => {
-        season = lite.season;
-        if (!runner || !stage || !setup) return;
-        stage.snapshot(at, lite);
-        rw.live(at);
-        next = lite;
-        loop.push(lite);
-        nearby = nearbyAt(cursor);
-        const valley = valleyChapter(setup.valley);
-        const palette = valley ? (valley.palette ?? valley.season) : lite.season;
-        if (palette !== paletteNow) {
-          stage.setPalette(palette);
-          paletteNow = palette;
-        }
-      }),
-    );
+    offs.push(game.onSnapshot(show));
     stageReady = game.createStage(sceneEl).then((s) => {
       if (gone) {
         s.destroy();
@@ -493,7 +563,14 @@
       );
       return s;
     });
-    if (untrack(() => openNew)) void choose('kith', false);
+    const opening = untrack(() => link);
+    if (opening !== null)
+      void stageReady.then(async () => {
+        await enter(() => game.sandbox.open(opening));
+        // A reload does not open the link again (ADR 0014 item 7).
+        history.replaceState(history.state, '', location.pathname + location.search);
+      });
+    else if (untrack(() => openNew)) void choose('kith', false);
     else document.querySelector<HTMLElement>('.choice button')?.focus();
     return () => {
       gone = true;
@@ -507,7 +584,7 @@
 </script>
 
 <div class="sandbox">
-  <div class="layer" inert={whisperCard !== null || setup === null}>
+  <div class="layer" inert={whisperCard !== null || setup === null || shared !== null}>
     <!-- The scene is a keyboard surface (spec 12.5), as on the game screen. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div
@@ -528,7 +605,10 @@
       <main class="hud">
         <div class="top">
           <h1 class="title">Sandbox: {valleyName}</h1>
-          <button type="button" onclick={onExit}>Back to title</button>
+          <div class="actions">
+            <button type="button" disabled={locked} onclick={() => void share()}>Share this valley</button>
+            <button type="button" onclick={() => void exit()}>Back to title</button>
+          </div>
         </div>
         <div class="panels">
           <SandboxPanel
@@ -655,9 +735,28 @@
             >{valleyChapter(v)?.title ?? v}</button
           >
         {/each}
+        {#if status.saved}
+          <button
+            type="button"
+            disabled={locked}
+            onclick={() => void stageReady?.then(() => enter(() => game.sandbox.openSaved()))}
+            >Go on with your last valley</button
+          >
+        {/if}
       </div>
+      <label class="file">
+        Open a valley file
+        <input type="file" accept=".fairweather" disabled={locked} onchange={openFile} />
+      </label>
       <button type="button" onclick={onExit}>Back to title</button>
     </main>
+  {:else if shared}
+    <SharePanel
+      {shared}
+      fileName={game.sandbox.valleyFile}
+      onOpen={openText}
+      onClose={() => (shared = null)}
+    />
   {:else if whisperCard}
     <WhisperCard
       target={whisperCard.target}
@@ -799,5 +898,15 @@
     flex-direction: column;
     gap: 0.75rem;
     margin-bottom: 1.5rem;
+  }
+  .file {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .actions {
+    display: flex;
+    gap: 0.5rem;
   }
 </style>

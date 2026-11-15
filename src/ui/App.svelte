@@ -9,23 +9,40 @@
   import Game from './screens/Game.svelte';
   import BookOfSkies from './screens/BookOfSkies.svelte';
   import Sandbox from './screens/Sandbox.svelte';
+  import LostValley from './screens/LostValley.svelte';
   import type { SandboxValley } from '../story/sandbox.ts';
 
-  let { settings, hasSave, game }: { settings: Writable<Settings>; hasSave: boolean; game: GameService } =
-    $props();
+  let {
+    settings,
+    hasSave,
+    game,
+    link,
+  }: {
+    settings: Writable<Settings>;
+    hasSave: boolean;
+    game: GameService;
+    /** The seed link the address held at load (`v<n>.<data>`), or null (ADR 0014 item 7). */
+    link: string | null;
+  } = $props();
 
-  /** A dev build's ?sandbox=new opens the sandbox on a new Kith valley, once. */
-  let sandboxNew = $state(untrack(() => game.sandbox.devOpen));
-  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' = $state(
-    untrack(() => game.sandbox.devOpen) ? 'sandbox' : 'title',
+  /**
+   * The link the sandbox opens at once, for anyone, also before Part 1 ends; the title's Sandbox
+   * button stays locked (ADR 0014 item 7).
+   */
+  let sandboxLink = $state(untrack(() => link));
+  /** A dev build's ?sandbox=new opens the sandbox on a new Kith valley, once; a link comes first. */
+  let sandboxNew = $state(untrack(() => game.sandbox.devOpen && link === null));
+  let screen: 'title' | 'settings' | 'game' | 'book' | 'sandbox' | 'lost' = $state(
+    untrack(() => sandboxNew || sandboxLink !== null) ? 'sandbox' : 'title',
   );
   let saved = $state(false);
   let resume = $state(false);
   let book: { pages: BookPage[]; feathers: number } = $state.raw({ pages: [], feathers: 0 });
-  let sandbox: { unlocked: boolean; kith: boolean; valleys: SandboxValley[] } = $state.raw({
+  let sandbox: { unlocked: boolean; kith: boolean; valleys: SandboxValley[]; saved: boolean } = $state.raw({
     unlocked: false,
     kith: false,
     valleys: [],
+    saved: false,
   });
   /** Why the title's Sandbox button is disabled (ADR 0014 item 1), or null while it opens. */
   const sandboxClosed = $derived(
@@ -63,12 +80,19 @@
     screen = 'title';
     readStore();
   }
-  /** Back to the title, with focus on the Sandbox button that opened the sandbox. */
+  /**
+   * Back to the title, with focus on the Sandbox button that opened the sandbox, or on the first
+   * button when a link opened it and the button stays locked.
+   */
   function leaveSandbox(): void {
     sandboxNew = false;
+    sandboxLink = null;
     screen = 'title';
     readStore();
-    void tick().then(() => document.getElementById('title-sandbox')?.focus());
+    void tick().then(() => {
+      const button = document.querySelector<HTMLButtonElement>('#title-sandbox:enabled');
+      (button ?? document.querySelector<HTMLElement>('nav button'))?.focus();
+    });
   }
 
   $effect(() => {
@@ -82,7 +106,19 @@
 {#if screen === 'game'}
   <Game {game} {settings} {resume} onExit={leaveGame} />
 {:else if screen === 'sandbox'}
-  <Sandbox {game} {settings} status={sandbox} openNew={sandboxNew} onExit={leaveSandbox} />
+  <Sandbox
+    {game}
+    {settings}
+    status={sandbox}
+    openNew={sandboxNew}
+    link={sandboxLink}
+    onLost={() => {
+      sandboxNew = false;
+      sandboxLink = null;
+      screen = 'lost';
+    }}
+    onExit={leaveSandbox}
+  />
 {:else}
   <main>
     {#if screen === 'title'}
@@ -99,6 +135,13 @@
         {sandboxClosed}
         onSandbox={() => (screen = 'sandbox')}
         onSettings={() => (screen = 'settings')}
+      />
+    {:else if screen === 'lost'}
+      <LostValley
+        onStartFresh={() => {
+          screen = 'title';
+          readStore();
+        }}
       />
     {:else if screen === 'book'}
       <BookOfSkies pages={book.pages} feathers={book.feathers} onBack={() => (screen = 'title')} />

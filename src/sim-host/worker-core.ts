@@ -4,10 +4,10 @@ import { hashWorld } from '../sim/hash.ts';
 import { step } from '../sim/step.ts';
 import { parseTuning } from '../sim/tuning.ts';
 import type { Tuning } from '../sim/tuning.ts';
-import type { Command, World } from '../sim/types.ts';
+import type { Command, SimEvent, World } from '../sim/types.ts';
 import { createWorld } from '../sim/world.ts';
 import { toLite } from './lite.ts';
-import type { FromWorker, ToWorker, WorldLite } from './protocol.ts';
+import type { ForwardStep, FromWorker, ToWorker, WorldLite } from './protocol.ts';
 
 export interface Clock {
   now(): number;
@@ -52,9 +52,9 @@ export function createWorkerCore(
 
   /**
    * Runs one step and posts its events and snapshot, and a checkpoint after dusk, unless `quiet`;
-   * keeps the dusk copy either way. False on error.
+   * keeps the dusk copy either way. Returns the step's events, or null on error.
    */
-  function stepOnce(w: World, t: Tuning, quiet = false): boolean {
+  function stepOnce(w: World, t: Tuning, quiet = false): SimEvent[] | null {
     const tick = w.tick;
     const list = pending;
     pending = [];
@@ -64,19 +64,19 @@ export function createWorkerCore(
         const bad = checkInvariants(w, t);
         if (bad.length > 0) {
           fail(`invariant violation after tick ${String(tick)}: ${bad.join('; ')}`, tick);
-          return false;
+          return null;
         }
       }
       const dusk = tick % w.ticksPerDay === w.ticksPerDay - 1;
       if (dusk) kept.push(structuredClone(w));
-      if (quiet) return true;
+      if (quiet) return events;
       post({ t: 'events', tick, list: events });
       post({ t: 'snapshot', tick: w.tick, lite: toLite(w, t) });
       if (dusk) post({ t: 'checkpoint', tick: w.tick, world: structuredClone(w) });
-      return true;
+      return events;
     } catch (e) {
       fail(e instanceof Error ? e.message : String(e), tick);
-      return false;
+      return null;
     }
   }
 
@@ -161,16 +161,28 @@ export function createWorkerCore(
         return;
       case 'fastForward': {
         const script = Array.isArray(m.script) ? m.script : []; // it crosses the worker boundary
+        const steps: ForwardStep[] | null = m.report === true ? [] : null;
         for (let i = 0; i < m.ticks; i++) {
           const at = world.tick;
+          const season = world.season;
           for (const e of script) {
             if (e.tick !== at || !Array.isArray(e.list)) continue;
             pending.push(...e.list);
             accepted.push({ tick: at, list: e.list });
           }
-          if (!stepOnce(world, tuning, true)) return;
+          const events = stepOnce(world, tuning, true);
+          if (!events) return;
+          const shown = i === 0 || world.season !== season;
+          if (steps && (shown || events.length > 0))
+            steps.push({ tick: at, events, ...(shown ? { lite: toLite(world, tuning) } : {}) });
         }
-        post({ t: 'forwarded', id: m.id, tick: world.tick, lite: toLite(world, tuning) });
+        post({
+          t: 'forwarded',
+          id: m.id,
+          tick: world.tick,
+          lite: toLite(world, tuning),
+          ...(steps ? { steps } : {}),
+        });
         return;
       }
     }

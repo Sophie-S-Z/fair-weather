@@ -6,34 +6,15 @@ import { readFileSync } from 'node:fs';
 import { inflateRawSync } from 'node:zlib';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import type { WorldLite } from '../../src/sim-host/protocol.ts';
-import { keepProfile, press } from './helpers.ts';
+import { hash, keepProfile, openNew, press, running, sandboxRun, sent } from './helpers.ts';
 
 // These tests check the round trip, not the layout, so the page is a small desktop one: with no GPU
 // every frame is drawn in software, and its cost grows with its pixels, so each step waits less.
 test.use({ viewport: { width: 960, height: 540 } });
 
 type Hash = { tick: number; value: string };
-type Dev = {
-  sandbox(): { tick: number; lite: WorldLite } | null;
-  hash(): Promise<{ tick: number; value: string }>;
-  sent: number;
-};
-/** The dev hook's hash of the world now and its tick. */
-const hash = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.hash());
-/** The command lists the runner sent. */
-const sent = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sent);
 /** The kinds of the run's structures, in id order. */
-const structures = (page: Page) =>
-  page.evaluate(
-    () =>
-      (window as unknown as { fairWeather: Dev }).fairWeather.sandbox()?.lite.structures.map((s) => s.kind) ??
-      [],
-  );
-const running = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox() !== null);
+const structures = async (page: Page) => (await sandboxRun(page))?.lite.structures.map((s) => s.kind) ?? [];
 /** The sandbox save the profile holds, or null. */
 const storedSandbox = (page: Page) =>
   page.evaluate(
@@ -53,14 +34,6 @@ const scene = (page: Page) => page.getByRole('application', { name: 'The sandbox
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Share this valley' });
 const pause = (page: Page) =>
   page.getByRole('group', { name: 'Time' }).getByRole('button', { name: 'Pause' });
-
-/** Opens a new Kith valley of seed 7 and waits for its first snapshot, so the tools act. */
-async function openNew(page: Page, query = ''): Promise<void> {
-  await page.goto(`/?sandbox=new&seed=7${query}`);
-  await expect(heading(page)).toBeVisible();
-  await expect(scene(page)).toBeFocused();
-  await expect.poll(() => running(page)).toBe(true);
-}
 
 /** A bench, a path, and a whisper, by keys only. */
 async function act(page: Page): Promise<void> {
@@ -366,13 +339,9 @@ test('an opened Bell link keeps its dance: Start the dance stays off', async ({ 
 test('Share is off while the strip is rewound, and says why', async ({ page }) => {
   await openNew(page, '&fast=10');
   await expect
-    .poll(
-      () =>
-        page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox()?.lite.day ?? 0),
-      {
-        timeout: 30_000,
-      },
-    )
+    .poll(() => sandboxRun(page).then((r) => r?.lite.day ?? 0), {
+      timeout: 30_000,
+    })
     .toBeGreaterThan(0);
   const button = page.getByRole('button', { name: 'Share this valley' });
   await expect(button).toBeEnabled();

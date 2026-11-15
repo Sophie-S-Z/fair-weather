@@ -1,5 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
-import { canvasPoints, pausedFrames, tabTo, tap } from './helpers.ts';
+import { canvasPoints, pausedFrames, sent, tabTo, tap } from './helpers.ts';
 
 // The vertical slice (M1.8, M1.12). Dev builds only: ?chapter=N starts at chapter N, and ?fast=N
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
@@ -577,8 +577,6 @@ test('without reduced motion, the paused scene boils (the control for the test a
 test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now restores the speed', async ({
   page,
 }) => {
-  const sent = async () =>
-    page.evaluate(() => (window as unknown as { fairWeather: { sent: number } }).fairWeather.sent);
   await page.goto('/?chapter=9');
   await page.getByRole('button', { name: 'Begin' }).click();
   // ch6 opens its bet at tick 1; the range waits for its reveal.
@@ -622,21 +620,21 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
       { intervals: [500] },
     )
     .toBe(true);
-  const before = await sent();
+  const before = await sent(page);
   // Space and the tool send nothing while rewound.
   const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
   await cosmos.focus();
   await page.keyboard.press('Enter');
   await page.keyboard.press(' ');
   await page.waitForTimeout(300);
-  expect(await sent()).toBe(before);
+  expect(await sent(page)).toBe(before);
   expect((await dev(page)).speeds.at(-1)).toBe(0);
   await page.getByRole('button', { name: 'Back to now' }).click();
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
   // The control: back at now, the same Enter sends the fog command.
   await cosmos.focus();
   await page.keyboard.press('Enter');
-  await expect.poll(sent).toBeGreaterThan(before);
+  await expect.poll(() => sent(page)).toBeGreaterThan(before);
 });
 
 for (const [n, heading] of [

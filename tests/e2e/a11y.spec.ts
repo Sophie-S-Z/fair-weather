@@ -1,11 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
-import { tap } from './helpers.ts';
-
-async function seriousViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-}
+import { lastSpeed, seriousViolations, tap } from './helpers.ts';
 
 test('title and settings screens have no serious axe issues', async ({ page }) => {
   await page.goto('/');
@@ -417,10 +411,7 @@ test('B opens the Book of Skies as a modal dialog with the sim paused; Escape cl
   await page.getByRole('button', { name: 'Begin' }).click();
   const scene = page.getByRole('application', { name: 'The meadow' });
   await expect(scene).toBeFocused();
-  const speeds = () =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = () => lastSpeed(page);
   await expect.poll(speeds).toBe(1);
   await page.keyboard.press('b');
   const book = page.getByRole('dialog', { name: 'Book of Skies' });
@@ -475,10 +466,7 @@ test('the drawer opens Where this model is wrong as a modal dialog with the sim 
   await page.getByRole('button', { name: 'Begin' }).click();
   const scene = page.getByRole('application', { name: 'The meadow' });
   await expect(scene).toBeFocused();
-  const speeds = () =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = () => lastSpeed(page);
   await expect.poll(speeds).toBe(1);
   await page.getByRole('button', { name: 'Diary and notes' }).click();
   const open = page.getByRole('region', { name: 'Margin notes' }).getByRole('button', {
@@ -516,10 +504,7 @@ test('Where this model is wrong in the game leaves a paused sim paused, and cann
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
-  const speeds = () =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = () => lastSpeed(page);
   await expect.poll(speeds).toBe(1);
   await page.keyboard.press('Space');
   await expect.poll(speeds).toBe(0);
@@ -983,10 +968,7 @@ test.describe('the travel journal', () => {
     );
     return scene;
   }
-  const speeds = (page: Page) =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = lastSpeed;
 
   test('J opens a one-page journal with the sim paused; Escape closes it; no serious axe issues', async ({
     page,

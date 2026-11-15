@@ -1,14 +1,6 @@
 // M4.19: the help sheet, the phone layout, and the bundled type (ADR 0014 items 14 and 15).
-import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
-import { controlClashes } from './helpers.ts';
-
-async function seriousViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-}
-const speeds = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1));
+import { controlClashes, lastSpeed, running, seriousViolations } from './helpers.ts';
 
 /** Starts chapter 0 and waits until the scene has focus. */
 async function startGame(page: Page) {
@@ -25,13 +17,7 @@ async function startSandbox(page: Page) {
   await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
   const scene = page.getByRole('application', { name: 'The sandbox valley' });
   await expect(scene).toBeFocused();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { fairWeather: { sandbox(): unknown } }).fairWeather.sandbox() !== null,
-      ),
-    )
-    .toBe(true);
+  await expect.poll(() => running(page)).toBe(true);
   return scene;
 }
 /** Starts the Fen with a one-page journey, so the journal and its dialog open. */
@@ -68,7 +54,7 @@ test.describe('the help sheet', () => {
     page,
   }) => {
     const scene = await startGame(page);
-    await expect.poll(() => speeds(page)).toBe(1);
+    await expect.poll(() => lastSpeed(page)).toBe(1);
     await page.keyboard.press('?');
     const help = page.getByRole('dialog', { name: 'Keys' });
     await expect(help).toBeVisible();
@@ -80,12 +66,12 @@ test.describe('the help sheet', () => {
     for (const name of [/^P /, /^W /, /^Z, X /, /^G, H, R /, /^O, K /, /^L /, /^J, B /, /^1 to 8 /]) {
       await expect(help.getByRole('row', { name })).toHaveCount(0);
     }
-    await expect.poll(() => speeds(page)).toBe(0);
+    await expect.poll(() => lastSpeed(page)).toBe(0);
     expect(await seriousViolations(page)).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(help).toBeHidden();
     await expect(scene).toBeFocused();
-    await expect.poll(() => speeds(page)).toBe(1);
+    await expect.poll(() => lastSpeed(page)).toBe(1);
   });
 
   test('? opens the keys from a button too, and not while typing in a field', async ({ page }) => {

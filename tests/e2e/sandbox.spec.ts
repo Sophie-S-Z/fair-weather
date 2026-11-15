@@ -3,16 +3,8 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import type { WorldLite } from '../../src/sim-host/protocol.ts';
-import { canvasPoints, keepProfile } from './helpers.ts';
+import { canvasPoints, keepProfile, sandboxRun as run } from './helpers.ts';
 
-/** The sandbox run's newest snapshot and its tick, or null before the first. */
-const run = (page: Page) =>
-  page.evaluate(() =>
-    (
-      window as unknown as { fairWeather: { sandbox(): { tick: number; lite: WorldLite } | null } }
-    ).fairWeather.sandbox(),
-  );
 /** A tool's radio, also in a closed panel. */
 const radio = (page: Page, name: string) => page.getByRole('radio', { name, includeHidden: true });
 const status = (page: Page) => page.getByRole('status').filter({ hasText: /^Tool: / });

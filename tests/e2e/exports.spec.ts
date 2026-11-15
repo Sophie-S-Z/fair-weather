@@ -4,35 +4,15 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { captures, frames, lastSpeed, openNew, speeds } from './helpers.ts';
 
-type Dev = {
-  sandbox(): unknown;
-  frames: number;
-  captures: number;
-  speeds: number[];
-  encodeGif(
-    frames: { width: number; height: number; data: Uint8ClampedArray; delayMs: number }[],
-  ): Uint8Array;
-};
-const running = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox() !== null);
-const speeds = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.speeds);
-const frames = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.frames);
-const captures = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.captures);
-const lastSpeed = (page: Page) =>
-  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.speeds.at(-1));
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Make a postcard' });
 const caption = (page: Page) => dialog(page).getByLabel('Caption (at most 60 characters)');
 const EXPORT_LINE = 'The image shows the words that you wrote. It stays on this device until you share it.';
 
 /** Opens a new Kith valley at 2x and waits until the scene drew some frames, which the ring keeps. */
-async function openNew(page: Page): Promise<void> {
-  await page.goto('/?sandbox=new&seed=7');
-  await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
-  await expect.poll(() => running(page)).toBe(true);
+async function openAtTwo(page: Page): Promise<void> {
+  await openNew(page);
   await page.getByRole('group', { name: 'Time' }).getByRole('button', { name: '2×' }).click();
   await expect.poll(() => lastSpeed(page)).toBe(2);
   const drawn = await frames(page);
@@ -80,7 +60,7 @@ const readGif = (page: Page, base64: string) =>
 test('Save the postcard downloads a 480 x 318 GIF of the scene, with the sim paused, and the speed back after', async ({
   page,
 }) => {
-  await openNew(page);
+  await openAtTwo(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(caption(page)).toBeFocused();
@@ -116,7 +96,7 @@ test('Save the postcard downloads a 480 x 318 GIF of the scene, with the sim pau
 });
 
 test('a 70-character caption keeps 60 characters; an emoji counts as one', async ({ page }) => {
-  await openNew(page);
+  await openAtTwo(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
   const kept = `${'a'.repeat(59)}👍🏽`;
   await caption(page).fill(`${kept}${'b'.repeat(10)}`);
@@ -124,7 +104,7 @@ test('a 70-character caption keeps 60 characters; an emoji counts as one', async
 });
 
 test('the caption is cut only when an input method ends its composition', async ({ page }) => {
-  await openNew(page);
+  await openAtTwo(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
   const long = 'c'.repeat(70);
   // An input method types: while it composes, the text it has so far stays as it is.
@@ -147,7 +127,7 @@ test('only the sandbox captures frames', async ({ page }) => {
   await expect.poll(() => frames(page)).toBeGreaterThan(drawn + 10);
   // The story screen draws, but records nothing.
   expect(await captures(page)).toBe(0);
-  await openNew(page);
+  await openAtTwo(page);
   await expect.poll(() => captures(page)).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Back to title' }).click();
   await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible();
@@ -157,7 +137,7 @@ test('only the sandbox captures frames', async ({ page }) => {
 });
 
 test('a postcard that cannot be made says so once, and the game goes on', async ({ page }) => {
-  await openNew(page);
+  await openAtTwo(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
   // A frame cannot be drawn under its band, so the postcard cannot be made.
   await page.evaluate(() => {
@@ -180,7 +160,7 @@ test('a face that does not load leaves the fallback font, and the postcard still
   await page.addInitScript(() => {
     FontFaceSet.prototype.load = () => Promise.reject(new DOMException('No face', 'NetworkError'));
   });
-  await openNew(page);
+  await openAtTwo(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -206,7 +186,15 @@ test('the encoder output of a fixed 3-color frame set decodes to the same pixels
       return { width, height, data, delayMs: 100 };
     };
     const want = [make(0), make(1), make(2)];
-    const gif = (window as unknown as { fairWeather: Dev }).fairWeather.encodeGif(want);
+    const gif = (
+      window as unknown as {
+        fairWeather: {
+          encodeGif(
+            frames: { width: number; height: number; data: Uint8ClampedArray; delayMs: number }[],
+          ): Uint8Array;
+        };
+      }
+    ).fairWeather.encodeGif(want);
     const decoder = new ImageDecoder({ data: gif, type: 'image/gif' });
     await decoder.completed;
     const got: number[][] = [];

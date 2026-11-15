@@ -1,9 +1,58 @@
 // Helpers the e2e specs share. They read the screen in one page.evaluate where they can: locator
 // actions wait on animation frames, which software rendering (CI with no GPU) draws two or three
 // times a second, and at ?fast=10 a sky bid's 6 s reply window is only 0.6 s of real time.
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
+import type { WorldLite } from '../../src/sim-host/protocol.ts';
 
 export type Point = { x: number; y: number };
+
+/** The axe issues of the page now that are serious or critical. */
+export async function seriousViolations(page: Page) {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+}
+
+/** The dev hook (`window.fairWeather`, src/main.ts) as far as the specs read it. */
+type Dev = {
+  sandbox(): { tick: number; lite: WorldLite } | null;
+  hash(): Promise<{ tick: number; value: string }>;
+  speeds: number[];
+  frames: number;
+  captures: number;
+  sent: number;
+};
+const fairWeather = <K extends keyof Dev>(page: Page, key: K) =>
+  page.evaluate((k) => {
+    const dev = (window as unknown as { fairWeather: Dev }).fairWeather;
+    return dev[k];
+  }, key);
+/** The sandbox run's newest snapshot and its tick, or null before the first. */
+export const sandboxRun = (page: Page) =>
+  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox());
+/** Whether a sandbox run has its first snapshot. */
+export const running = async (page: Page) => (await sandboxRun(page)) !== null;
+/** The hash of the world now and its tick. */
+export const hash = (page: Page) =>
+  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.hash());
+/** Every speed sent to the sim. */
+export const speeds = (page: Page) => fairWeather(page, 'speeds');
+/** The speed last sent to the sim. */
+export const lastSpeed = async (page: Page) => (await speeds(page)).at(-1);
+/** Frames drawn. */
+export const frames = (page: Page) => fairWeather(page, 'frames');
+/** Frames the postcard ring kept. */
+export const captures = (page: Page) => fairWeather(page, 'captures');
+/** Command lists the runner sent. */
+export const sent = (page: Page) => fairWeather(page, 'sent');
+
+/** Opens a new Kith valley of seed 7 (with `query` after it) and waits for its first snapshot, so the tools act. */
+export async function openNew(page: Page, query = ''): Promise<void> {
+  await page.goto(`/?sandbox=new&seed=7${query}`);
+  await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
+  await expect(page.getByRole('application', { name: 'The sandbox valley' })).toBeFocused();
+  await expect.poll(() => running(page)).toBe(true);
+}
 /** content/scenes/kith-meadow.json */
 export const SCENE = { width: 1600, height: 900 };
 
@@ -161,10 +210,8 @@ export async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
   const pause = page.getByRole('button', { name: 'Pause' });
   if ((await pause.getAttribute('aria-pressed')) !== 'true') {
     // Wait until the scene is being drawn from snapshots, so the pause holds a drawn world.
-    const frames = () =>
-      page.evaluate(() => (window as unknown as { fairWeather: { frames: number } }).fairWeather.frames);
-    const before = await frames();
-    await expect.poll(frames).toBeGreaterThan(before);
+    const before = await frames(page);
+    await expect.poll(() => frames(page)).toBeGreaterThan(before);
     await pause.click();
     await expect(pause).toHaveAttribute('aria-pressed', 'true');
   }

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { MythPage } from '../myth/grammar.ts';
 import { CarrySchema } from '../story/carry.ts';
 import type { Carry } from '../story/carry.ts';
-import { characters } from '../story/journey.ts';
+import { cutNote } from '../story/journey.ts';
 import { SANDBOX_VALLEYS } from '../story/sandbox.ts';
 import type { SandboxValley } from '../story/sandbox.ts';
 import { openDb } from './db.ts';
@@ -23,11 +23,6 @@ export interface SandboxSave {
   link: string;
   notes: { tick: number; text: string }[];
 }
-
-/** The longest note, in characters (graphemes). Notes are the player's own words and stay on the device. */
-export const NOTE_LENGTH = 80;
-/** `text` cut to NOTE_LENGTH characters, between graphemes. */
-export const cutNote = (text: string): string => characters(text).slice(0, NOTE_LENGTH).join('');
 
 export interface Profile {
   /** The pages in the order they were kept. */

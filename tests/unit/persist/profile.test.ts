@@ -2,9 +2,9 @@ import { IDBDatabase, IDBFactory } from 'fake-indexeddb';
 import { expect, test, vi } from 'vitest';
 import type { MythPage } from '../../../src/myth/grammar.ts';
 import type { Carry } from '../../../src/story/carry.ts';
-import { characters } from '../../../src/story/journey.ts';
+import { characters, cutNote } from '../../../src/story/journey.ts';
 import { openDb } from '../../../src/persist/db.ts';
-import { createProfile, cutNote } from '../../../src/persist/profile.ts';
+import { createProfile } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
 
 const page = (narrator: string): MythPage => ({

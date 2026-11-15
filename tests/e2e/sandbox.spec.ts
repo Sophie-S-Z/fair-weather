@@ -414,6 +414,8 @@ test('a pinned note of 90 characters keeps 80 and shows on the strip, and a rule
   const field = strip(page).getByLabel('Note (at most 80 characters)');
   await expect(field).toBeFocused();
   await field.fill(ninety);
+  // The field cuts as the player types.
+  await expect(field).toHaveValue(ninety.slice(0, 80));
   await page.keyboard.press('Enter');
   const note = strip(page).getByRole('button', { name: /^Note on day 1: / });
   await expect(note).toHaveAccessibleName(`Note on day 1: ${ninety.slice(0, 80)}`);

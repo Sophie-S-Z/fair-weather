@@ -56,7 +56,7 @@ import { encodeGif } from './persist/gif.ts';
 import { ATKINSON, layoutPage, PAGE_WIDTH } from './persist/page-image.ts';
 import type { PageBlock } from './persist/page-image.ts';
 import type { SaveV3 } from './persist/format.ts';
-import { createProfile, cutNote } from './persist/profile.ts';
+import { createProfile } from './persist/profile.ts';
 import {
   LINK_CHARS,
   MAX_LINK_TEXT,
@@ -81,6 +81,7 @@ import type { ChapterRunner } from './story/chapter-runner.ts';
 import { DEFAULT_FLAGS } from './story/flags.ts';
 import {
   FIRST_HERO,
+  cutNote,
   journeyStart,
   KITH_VALLEYS,
   kithCarry,

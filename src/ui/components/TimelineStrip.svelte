@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { NOTE_LENGTH, cutNote } from '../../story/journey.ts';
   import type { TimelinePoint } from '../../render/timeline.ts';
 
   let {
@@ -33,6 +34,11 @@
     const about = p ? `: ${String(p.population)} creatures, mean warmth ${p.trust.toFixed(2)}` : '';
     return `Day ${String(dayOf(value))}${about}`;
   });
+
+  /** Cuts the note to NOTE_LENGTH, but never in the middle of an input method's composition. */
+  function limit(e: Event): void {
+    if (!(e instanceof InputEvent && e.isComposing)) text = cutNote(text);
+  }
 
   /** The tick the open note field pins to, or null while it is closed. */
   let pinAt: number | null = $state(null);
@@ -112,7 +118,7 @@
     >
   {:else}
     <form class="pin" onsubmit={pin}>
-      <label for="note">Note (at most 80 characters)</label>
+      <label for="note">Note (at most {NOTE_LENGTH} characters)</label>
       <input
         id="note"
         type="text"
@@ -120,6 +126,7 @@
         aria-describedby="note-hint"
         bind:value={text}
         bind:this={field}
+        oninput={limit}
         onkeydown={onFieldKey}
       />
       <p id="note-hint">The note is for day {dayOf(pinAt)}. It stays on this device.</p>

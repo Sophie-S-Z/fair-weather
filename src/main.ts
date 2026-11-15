@@ -106,6 +106,7 @@ import App from './ui/App.svelte';
 import type { GameService } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
+import { oneAtATime } from './ui/one-at-a-time.ts';
 import { createSpeedControl } from './ui/speed.ts';
 
 const KEY = 'fair-weather.settings';
@@ -502,6 +503,8 @@ const sandboxStart = (setup: SandboxSetup): Scenario =>
  * an opened link replaces the player's own save only once the player acts (ADR 0014 item 7).
  */
 let sandboxActed = false;
+/** How many times the sandbox stopped: an open that waited across a stop gives up. */
+let sandboxStops = 0;
 /**
  * Starts a sandbox run of `setup` from `scenario`, and resolves with its runner at the run's first
  * snapshot. `acted` is whether the player acted by starting it (sandboxActed). `go` sets the run going once the worker has the run's init; `fail` ends the start as a
@@ -574,10 +577,12 @@ const linkChars = import.meta.env.DEV && devLinkChars > 0 ? Math.min(devLinkChar
  * Pauses the sandbox run (unless `pause` is false: the hidden tab has paused it) and gives its link
  * now (ADR 0014 item 7): its text, or `tooOld` past 100 days, or `tooBig` past a link's other
  * limits. The tick is the worker's, after the pause. A list accepted at that tick has not run yet,
- * so the run first steps one tick, and the link keeps everything the player did.
+ * so the run first steps one tick, and the link keeps everything the player did. One link is made
+ * at a time (Share and each keep take turns), so the run steps once for those lists, not once a
+ * link.
  */
-async function sandboxLink(
-  pause = true,
+const sandboxLink = oneAtATime(async function (
+  pause: boolean = true,
 ): Promise<{ kind: 'link'; text: string } | { kind: 'tooOld' } | { kind: 'tooBig' }> {
   const run = sandboxRun;
   if (!run) throw new Error('No sandbox run to share');
@@ -600,7 +605,7 @@ async function sandboxLink(
   } catch {
     return { kind: 'tooBig' }; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
   }
-}
+});
 /** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
 async function keepSandboxRun(pause = true): Promise<void> {
   const notes = sandboxRun?.notes ?? [];
@@ -623,6 +628,7 @@ document.addEventListener('visibilitychange', () => {
  * the run's first snapshot is at the link's tick; the run waits there, paused.
  */
 async function openSandbox(text: string, notes: readonly { tick: number; text: string }[]) {
+  const stops = sandboxStops;
   const link = await decodeLink(text, tuningHash);
   if (!link) return null;
   let scenario: Scenario;
@@ -632,10 +638,14 @@ async function openSandbox(text: string, notes: readonly { tick: number; text: s
     return null;
   }
   // The player's own run, when they acted in it, is their save before the link replaces it.
-  if (sandboxRun && sandboxActed)
+  const run = sandboxRun;
+  if (run && sandboxActed)
     await keepSandboxRun().catch((e: unknown) => {
       console.error(e); // the save stays as it was, and the link opens
     });
+  // Back to title, or another start, while this open waited: no run starts behind them.
+  if (sandboxStops !== stops || sandboxRun !== run)
+    throw new Error('The sandbox stopped or changed while the valley opened');
   const before = Math.max(link.tick - 1, 0);
   const runner = await beginSandbox(link.setup, scenario, false, (r, fail) => {
     speedControl.runner(0);
@@ -737,9 +747,10 @@ const game: GameService = {
     async openSaved() {
       const profile = await profileReady;
       const save = await profile.sandbox();
-      const runner = save ? await openSandbox(save.link, save.notes) : null;
+      if (!save) return null;
+      const runner = await openSandbox(save.link, save.notes);
       // A save that no longer opens (an older build's) is not offered again.
-      if (!runner) await profile.dropSandbox();
+      if (!runner) await profile.dropSandbox(save.link);
       return runner;
     },
     async leave() {
@@ -751,6 +762,7 @@ const game: GameService = {
       game.sandbox.stop();
     },
     stop() {
+      sandboxStops += 1;
       startWaiting?.('the sandbox stopped');
       sandboxRun?.runner.dispose();
       sandboxRun = null;

@@ -52,8 +52,11 @@ export interface Profile {
   sandbox(): Promise<SandboxSave | null>;
   /** Keeps the sandbox, cutting each note to NOTE_LENGTH characters. */
   keepSandbox(save: SandboxSave): Promise<void>;
-  /** Forgets the kept sandbox: one that no longer opens (an older build's) is not offered again. */
-  dropSandbox(): Promise<void>;
+  /**
+   * Forgets the kept sandbox: one that no longer opens (an older build's) is not offered again.
+   * It forgets only the save with this link, so a save that another tab kept since stays.
+   */
+  dropSandbox(link: string): Promise<void>;
 }
 
 const KEY = 'profile';
@@ -207,9 +210,9 @@ export async function createProfile(
         d.sandbox = kept;
       });
     },
-    async dropSandbox() {
+    async dropSandbox(link) {
       await write((d) => {
-        d.sandbox = null;
+        if (d.sandbox?.link === link) d.sandbox = null;
       });
     },
   };

@@ -232,10 +232,21 @@ test('dropSandbox forgets the kept sandbox and leaves the rest of the profile', 
   const profile = await createProfile(factory);
   await profile.addFeather();
   await profile.keepSandbox({ link: 'v1.abc', notes: [] });
-  await profile.dropSandbox();
+  await profile.dropSandbox('v1.abc');
   const again = await createProfile(factory);
   expect(await again.sandbox()).toBeNull();
   expect(await again.feathers()).toBe(1);
+});
+
+test('dropSandbox keeps a save that another tab kept after the failed read', async () => {
+  const factory = new IDBFactory();
+  const profile = await createProfile(factory);
+  await profile.keepSandbox({ link: 'v1.old', notes: [] });
+  const other = await createProfile(factory);
+  await other.keepSandbox({ link: 'v1.new', notes: [{ tick: 3, text: 'here' }] });
+  await profile.dropSandbox('v1.old');
+  const again = await createProfile(factory);
+  expect(await again.sandbox()).toEqual({ link: 'v1.new', notes: [{ tick: 3, text: 'here' }] });
 });
 
 test('cutNote keeps 80 characters and cuts between graphemes, never inside one', () => {

@@ -28,8 +28,12 @@ export function retryImage(node: HTMLImageElement, opts: RetryOptions): { destro
         stopListening();
         resolve(loaded ? true : null);
       };
-      const onLoad = (): void => done(true);
-      const onError = (): void => done(false);
+      const onLoad = (): void => {
+        done(true);
+      };
+      const onError = (): void => {
+        done(false);
+      };
       stopListening = () => {
         node.removeEventListener('load', onLoad);
         node.removeEventListener('error', onError);

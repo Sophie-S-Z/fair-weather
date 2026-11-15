@@ -33,7 +33,9 @@
     };
   });
 
-  function limit(): void {
+  /** Cuts the caption to CAPTION_LENGTH, but never in the middle of an input method's composition. */
+  function limit(e: Event): void {
+    if (e instanceof InputEvent && e.isComposing) return;
     const chars = characters(caption);
     if (chars.length > CAPTION_LENGTH) caption = chars.slice(0, CAPTION_LENGTH).join('');
   }
@@ -45,7 +47,7 @@
       saveFile(await onMake(caption), 'fair-weather-postcard.gif');
     } catch (e) {
       console.error(e);
-      said = 'The postcard could not be made.';
+      said = 'The game could not make the postcard.';
     }
     saving = false;
   }
@@ -54,7 +56,8 @@
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      onClose();
+      // Not while it saves, as Close is off then.
+      if (!saving) onClose();
     }
   }
 </script>
@@ -71,7 +74,7 @@
   >
     <h2 id="postcard-title">Make a postcard</h2>
     <label for="postcard-caption">Caption (at most {CAPTION_LENGTH} characters)</label>
-    <input id="postcard-caption" type="text" bind:value={caption} oninput={limit} />
+    <input id="postcard-caption" type="text" bind:value={caption} oninput={limit} oncompositionend={limit} />
     <p id="postcard-line">
       The image shows the words that you wrote. It stays on this device until you share it.
     </p>
@@ -79,7 +82,7 @@
       >Save the postcard</button
     >
     <p role="status">{said}</p>
-    <button type="button" onclick={onClose}>Close</button>
+    <button type="button" disabled={saving} onclick={onClose}>Close</button>
   </div>
 </div>
 

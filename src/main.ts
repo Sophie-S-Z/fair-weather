@@ -286,6 +286,8 @@ const host = createSimHost(spawnWorker);
 const dev = {
   speeds: [] as number[],
   frames: 0,
+  /** Scene captures for the postcard ring, so e2e can see that only the sandbox records. */
+  captures: 0,
   sent: 0,
   snapshots: 0,
   /** The journey now (undefined outside Part 2), so e2e can write pages without playing whole valleys. */
@@ -523,6 +525,8 @@ function beginSandbox(
   return new Promise((resolve, reject) => {
     workerFailed = false;
     sandboxActed = acted;
+    // A new run starts a new postcard: no frame of the run before it (ADR 0014 item 8).
+    recording?.setRecording(true);
     const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
     const made = new Set(
       [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
@@ -617,6 +621,10 @@ const PAPER = '#f6f1e7';
 const INK = '#1f2a33';
 /** The caption band under the scene, in pixels. */
 const BAND = 48;
+/** The caption's face (ADR 0014 item 14), as a CSS font family. */
+const ATKINSON = '"Atkinson Hyperlegible"';
+/** The caption's room in the band: the postcard's 480 pixels less 12 at each side. */
+const CAPTION_WIDTH = 456;
 
 /** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
 async function keepSandboxRun(pause = true): Promise<void> {
@@ -760,16 +768,17 @@ const game: GameService = {
     postcard: oneAtATime(async (caption: string) => {
       const stage = recording;
       if (!stage) throw new Error('No sandbox stage records');
-      const before = speedControl.current();
-      speedControl.player(0);
+      const back = speedControl.hold();
       try {
-        // A task for the pause to go out, and for the page to show Save off, before the encode
-        // holds the thread.
+        // Loads the caption's face if the page has it (ADR 0014 item 14); with no such face it
+        // resolves at once. The wait also lets the pause go out, and the page show Save off, before
+        // the encode holds the thread.
+        await document.fonts.load(`20px ${ATKINSON}`);
         await new Promise((resolve) => setTimeout(resolve, 0));
         // A copy on an ArrayBuffer, as a Blob takes.
         return new Blob([encodeGif(stage.postcard(caption)).slice()], { type: 'image/gif' });
       } finally {
-        speedControl.player(before);
+        back();
       }
     }),
     async openSaved() {
@@ -887,6 +896,7 @@ const game: GameService = {
       const [x0, y0] = view.toScreen(0, 0);
       const [x1, y1] = view.toScreen(scene.width, scene.height);
       grab.drawImage(app.canvas, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, 0, 0, w, h);
+      if (import.meta.env.DEV) dev.captures += 1;
       return grab.getImageData(0, 0, w, h).data;
     };
     let ring: ReturnType<typeof createFrameRing> | null = null;
@@ -917,7 +927,15 @@ const game: GameService = {
         const atkinson = [...document.fonts].some(
           (f) => f.family.replace(/"/g, '') === 'Atkinson Hyperlegible' && f.status === 'loaded',
         );
-        const font = `20px ${atkinson ? '"Atkinson Hyperlegible"' : getComputedStyle(document.body).fontFamily}`;
+        const family = atkinson ? ATKINSON : getComputedStyle(document.body).fontFamily;
+        // 20 px, or smaller down to 14 px until the caption fits; only past that does it squeeze.
+        let size = 20;
+        const fits = (): boolean => {
+          ctx.font = `${String(size)}px ${family}`;
+          return ctx.measureText(caption).width <= CAPTION_WIDTH;
+        };
+        while (size > 14 && !fits()) size -= 1;
+        const font = `${String(size)}px ${family}`;
         return (ring?.frames() ?? []).map((f) => {
           [out.width, out.height] = [f.width, f.height + BAND];
           ctx.fillStyle = PAPER;
@@ -929,7 +947,7 @@ const game: GameService = {
           ctx.fillStyle = INK;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(caption, out.width / 2, f.height + BAND / 2, out.width - 24);
+          ctx.fillText(caption, out.width / 2, f.height + BAND / 2, CAPTION_WIDTH);
           return { ...f, height: out.height, data: ctx.getImageData(0, 0, out.width, out.height).data };
         });
       },

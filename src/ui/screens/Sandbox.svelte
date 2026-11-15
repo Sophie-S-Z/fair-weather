@@ -440,7 +440,7 @@
       shared = await game.sandbox.share();
     } catch (e) {
       console.error(e);
-      notice = 'The valley could not be shared.';
+      notice = 'The game could not share the valley.';
     }
   }
   /** Back to title keeps the run as the sandbox save when the player acted in it. */

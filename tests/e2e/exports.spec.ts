@@ -8,6 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
 type Dev = {
   sandbox(): unknown;
   frames: number;
+  captures: number;
   speeds: number[];
   encodeGif(
     frames: { width: number; height: number; data: Uint8ClampedArray; delayMs: number }[],
@@ -19,6 +20,8 @@ const speeds = (page: Page) =>
   page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.speeds);
 const frames = (page: Page) =>
   page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.frames);
+const captures = (page: Page) =>
+  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.captures);
 const lastSpeed = (page: Page) =>
   page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.speeds.at(-1));
 const dialog = (page: Page) => page.getByRole('dialog', { name: 'Make a postcard' });
@@ -38,7 +41,8 @@ async function openNew(page: Page): Promise<void> {
 
 /**
  * The GIF in `base64` as the page's ImageDecoder reads it: its size, its frame count, how many
- * colors the scene above the band has in the last frame, and the band's first pixel.
+ * colors the scene above the band has in the last frame, the band's first pixel, and how many of
+ * the band's pixels are dark like the ink #1f2a33.
  */
 const readGif = (page: Page, base64: string) =>
   page.evaluate(async (b64) => {
@@ -60,12 +64,16 @@ const readGif = (page: Page, base64: string) =>
     for (let o = 0; o < width * (height - 48) * 4; o += 4)
       colors.add(((px[o] ?? 0) << 16) | ((px[o + 1] ?? 0) << 8) | (px[o + 2] ?? 0));
     const band = (height - 48) * width * 4 + 4 * 2;
+    let ink = 0;
+    for (let o = (height - 48) * width * 4; o < px.length; o += 4)
+      if ((px[o] ?? 0) + (px[o + 1] ?? 0) + (px[o + 2] ?? 0) < 300) ink += 1;
     return {
       width,
       height,
       count,
       sceneColors: colors.size,
       band: [px[band], px[band + 1], px[band + 2]],
+      ink,
     };
   }, base64);
 
@@ -99,6 +107,8 @@ test('Save the postcard downloads a 480 x 318 GIF of the scene, with the sim pau
   expect(read.sceneColors).toBeGreaterThan(8);
   // The band is the paper #f6f1e7 as its 15-bit color.
   expect(read.band).toEqual([247, 247, 231]);
+  // The caption is drawn in the band, in ink.
+  expect(read.ink).toBeGreaterThan(50);
 
   await page.keyboard.press('Escape');
   await expect(dialog(page)).toHaveCount(0);
@@ -113,6 +123,39 @@ test('a 70-character caption keeps 60 characters; an emoji counts as one', async
   await expect(caption(page)).toHaveValue(kept);
 });
 
+test('the caption is cut only when an input method ends its composition', async ({ page }) => {
+  await openNew(page);
+  await page.getByRole('button', { name: 'Make a postcard' }).click();
+  const long = 'c'.repeat(70);
+  // An input method types: while it composes, the text it has so far stays as it is.
+  await caption(page).evaluate((el: HTMLInputElement, text) => {
+    el.dispatchEvent(new CompositionEvent('compositionstart'));
+    el.value = text;
+    el.dispatchEvent(new InputEvent('input', { isComposing: true, bubbles: true }));
+  }, long);
+  await expect(caption(page)).toHaveValue(long);
+  await caption(page).evaluate((el: HTMLInputElement) => {
+    el.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+  });
+  await expect(caption(page)).toHaveValue('c'.repeat(60));
+});
+
+test('only the sandbox captures frames', async ({ page }) => {
+  await page.goto('/?seed=7');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const drawn = await frames(page);
+  await expect.poll(() => frames(page)).toBeGreaterThan(drawn + 10);
+  // The story screen draws, but records nothing.
+  expect(await captures(page)).toBe(0);
+  await openNew(page);
+  await expect.poll(() => captures(page)).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Back to title' }).click();
+  await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible();
+  const kept = await captures(page);
+  await page.waitForTimeout(500);
+  expect(await captures(page)).toBe(kept);
+});
+
 test('a postcard that cannot be made says so once, and the game goes on', async ({ page }) => {
   await openNew(page);
   await page.getByRole('button', { name: 'Make a postcard' }).click();
@@ -123,7 +166,7 @@ test('a postcard that cannot be made says so once, and the game goes on', async 
     };
   });
   await dialog(page).getByRole('button', { name: 'Save the postcard' }).click();
-  await expect(dialog(page).getByRole('status')).toHaveText('The postcard could not be made.');
+  await expect(dialog(page).getByRole('status')).toHaveText('The game could not make the postcard.');
   await expect.poll(() => lastSpeed(page)).toBe(2);
   await expect(dialog(page).getByRole('button', { name: 'Save the postcard' })).toBeEnabled();
   await dialog(page).getByRole('button', { name: 'Close' }).click();

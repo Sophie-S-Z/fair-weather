@@ -37,3 +37,21 @@ test('a hidden tab gets 0, and the asked-for speed when it shows again', () => {
   expect(sent).toEqual([0, 0, 2]);
   expect(speed.current()).toBe(2);
 });
+
+test('a hold pauses, and puts back the exact speed it replaced, the runner speed too', () => {
+  const { sent, speed } = control();
+  speed.runner(8); // a speed other than 1
+  speed.player(2);
+  const back = speed.hold();
+  expect(speed.current()).toBe(0);
+  back();
+  expect(sent).toEqual([8, 16, 0, 16]);
+  expect(speed.current()).toBe(16);
+
+  speed.player(0); // a paused run stays paused
+  const again = speed.hold();
+  again();
+  expect(speed.current()).toBe(0);
+  speed.player(2);
+  expect(speed.current()).toBe(2);
+});

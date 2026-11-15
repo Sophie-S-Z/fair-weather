@@ -52,7 +52,7 @@
   }
   function pin(e: SubmitEvent): void {
     e.preventDefault();
-    if (pinAt !== null && text.trim() !== '') onPin?.(pinAt, text);
+    if (pinAt !== null && !rewind.disabled && text.trim() !== '') onPin?.(pinAt, text);
     void closeField();
   }
   function onFieldKey(e: KeyboardEvent): void {
@@ -122,7 +122,7 @@
       />
       <p id="note-hint">The note is for day {dayOf(pinAt)}. It stays on this device.</p>
       <div class="row">
-        <button type="submit">Pin</button>
+        <button type="submit" disabled={rewind.disabled}>Pin</button>
         <button type="button" onclick={() => void closeField()}>Cancel</button>
       </div>
     </form>

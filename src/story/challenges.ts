@@ -77,6 +77,12 @@ export function applyStart(s: Scenario, start: Challenge['start']): void {
   for (const [cid, n] of Object.entries(start.danceThreshold ?? {})) creature(cid).danceThreshold = n;
 }
 
+/** The pass or fail line of a finished challenge, or null without one or while it is open. */
+export function outcome(cid: ChallengeId | null, state: ChallengeState | null): string | null {
+  if (cid === null || state === null || state === 'open') return null;
+  return state === 'passed' ? CHALLENGES[cid].pass : CHALLENGES[cid].fail;
+}
+
 export interface ChallengeCheck {
   /**
    * Reads one step: `lite` is its snapshot and `events` its events. Returns the state after it;

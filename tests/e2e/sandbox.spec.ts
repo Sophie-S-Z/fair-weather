@@ -433,3 +433,76 @@ test('Tab reaches the strip, its notes, and the card in order', async ({ page })
     card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }),
   ).toBeFocused();
 });
+
+test('a note that ends in a family emoji at character 80 keeps it whole, and picking a challenge drops the note', async ({
+  page,
+}) => {
+  await openDay2(page);
+  await rewindToDay1(page);
+  const family = '👩‍👩‍👧';
+  await strip(page).getByRole('button', { name: 'Pin a note' }).click();
+  await strip(page)
+    .getByLabel('Note (at most 80 characters)')
+    .fill(`${'a'.repeat(79)}${family}${family}b`);
+  await page.keyboard.press('Enter');
+  await expect(strip(page).getByRole('button', { name: /^Note on day 1: / })).toHaveText(
+    `Note on day 1: ${'a'.repeat(79)}${family}`,
+  );
+  await strip(page).getByRole('button', { name: 'Back to now' }).click();
+  await card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }).click();
+  // The focus goes to the card's first control on.
+  await expect(card(page).getByRole('button', { name: 'Try again' })).toBeFocused();
+  await expect(strip(page).getByRole('button', { name: /^Note on day/ })).toHaveCount(0);
+});
+
+test('a challenge starts with the default knobs and switches, and Bell gives the focus to Start the dance', async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByText('Rules', { exact: true }).click();
+  await page.getByText('Network', { exact: true }).click();
+  const gift = page.getByLabel('Gift value');
+  const mixed = page.getByLabel('Mixed thresholds', { exact: true });
+  await gift.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(gift).toHaveAttribute('aria-valuetext', '4');
+  await expect(gift).toBeEnabled();
+  await mixed.uncheck();
+  await expect(mixed).toBeEnabled();
+  await card(page).getByRole('button', { name: 'Make Bell dance with only two bridges.' }).click();
+  await expect(card(page).getByRole('button', { name: 'Start the dance' })).toBeFocused();
+  await expect(gift).toHaveAttribute('aria-valuetext', '3');
+  await expect(mixed).toBeChecked();
+});
+
+test('Stop the challenge goes back to the valley, knobs, and bench from before it, at day 0', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await keepProfile(page, ['fen']);
+  await page.reload();
+  await page.getByRole('button', { name: 'Sandbox' }).click();
+  await page.getByRole('button', { name: 'Murmuration Fen' }).click();
+  await expect(page.getByRole('heading', { name: 'Sandbox: Murmuration Fen' })).toBeVisible();
+  await expect.poll(async () => (await run(page)) !== null).toBe(true);
+  const base = (await structures(page)).length;
+  await page.keyboard.press('1');
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await structures(page)).length).toBe(base + 1);
+  const placed = await structures(page);
+  await page.getByText('Rules', { exact: true }).click();
+  const flock = page.getByLabel('Lowest flock threshold');
+  const before = await flock.getAttribute('aria-valuetext');
+  await flock.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(flock).not.toHaveAttribute('aria-valuetext', before ?? '');
+  await expect(flock).toBeEnabled();
+  const set = await flock.getAttribute('aria-valuetext');
+  await card(page).getByRole('button', { name: 'Get through winter with nobody leaving.' }).click();
+  await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
+  await card(page).getByRole('button', { name: 'Stop the challenge' }).click();
+  await expect(page.getByRole('heading', { name: 'Sandbox: Murmuration Fen' })).toBeVisible();
+  await expect(flock).toHaveAttribute('aria-valuetext', set ?? '');
+  await expect.poll(async () => (await run(page))?.lite.day).toBe(0);
+  expect(await structures(page)).toEqual(placed);
+});

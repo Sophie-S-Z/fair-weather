@@ -4,9 +4,16 @@
   import type { InputContext } from '../../input/keyboard.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
   import type { Command, Season } from '../../sim/types.ts';
+  import { outcome } from '../../story/challenges.ts';
   import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
   import { displayName } from '../../story/names.ts';
-  import { KNOBS, SANDBOX_TICKS_PER_DAY, SANDBOX_TOOLS, TOOL_PANEL } from '../../story/sandbox.ts';
+  import {
+    DEFAULT_SWITCHES,
+    KNOBS,
+    SANDBOX_TICKS_PER_DAY,
+    SANDBOX_TOOLS,
+    TOOL_PANEL,
+  } from '../../story/sandbox.ts';
   import type {
     Knob,
     KnobId,
@@ -24,6 +31,7 @@
   import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
   import { createFrameLoop } from '../frame-loop.ts';
+  import { createRewind } from '../rewind.svelte.ts';
   import type { GameService, Stage } from '../game-service.ts';
   import {
     byId,
@@ -113,28 +121,25 @@
   /** A start failed in the worker, so no run goes on until the title starts the worker again. */
   let dead = $state(false);
   const locked = $derived(starting || dead);
-  /** This run's timeline, and the tick of the snapshot drawn now, as the strip shows them. */
-  let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
-  let drawnTick = $state(0);
-  let liveTick = 0;
-  let drawn: WorldLite | null = null;
   /**
-   * The tick the strip asks for, or null for now; the rewound world once it arrives. While rewound
-   * the sim is paused, and the tools, the pause, and Start the dance wait for Back to now. A rewind
-   * during a challenge changes nothing in it: its check reads only live snapshots, so a challenge
-   * that passed or failed stays so, and only Try again or Stop the challenge starts it again.
+   * The strip's tick and the rewound world, and the snapshot drawn now with its tick and timeline.
+   * While rewound the sim is paused, and the tools, the pause, and Start the dance wait for Back to
+   * now. A rewind during a challenge changes nothing in it: its check reads only live snapshots, so
+   * a challenge that passed or failed stays so, and only Try again or Stop the challenge starts it again.
    */
-  let rewindAt: number | null = $state(null);
-  let rewound: WorldLite | null = $state.raw(null);
-  /** Only the newest rewind request is drawn. */
-  let rewindRequest = 0;
-  let speedBeforeRewind = 1;
+  const rw = createRewind({
+    currentSpeed: () => game.currentSpeed(),
+    setSpeed,
+    rewind: (t) => game.rewind(t),
+  });
   let notes: readonly { tick: number; text: string }[] = $state.raw([]);
   let challengeState: ChallengeState | null = $state(null);
   let season: Season = $state('spring');
   let danced = $state(false);
   /** Counts starts, so only the newest one plays. */
   let runs = 0;
+  /** Counts the runs that started, so a new run gives the strip a new note field. */
+  let started = $state(0);
   let gone = false;
 
   const valleyChapter = (v: SandboxValley) => game.chapters.find((c) => c.id === v);
@@ -159,7 +164,9 @@
           : '',
       tool === 'path' && pathFrom ? `Path from ${spotName(pathFrom)}` : '',
       tool === 'thread' && threadFrom ? `Thread from ${displayName(threadFrom)}` : '',
-      rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
+      rw.at === null ? '' : 'Rewound: the tools wait for Back to now',
+      // Also here, so a folded card does not hide it.
+      outcome(setup?.challenge ?? null, challengeState) ?? '',
     ]
       .filter((part) => part !== '')
       .join('. '),
@@ -195,17 +202,7 @@
   const loop = createFrameLoop(
     (from, to, alpha) => {
       speedNow = game.currentSpeed();
-      if (!stage) return;
-      if (rewound) {
-        stage.draw(rewound, rewound, 1, $settings);
-        return;
-      }
-      if (drawn !== to) {
-        drawn = to;
-        drawnTick = liveTick;
-        timeline = stage.timeline();
-      }
-      stage.draw(from, to, alpha, $settings);
+      if (stage) rw.frame(stage, from, to, alpha, $settings);
     },
     () => performance.now(),
   );
@@ -216,31 +213,9 @@
   }
   const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
   function togglePause(): void {
-    if (rewindAt === null) pause();
+    if (rw.at === null) pause();
   }
 
-  /** Pauses the sim on the first move of the strip, and asks for the world at `t`. */
-  function rewindTo(t: number): void {
-    if (rewindAt === null) {
-      speedBeforeRewind = game.currentSpeed();
-      setSpeed(0);
-    }
-    rewindAt = t;
-    const request = (rewindRequest += 1);
-    game.rewind(t).then(
-      (lite) => {
-        if (request === rewindRequest) rewound = lite;
-      },
-      () => undefined, // the worker restarted; the strip asks again on its next move
-    );
-  }
-  function backToNow(): void {
-    if (rewindAt === null) return;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
-    setSpeed(speedBeforeRewind);
-  }
   function pin(t: number, text: string): void {
     game.sandbox.pin(t, text);
     notes = game.sandbox.notes();
@@ -287,14 +262,12 @@
       cursor = stage.benchSpots[0] ?? { x: 0, y: 0 };
     }
     next = null;
-    drawn = null;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
+    rw.reset();
     notes = game.sandbox.notes();
     challengeState = r.challenge();
     r.onChallenge((st) => (challengeState = st));
     danced = false;
+    started += 1;
     runner = r;
     setup = s;
     r.setPlaceKind(placeKind);
@@ -374,27 +347,38 @@
     if (document.activeElement === document.body)
       document.querySelector<HTMLElement>('.challenges button:enabled')?.focus();
   }
-  /**
-   * A challenge starts from a new Kith of this seed, with the player's knobs and switches, nothing
-   * placed, and its own start (ADR 0014 item 6). A knob of another valley does not go with it.
-   */
-  function pickChallenge(id: ChallengeId | null): void {
+  /** A new valley of `seed` with the default knobs and switches, nothing placed, and `id`'s start (ADR 0014 item 6). */
+  const challengeSetup = (seed: number, id: ChallengeId): SandboxSetup => ({
+    seed,
+    valley: 'kith',
+    kith: null,
+    challenge: id,
+    knobs: {},
+    switches: { ...DEFAULT_SWITCHES },
+    structures: [],
+    bushes: [],
+  });
+  /** The setup just before the challenge was picked, with what the player had placed; Stop starts it again. */
+  let beforeChallenge: SandboxSetup | null = null;
+  function pickChallenge(id: ChallengeId): void {
     if (!setup) return;
-    const valley: SandboxValley = 'kith';
-    const knobs: SandboxSetup['knobs'] = {};
-    for (const k of KNOBS) {
-      const index = setup.knobs[k.id];
-      if (index !== undefined && (k.valley === null || k.valley === valley)) knobs[k.id] = index;
-    }
-    void runFromCard({ ...setup, valley, kith: null, challenge: id, knobs, structures: [], bushes: [] });
+    beforeChallenge = {
+      ...setup,
+      structures: game.sandbox.placedStructures(),
+      bushes: game.sandbox.placedBushes(),
+    };
+    void runFromCard(challengeSetup(setup.seed, id));
+  }
+  function stopChallenge(): void {
+    if (setup) void runFromCard(beforeChallenge ?? { ...setup, challenge: null });
   }
   function dance(): void {
-    if (rewindAt === null && runner?.startDance()) danced = true;
+    if (rw.at === null && runner?.startDance()) danced = true;
   }
 
   /** Uses a verb on the run; with a run going on, the player's verb also ends a failed start's notice. */
   function verb(v: VerbInput): boolean {
-    if (!runner || rewindAt !== null) return false;
+    if (!runner || rw.at !== null) return false;
     notice = null;
     return runner.verb(v);
   }
@@ -416,7 +400,7 @@
 
   /** Opens the whisper card for `target`, about every other named creature not gone, in id order. */
   function openWhisper(target: string): void {
-    if (rewindAt !== null) return;
+    if (rw.at !== null) return;
     whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
   function whisper(about: string, sign: 1 | -1): void {
@@ -443,7 +427,7 @@
         season = lite.season;
         if (!runner || !stage || !setup) return;
         stage.snapshot(at, lite);
-        liveTick = at;
+        rw.live(at);
         next = lite;
         loop.push(lite);
         nearby = nearbyAt(cursor);
@@ -623,39 +607,34 @@
         </div>
         <section class="timeline" aria-labelledby="timeline-title">
           <h2 id="timeline-title">Timeline</h2>
-          <TimelineStrip
-            {timeline}
-            rewind={{ now: drawnTick, at: rewindAt, ticksPerDay: SANDBOX_TICKS_PER_DAY, disabled: locked }}
-            onRewind={rewindTo}
-            onBackToNow={backToNow}
-            {notes}
-            onPin={pin}
-          />
+          {#key started}
+            <TimelineStrip
+              timeline={rw.timeline}
+              rewind={{ now: rw.drawnTick, at: rw.at, ticksPerDay: SANDBOX_TICKS_PER_DAY, disabled: locked }}
+              onRewind={rw.to}
+              onBackToNow={rw.backToNow}
+              {notes}
+              onPin={pin}
+            />
+          {/key}
         </section>
         <div class="challenges">
           <ChallengeCard
             challenge={setup.challenge}
             state={challengeState}
             {season}
-            canDance={!danced && rewindAt === null && !locked}
+            canDance={!danced && rw.at === null && !locked}
             {locked}
             onPick={pickChallenge}
             onDance={dance}
             onTryAgain={() => {
-              if (setup) void runFromCard({ ...setup, structures: [], bushes: [] });
+              if (setup?.challenge) void runFromCard(challengeSetup(setup.seed, setup.challenge));
             }}
-            onStop={() => {
-              pickChallenge(null);
-            }}
+            onStop={stopChallenge}
           />
         </div>
         <div class="time">
-          <TimeControls
-            speed={speedNow}
-            disabled={rewindAt !== null}
-            onPause={togglePause}
-            onSpeed={setSpeed}
-          />
+          <TimeControls speed={speedNow} disabled={rw.at !== null} onPause={togglePause} onSpeed={setSpeed} />
         </div>
       </main>
     {/if}

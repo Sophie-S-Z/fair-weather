@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { CHALLENGE_IDS, CHALLENGES } from '../../story/challenges.ts';
-  import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
   import type { Season } from '../../sim/types.ts';
+  import { CHALLENGE_IDS, CHALLENGES, outcome } from '../../story/challenges.ts';
+  import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
 
   let {
     challenge,
@@ -29,16 +29,8 @@
     onStop: () => void;
   } = $props();
 
-  /** The pass or fail line (ADR 0014 item 6), or the season while the challenge is open. */
-  const line = $derived(
-    challenge === null
-      ? ''
-      : state === 'passed'
-        ? CHALLENGES[challenge].pass
-        : state === 'failed'
-          ? CHALLENGES[challenge].fail
-          : `The challenge is not finished. Season: ${season}.`,
-  );
+  /** The pass or fail line, or the season while the challenge is open. */
+  const line = $derived(outcome(challenge, state) ?? `The challenge is not finished. Season: ${season}.`);
   /** Open at first on a wide screen; on a narrow one it starts folded, so the panels under it show. */
   const wide = window.matchMedia('(min-width: 48rem)').matches;
 </script>

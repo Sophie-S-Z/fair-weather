@@ -26,6 +26,8 @@ export interface SandboxSave {
 
 /** The longest note, in characters (graphemes). Notes are the player's own words and stay on the device. */
 export const NOTE_LENGTH = 80;
+/** `text` cut to NOTE_LENGTH characters, between graphemes. */
+export const cutNote = (text: string): string => characters(text).slice(0, NOTE_LENGTH).join('');
 
 export interface Profile {
   /** The pages in the order they were kept. */
@@ -68,7 +70,7 @@ const SandboxSchema = z.object({
   notes: z.array(
     z.object({
       tick: z.number().int().nonnegative(),
-      text: z.string().transform((t) => characters(t).slice(0, NOTE_LENGTH).join('')),
+      text: z.string().transform(cutNote),
     }),
   ),
 });

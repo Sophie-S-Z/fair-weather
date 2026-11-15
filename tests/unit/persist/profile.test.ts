@@ -4,7 +4,7 @@ import type { MythPage } from '../../../src/myth/grammar.ts';
 import type { Carry } from '../../../src/story/carry.ts';
 import { characters } from '../../../src/story/journey.ts';
 import { openDb } from '../../../src/persist/db.ts';
-import { createProfile } from '../../../src/persist/profile.ts';
+import { createProfile, cutNote } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
 
 const page = (narrator: string): MythPage => ({
@@ -225,6 +225,13 @@ test('keepSandbox keeps the link and the notes, cutting each note to 80 characte
   expect(kept?.notes[0]).toEqual({ tick: 5, text: 'a short one' });
   expect(kept?.notes[1]?.text).toBe(`${long}${'x'.repeat(20)}`);
   expect(characters(kept?.notes[1]?.text ?? '')).toHaveLength(80);
+});
+
+test('cutNote keeps 80 characters and cuts between graphemes, never inside one', () => {
+  const family = '👩‍👩‍👧'; // one character, five code points
+  const text = `${'a'.repeat(79)}${family}${family}b`;
+  expect(cutNote(text)).toBe(`${'a'.repeat(79)}${family}`);
+  expect(cutNote('short')).toBe('short');
 });
 
 test('with blocked storage the new fields live for this visit', async () => {

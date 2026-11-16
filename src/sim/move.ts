@@ -8,6 +8,7 @@ import { clamp, dist2 } from './math.ts';
 import { aimHero, isHero, stopHero, takeFromGift, topSpeed } from './hero.ts';
 import { inRect, landOf, nearestDeckOn, waterBlocking, type Land } from './land.ts';
 import { avoidsLens, inLens } from './light.ts';
+import { mayStep, steered } from './packs/index.ts';
 import { benchesOf, friendCount, friendsOf } from './world.ts';
 
 const COLS = 8;
@@ -232,6 +233,13 @@ function steer(c: Creature, land: Land, world: World, tuning: Tuning, rng: Rng):
     turnFromWater(c, water, land, world, tuning, rng);
     return;
   }
+  if (!mayStep(world, c, c.x, c.y, nx, ny, tuning)) {
+    // Only the hero is refused (ADR 0015 item 3): it stops, as at water.
+    c.vx = 0;
+    c.vy = 0;
+    stopHero(world, c);
+    return;
+  }
   c.x = nx;
   c.y = ny;
 }
@@ -251,7 +259,8 @@ function leaveLens(c: Creature, world: World, land: Land, tuning: Tuning): void 
 /**
  * One movement step for every creature, in array order. Only `wander` creatures move, forage, or
  * take drops. The hero picks no goal of its own and avoids no lens: it heads where the player sent
- * it (aimHero) and waits once it arrives.
+ * it (aimHero) and waits once it arrives. A creature the rule pack steers (ADR 0015 item 2) heads
+ * for the goal the pack set, picks none, and avoids no lens.
  */
 export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
   const arrive2 = tuning.move.arriveRadius * tuning.move.arriveRadius;
@@ -267,6 +276,10 @@ export function moveCreatures(world: World, tuning: Tuning, rng: Rng): void {
     takeDrop(c, world, tuning);
     if (isHero(world, c)) {
       if (aimHero(world, c, tuning)) steer(c, land, world, tuning, rng);
+    } else if (steered(world, c)) {
+      // It waits at its goal, as the hero does (aimHero).
+      if (dist2(c.x, c.y, c.goalX, c.goalY) > arrive2) steer(c, land, world, tuning, rng);
+      else [c.vx, c.vy] = [0, 0];
     } else {
       if (dist2(c.x, c.y, c.goalX, c.goalY) <= arrive2) pickGoal(c, world, land, tuning, rng);
       leaveLens(c, world, land, tuning);

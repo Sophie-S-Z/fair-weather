@@ -167,6 +167,42 @@ export const TuningSchema = obj({
   rain: obj({ radius: pos, berries: count }),
   /** A creature within `reach` of a path end may walk the path (ADR 0014 item 5). */
   path: obj({ reach: pos }),
+  /**
+   * Foglight Heights (ADR 0015 item 3): height cells `cell` units square; snails look `sight` steps
+   * every `everyTicks` ticks (a Kite-rider's veil opens `kiteSight`); fog lies below height
+   * `fogBelow`; Brume follows from within `followRadii` meeting radii, at `carrySpeed` of the hero's
+   * top speed.
+   */
+  foglight: obj({
+    cell: count,
+    everyTicks: count,
+    sight: count,
+    kiteSight: count,
+    fogBelow: count,
+    followRadii: pos,
+    carrySpeed: prob,
+  }),
+  /** Toadstool Council (ADR 0015 item 4): the council's warmth toward the hero after it hears a rule. */
+  council: obj({ warmth: prob }),
+  /**
+   * Lily Shallows (ADR 0015 item 5): frogs check their pads every `everyTicks` ticks and are content
+   * from `minShare` to `maxShare` (the top only with the variety rule, on from `varietyAt` frogs who
+   * know two songs); a pad holds `padCap` frogs, `slot` units from its center; the hero reaches
+   * `reachRadii` meeting radii; `sortedAt` and `mixedAt` are T5's and the twist's bounds on sorting.
+   */
+  shallows: obj({
+    everyTicks: count,
+    minShare: prob,
+    maxShare: prob,
+    varietyAt: count,
+    padCap: count,
+    slot: pos,
+    reachRadii: pos,
+    sortedAt: prob,
+    mixedAt: prob,
+  }),
+  /** Rule cards (ADR 0015 item 8): a creature with at least `likedFriends` friends is liked. */
+  cards: obj({ likedFriends: count }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

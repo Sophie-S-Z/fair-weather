@@ -146,6 +146,32 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     const subjects = hollow.drama.map((d) => d.subject);
     if (new Set(subjects).size !== subjects.length) out.push('a drama subject twice');
   }
+  const p = world.pack;
+  if (p?.id === 'foglight') {
+    if (!p.heights.every((h) => Number.isInteger(h) && inRange(h, 0, 9))) out.push('a height off 0 to 9');
+    if (p.following && !world.hero) out.push('Brume follows in a world without a hero');
+  }
+  if (p?.id === 'council') {
+    const spots = new Set(p.spots.map((s) => s.id));
+    for (const id of [p.heroVote, p.winner]) if (id !== null && !spots.has(id)) out.push(`no spot ${id}`);
+    if (p.heard && p.proposed === null) out.push('the council heard a rule no one proposed');
+  }
+  if (p?.id === 'shallows') {
+    const pads = new Set(p.pads.map((x) => x.id));
+    const seats = new Set<string>();
+    for (const [id, pad] of Object.entries(p.padOf)) {
+      if (!pads.has(pad)) out.push(`${id} sits on no pad ${pad}`);
+      const slot = p.slotOf[id];
+      if (slot === undefined) continue;
+      const seat = `${pad}#${String(slot)}`;
+      if (seats.has(seat)) out.push(`two frogs on ${seat}`);
+      seats.add(seat);
+    }
+    for (const [id, songs] of Object.entries(p.songs)) {
+      if (songs.length < 1 || songs.length > 2 || new Set(songs).size !== songs.length)
+        out.push(`${id} knows ${songs.join(', ')}`);
+    }
+  }
   const m = world.mushroom;
   if (m && !inRange(m.taken, 0, m.drops)) out.push(`mushroom taken ${String(m.taken)} of ${String(m.drops)}`);
   world.fields.fog.forEach((f, i) => {

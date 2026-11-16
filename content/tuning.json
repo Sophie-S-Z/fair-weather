@@ -111,5 +111,27 @@
     "drama": { "against": 3, "keep": 2, "away": 1, "pose": 3 }
   },
   "rain": { "radius": 120, "berries": 2 },
-  "path": { "reach": 40 }
+  "path": { "reach": 40 },
+  "foglight": {
+    "cell": 100,
+    "everyTicks": 10,
+    "sight": 1,
+    "kiteSight": 2,
+    "fogBelow": 6,
+    "followRadii": 2,
+    "carrySpeed": 0.5
+  },
+  "council": { "warmth": 0.1 },
+  "shallows": {
+    "everyTicks": 20,
+    "minShare": 0.3333333333333333,
+    "maxShare": 0.9,
+    "varietyAt": 3,
+    "padCap": 8,
+    "slot": 30,
+    "reachRadii": 2,
+    "sortedAt": 0.9,
+    "mixedAt": 0.7
+  },
+  "cards": { "likedFriends": 3 }
 }

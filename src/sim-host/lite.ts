@@ -7,6 +7,7 @@ import { holds } from '../sim/daily/gossip.ts';
 import { landOf } from '../sim/land.ts';
 import { fogAt } from '../sim/light.ts';
 import { flies, perceivedShares } from '../sim/packs/fen.ts';
+import { sorting } from '../sim/packs/shallows.ts';
 import { friendPairs } from '../sim/metrics.ts';
 import { byCodeUnit } from '../sim/math.ts';
 import { averageWarmth, byId } from '../sim/world.ts';
@@ -52,15 +53,44 @@ function heroLite(w: World): WorldLite['hero'] {
 }
 
 /**
- * The Fen's flock, the Hollow's fame, or Wisp's choice in Halcyon as the snapshot shows it (ADR
- * 0013 items 5 to 7); null without a pack.
+ * The pack as the snapshot shows it (ADR 0013 items 5 to 7, ADR 0015 items 3 to 5): the Fen's
+ * flock, the Hollow's fame, Wisp's choice, the Foglight map, the council's vote, or the pond; null
+ * without a pack.
  */
 function packLite(w: World, tuning: Tuning): WorldLite['pack'] {
-  if (!w.pack) return null;
-  if (w.pack.id === 'hollow') return { id: 'hollow', fame: { ...w.pack.fame }, front: w.pack.front };
-  if (w.pack.id === 'halcyon') return { id: 'halcyon', chose: w.pack.chose };
-  const flying = w.creatures.filter((c) => c.state !== 'away' && flies(w, c)).map((c) => c.id);
-  return { id: 'fen', flying, perceived: perceivedShares(w, tuning) };
+  const p = w.pack;
+  switch (p?.id) {
+    case undefined:
+      return null;
+    case 'fen':
+      return {
+        id: 'fen',
+        flying: w.creatures.filter((c) => c.state !== 'away' && flies(w, c)).map((c) => c.id),
+        perceived: perceivedShares(w, tuning),
+      };
+    case 'hollow':
+      return { id: 'hollow', fame: { ...p.fame }, front: p.front };
+    case 'halcyon':
+      return { id: 'halcyon', chose: p.chose };
+    case 'foglight': {
+      const { cols, heights, meadow, guide, following, stepDown } = p;
+      return { id: 'foglight', cols, heights: [...heights], meadow, guide, following, stepDown };
+    }
+    case 'council': {
+      const { rule, proposed, heroVote, winner } = p;
+      return { id: 'council', spots: p.spots.map((s) => ({ ...s })), rule, proposed, heroVote, winner };
+    }
+    case 'shallows':
+      return {
+        id: 'shallows',
+        pads: p.pads.map((x) => ({ ...x })),
+        padOf: { ...p.padOf },
+        songs: Object.fromEntries(Object.entries(p.songs).map(([k, v]) => [k, [...v]])),
+        heroSong: p.heroSong,
+        variety: p.variety,
+        sorting: sorting(w),
+      };
+  }
 }
 
 export function toLite(w: World, tuning: Tuning): WorldLite {

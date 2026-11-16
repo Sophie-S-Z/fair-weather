@@ -2,39 +2,15 @@
 // its receiver toward the hero, and the seeker, Wisp, chooses once at a dusk to go home or stay.
 // There is no fog code: a world starts with none and only `paintFog` adds it, so the scenario keeps
 // it clear, and keeps winter out with its season. Nothing here draws.
-import type { Creature, HalcyonState, Side, Tie, World } from '../types.ts';
+import type { HalcyonState, World } from '../types.ts';
 import { HERO } from '../types.ts';
 import type { Tuning } from '../tuning.ts';
 import { clamp, dist2 } from '../math.ts';
+import { heroSide, warmthTowardHero } from './hero-tie.ts';
 import type { RulePack } from './index.ts';
 
 function halcyonOf(world: World): HalcyonState | undefined {
   return world.pack?.id === 'halcyon' ? world.pack : undefined;
-}
-
-/** The key of `id`'s tie with the hero: world.ts tieKey, written out (see heroSide). */
-function heroKey(id: string): string {
-  return id < HERO ? `${id}|${HERO}` : `${HERO}|${id}`;
-}
-
-/**
- * `c`'s side of its tie with the hero, made as world.ts ensureTie(world, c, hero) makes it when
- * there is none. It is written out, as fen.ts and hollow.ts write out the hero test, since world.ts
- * imports packs/index.ts and importing it here would make an import cycle.
- */
-function heroSide(world: World, c: Creature, hero: Creature, t: Tuning): Side {
-  const key = heroKey(c.id);
-  let tie = world.ties.get(key);
-  if (!tie) {
-    const start = (x: Creature, y: Creature): Side => ({
-      warmth: clamp((x.opinions[y.id] ?? 0) * t.opinion.weight, -1, 1),
-      slights: 0,
-    });
-    const made: Tie = { a: c.id, b: HERO, ab: start(c, hero), ba: start(hero, c), meetings: 0, lastDay: -1 };
-    world.ties.set(key, made);
-    tie = made;
-  }
-  return tie.a === c.id ? tie.ab : tie.ba;
 }
 
 /**
@@ -42,9 +18,9 @@ function heroSide(world: World, c: Creature, hero: Creature, t: Tuning): Side {
  * least wisp.minWarmth and Kith's is at least wisp.minKithWarmth, else stay.
  */
 function choose(world: World, h: HalcyonState, t: Tuning): 'home' | 'stay' {
-  const tie = world.ties.get(heroKey(h.seeker));
-  const warmth = tie ? (tie.a === h.seeker ? tie.ab : tie.ba).warmth : 0;
-  return warmth >= t.wisp.minWarmth && h.kithWarmth >= t.wisp.minKithWarmth ? 'home' : 'stay';
+  return warmthTowardHero(world, h.seeker) >= t.wisp.minWarmth && h.kithWarmth >= t.wisp.minKithWarmth
+    ? 'home'
+    : 'stay';
 }
 
 export const halcyon: RulePack = {

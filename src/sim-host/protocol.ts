@@ -2,6 +2,7 @@
 import type {
   BidReply,
   Command,
+  CouncilSpot,
   CreatureState,
   Dials,
   GiftMove,
@@ -11,7 +12,9 @@ import type {
   Season,
   Shell,
   SimEvent,
+  Song,
   Structure,
+  VotingRule,
   World,
 } from '../sim/types.ts';
 import type { Deck } from '../sim/land.ts';
@@ -57,11 +60,42 @@ export interface WorldLite {
    * starling's perceived share (the reflection, ADR 0007). Hearsay Hollow: each creature's fame,
    * from 0 to at most hollow.fameStep × knack.bellPrints / hollow.fameFade (not capped at 1), and
    * `front`, the last print's subject, or null. Halcyon: Wisp's choice, or null (item 7).
+   * Foglight Heights (ADR 0015 item 3): the height map, its width in cells, the meadow's least
+   * height, the guide, whether it follows, and whether the hero steps down. Toadstool Council (item
+   * 4): the spots, the rule the next tally uses, the hero's proposal and vote, and the last winner.
+   * Lily Shallows (item 5): the pads, each frog's pad and songs, the hero's song, the variety rule,
+   * and the pond's sorting.
    */
   pack:
     | { id: 'fen'; flying: string[]; perceived: Record<string, number> }
     | { id: 'hollow'; fame: Record<string, number>; front: string | null }
     | { id: 'halcyon'; chose: 'home' | 'stay' | null }
+    | {
+        id: 'foglight';
+        cols: number;
+        heights: number[];
+        meadow: number;
+        guide: string;
+        following: boolean;
+        stepDown: boolean;
+      }
+    | {
+        id: 'council';
+        spots: CouncilSpot[];
+        rule: VotingRule;
+        proposed: VotingRule | null;
+        heroVote: string | null;
+        winner: string | null;
+      }
+    | {
+        id: 'shallows';
+        pads: { id: string; x: number; y: number }[];
+        padOf: Record<string, string>;
+        songs: Record<string, Song[]>;
+        heroSong: Song | null;
+        variety: boolean;
+        sorting: number;
+      }
     | null;
   /** The light lens. */
   light: { x: number; y: number } | null;

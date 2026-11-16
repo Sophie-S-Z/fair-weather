@@ -11,11 +11,24 @@ export const HERO_KINDS = ['lantern', 'kite', 'mosscoat', 'glassling', 'seedcarr
 export type HeroKind = (typeof HERO_KINDS)[number];
 /** The hero's creature id (ADR 0013 item 1). */
 export const HERO = 'hero';
-/** The valleys' rule packs (ADR 0013 item 4); each pack task adds its id. */
-export type PackId = 'fen' | 'hollow' | 'halcyon';
-/** The player's local verb, passed to the world's rule pack (ADR 0013 item 4). */
+/** The valleys' rule packs (ADR 0013 item 4, ADR 0015 items 3 to 5). */
+export type PackId = 'fen' | 'hollow' | 'halcyon' | 'foglight' | 'council' | 'shallows';
+/** Toadstool Council's voting rules (ADR 0015 item 4), plurality first. */
+export const VOTING_RULES = ['plurality', 'approval', 'runoff', 'score'] as const;
+export type VotingRule = (typeof VOTING_RULES)[number];
+/** Lily Shallows' songs (ADR 0015 item 5). */
+export const SONGS = ['reed', 'rain', 'old'] as const;
+export type Song = (typeof SONGS)[number];
+/** The player's local verb, passed to the world's rule pack (ADR 0013 item 4, ADR 0015 item 6). */
 export type LocalVerb =
-  { verb: 'join'; on: boolean } | { verb: 'pose' } | { verb: 'keepsake'; to: string; item: string };
+  | { verb: 'join'; on: boolean }
+  | { verb: 'pose' }
+  | { verb: 'keepsake'; to: string; item: string }
+  | { verb: 'stepDown'; on: boolean }
+  | { verb: 'vote'; spot: string }
+  | { verb: 'propose'; rule: Exclude<VotingRule, 'plurality'> }
+  | { verb: 'learn'; from: string }
+  | { verb: 'sing'; to: string };
 /**
  * Murmuration Fen's flock (ADR 0013 item 5): each starling's threshold, the starlings in flight in
  * creature order, the restless ones that never land, and whether the hero has joined.
@@ -52,7 +65,69 @@ export interface HalcyonState {
   given: boolean;
   chose: 'home' | 'stay' | null;
 }
-export type PackState = FenState | HollowState | HalcyonState;
+/**
+ * Foglight Heights (ADR 0015 item 3): the height map, one integer from 0 to 9 per foglight.cell
+ * square in row-major order with `cols` cells a row, the least height of the high meadow, the
+ * guide (Brume), whether it follows the hero, and whether the hero may step down.
+ */
+export interface FoglightState {
+  id: 'foglight';
+  cols: number;
+  heights: number[];
+  meadow: number;
+  guide: string;
+  following: boolean;
+  stepDown: boolean;
+}
+/** A council spot (ADR 0015 item 4): a scene point and a point on the preference map. */
+export interface CouncilSpot {
+  id: string;
+  x: number;
+  y: number;
+  wet: number;
+  far: number;
+}
+/**
+ * Toadstool Council (ADR 0015 item 4): the four spots, each voter's preference point, the rule the
+ * next tally uses, the rule the hero proposed (null before), whether the council has heard it,
+ * the spot the hero voted for (null before), and the last winner (null before the first tally).
+ */
+export interface CouncilState {
+  id: 'council';
+  spots: CouncilSpot[];
+  prefs: Record<string, { wet: number; far: number }>;
+  rule: VotingRule;
+  proposed: VotingRule | null;
+  heard: boolean;
+  heroVote: string | null;
+  winner: string | null;
+}
+/**
+ * Lily Shallows (ADR 0015 item 5): the pads, each frog's pad and slot, each frog's songs, the
+ * hero's song (null before it learns one), whether the variety rule is on, and whether the pond
+ * has settled once.
+ */
+export interface ShallowsState {
+  id: 'shallows';
+  pads: { id: string; x: number; y: number }[];
+  padOf: Record<string, string>;
+  slotOf: Record<string, number>;
+  songs: Record<string, Song[]>;
+  heroSong: Song | null;
+  variety: boolean;
+  settled: boolean;
+}
+export type PackState = FenState | HollowState | HalcyonState | FoglightState | CouncilState | ShallowsState;
+/** A rule card's state (ADR 0015 item 8): what a creature is now, never who it is. */
+export const CARD_WHENS = ['hungry', 'full', 'lonely', 'liked'] as const;
+export type CardWhen = (typeof CARD_WHENS)[number];
+/** A rule card's meeting move (ADR 0015 item 8): a reply, or a gift move. */
+export const CARD_THENS = ['toward', 'away', 'against', 'give', 'keep'] as const;
+export type CardThen = (typeof CARD_THENS)[number];
+export interface RuleCard {
+  when: CardWhen;
+  then: CardThen;
+}
 export type DialKey = 'opener' | 'forgiveness' | 'memory' | 'ear' | 'wanderlust';
 /** The fixed dial order for every PRNG pick over dials. */
 export const DIAL_KEYS = [
@@ -225,6 +300,8 @@ export interface World {
   gateDark?: true;
   /** The sandbox's network switches, set only with the scenario's (ADR 0014 item 3). */
   network?: NetworkSwitches;
+  /** The sandbox's rule cards, set only with the scenario's (ADR 0015 item 8). */
+  cards?: RuleCard[];
 }
 /**
  * The advanced network switches (ADR 0014 item 3): `mutual`, a friend needs warmth above
@@ -273,7 +350,12 @@ export type SimEvent =
   | { t: 'mushroom'; taken: number; drops: number }
   | { t: 'print'; subject: string; fame: number } // the Hollow's gazette, with the fame after the dusk fade
   | { t: 'keepsake'; to: string; item: string }
-  | { t: 'goHome' | 'stay'; who: string }; // Wisp's choice in Halcyon (ADR 0013 item 7)
+  | { t: 'goHome' | 'stay'; who: string } // Wisp's choice in Halcyon (ADR 0013 item 7)
+  | { t: 'follow'; who: string } // Brume comes along in Foglight Heights (ADR 0015 item 3)
+  | { t: 'tally'; rule: VotingRule; winner: string; glad: number } // the council's vote (ADR 0015 item 4)
+  | { t: 'heard'; rule: VotingRule; change: number } // the council remembers who asked
+  | { t: 'song'; who: string; song: Song } // a frog learns the hero's song (ADR 0015 item 5)
+  | { t: 'variety' | 'settled' }; // the variety rule turns on; the pond settles once
 export interface Scenario {
   valleyId: string;
   season: Season;
@@ -321,12 +403,24 @@ export interface Scenario {
    * The valley's rule pack (ADR 0013 items 4 to 6). Murmuration Fen: the `restless` starlings fly
    * from the start and never land, and `fixed` holds the thresholds that take no draw (Tove's 0.5).
    * Hearsay Hollow takes nothing more. Halcyon (item 7): Kith's average warmth after the postcards
-   * so far (item 10), and the `seeker` who chooses, Wisp.
+   * so far (item 10), and the `seeker` who chooses, Wisp. Foglight Heights, Toadstool Council, and
+   * Lily Shallows (ADR 0015 items 3 to 5): the height map and Brume; the spots, the voters'
+   * preferences, and a sandbox's rule (plurality without it); the pads, each frog's pad and songs,
+   * and the variety rule on from the start (sandbox and T5 only).
    */
   pack?:
     | { id: 'fen'; restless: string[]; fixed: Record<string, number> }
     | { id: 'hollow' }
-    | { id: 'halcyon'; kithWarmth: number; seeker: string };
+    | { id: 'halcyon'; kithWarmth: number; seeker: string }
+    | { id: 'foglight'; heights: number[]; meadow: number; guide: string }
+    | { id: 'council'; spots: CouncilSpot[]; prefs: CouncilState['prefs']; rule?: VotingRule }
+    | {
+        id: 'shallows';
+        pads: ShallowsState['pads'];
+        padOf: Record<string, string>;
+        songs: Record<string, Song[]>;
+        variety?: true;
+      };
   /** A sandbox world (ADR 0014 items 1 and 5). */
   sandbox?: true;
   /** The days in each season, a positive integer; without it the season never turns (ADR 0014 item 4). */
@@ -335,4 +429,6 @@ export interface Scenario {
   baseFog?: number;
   /** The network switches (ADR 0014 item 3). */
   network?: NetworkSwitches;
+  /** The rule cards, at most three (ADR 0015 item 8). */
+  cards?: RuleCard[];
 }

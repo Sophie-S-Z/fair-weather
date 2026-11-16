@@ -34,6 +34,12 @@ const EVENT_KIND_SET: Record<SimEvent['t'], true> = {
   keepsake: true,
   goHome: true,
   stay: true,
+  follow: true,
+  tally: true,
+  heard: true,
+  song: true,
+  variety: true,
+  settled: true,
 };
 const EVENT_KINDS = Object.keys(EVENT_KIND_SET) as [SimEvent['t'], ...SimEvent['t'][]];
 // The same for seasons and creature states (story may not import sim values, so a Record here).
@@ -57,7 +63,14 @@ const creatureState = z.enum(Object.keys(STATE_SET) as [CreatureState, ...Creatu
 const SHELL_SET: Record<keyof Shell, true> = { tightness: true, bristle: true, color: true, softness: true };
 const shellKey = z.enum(Object.keys(SHELL_SET) as [keyof Shell, ...(keyof Shell)[]]);
 
-const PACK_SET: Record<PackId, true> = { fen: true, hollow: true, halcyon: true };
+const PACK_SET: Record<PackId, true> = {
+  fen: true,
+  hollow: true,
+  halcyon: true,
+  foglight: true,
+  council: true,
+  shallows: true,
+};
 const packId = z.enum(Object.keys(PACK_SET) as [PackId, ...PackId[]]);
 
 /** The bridge's activity is `hero`: the player picks and names a hero (ADR 0013 item 11). */

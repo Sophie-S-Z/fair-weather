@@ -1,13 +1,17 @@
 // Rule packs (ADR 0013 item 4): one per valley, on only with the scenario's `pack`. A pack's state
 // lives in `World.pack`, so hashing, checkpoints, and rewind keep it. A pack changes the meeting
-// rules only through canMeet, giftCost, and giftWarmth; for a world without a pack each gives the
-// plain rule, and nothing here draws.
+// rules only through canMeet, giftCost, and giftWarmth, and movement only through steered, mayStep,
+// and speedFactor (ADR 0015 item 2); for a world without a pack each gives the plain rule, and
+// nothing here draws.
 import type { Creature, LocalVerb, PackId, PackState, SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
+import { council, steersToadstool } from './council.ts';
 import { fen, flies } from './fen.ts';
+import { carryFactor, climbAllows, foglight, steersSnail } from './foglight.ts';
 import { halcyon } from './halcyon.ts';
 import { hollow, keepsDistance } from './hollow.ts';
+import { shallows, steersFrog } from './shallows.ts';
 
 export type { LocalVerb } from '../types.ts';
 
@@ -24,7 +28,7 @@ export interface RulePack<S extends PackState = PackState> {
   metrics(world: World, t: Tuning): Record<string, number>;
 }
 
-export const PACKS: Record<PackId, RulePack> = { fen, hollow, halcyon };
+export const PACKS: Record<PackId, RulePack> = { fen, hollow, halcyon, foglight, council, shallows };
 
 /**
  * Whether `a` and `b` may meet: in Murmuration Fen a flying creature meets no one (ADR 0013 item 5),
@@ -46,4 +50,30 @@ export function giftCost(world: World, t: Tuning): number {
 export function giftWarmth(world: World, t: Tuning): number {
   const k = world.pack?.id === 'halcyon' ? t.halcyon.giftWarmthMultiplier : 1;
   return t.warmth.giftReceived * k;
+}
+
+/**
+ * True when the pack sets `c`'s goal (ADR 0015 item 2): Foglight's snails, the council's
+ * toadstools, and the Shallows' frogs. Movement then picks no goal for it and it leaves no lens.
+ */
+export function steered(world: World, c: Creature): boolean {
+  return steersSnail(world, c) || steersToadstool(world, c) || steersFrog(world, c);
+}
+
+/** False when the pack refuses `c`'s step from (x, y) to (nx, ny): Foglight's climb rule for the hero. */
+export function mayStep(
+  world: World,
+  c: Creature,
+  x: number,
+  y: number,
+  nx: number,
+  ny: number,
+  t: Tuning,
+): boolean {
+  return climbAllows(world, c, x, y, nx, ny, t);
+}
+
+/** The factor on `c`'s top speed: foglight.carrySpeed for a hero with Brume beside it, else 1. */
+export function speedFactor(world: World, c: Creature, t: Tuning): number {
+  return carryFactor(world, c, t);
 }

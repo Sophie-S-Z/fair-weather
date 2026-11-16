@@ -151,7 +151,7 @@ export function verbCommand(
 const isHeroEvent = (e: SimEvent): e is HeroEvent =>
   (e.t === 'bid' || e.t === 'gift') && (e.from === 'hero' || e.to === 'hero');
 
-/** The creature an event beat's `who` matches; undefined for a lit meeting or the mushroom, which have no one actor. */
+/** The creature an event beat's `who` matches; undefined for an event with no one actor (a lit meeting, the mushroom, a tally, the pond). */
 function actor(e: SimEvent): string | undefined {
   switch (e.t) {
     case 'bid':
@@ -165,6 +165,10 @@ function actor(e: SimEvent): string | undefined {
       return e.to; // the hero always gives it
     case 'lit':
     case 'mushroom':
+    case 'tally':
+    case 'heard':
+    case 'variety':
+    case 'settled':
       return undefined;
     default:
       return e.who;

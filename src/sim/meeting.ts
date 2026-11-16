@@ -8,6 +8,7 @@ import { clamp, dist2, sigmoid } from './math.ts';
 import { bellReach, heroFogFactor, heroGift, heroMeetingBidder, heroReply, heroWarmthScale } from './hero.ts';
 import { avoidsLens, boostAt, fogAt, inLens, recordLitMeeting } from './light.ts';
 import { canMeet, giftCost, giftWarmth } from './packs/index.ts';
+import { cardGift, cardReply } from './cards.ts';
 import { benchesOf, ensureTie, friendsOf, getTie, side, tieKey } from './world.ts';
 
 const HUNGER_FULL_AT = 3; // ADR 0003 item 2
@@ -228,7 +229,8 @@ function pushDiary(c: Creature, entries: DiaryEntry[]): void {
  * slights, softness, and tightness follow what each side saw.
  *
  * With the hero, the hero's module decides who bids (heroMeetingBidder), the hero's reply, and its
- * gift; the draws for those are still taken, so the order above holds. Its knack (ADR 0013 item 3)
+ * gift; for anyone else a rule card may set the reply or the gift (ADR 0015 item 8). The draws for
+ * those are still taken, so the order above holds. Its knack (ADR 0013 item 3)
  * scales the fog on its reply and gifts (heroFogFactor) and a local's warmth changes toward it
  * (heroWarmthScale). A Bellchime that bids takes one more reply draw for each other creature its
  * wave reaches (bellReach), after the seven, and adds a `bid` event for each, last.
@@ -260,16 +262,22 @@ export function resolveMeeting(world: World, a: Creature, b: Creature, t: Tuning
   const replierSide = side(tie, replier.id);
   const w = effectiveWarmth(replierSide.warmth, replier.opinions[bidder.id] ?? replierSide.warmth, t);
   const replyBoost = boost('toward', 'against');
-  const reply = heroReply(world, replier) ?? pickReply(w, replier, replyBoost, draw.reply, t);
+  const reply =
+    heroReply(world, replier) ??
+    cardReply(world, replier, t) ??
+    pickReply(w, replier, replyBoost, draw.reply, t);
   const replyFog = t.fog.bidFlipFactor * fog * heroFogFactor(world, replier, t);
   const replySeen: BidReply = reply === 'toward' && draw.replyFog < replyFog ? 'away' : reply;
 
   // Gifts.
   const giftBoost = boost('give', 'keep');
   const bidderMove =
-    heroGift(world, bidder, t) ?? pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
+    heroGift(world, bidder, t) ??
+    cardGift(world, bidder, t) ??
+    pickGift(world, bidderSide, bidder, first, giftBoost, draw.bidderGift, t);
   const replierMove =
     heroGift(world, replier, t) ??
+    cardGift(world, replier, t) ??
     pickGift(world, replierSide, replier, first, giftBoost, draw.replierGift, t);
   const misread = (giver: Creature, m: GiftMove, d: number): GiftMove =>
     m === 'give' && d < t.fog.giftMisreadFactor * fog * heroFogFactor(world, giver, t) ? 'keep' : m;

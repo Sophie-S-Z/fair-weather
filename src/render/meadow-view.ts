@@ -730,9 +730,12 @@ export function createMeadowView(
   const valleyGround = new Graphics({ label: 'valley-ground' });
   const veil = new Graphics({ label: 'veil' });
   const songMarks = new Graphics({ label: 'songs' });
-  /** What the valley ground and the veil were drawn for; '' redraws them. */
-  let groundKey = '';
-  let veilKey = '';
+  /**
+   * What the valley ground and the veil were drawn for; null redraws them. Not '', which is the key
+   * of a valley with neither, so a new scene after a Stage 2 valley clears what that valley drew.
+   */
+  let groundKey: string | null = null;
+  let veilKey: string | null = null;
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -921,7 +924,8 @@ export function createMeadowView(
         lensRing.clear().circle(0, 0, options.lensRadius).stroke({ color: palette.accent, width: w });
         for (const { g } of props.values()) g.destroy();
         props.clear();
-        landKey = mushroomKey = groundKey = veilKey = '';
+        landKey = mushroomKey = '';
+        groundKey = veilKey = null;
       }
       const paths = next.structures.filter((s) => s.kind === 'path');
       const gateKey = gateLamp ? next.gateDark : null;

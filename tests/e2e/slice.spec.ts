@@ -163,9 +163,12 @@ test('the bet card takes focus, keeps it, ignores Escape, and gives it back', as
   await expect(dialog).toBeHidden();
   await expect(scene(page)).toBeFocused();
   // The reveal names the guess and an answer that was one of the options.
-  await expect(live(page)).toContainText(/Your guess: Pim\. The answer: (Pim|Krit|Echo|Moss|Bell|Wisp)\./, {
-    timeout: 90_000,
-  });
+  await expect(live(page)).toContainText(
+    /Your guess: Pim\. The answer: (Pim|Krit|Echo|Old Moss|Bell|Wisp)\./,
+    {
+      timeout: 90_000,
+    },
+  );
   // The answer ends the chapter when Krit took Pim's berries in the bet's week. The arrangement that
   // brings them together runs on the tick the worker is at when it arrives (ADR 0009 item 1), so on a
   // page that runs behind the sim it can land too late for that week; then Skip ends the chapter here.

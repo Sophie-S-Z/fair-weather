@@ -464,11 +464,20 @@ test('the end screen tells the sixth verse, takes focus, and its button returns 
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  // From the bridge (index 16), each skip moves on: the Fen, the Hollow, Halcyon, home, the end.
+  // From the bridge (index 16), each skip moves on: the six valleys, home, the end.
   await page.goto('/?chapter=16');
   await page.getByRole('button', { name: 'Begin' }).click();
   const h1 = page.getByRole('heading', { level: 1 });
-  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+  for (const name of [
+    'The Bridge',
+    'Murmuration Fen',
+    'Hearsay Hollow',
+    'Foglight Heights',
+    'Toadstool Council',
+    'Lily Shallows',
+    'Halcyon',
+    'The Homecoming',
+  ]) {
     await expect(h1).toHaveText(name);
     await page.getByRole('button', { name: 'Skip chapter' }).click();
   }

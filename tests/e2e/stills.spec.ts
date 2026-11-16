@@ -50,7 +50,7 @@ noGl.describe('without WebGL', () => {
       await expect(page.getByRole('img', { name: 'First Light' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeDisabled();
       const total = await count(page);
-      expect(total).toBe(21);
+      expect(total).toBe(24);
       // Every page has its title, its picture, and words.
       await expect(page.locator('article p').nth(1)).not.toBeEmpty();
       for (let i = 1; i < total; i++) {

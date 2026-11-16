@@ -31,7 +31,6 @@ import home from '../content/valleys/home.json';
 import inkStory from '../content/ink/main.ink';
 import versesJson from '../content/myth/verses.json';
 import sixthJson from '../content/myth/sixth.json';
-import bodiesJson from '../content/bodies.json';
 import { createAudioEngine, enableOnGesture } from './audio/engine.ts';
 import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
@@ -47,7 +46,7 @@ import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { SixthSchema, sixthFeatures, tellSixth } from './myth/sixth.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { createFrameRing } from './render/frame-ring.ts';
-import { RigSchema, type Rig } from './render/line/rig.ts';
+import { rigs } from './rigs.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
@@ -161,18 +160,6 @@ settings.subscribe((s) => {
 });
 const analytics = createAnalytics(import.meta.env.VITE_ANALYTICS_URL || null, () => analyticsOn, fetchPost);
 
-const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
-const rigs = new Map<string, Rig>(
-  Object.values(rigFiles).map((json) => {
-    const rig = RigSchema.parse(json);
-    return [rig.id, rig];
-  }),
-);
-// A villager wears one of the shared bodies (spec 5.4): its id names that body's rig.
-for (const [id, body] of Object.entries(bodiesJson)) {
-  const rig = rigs.get(body);
-  if (rig) rigs.set(id, rig);
-}
 const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
 const cast = new Map<string, Cast>(
   Object.values(castFiles).map((json) => {

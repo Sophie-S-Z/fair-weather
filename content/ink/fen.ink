@@ -1,19 +1,20 @@
 === fen_intro ===
-Starlings sit in the reeds. Tove has never flown. #placeholder
+Starlings crowd the reeds of Murmuration Fen, and Tove, who has never flown, watches the water.
+The water shows a sky full of birds, more than the sky holds.
 -> END
 
 === fen_flew ===
-The flock rises at dusk, and Tove flies with it. #placeholder
+At dusk the flock rises, and Tove rises with it.
 -> END
 
 === fen_close_call ===
-Tove is still in the reeds. Too few of those near Tove flew. #placeholder
+Tove is still in the reeds; too few of the birds nearest Tove flew.
 -> END
 
 === fen_postcard ===
-Which postcard will you send home? #placeholder
+The starlings will carry one postcard home to Kith. Which one?
 -> END
 
 === fen_sent ===
-The postcard flies home to Kith. #placeholder
+A starling takes the card, and is lost at once in the flock.
 -> END

@@ -597,7 +597,7 @@ describe('beats', () => {
     expect(seed).toBeDefined(); // the story asked in both years
     const danced = run.log.some((e) => e.kind === 'event' && e.e.t === 'dance' && e.e.who === 'pim');
     expect(danced).toBe(!gone);
-    expect(said.some((l) => l.includes('Pim starts to dance'))).toBe(!gone);
+    expect(said.some((l) => l.includes('then Pim dances'))).toBe(!gone);
   });
 
   test('events before the first snapshot wait for it', async () => {

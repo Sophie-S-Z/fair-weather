@@ -1,20 +1,20 @@
 === ch2_intro ===
-Five neighbors gather in the meadow. #placeholder
-"Mine. Probably."
-"You first."
-"What's over there?"
-"Maybe after you."
-"I remember. I always remember."
+Pim is not alone in the meadow, and each neighbor has a rule for sharing.
+Krit: "Mine. Probably."
+Echo: "You first."
+Wisp: "What's over there?"
+Bell: "Maybe after you."
+Old Moss: "I remember. I always remember."
 -> END
 
 === ch2_bet ===
-Who will have the most berries after a week? #placeholder
+A week from now, who will have the most berries?
 -> END
 
 === ch2_exploit ===
-Krit took Pim's berries and gave nothing back. #placeholder
+Krit took everything Pim held out, and Pim kept holding it out.
 -> END
 
 === ch2_close_call ===
-Krit did not take Pim's berries this time. #placeholder
+A whole week went by, and Krit never once took from Pim.
 -> END

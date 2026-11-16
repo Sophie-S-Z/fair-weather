@@ -21,7 +21,7 @@
           "value": true
         }
       ],
-      "text": "[PLACEHOLDER] We could see right through it. The frogs printed its name, {hero}, and still Wisp walked beside it."
+      "text": "We could see right through it, {narrator} says. The frogs printed its name, {hero}, on every page, and still Wisp walked home beside it."
     },
     {
       "when": [
@@ -31,8 +31,8 @@
           "value": 0.5
         }
       ],
-      "text": "[PLACEHOLDER] It turned against us more often than not. {narrator} still will not say its name.",
-      "note": "[PLACEHOLDER] You turned against half the bids or more. The creatures took it as a sky that did not like them."
+      "text": "It turned against us more often than not, and {narrator} still will not say its name.",
+      "note": "You turned against half of the bids or more. The creatures took it as a sky that did not like them, which is close to what it looked like from below."
     },
     {
       "when": [
@@ -47,7 +47,7 @@
           "value": true
         }
       ],
-      "text": "[PLACEHOLDER] It brought Wisp back over the hill, and we all waited at the gate. {narrator} saw them first."
+      "text": "It brought Wisp back over the hill, and we were all waiting at the gate, and {narrator} saw them first."
     },
     {
       "when": [
@@ -57,8 +57,8 @@
           "value": 0.2
         }
       ],
-      "text": "[PLACEHOLDER] It kept what it was given. {narrator} says the sky had little to spare that year.",
-      "note": "[PLACEHOLDER] You kept most of what you could have given. The creatures read it as a poor sky."
+      "text": "It kept what it was given, {narrator} says, so the sky must have had little to spare that year.",
+      "note": "You kept most of what you could have given. From below, a sky that keeps looks like a poor sky, not a mean one."
     },
     {
       "when": [
@@ -68,7 +68,7 @@
           "value": true
         }
       ],
-      "text": "[PLACEHOLDER] In the Hollow they printed its face every dusk. {narrator} says nobody dared sit near it."
+      "text": "In the Hollow they printed its face every dusk, {narrator} says, and nobody there dared sit near it."
     },
     {
       "when": [
@@ -78,7 +78,7 @@
           "value": false
         }
       ],
-      "text": "[PLACEHOLDER] While it walked, the meadow grew cold. {narrator} sat by the gate alone."
+      "text": "While it walked, the meadow grew cold, {narrator} says, and some of us sat by the gate alone."
     },
     {
       "when": [
@@ -88,11 +88,11 @@
           "value": true
         }
       ],
-      "text": "[PLACEHOLDER] It flew with the starlings, says {narrator}, and Tove flew with it."
+      "text": "It flew with the starlings, {narrator} says, and a small one called Tove flew with it."
     },
     {
       "when": [],
-      "text": "[PLACEHOLDER] {hero} walked far from us, says {narrator}, and we told its story while it was gone."
+      "text": "{hero} walked far from us, {narrator} says, and we told its story while it was gone."
     }
   ]
 }

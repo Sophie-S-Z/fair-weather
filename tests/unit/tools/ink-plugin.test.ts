@@ -61,30 +61,19 @@ describe('ink plugin', () => {
     expect(inkCacheKey(src, main)).not.toBe(before);
   });
 
-  test('chapter scripts: every line is #placeholder or a spec 5.3 voice line, and beat tags parse', () => {
-    const voice = new Set([
-      '"Want half? I have a whole one!"',
-      '"Mine. Probably."',
-      '"You first."',
-      '"I remember. I always remember."',
-      '"What\'s over there?"',
-      '"Maybe after you."',
-    ]);
+  test('story scripts: no line is a placeholder, and every beat tag parses', () => {
     const dir = join(import.meta.dirname, '../../../content/ink');
-    for (const f of readdirSync(dir).filter((n) => /^ch\d+\.ink$/.test(n))) {
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.ink'))) {
       for (const raw of readFileSync(join(dir, f), 'utf8').split('\n')) {
         const line = raw.trim();
-        if (line === '' || line.startsWith('//') || line.startsWith('===') || line.startsWith('->')) continue;
+        if (line.startsWith('//')) continue;
         const tags = line
           .split('#')
           .slice(1)
           .map((t) => t.trim());
-        if (tags.includes('placeholder')) {
-          for (const t of tags.filter((x) => x.startsWith('beat:')))
-            expect(parseBeatTag(t), `${f}: ${t}`).not.toBeNull();
-        } else {
-          expect(voice.has(line), `${f}: ${line}`).toBe(true);
-        }
+        expect(tags, `${f}: ${line}`).not.toContain('placeholder');
+        for (const t of tags.filter((x) => x.startsWith('beat:')))
+          expect(parseBeatTag(t), `${f}: ${t}`).not.toBeNull();
       }
     }
   });

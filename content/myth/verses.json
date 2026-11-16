@@ -17,7 +17,7 @@
               "value": 2
             }
           ],
-          "text": "[PLACEHOLDER] I, Krit, tell it straight: the sky woke grumbling. It rumbled at us {rumbles} times, and I rumbled back."
+          "text": "I, Krit, will tell it straight: the sky woke grumbling. It rumbled at us {rumbles} times, and I rumbled back. Probably it started it."
         },
         {
           "when": [
@@ -27,7 +27,7 @@
               "value": "pim"
             }
           ],
-          "text": "[PLACEHOLDER] I, Pim, woke first. The sky was soft with me that morning, and I was not afraid."
+          "text": "I, Pim, woke first! The sky was soft with me that morning, and I waved, and that was the first thing I ever shared."
         },
         {
           "when": [
@@ -37,8 +37,8 @@
               "value": 4
             }
           ],
-          "text": "[PLACEHOLDER] {narrator} remembers the waking as thunder: {rumbles} times the sky growled before it ever smiled.",
-          "note": "[PLACEHOLDER] The creatures heard anger. You turned against {rumbles} sky bids, and turning against says more than turning away."
+          "text": "{narrator} remembers the waking as thunder: the sky growled {rumbles} times before it ever smiled.",
+          "note": "You turned against {rumbles} bids. Turning against says more than turning away, and the creatures heard it as anger aimed at them."
         },
         {
           "when": [
@@ -48,7 +48,7 @@
               "value": 4
             }
           ],
-          "text": "[PLACEHOLDER] The sky woke, and the hill road filled: {welcomes} newcomers came, and {narrator} counted every one."
+          "text": "The sky woke, and the hill road filled behind it: {welcomes} newcomers came over, and {narrator} counted every one."
         },
         {
           "when": [
@@ -63,7 +63,7 @@
               "value": 1
             }
           ],
-          "text": "[PLACEHOLDER] The sky woke uneasy. It rumbled {rumbles} times, says {narrator}, and still {welcomes} came over the hill."
+          "text": "The sky woke uneasy, says {narrator}. It rumbled {rumbles} times, and still {welcomes} came over the hill to live under it."
         },
         {
           "when": [
@@ -73,7 +73,7 @@
               "value": "echo"
             }
           ],
-          "text": "[PLACEHOLDER] I, Echo, tell the waking twice, so it is kept: the sky opened its eye. The sky opened its eye."
+          "text": "I, Echo, tell the waking twice, so it stays told. The sky opened its eye. The sky opened its eye."
         },
         {
           "when": [
@@ -83,11 +83,11 @@
               "value": 1
             }
           ],
-          "text": "[PLACEHOLDER] {narrator} tells how the sky woke, and the valley woke with it, and {welcomes} more came to see."
+          "text": "{narrator} tells how the sky woke and the valley woke under it, and {welcomes} more came over the hill to see why."
         },
         {
           "when": [],
-          "text": "[PLACEHOLDER] {narrator} tells how, one morning, the sky opened its eye and the valley woke."
+          "text": "{narrator} tells how, one spring morning, the sky opened its eye, and the valley woke up underneath it."
         }
       ]
     },
@@ -108,7 +108,7 @@
               "value": 0.5
             }
           ],
-          "text": "[PLACEHOLDER] I, Moss, saw where the sky's eye rested: on kindness, mostly, and most of all on {mostLit}."
+          "text": "I, Old Moss, kept count of where the sky's eye rested. On kindness, mostly. On {mostLit}, most of all. I remember."
         },
         {
           "when": [
@@ -118,8 +118,8 @@
               "value": 0.6
             }
           ],
-          "text": "[PLACEHOLDER] The sky loved a quarrel, {narrator} says. Its eye went where tempers ran hot, and it found {mostLit} most of all.",
-          "note": "[PLACEHOLDER] Light does not choose sides; it only shows. You lit meetings, and {mostLit} met in the light most. The creatures took being seen for being favored."
+          "text": "The sky loved a quarrel, {narrator} says. Its eye went wherever tempers ran hot, and it found {mostLit} most of all.",
+          "note": "Light takes no side; it only shows, and it grows what it shows. You lit meetings, and {mostLit} met in your light most often. The creatures took being watched for being chosen."
         },
         {
           "when": [
@@ -129,7 +129,7 @@
               "value": "pim"
             }
           ],
-          "text": "[PLACEHOLDER] The sky's eye never left little Pim, {narrator} says. Wherever Pim met someone, the light came too."
+          "text": "The sky's eye never left little Pim, {narrator} says; wherever Pim went, the light came too, like a friend who would not sit down."
         },
         {
           "when": [
@@ -139,7 +139,7 @@
               "value": 0.7
             }
           ],
-          "text": "[PLACEHOLDER] Where the sky looked, creatures were kind, and it looked longest at {mostLit}, says {narrator}."
+          "text": "Where the sky looked, creatures were kind, {narrator} says, and it looked longest at {mostLit}. Nobody is sure which came first."
         },
         {
           "when": [
@@ -154,7 +154,7 @@
               "value": 0.3
             }
           ],
-          "text": "[PLACEHOLDER] I, Bell, felt the sky's eye like a warm hand, and I hummed under it. {mostLit} hummed too."
+          "text": "I, Bell, felt the sky's eye like a warm hand, and maybe I hummed under it. {mostLit} hummed too. Maybe louder."
         },
         {
           "when": [
@@ -164,7 +164,7 @@
               "value": 0.3
             }
           ],
-          "text": "[PLACEHOLDER] The sky's eye went to the sharp-tongued, {narrator} says, and to {mostLit} most of all."
+          "text": "The sky's eye went to the sharp-tongued, {narrator} says, and to {mostLit} most of all, so the sharp-tongued grew sharper."
         },
         {
           "when": [
@@ -174,11 +174,11 @@
               "value": 0.3
             }
           ],
-          "text": "[PLACEHOLDER] The sky's eye found {mostLit} again and again, {narrator} says, and nobody knows why."
+          "text": "The sky's eye found {mostLit} again and again, {narrator} says, and nobody ever learned why."
         },
         {
           "when": [],
-          "text": "[PLACEHOLDER] That year the sky kept its eye half shut, says {narrator}, and saw us all alike."
+          "text": "That year the sky kept its eye half shut, says {narrator}, and saw all of us alike."
         }
       ]
     },
@@ -199,8 +199,8 @@
               "value": 0.5
             }
           ],
-          "text": "[PLACEHOLDER] When we fought, the sky sulked, {narrator} says. It pulled grey over its face and would not look at us.",
-          "note": "[PLACEHOLDER] You painted the fog. It lay where meetings went badly, so the creatures read it as the sky's sulk. Fog hides who did what; it hides kindness too."
+          "text": "When we fought, the sky sulked, {narrator} says. It pulled grey over its face and would not look at us.",
+          "note": "You painted fog, and it lay where meetings were already going badly, so the creatures read it as a sulk. Fog hides who did what. It hides kindness too."
         },
         {
           "when": [
@@ -215,7 +215,7 @@
               "value": 3
             }
           ],
-          "text": "[PLACEHOLDER] I, Wisp, rode the sky's breath. {gusts} times it blew, and every time I wanted to go with it."
+          "text": "I, Wisp, rode the sky's breath. It blew {gusts} times, and every time, I wanted to go wherever it was going."
         },
         {
           "when": [
@@ -225,8 +225,8 @@
               "value": 5
             }
           ],
-          "text": "[PLACEHOLDER] The sky huffed at us {gusts} times, {narrator} says, as if we had done something wrong.",
-          "note": "[PLACEHOLDER] You blew {gusts} gusts to move fog and creatures. Wind has no temper, but the creatures gave it one."
+          "text": "The sky huffed at us {gusts} times, {narrator} says, as if we had done something wrong and it would not say what.",
+          "note": "You blew {gusts} gusts to move fog and creatures along. Wind has no temper. The creatures gave it one."
         },
         {
           "when": [
@@ -236,7 +236,7 @@
               "value": 0.1
             }
           ],
-          "text": "[PLACEHOLDER] The sky was grey and thoughtful that year, {narrator} says, and hid the far hills."
+          "text": "The sky was grey and thoughtful that year, {narrator} says, and kept the far hills to itself."
         },
         {
           "when": [
@@ -251,7 +251,7 @@
               "value": 0.02
             }
           ],
-          "text": "[PLACEHOLDER] The sky could not keep still: grey one day, and {gusts} gusts the next."
+          "text": "The sky could not keep still, {narrator} says: grey one day, and {gusts} gusts the next."
         },
         {
           "when": [
@@ -261,7 +261,7 @@
               "value": "echo"
             }
           ],
-          "text": "[PLACEHOLDER] I, Echo, listened to the sky's moods. Mostly it was quiet. Mostly it was quiet."
+          "text": "I, Echo, listened for the sky's moods. Mostly it was quiet. Mostly it was quiet."
         },
         {
           "when": [
@@ -271,11 +271,11 @@
               "value": 1
             }
           ],
-          "text": "[PLACEHOLDER] Now and then the sky breathed out, {gusts} times in all, and {narrator} felt it in the grass."
+          "text": "Now and then the sky breathed out, {gusts} times in all, and {narrator} felt it move the grass."
         },
         {
           "when": [],
-          "text": "[PLACEHOLDER] The sky kept one mood all year, says {narrator}: patient."
+          "text": "The sky kept one mood all year, says {narrator}, and the mood was patience."
         }
       ]
     },
@@ -301,7 +301,7 @@
               "value": 0
             }
           ],
-          "text": "[PLACEHOLDER] I, Moss, opened my store when the snow came, and nobody had to leave."
+          "text": "I, Old Moss, carried a drop of dew to the one I had not forgiven, and nobody had to leave that winter. I remember that too."
         },
         {
           "when": [
@@ -316,8 +316,8 @@
               "value": 1
             }
           ],
-          "text": "[PLACEHOLDER] The sky hid the berries under the snow, {narrator} says, and {winterLeft} walked away hungry.",
-          "note": "[PLACEHOLDER] The berries were in Moss's store, and Moss kept them. The creatures blamed the sky for a choice one of them made."
+          "text": "The sky froze the dew, {narrator} says, and {winterLeft} of us walked away hungry.",
+          "note": "You froze nothing. Winter made sharing worth less, and what the village took from the mushroom, and the drop Old Moss kept from Krit, were choices made below. The creatures gave the blame to the sky."
         },
         {
           "when": [
@@ -327,7 +327,7 @@
               "value": 3
             }
           ],
-          "text": "[PLACEHOLDER] The winter was long and the snow was deep. {winterLeft} walked into it and were gone until spring."
+          "text": "The winter was long and the snow was deep, {narrator} says, and {winterLeft} of us walked out into it, and are gone until spring."
         },
         {
           "when": [
@@ -342,7 +342,7 @@
               "value": true
             }
           ],
-          "text": "[PLACEHOLDER] Moss shared the store, and still {winterLeft} left. {narrator} says they will send word."
+          "text": "Old Moss shared its dew with Krit, and still {winterLeft} of us left. {narrator} says they will send word."
         },
         {
           "when": [
@@ -357,7 +357,7 @@
               "value": 0
             }
           ],
-          "text": "[PLACEHOLDER] I, Krit, will say this once: the winter was long, and we kept each other."
+          "text": "I, Krit, will say this once: the winter was long, and we kept each other. Once."
         },
         {
           "when": [
@@ -367,7 +367,7 @@
               "value": 1
             }
           ],
-          "text": "[PLACEHOLDER] {winterLeft} left in the long winter, {narrator} says, and the valley was quieter for it."
+          "text": "{winterLeft} of us left in the long winter, {narrator} says, and the valley was quieter for it, the bad kind of quiet."
         },
         {
           "when": [
@@ -377,11 +377,11 @@
               "value": false
             }
           ],
-          "text": "[PLACEHOLDER] Moss kept the store shut, but the winter was kind, and nobody left."
+          "text": "Old Moss kept its dew to itself, {narrator} says, but the winter was gentle, and nobody left."
         },
         {
           "when": [],
-          "text": "[PLACEHOLDER] The winter was long, says {narrator}, and we came through it together."
+          "text": "The winter was long, says {narrator}, and we came through it together."
         }
       ]
     },
@@ -402,7 +402,7 @@
               "value": false
             }
           ],
-          "text": "[PLACEHOLDER] I, Wisp, asked the sky if I could go, and it let me choose. So I chose."
+          "text": "I, Wisp, asked the sky if I could go, and it let me choose. So I am choosing."
         },
         {
           "when": [
@@ -417,7 +417,7 @@
               "value": 0.7
             }
           ],
-          "text": "[PLACEHOLDER] At the festival nearly everyone danced, and Bell danced first. Then, says {narrator}, we asked the sky our question."
+          "text": "At the thaw nearly everyone danced, and even Bell danced. Then, says {narrator}, we asked the sky our question."
         },
         {
           "when": [
@@ -432,7 +432,8 @@
               "value": 0.3
             }
           ],
-          "text": "[PLACEHOLDER] Few danced, and when Wisp asked to leave, the sky's wind took it before it was ready."
+          "text": "Few of us danced, {narrator} says, and we remembered that when Wisp wanted to go, the sky's wind took it before it was ready.",
+          "note": "You blew Wisp over the ridge. It might have gone anyway; the creatures will never know, and neither will you."
         },
         {
           "when": [
@@ -447,7 +448,7 @@
               "value": true
             }
           ],
-          "text": "[PLACEHOLDER] I, Bell, danced at the festival, and then I asked the sky: will you stay?"
+          "text": "I, Bell, danced at the thaw. Then I asked the sky, maybe a little too quietly: will you stay?"
         },
         {
           "when": [
@@ -462,7 +463,7 @@
               "value": 0.5
             }
           ],
-          "text": "[PLACEHOLDER] Most of us danced, but Bell stood by the stones and would not, says {narrator}."
+          "text": "Most of us danced, but Bell stood at the edge and would not, {narrator} says, and nobody knew how to ask it."
         },
         {
           "when": [
@@ -472,7 +473,7 @@
               "value": false
             }
           ],
-          "text": "[PLACEHOLDER] Wisp went its own way when it was ready, and {narrator} asked the sky to watch over it."
+          "text": "Wisp went its own way when it was ready, and {narrator} asked the sky to keep an eye on it, wherever it went."
         },
         {
           "when": [
@@ -482,11 +483,11 @@
               "value": 0.5
             }
           ],
-          "text": "[PLACEHOLDER] We danced, and the wind pushed Wisp along, and at the end {narrator} asked the sky what it wanted of us."
+          "text": "We danced, and the wind took Wisp along, and at the end {narrator} asked the sky what it wanted of us."
         },
         {
           "when": [],
-          "text": "[PLACEHOLDER] At the year's end, {narrator} asked the sky a question. The sky has not answered yet."
+          "text": "At the year's end {narrator} asked the sky a question, and the sky has not answered yet."
         }
       ]
     }

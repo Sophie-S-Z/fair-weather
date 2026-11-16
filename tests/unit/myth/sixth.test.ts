@@ -15,7 +15,7 @@ test('an all-skipped journey tells a whole verse with no open slot', () => {
   expect(skipped).toMatchObject({ hero: 'lantern', giftShare: 0.5, againstShare: 0 });
   const told = tellSixth(skipped, verse, 'Lantern-bearer', 'pim', displayName);
   expect(told.title).toBe('The Sky Came Down');
-  expect(told.text.startsWith(`${FIRST} [PLACEHOLDER] `)).toBe(true);
+  expect(told.text.startsWith(`${FIRST} `)).toBe(true);
   expect(`${told.text}${told.note ?? ''}`).not.toMatch(/\{|\}|undefined|null/);
 });
 
@@ -32,7 +32,9 @@ test('the shares follow the rumor value rules', () => {
 test('a Glassling who was famous and brought Wisp home gets the first template, which names it', () => {
   const f = { ...skipped, hero: 'glassling', heroFamous: true, wispHome: true } as const;
   const told = tellSixth(f, verse, 'Clara', 'moss', displayName);
-  expect(told.text).toBe(`${FIRST} ${(verse.templates[0]?.text ?? '').replace('{hero}', 'Clara')}`);
+  expect(told.text).toBe(
+    `${FIRST} ${(verse.templates[0]?.text ?? '').replace('{hero}', 'Clara').replace('{narrator}', 'Old Moss')}`,
+  );
 });
 
 test('a journey that did not bring Wisp home is never told that it did', () => {

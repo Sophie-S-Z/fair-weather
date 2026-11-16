@@ -1,19 +1,19 @@
 === ch9_intro ===
-The thaw opens a brook across the meadow. #placeholder
+The thaw opens a brook across the meadow, and some friends wake up on the far side of it.
 -> END
 
 === ch9_seed ===
-Wisp's postcard brought a seed, and Pim starts to dance. #placeholder
+A seed came with Wisp's postcard; Pim plants it, and then Pim dances.
 -> END
 
 === ch9_bridge ===
-A bridge reaches across the brook. #placeholder
+A bridge reaches across the brook, and the far side is near again.
 -> END
 
 === ch9_dance ===
-Bell's friends dance, and Bell dances too. #placeholder
+Enough of Bell's friends are dancing now, and at last Bell dances too.
 -> END
 
 === ch9_close_call ===
-Bell watched the dance, but not enough friends danced for Bell to join. #placeholder
+Bell watched the dance from the edge, and not enough of its friends were in it.
 -> END

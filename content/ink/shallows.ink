@@ -1,20 +1,20 @@
 === shallows_intro ===
-Each frog wants only a few pad-mates who sing its song. #placeholder
-Watch where the frogs hop. #placeholder
+Each frog of Lily Shallows wants only a few pad-mates who sing its song.
+Nobody here dislikes anybody; watch where the frogs hop anyway.
 -> END
 
 === shallows_mixed ===
-Now the pads sing more than one song. The frogs who learned a second song brought them together. #placeholder
+The pads sing more than one song now; the frogs who learned a second song brought the pond back together.
 -> END
 
 === shallows_close_call ===
-Each pad still sings one song. The pond stays apart. #placeholder
+Each pad still sings one song, and the pond stays apart, though nobody wanted it to.
 -> END
 
 === shallows_postcard ===
-Which postcard will you send home? #placeholder
+A heron is flying toward Kith and will take one card. Which one?
 -> END
 
 === shallows_sent ===
-The postcard flies home to Kith. #placeholder
+The heron folds the card under one wing and goes.
 -> END

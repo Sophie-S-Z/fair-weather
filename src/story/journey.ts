@@ -45,8 +45,8 @@ export interface Journey {
   bookYear: number | null;
 }
 
-/** The Stage 1 valleys whose Kith days split kith.days, in play order (ADR 0013 item 10). */
-export const KITH_VALLEYS = ['fen', 'hollow', 'halcyon'] as const;
+/** The valleys whose Kith days split kith.days, in play order (ADR 0013 item 10, ADR 0015 item 1). */
+export const KITH_VALLEYS = ['fen', 'hollow', 'foglight', 'council', 'shallows', 'halcyon'] as const;
 
 const RECORD_LENGTH = 20;
 /** The longest hero name, in characters (graphemes); the bridge's name field and heroResult share it. */
@@ -265,11 +265,10 @@ export function leaveValley(j: Journey, chapter: Chapter, lite: WorldLite, log: 
   };
 }
 
-/** Kith's days while the player is in the `index`th Stage 1 valley: kith.days split in play order, the remainder first. */
+/** Kith's days while the player is in the `index`th valley: kith.days split in play order, the remainder first. */
 export function kithDays(index: number): number {
   const n = KITH_VALLEYS.length;
-  if (!Number.isInteger(index) || index < 0 || index >= n)
-    throw new Error(`No Stage 1 valley at ${String(index)}`);
+  if (!Number.isInteger(index) || index < 0 || index >= n) throw new Error(`No valley at ${String(index)}`);
   const days = tuning.kith.days;
   return Math.floor(days / n) + (index < days % n ? 1 : 0);
 }
@@ -291,7 +290,7 @@ export function kithScenario(
 }
 
 /**
- * Kith's leg while the player is in the `index`th Stage 1 valley: first the nudge of the postcard
+ * Kith's leg while the player is in the `index`th valley: first the nudge of the postcard
  * sent there (none from a skipped valley), then kithDays(index) of the homecoming's days.
  */
 export function kithLeg(
@@ -305,8 +304,7 @@ export function kithLeg(
 }
 
 /**
- * Kith's legs, in play order, for the Stage 1 valleys before `chapterId` (all three before the
- * homecoming), each with the postcard its journal page kept (none for a skipped valley, which has no
+ * Kith's legs, in play order, for the valleys before `chapterId` (all six before the homecoming), each with the postcard its journal page kept (none for a skipped valley, which has no
  * page). Continue runs them again from journey.kithStart, which the deterministic sim makes exact
  * (ADR 0013 item 10).
  */

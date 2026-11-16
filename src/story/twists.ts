@@ -15,6 +15,9 @@ export const TWIST_IDS = [
   'bellDances',
   'toveFlies',
   'heroFamous',
+  'brumeClimbs',
+  'ruleHeard',
+  'pondMixes',
   'homeWelcome',
 ] as const;
 export type TwistId = (typeof TWIST_IDS)[number];
@@ -27,6 +30,21 @@ const CAST = ['pim', 'krit', 'echo', 'moss', 'wisp', 'bell'];
 
 const gave = (events: SimEvent[], from: string, to: string, move: 'give' | 'keep'): boolean =>
   events.some((e) => e.t === 'gift' && e.from === from && e.to === to && e.move === move);
+
+type Foglight = Extract<WorldLite['pack'], { id: 'foglight' }>;
+
+/**
+ * True when `c`, not away, stands in a Foglight cell of the meadow's height or more: sim/packs
+ * foglight.ts heightAt, written out, since story may not import sim values.
+ */
+function onMeadow(f: Foglight, c: WorldLite['creatures'][number] | undefined): boolean {
+  if (!c || c.state === 'away') return false;
+  const { cell } = tuning.foglight;
+  const rows = f.heights.length / f.cols;
+  const col = Math.min(f.cols - 1, Math.max(0, Math.floor(c.x / cell)));
+  const row = Math.min(rows - 1, Math.max(0, Math.floor(c.y / cell)));
+  return (f.heights[row * f.cols + col] ?? 0) >= f.meadow;
+}
 
 /** The mean shell tightness of the creatures not away; 0 with none. */
 function meanTightness(lite: WorldLite): number {
@@ -44,6 +62,9 @@ function meanTightness(lite: WorldLite): number {
  * revengeLoop: both warmths of the Echo and Krit tie are below 0.
  * wispLeaves: Wisp is gone over the ridge. mossShares: Moss gives to Krit. bellDances: Bell is dancing.
  * toveFlies: Tove is in the Fen's flock. heroFamous: the hero's fame is above hollow.fearAt.
+ * brumeClimbs: Foglight's guide stands on the high meadow. ruleHeard: the council heard the hero's
+ * rule. pondMixes: the variety rule is on and the pond's sorting is at most shallows.mixedAt (ADR
+ * 0015 items 3 to 5).
  * homeWelcome: at least 3 of the named cast hold warmth toward the hero above friend.threshold.
  */
 export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, events: SimEvent[]): boolean {
@@ -73,6 +94,12 @@ export function checkTwist(id: TwistId, before: WorldLite, now: WorldLite, event
       return now.pack?.id === 'fen' && now.pack.flying.includes('tove');
     case 'heroFamous':
       return now.pack?.id === 'hollow' && (now.pack.fame.hero ?? 0) > tuning.hollow.fearAt;
+    case 'brumeClimbs':
+      return now.pack?.id === 'foglight' && onMeadow(now.pack, creature(now, now.pack.guide));
+    case 'ruleHeard':
+      return events.some((e) => e.t === 'heard');
+    case 'pondMixes':
+      return now.pack?.id === 'shallows' && now.pack.variety && now.pack.sorting <= tuning.shallows.mixedAt;
     case 'homeWelcome':
       return CAST.filter((id) => warmth(now, id, 'hero') > tuning.friend.threshold).length >= 3;
   }

@@ -49,6 +49,9 @@ function randomVerb(rng: Rng, verb: WorldVerb): VerbInput {
     case 'join':
     case 'pose':
     case 'keepsake':
+    case 'stepDown':
+    case 'vote':
+    case 'sing':
       throw new Error(`No Part 1 chapter lists the Part 2 verb ${verb}`);
     case 'rain':
     case 'path':

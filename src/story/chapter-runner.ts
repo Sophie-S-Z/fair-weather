@@ -137,6 +137,11 @@ export function verbCommand(
     case 'join':
     case 'pose':
     case 'keepsake':
+    case 'stepDown':
+    case 'vote':
+    case 'propose':
+    case 'sing':
+    case 'learn':
       return { t: 'local', verb: v };
     case 'rain':
       return { t: 'rain', x: v.x, y: v.y };

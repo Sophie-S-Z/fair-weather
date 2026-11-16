@@ -20,6 +20,16 @@ async function startSandbox(page: Page) {
   await expect.poll(() => running(page)).toBe(true);
   return scene;
 }
+/**
+ * The focused element's tag, id and text when the focus is outside the element of `selector`, and
+ * null when it is inside, so a failure names where the focus went.
+ */
+const focusOutside = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const now = document.activeElement;
+    if (document.querySelector(sel)?.contains(now)) return null;
+    return now === null ? 'nothing' : `${now.tagName} #${now.id} "${now.textContent.slice(0, 40)}"`;
+  }, selector);
 /** Starts the Fen with a one-page journey, so the journal and its dialog open. */
 async function startFen(page: Page) {
   await page.goto('/?chapter=16');
@@ -387,15 +397,11 @@ test.describe('on a phone', () => {
     await expect(page.locator('#drawer-panel')).toBeVisible();
     for (let i = 0; i < 12; i++) {
       await page.keyboard.press('Tab');
-      expect(
-        await page.evaluate(() => document.querySelector('#drawer-panel')?.contains(document.activeElement)),
-      ).toBe(true);
+      expect(await focusOutside(page, '#drawer-panel')).toBeNull();
     }
     for (let i = 0; i < 12; i++) {
       await page.keyboard.press('Shift+Tab');
-      expect(
-        await page.evaluate(() => document.querySelector('#drawer-panel')?.contains(document.activeElement)),
-      ).toBe(true);
+      expect(await focusOutside(page, '#drawer-panel')).toBeNull();
     }
     // The page behind the sheet is inert, and Escape closes the sheet and gives the button focus back.
     expect(
@@ -411,15 +417,13 @@ test.describe('on a phone', () => {
     await page.getByText('Weather', { exact: true }).tap();
     const panel = page.locator('details[open]');
     await expect(panel).toBeVisible();
-    const inside = () =>
-      page.evaluate(() => document.querySelector('details[open]')?.contains(document.activeElement));
     for (let i = 0; i < 14; i++) {
       await page.keyboard.press('Tab');
-      expect(await inside()).toBe(true);
+      expect(await focusOutside(page, 'details[open]')).toBeNull();
     }
     for (let i = 0; i < 14; i++) {
       await page.keyboard.press('Shift+Tab');
-      expect(await inside()).toBe(true);
+      expect(await focusOutside(page, 'details[open]')).toBeNull();
     }
     expect(
       await page.evaluate(() => document.querySelector('[role="application"]')?.closest('[inert]') !== null),

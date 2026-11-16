@@ -29,6 +29,14 @@ jobs:
       # container's Chromium build, not CI's.
       - name: E2E (Chromium)
         run: npx playwright test --project=e2e --project=e2e-year
+      # Each failed test's page snapshot (error-context.md), to find the cause of a failure.
+      - name: Keep the failed tests' results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
 
   # The same seed and commands give the same state hash in every engine, so a seed link opens the
   # same valley everywhere (ADR 0014 item 7). This job runs the link and worker tests in Firefox
@@ -50,3 +58,10 @@ jobs:
       # Firefox runs headed on a virtual screen.
       - name: Links and the worker in Firefox
         run: xvfb-run --auto-servernum npx playwright test --headed --project=e2e-firefox tests/e2e/worker.spec.ts tests/e2e/share.spec.ts
+      - name: Keep the failed tests' results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-cross-browser
+          path: test-results/
+          retention-days: 7

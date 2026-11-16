@@ -1,9 +1,58 @@
 // Helpers the e2e specs share. They read the screen in one page.evaluate where they can: locator
 // actions wait on animation frames, which software rendering (CI with no GPU) draws two or three
 // times a second, and at ?fast=10 a sky bid's 6 s reply window is only 0.6 s of real time.
-import { expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Locator, type Page } from '@playwright/test';
+import type { WorldLite } from '../../src/sim-host/protocol.ts';
 
 export type Point = { x: number; y: number };
+
+/** The axe issues of the page now that are serious or critical. */
+export async function seriousViolations(page: Page) {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+}
+
+/** The dev hook (`window.fairWeather`, src/main.ts) as far as the specs read it. */
+type Dev = {
+  sandbox(): { tick: number; lite: WorldLite } | null;
+  hash(): Promise<{ tick: number; value: string }>;
+  speeds: number[];
+  frames: number;
+  captures: number;
+  sent: number;
+};
+const fairWeather = <K extends keyof Dev>(page: Page, key: K) =>
+  page.evaluate((k) => {
+    const dev = (window as unknown as { fairWeather: Dev }).fairWeather;
+    return dev[k];
+  }, key);
+/** The sandbox run's newest snapshot and its tick, or null before the first. */
+export const sandboxRun = (page: Page) =>
+  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.sandbox());
+/** Whether a sandbox run has its first snapshot. */
+export const running = async (page: Page) => (await sandboxRun(page)) !== null;
+/** The hash of the world now and its tick. */
+export const hash = (page: Page) =>
+  page.evaluate(() => (window as unknown as { fairWeather: Dev }).fairWeather.hash());
+/** Every speed sent to the sim. */
+export const speeds = (page: Page) => fairWeather(page, 'speeds');
+/** The speed last sent to the sim. */
+export const lastSpeed = async (page: Page) => (await speeds(page)).at(-1);
+/** Frames drawn. */
+export const frames = (page: Page) => fairWeather(page, 'frames');
+/** Frames the postcard ring kept. */
+export const captures = (page: Page) => fairWeather(page, 'captures');
+/** Command lists the runner sent. */
+export const sent = (page: Page) => fairWeather(page, 'sent');
+
+/** Opens a new Kith valley of seed 7 (with `query` after it) and waits for its first snapshot, so the tools act. */
+export async function openNew(page: Page, query = ''): Promise<void> {
+  await page.goto(`/?sandbox=new&seed=7${query}`);
+  await expect(page.getByRole('heading', { name: 'Sandbox: A new valley' })).toBeVisible();
+  await expect(page.getByRole('application', { name: 'The sandbox valley' })).toBeFocused();
+  await expect.poll(() => running(page)).toBe(true);
+}
 /** content/scenes/kith-meadow.json */
 export const SCENE = { width: 1600, height: 900 };
 
@@ -82,3 +131,130 @@ export async function tabTo(page: Page, name: string): Promise<void> {
   for (let i = 0; i < 40 && (await picked()) !== name; i++) await page.keyboard.press('Tab');
   await expect.poll(picked).toBe(name);
 }
+
+/** Writes a profile with one kept year, as a finished Part 1 leaves it, and the finished `valleys`. */
+export async function keepProfile(page: Page, valleys: string[]): Promise<void> {
+  await page.evaluate(
+    (valleys) =>
+      new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('fair-weather', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('saves');
+        req.onerror = () => {
+          reject(req.error ?? new Error('open failed'));
+        };
+        req.onsuccess = () => {
+          const tx = req.result.transaction('saves', 'readwrite');
+          const verses = [{ title: 'The Asking', text: 'A test verse.', note: null }];
+          tx.objectStore('saves').put(
+            { pages: [{ narrator: 'Pim', verses, year: 1, seed: 1 }], feathers: 0, valleys },
+            'profile',
+          );
+          tx.oncomplete = () => {
+            resolve();
+          };
+          tx.onerror = () => {
+            reject(tx.error ?? new Error('put failed'));
+          };
+        };
+      }),
+    valleys,
+  );
+}
+
+/**
+ * The pairs of visible controls that overlap, by name. Each box is cut to the scroll boxes around it,
+ * so a control scrolled out of its box counts only where it shows. While a modal dialog is open the
+ * screen behind it is inert, so only the dialog's own controls count.
+ */
+export const controlClashes = (page: Page): Promise<string[]> =>
+  page.evaluate(() => {
+    const things = 'button, input, select, summary, [tabindex="0"]:not([role="application"])';
+    const shown = (el: Element) => {
+      let r = el.getBoundingClientRect();
+      let { left, top, right, bottom } = r;
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        if (getComputedStyle(p).overflowY === 'visible') continue;
+        r = p.getBoundingClientRect();
+        left = Math.max(left, r.left);
+        top = Math.max(top, r.top);
+        right = Math.min(right, r.right);
+        bottom = Math.min(bottom, r.bottom);
+      }
+      return { left, top, right, bottom };
+    };
+    const modal = document.querySelector('[aria-modal="true"]');
+    const boxes = [...document.querySelectorAll(things)]
+      .filter((el) => !modal || modal.contains(el))
+      .filter((el) => el.checkVisibility({ visibilityProperty: true }))
+      .map((el) => ({ el, r: shown(el) }))
+      .filter(({ r }) => r.right - r.left > 1 && r.bottom - r.top > 1);
+    const name = (el: Element) =>
+      `${el.tagName} ${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30)}`;
+    const hit: string[] = [];
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = (boxes[i] as (typeof boxes)[number]).r;
+        const b = (boxes[j] as (typeof boxes)[number]).r;
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 0.5 && h > 0.5)
+          hit.push(
+            `${name((boxes[i] as (typeof boxes)[number]).el)} / ${name((boxes[j] as (typeof boxes)[number]).el)}`,
+          );
+      }
+    return hit;
+  });
+
+/** Two shots of the paused scene, half a second apart; pauses it first unless it is paused already. */
+export async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
+  const pause = page.getByRole('button', { name: 'Pause' });
+  if ((await pause.getAttribute('aria-pressed')) !== 'true') {
+    // Wait until the scene is being drawn from snapshots, so the pause holds a drawn world.
+    const before = await frames(page);
+    await expect.poll(() => frames(page)).toBeGreaterThan(before);
+    await pause.click();
+    await expect(pause).toHaveAttribute('aria-pressed', 'true');
+  }
+  await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
+  const canvas = page.locator('canvas');
+  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
+  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
+  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
+  const a = await canvas.screenshot({ style });
+  await page.waitForTimeout(500);
+  return [a, await canvas.screenshot({ style })];
+}
+
+/**
+ * Clicks the middle of `button` once it is visible and enabled, scrolled into view. A locator click also waits for the element to
+ * hold still across two animation frames, and software rendering (CI with no GPU) keeps the page
+ * so busy that this costs about half a second; a mouse click at the box costs a third of that, and
+ * still goes to whatever is on top there, so a covered button is missed, as it would be for a player.
+ */
+export async function press(page: Page, button: Locator): Promise<void> {
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+  await button.scrollIntoViewIfNeeded();
+  const box = await button.boundingBox();
+  if (!box) throw new Error('The button has no box to click');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+/**
+ * Waits until the status line with `hasText` reads `text`, jumping the page clock on 250 ms a round
+ * (install it before the first goto), so the host's waits to load a worker again (1 s, then 2 s)
+ * take a few real moments however slow the machine is.
+ */
+export const untilStatus = (page: Page, hasText: string, text: string) =>
+  expect
+    .poll(
+      async () => {
+        // fastForward fires the due timers once; runFor would also run every frame of a drawing scene.
+        await page.clock.fastForward(250);
+        // Not textContent: it waits for the line, and the line waits for the clock.
+        return (await page.getByRole('status').filter({ hasText }).allTextContents())[0] ?? null;
+      },
+      // A round each 50 ms, not the default back-off, so the page clock gets all of its 3 s.
+      { intervals: [50] },
+    )
+    .toBe(text);

@@ -4,6 +4,9 @@ import tuningJson from '../../../content/tuning.json';
 import scenarioJson from '../../../content/scenarios/m0.json';
 import type { Scenario } from '../../../src/sim/types.ts';
 import { parseTuning } from '../../../src/sim/tuning.ts';
+import { gossip } from '../../../src/sim/daily/gossip.ts';
+import { imitate } from '../../../src/sim/daily/imitation.ts';
+import { spreadDance } from '../../../src/sim/festival.ts';
 import {
   activeCreatures,
   averageWarmth,
@@ -16,6 +19,7 @@ import {
   side,
   tieKey,
 } from '../../../src/sim/world.ts';
+import { befriend, get, makeWorld, scriptedRng, setWarmth } from './helpers.ts';
 
 const tuning = parseTuning(tuningJson);
 const scenario = scenarioJson as Scenario;
@@ -150,6 +154,43 @@ test('friendsOf returns friends sorted by id, whatever the tie insertion order',
     side(ensureTie(w, pim, byId(w, id)!, tuning), 'pim').warmth = 0.5;
   }
   expect(friendsOf(w, pim, tuning).map((c) => c.id)).toEqual(['bell', 'echo', 'moss', 'wisp']);
+});
+
+test('with mutual, a one-sided warm tie is no friend for gossip, the dance, and imitation', () => {
+  for (const mutual of [false, true]) {
+    const over = mutual ? { network: { mutual: true as const } } : {};
+    // Gossip: L's friend F holds X; O is a friend of L's on L's side only. With O, 1 of 2 friends
+    // holding X is below Ear 0.75; without O, 1 of 1 is not.
+    const g = makeWorld([{ id: 'L', ear: 0.75 }, { id: 'F' }, { id: 'O' }, { id: 'X' }], over);
+    befriend(g, 'L', 'F');
+    setWarmth(g, 'L', 'O', 0.5);
+    get(g, 'F').opinions.X = 0.8;
+    expect(friendsOf(g, get(g, 'L'), tuning).map((c) => c.id)).toEqual(mutual ? ['F'] : ['F', 'O']);
+    gossip(g, tuning, scriptedRng([]));
+    expect(get(g, 'L').opinions.X).toBe(mutual ? 0.8 : undefined);
+    // The dance: A's only friend, on A's side only, dances; A's threshold is 1.
+    const d = makeWorld([{ id: 'A' }, { id: 'B' }], over);
+    setWarmth(d, 'A', 'B', 0.5);
+    get(d, 'B').dancing = true;
+    expect(spreadDance(d, tuning)).toEqual(mutual ? [] : [{ t: 'dance', who: 'A' }]);
+    // Imitation: A (3 berries) counts far-off B as a friend on A's side only, so its fitness is 5
+    // without mutual and 3 with it; its neighbor N has 4 berries and no friend.
+    const m = makeWorld(
+      [
+        { id: 'A', berries: 3 },
+        { id: 'N', x: 850, berries: 4 },
+        { id: 'B', x: 100, y: 100, berries: 0 },
+      ],
+      over,
+    );
+    setWarmth(m, 'A', 'B', 0.5);
+    m.day = 2;
+    expect(imitate(m, tuning, scriptedRng([0, 0, 0, 0, 0]))).toEqual([
+      mutual
+        ? { t: 'imitate', who: 'A', from: 'N', dial: 'opener' }
+        : { t: 'imitate', who: 'N', from: 'A', dial: 'opener' },
+    ]);
+  }
 });
 
 test('averageWarmth does not depend on tie insertion order', () => {

@@ -1,20 +1,42 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import type { PageBlock } from '../../persist/page-image.ts';
   import type { BookPage } from '../../persist/profile.ts';
   import { displayName } from '../../story/names.ts';
+  import { mythBlocks } from '../journal-pages.ts';
+  import { saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     pages,
     feathers,
     modal = false,
+    onExport,
     onBack,
   }: {
     pages: readonly BookPage[];
     feathers: number;
     /** In the game: a modal dialog that keeps focus, and Escape closes it. On the title: a page. */
     modal?: boolean;
+    /** A page as a PNG made on the device (GameService.exportPage). */
+    onExport: (blocks: PageBlock[]) => Promise<Blob>;
     onBack: () => void;
   } = $props();
+
+  /** Whether a page image is being made, and the year of the page that could not be made. */
+  let saving = $state(false);
+  let failed: number | null = $state(null);
+  async function savePage(page: BookPage): Promise<void> {
+    saving = true;
+    failed = null;
+    try {
+      saveFile(await onExport(mythBlocks(page)), `fair-weather-year-${String(page.year)}.png`);
+    } catch (e) {
+      console.error(e);
+      failed = page.year;
+    }
+    saving = false;
+  }
 
   let root: HTMLElement | undefined = $state();
   /** Heading levels: under the game's own heading in the dialog, the page's top heading on the title. */
@@ -33,25 +55,13 @@
     };
   });
 
-  /** Escape closes the dialog; Tab stays inside it. */
+  /** Escape closes the dialog. */
   function onKey(e: KeyboardEvent): void {
     if (!modal) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       onBack();
-    } else if (e.key === 'Tab') {
-      const buttons = [...(root?.querySelectorAll('button') ?? [])];
-      const first = buttons[0];
-      const last = buttons[buttons.length - 1];
-      const inButtons = buttons.some((b) => b === document.activeElement);
-      if (e.shiftKey && (!inButtons || document.activeElement === first)) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -75,6 +85,18 @@
           <aside>What the sky did: {verse.note}</aside>
         {/if}
       {/each}
+      <p>
+        <button
+          type="button"
+          disabled={saving}
+          aria-describedby="export-year-{page.year}"
+          onclick={() => void savePage(page)}>Save this page as an image</button
+        >
+      </p>
+      <p id="export-year-{page.year}" class="hint">
+        The image shows the words that you wrote. It stays on this device until you share it.
+      </p>
+      <p role="status">{failed === page.year ? 'The game could not make the image.' : ''}</p>
     </article>
   {/each}
   <button type="button" onclick={onBack}>Back</button>
@@ -90,6 +112,7 @@
       tabindex="-1"
       bind:this={root}
       onkeydown={onKey}
+      use:trapFocus
     >
       {@render book()}
     </div>
@@ -142,5 +165,20 @@
   }
   aside {
     margin: 0.25rem 0 0.5rem;
+  }
+  .hint {
+    color: var(--muted);
+  }
+
+  /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .card {
+      width: 100vw;
+      max-height: none;
+      height: 100vh;
+      height: 100dvh;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

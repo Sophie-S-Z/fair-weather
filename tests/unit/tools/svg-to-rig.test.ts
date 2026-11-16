@@ -6,10 +6,13 @@ import { rigToJson, svgToRig } from '../../../tools/svg-to-rig/svg-to-rig.ts';
 
 /**
  * Every placeholder body: the rig id is the part of the file name after `PLACEHOLDER-`. The
- * journal's drawings (`PLACEHOLDER-journal-*`) are pictures, not bodies, and have no rig.
+ * journal's drawings (`PLACEHOLDER-journal-*`) and the still version's pictures (`PLACEHOLDER-still-*`)
+ * are pictures, not bodies, and have no rig.
  */
 const bodies = readdirSync('content/placeholder')
-  .filter((f) => f.endsWith('.svg') && !f.startsWith('PLACEHOLDER-journal-'))
+  .filter(
+    (f) => f.endsWith('.svg') && !f.startsWith('PLACEHOLDER-journal-') && !f.startsWith('PLACEHOLDER-still-'),
+  )
   .sort()
   .map((f) => ({ id: f.slice('PLACEHOLDER-'.length, -'.svg'.length), file: f }));
 

@@ -1,5 +1,5 @@
 // Population at dusk: leave, newcomer, bush regrowth, and return (spec 9.4, ADR 0004 items 4, 5, 7;
-// gift bushes per ADR 0013 item 3).
+// gift bushes per ADR 0013 item 3; the sandbox's cap and gate per ADR 0014 items 1 and 5).
 import type { SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
@@ -33,14 +33,17 @@ export const leave: DailyRule = (world, t) => {
 /**
  * At most one newcomer arrives at the gate when spare berries (bush total per active creature,
  * or the bush total with none) exceed population.newcomerSparePerCreature and the creature count
- * (away included, since they may return) is below cap.story. No draws.
+ * (away included, since they may return) is below cap.story, or cap.sandbox in a sandbox world.
+ * None arrives while the gate is dark. No draws.
  */
 export const newcomer: DailyRule = (world, t) => {
+  if (world.gateDark) return [];
   let total = 0;
   for (const b of world.bushes) total += b.berries;
   const active = activeCreatures(world).length;
   const spare = active === 0 ? total : total / active;
-  if (spare <= t.population.newcomerSparePerCreature || world.creatures.length >= t.cap.story) return [];
+  const cap = world.sandbox ? t.cap.sandbox : t.cap.story;
+  if (spare <= t.population.newcomerSparePerCreature || world.creatures.length >= cap) return [];
   const n = world.nextId;
   const d = t.population.newcomerDial;
   world.nextId += 1;

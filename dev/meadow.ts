@@ -7,7 +7,8 @@
 // ?valley=fen plays Murmuration Fen in its scene and palette, with Tove in focus: a Lantern-bearer
 // walks to Tove and joins the flock at dusk, and the frame is drawn just after the flock goes up.
 // ?valley=hollow and ?valley=halcyon play Hearsay Hollow and Halcyon by day, with their guide in
-// focus and a Lantern-bearer at the guide's side. body[data-calls] is the WebGL draw-call count of the frame.
+// focus and a Lantern-bearer at the guide's side. ?sandbox=1 plays Kith as a sandbox, with two paths
+// and the gate dark. body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
 import scenarioJson from '../content/scenarios/m0.json';
@@ -24,10 +25,7 @@ import hollowJson from '../content/valleys/hollow.json';
 import halcyonSceneJson from '../content/scenes/halcyon.json';
 import halcyonScenarioJson from '../content/scenarios/halcyon.json';
 import halcyonJson from '../content/valleys/halcyon.json';
-import { CastSchema, type Cast } from '../src/render/cast.ts';
-import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { createMeadowView } from '../src/render/meadow-view.ts';
-import { PaletteSchema } from '../src/render/palette.ts';
 import type { WorldLite } from '../src/sim-host/protocol.ts';
 import { SceneSchema } from '../src/render/scene.ts';
 import { toLite } from '../src/sim-host/lite.ts';
@@ -39,6 +37,7 @@ import { parseFlags } from '../src/story/flags.ts';
 import { buildScenario, chapterTicksPerDay } from '../src/story/scenario.ts';
 import { ChapterSchema } from '../src/story/schema.ts';
 import type { Settings } from '../src/ui/settings.ts';
+import { BROOK_MUSHROOM, BROOK_PLACEMENTS, cast, paletteFor, rigs, SANDBOX_SETUP } from './meadow-setup.ts';
 
 const W = 1280;
 const H = 720;
@@ -51,20 +50,6 @@ const FEN_STEP_ASIDE = 30;
 const DAY_TICK = 600;
 const tuning = parseTuning(tuningJson);
 
-const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
-const rigs = new Map<string, Rig>(
-  Object.values(rigFiles).map((json) => {
-    const rig = RigSchema.parse(json);
-    return [rig.id, rig];
-  }),
-);
-const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
-const cast = new Map<string, Cast>(
-  Object.values(castFiles).map((json) => {
-    const c = CastSchema.parse(json);
-    return [c.id, c];
-  }),
-);
 const params = new URLSearchParams(location.search);
 const valleys = {
   fen: { chapter: fenJson, scene: fenSceneJson, scenario: fenScenarioJson },
@@ -77,17 +62,12 @@ const fen = valleyId === 'fen';
 const valleyChapter = valley ? ChapterSchema.parse(valley.chapter) : null;
 const guide = valleyChapter?.valley?.guide ?? null;
 const fenDay = valleyChapter ? chapterTicksPerDay(valleyChapter) : 0;
-const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
-  eager: true,
-  import: 'default',
-});
 const season = params.get('season') ?? valleyChapter?.palette ?? 'spring';
-const palette = PaletteSchema.parse(
-  Object.values(paletteFiles).find((json) => (json as { id: string }).id === season),
-);
+const palette = paletteFor(season);
 const scene = SceneSchema.parse(valley ? valley.scene : meadowJson);
 const land = params.get('land');
 const chapterJson = land === 'brook' ? ch9Json : land === 'islet' ? ch6Json : null;
+const sandbox = params.get('sandbox') === '1';
 const scenario = valleyChapter
   ? buildScenario(valleyChapter, parseFlags(flagsJson), valley?.scenario as Scenario, undefined, {
       kind: 'lantern',
@@ -100,11 +80,11 @@ const scenario = valleyChapter
     })
   : chapterJson
     ? buildScenario(ChapterSchema.parse(chapterJson), parseFlags(flagsJson), scenarioJson as Scenario)
-    : (scenarioJson as Scenario);
+    : { ...(scenarioJson as Scenario), ...(sandbox && { sandbox: true as const }) };
 /** In the Fen: dusk on day 0 (fen.duskAt), and the frame a little after the flock goes up. */
 const fenDusk = Math.ceil(tuning.fen.duskAt * fenDay);
 const tick = fen ? fenDusk + FEN_AFTER_DUSK : valley ? DAY_TICK : TICK;
-if (land === 'brook') scenario.mushroom = { x: 1120, y: 560 };
+if (land === 'brook') scenario.mushroom = BROOK_MUSHROOM;
 
 // The sim runs on this thread here: the snapshot must be the same every load.
 const world = createWorld(SEED, tuning, scenario);
@@ -116,13 +96,10 @@ const setup: Command[] = valley
     ];
 if (params.get('fog') === '1') setup.push({ t: 'paintFog', x: 350, y: 450, r: 300, amount: 0.9 });
 if (land === 'brook') {
-  setup.push(
-    { t: 'place', kind: 'bridge', x: 810, y: 260 },
-    { t: 'place', kind: 'bridge', x: 810, y: 640 },
-    { t: 'place', kind: 'lantern', x: 960, y: 820 },
-  );
+  setup.push(...BROOK_PLACEMENTS);
 }
 if (land === 'islet') setup.push({ t: 'place', kind: 'lantern', x: 900, y: 470 });
+if (sandbox) setup.push(...SANDBOX_SETUP);
 const heat = params.get('heat') === '1';
 /** With ?heat=1 the lens rests at each spot in turn, longest at the first. */
 const lensPath: [number, number, number][] = [
@@ -200,6 +177,7 @@ const view = createMeadowView(app, scene, rigs, palette, {
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });
 view.setFocus(guide ?? 'pim');
+view.setGateLamp(sandbox);
 for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);

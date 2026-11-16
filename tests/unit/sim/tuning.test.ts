@@ -23,7 +23,7 @@ test('defaults equal the handoff and ADR values', () => {
   expect(t.scene).toEqual({ width: 1600, height: 900, gateX: 40, gateY: 450 });
   expect(t.move).toEqual({ speed: 40, accel: 80, arriveRadius: 8 });
   expect(t.meet).toEqual({ radius: 24, benchRepeatMultiplier: 2, durationTicks: 20 });
-  expect(t.goal).toEqual({ benchChance: 0.25 });
+  expect(t.goal).toEqual({ benchChance: 0.25, pathChance: 0.5 });
   expect(t.forage).toEqual({ carryMax: 5, cooldownTicks: 50 });
   expect(t.eat).toEqual({ perDusk: 1 });
   expect(t.bush).toEqual({ limit: 10, growth: 0.2, base: 0.5 });
@@ -78,7 +78,7 @@ test('defaults equal the handoff and ADR values', () => {
     dailyDrift: 0.02,
   });
   expect(t.friend).toEqual({ threshold: 0.3 });
-  expect(t.gossip).toEqual({ simpleEarBelow: 0.1, simpleChance: 0.3 });
+  expect(t.gossip).toEqual({ simpleEarBelow: 0.1, simpleChance: 0.3, drift: 0.2 });
   expect(t.imitation).toEqual({ everyDays: 3, radius: 200, rate: 0.3, friendWeight: 2 });
   expect(t.art).toEqual({ minWarmth: 0.4, minBerries: 1.5, days: 2 });
   expect(t.cap).toEqual({ story: 30, sandbox: 60 });
@@ -134,6 +134,8 @@ test('defaults equal the handoff and ADR values', () => {
     fearAt: 0.5,
     drama: { against: 3, keep: 2, away: 1, pose: 3 },
   });
+  expect(t.rain).toEqual({ radius: 120, berries: 2 });
+  expect(t.path).toEqual({ reach: 40 });
 });
 
 test('ticksPerDay is 400 for the defaults', () => {

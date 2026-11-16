@@ -105,5 +105,8 @@ export function toLite(w: World, tuning: Tuning): WorldLite {
       averageWarmth: averageWarmth(w),
       friendPairs: friendPairs(w, tuning),
     },
+    season: w.season,
+    day: w.day,
+    gateDark: w.gateDark === true,
   };
 }

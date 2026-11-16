@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { BidReply, GiftMove, Structure } from '../../sim/types.ts';
   import type { Verb, WorldVerb } from '../../story/verbs.ts';
+  import { TOOL_LABELS } from '../tool-labels.ts';
 
   let {
     tools,
@@ -23,7 +24,7 @@
   }: {
     tools: readonly WorldVerb[];
     /** What the place tool sets, which names its button. */
-    placeKind: Structure['kind'];
+    placeKind: Exclude<Structure['kind'], 'path'>;
     /** Tools used up in this chapter; their buttons say so. */
     used?: readonly Verb[];
     active: Verb | null;
@@ -49,21 +50,7 @@
     onGive: (id: string) => void;
   } = $props();
 
-  const LABELS: Record<Exclude<WorldVerb, 'place'>, string> = {
-    wake: 'Wake',
-    respond: 'Respond',
-    shine: 'Sunlight',
-    whisper: 'Whisper',
-    thread: 'Thread',
-    fog: 'Fog',
-    blow: 'Wind',
-    walk: 'Walk',
-    manner: 'Manner',
-    join: 'Join',
-    pose: 'Pose',
-    keepsake: 'Keepsake',
-  };
-  const PLACE_LABELS: Record<Structure['kind'], string> = {
+  const PLACE_LABELS: Record<Exclude<Structure['kind'], 'path'>, string> = {
     bench: 'Bench',
     bridge: 'Bridge',
     lantern: 'Lantern',
@@ -97,7 +84,7 @@
           }}
         >
           <kbd>{i + 1}</kbd>
-          {tool === 'place' ? PLACE_LABELS[placeKind] : LABELS[tool]}{used.includes(tool)
+          {tool === 'place' ? PLACE_LABELS[placeKind] : TOOL_LABELS[tool]}{used.includes(tool)
             ? ' ([PLACEHOLDER] used)'
             : ''}
         </button>

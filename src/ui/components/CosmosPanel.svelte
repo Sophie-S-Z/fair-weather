@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TimelinePoint } from '../../render/timeline.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
+  import TimelineStrip from './TimelineStrip.svelte';
 
   let {
     lite,
@@ -72,14 +73,6 @@
     const gone = ids.filter((i) => away.has(i)).length;
     return `${String(ids.length)} ${one}${ids.length === 1 ? '' : 's'}${gone > 0 ? ` (${String(gone)} away)` : ''}`;
   }
-
-  const first = $derived(timeline.points[0]?.tick ?? 0);
-  const value = $derived(rewind ? (rewind.at ?? rewind.now) : 0);
-  const dayText = $derived(
-    rewind
-      ? `Day ${String(Math.floor((value - first) / rewind.ticksPerDay) + 1)}${rewind.at === null ? ', now' : ''}`
-      : '',
-  );
 </script>
 
 <!-- What the Cosmos canvas shows, as text (spec 11.3), and the rewind range (spec 8). -->
@@ -99,31 +92,7 @@
       {/each}
     </ul>
     {#if rewind}
-      <div class="rewind">
-        <label for="rewind">Rewind</label>
-        <input
-          id="rewind"
-          type="range"
-          min={first}
-          max={rewind.now}
-          step="1"
-          {value}
-          list="rewind-breaks"
-          aria-valuetext={dayText}
-          disabled={rewind.disabled}
-          oninput={(e) => {
-            onRewind(Number(e.currentTarget.value));
-          }}
-        />
-        <span aria-hidden="true">{dayText}</span>
-        <!-- A friendship ended at each mark. -->
-        <datalist id="rewind-breaks">
-          {#each timeline.breaks as b, i (i)}
-            <option value={b}></option>
-          {/each}
-        </datalist>
-        <button type="button" disabled={rewind.at === null} onclick={onBackToNow}>Back to now</button>
-      </div>
+      <TimelineStrip {timeline} {rewind} {onRewind} {onBackToNow} notes={[]} onPin={null} />
     {/if}
   </details>
 </section>
@@ -150,14 +119,10 @@
     margin: 0 0 0.5rem;
     padding-left: 1.25rem;
   }
-  .rewind {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  input {
-    flex: 1 1 8rem;
-    accent-color: var(--accent);
+  /* Portrait: the panel is in the bottom bar, so the list leaves the canvas room. */
+  @media (orientation: portrait) {
+    .list {
+      max-height: 12vh;
+    }
   }
 </style>

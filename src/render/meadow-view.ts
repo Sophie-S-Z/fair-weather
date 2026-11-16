@@ -6,7 +6,15 @@ import { lerpTransform, toScene, toScreen, viewTransform, type Shot, type ViewTr
 import type { Cast } from './cast.ts';
 import { createWash } from './effects/fog.ts';
 import { createLight } from './effects/light.ts';
-import { FAR_ALPHA, HIGH_CONTRAST_WIDTH, inkStroke, smoothClosed, smoothLine, TUFT_ALPHA } from './ink.ts';
+import {
+  dashedLine,
+  FAR_ALPHA,
+  HIGH_CONTRAST_WIDTH,
+  inkStroke,
+  smoothClosed,
+  smoothLine,
+  TUFT_ALPHA,
+} from './ink.ts';
 import { drawLand, inRect } from './land.ts';
 import { bodyColor, fillOutline } from './line/fill.ts';
 import { createLineView } from './line/line-view.ts';
@@ -134,7 +142,8 @@ const FEATHER_OFFSET = 30;
 const VISIT_STEP_MAX = 0.25;
 
 export interface MeadowView {
-  update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings): void;
+  /** `paused`: the game is paused, so with reduced motion the Fen flock holds still. */
+  update(prev: WorldLite, next: WorldLite, alpha: number, settings: Settings, paused?: boolean): void;
   /** The creature under a screen point, or null. */
   pick(x: number, y: number): string | null;
   /** The scene point under a screen point, through the camera of the last update. */
@@ -151,6 +160,11 @@ export interface MeadowView {
   setPalette(p: Palette): void;
   /** Redraws the ground and trees from `scene`, whose bench spots and camera shots are used from now on. */
   setScene(scene: SceneData): void;
+  /**
+   * Shows the sandbox gate's lamp at `gate`: lit, in an accent ring, unless the snapshot's
+   * `gateDark` (ADR 0014 item 5). Off at first, so a story valley's gate has no lamp.
+   */
+  setGateLamp(on: boolean): void;
   /**
    * Counts a live snapshot's lens center for the heat map. The caller passes each snapshot as it
    * arrives, so frames skipped at high speed still count and rewound or peeked worlds never do.
@@ -519,6 +533,72 @@ function drawLantern(g: Graphics, { x, y }: Structure, palette: Palette, w: numb
     .stroke(plainStroke(palette, w * 0.8));
 }
 
+/** A path's dashes are this long, with gaps at least this long, stretched so both ends are inked. */
+const PATH_DASH = 18;
+const PATH_GAP = 14;
+
+/** A sandbox path (ADR 0014 item 5): a straight dashed ink line from end to end, flat on the ground. */
+function drawPath(g: Graphics, p: Extract<Structure, { kind: 'path' }>, palette: Palette, w: number): void {
+  const len = Math.hypot(p.x2 - p.x, p.y2 - p.y);
+  const dashes = Math.max(1, Math.floor((len + PATH_GAP) / (PATH_DASH + PATH_GAP)));
+  const gap = dashes > 1 ? (len - dashes * PATH_DASH) / (dashes - 1) : 0;
+  dashedLine(g, p.x, p.y, p.x2, p.y2, dashes > 1 ? PATH_DASH : len, gap).stroke(inkStroke(palette, w));
+}
+
+/**
+ * The gate lamp's measures at depth 1: the lamp's middle above the foot, the half width and half
+ * height of its glass, the roof's rise and overhang, and the radius of its lit ring.
+ */
+const GATE_LAMP_HEIGHT = 44;
+const GATE_GLASS = { halfWidth: 6, halfHeight: 8 };
+const GATE_ROOF = { rise: 7, overhang: 3 };
+/** The lamp's lines are this far from paper to ink, so it reads lighter than the creatures and the paths. */
+const GATE_INK = 0.6;
+/** The roof's fill: this far from paper to ink. */
+const GATE_ROOF_FILL = 0.15;
+const GATE_RING_RADIUS = 21;
+
+/**
+ * The sandbox gate's lamp (ADR 0014 item 5), with its foot at (x, y) and sized `k` for its depth:
+ * a fine post on a foot, a glass lamp with a center bar, a sill, a pale roof, and a knob on top.
+ * The glass is the light color inside an accent ring when lit, or paper when dark.
+ */
+function drawGateLamp(
+  g: Graphics,
+  { x, y }: { x: number; y: number },
+  lit: boolean,
+  palette: Palette,
+  w: number,
+  k: number,
+): void {
+  const mid = y - GATE_LAMP_HEIGHT * k;
+  const [hw, hh] = [GATE_GLASS.halfWidth * k, GATE_GLASS.halfHeight * k];
+  const [top, bottom] = [mid - hh, mid + hh];
+  const eave = hw + GATE_ROOF.overhang * k;
+  const ink = bodyColor(palette.paper, palette.ink, GATE_INK);
+  const line = (width: number) => ({ ...plainStroke(palette, width * k), color: ink });
+  const fine = line(w * 0.45);
+  g.moveTo(x - hw, y)
+    .lineTo(x + hw, y)
+    .moveTo(x, y)
+    .lineTo(x, bottom)
+    .stroke(fine);
+  g.rect(x - hw, top, 2 * hw, 2 * hh)
+    .fill(lit ? palette.light.color : palette.paper)
+    .stroke(fine);
+  g.moveTo(x, top)
+    .lineTo(x, bottom)
+    .moveTo(x - eave, bottom)
+    .lineTo(x + eave, bottom)
+    .stroke(line(w * 0.3));
+  g.poly([x - eave, top, x, top - GATE_ROOF.rise * k, x + eave, top])
+    .fill(bodyColor(palette.paper, palette.ink, GATE_ROOF_FILL))
+    .stroke(fine);
+  disc(g, x, top - (GATE_ROOF.rise + 1.5) * k, 1.5 * k, DEW_POINTS).fill(ink);
+  if (lit)
+    g.circle(x, mid - 2 * k, GATE_RING_RADIUS * k).stroke({ color: palette.accent, width: w * 0.6 * k });
+}
+
 /** A bush: three leafy lobes [dx, dy, r] from its foot, and where up to five berries show. */
 const BUSH_LOBES: [number, number, number][] = [
   [-11, -11, 11],
@@ -700,6 +780,7 @@ export function createMeadowView(
   const mushroom = new Graphics({ label: 'mushroom', visible: false });
   actors.addChild(mushroom);
   let landKey = '';
+  let gateLamp = false;
   let mushroomKey = '';
   const feather = new Graphics({ label: 'feather', visible: false });
   actors.addChild(feather);
@@ -750,6 +831,9 @@ export function createMeadowView(
   const perched: number[] = [];
   const reflected: number[] = [];
   const fliers: number[] = [];
+  /** The flock's drift clock with reduced motion: real time, but stopped while the game is paused. */
+  let driftClock = 0;
+  let clockAt: number | null = null;
   const order: number[] = [];
   /** Each body with a rig drawn this frame, as flat feet y, left, right, top, bottom quints. */
   const bodies: number[] = [];
@@ -802,9 +886,12 @@ export function createMeadowView(
   }
 
   return {
-    update(prev, next, alpha, settings) {
+    update(prev, next, alpha, settings, paused = false) {
       const seconds = Math.max(0, app.ticker.lastTime) / 1000;
       const motion = !settings.reducedMotion;
+      if (!paused && clockAt !== null) driftClock += seconds - clockAt;
+      clockAt = seconds;
+      const drift = settings.reducedMotion ? driftClock : seconds;
       const widthScale = settings.highContrast ? HIGH_CONTRAST_WIDTH : 1;
       const w = SCENERY_WIDTH * widthScale;
 
@@ -821,7 +908,9 @@ export function createMeadowView(
         props.clear();
         landKey = mushroomKey = '';
       }
-      const key = JSON.stringify([next.water, next.decks, next.islets]);
+      const paths = next.structures.filter((s) => s.kind === 'path');
+      const gateKey = gateLamp ? next.gateDark : null;
+      const key = JSON.stringify([next.water, next.decks, next.islets, paths, gateKey]);
       if (key !== landKey) {
         landKey = key;
         // A valley's water is calm, with the sky in it.
@@ -831,6 +920,10 @@ export function createMeadowView(
             }
           : undefined;
         drawLand(land, next.water, next.decks, next.islets, palette, w, scene, surface);
+        // Paths and the gate lamp go in the same Graphics, so they cost no draw call of their own.
+        for (const p of paths) drawPath(land, p, palette, w);
+        const { gate } = options;
+        if (gateLamp) drawGateLamp(land, gate, !next.gateDark, palette, w, depthAt(scene, gate.y));
       }
       const standing = new Set<string>();
       /** A new Graphics for a prop drawn for another key (or not yet), or null when it is current. */
@@ -845,7 +938,8 @@ export function createMeadowView(
         return g;
       };
       for (const s of next.structures) {
-        if (s.kind === 'bridge') continue;
+        // Bridges and paths are drawn with the land.
+        if (s.kind === 'bridge' || s.kind === 'path') continue;
         const g = redraw(s.id, s.x, s.y, `${s.kind},${String(s.x)},${String(s.y)}`);
         if (g && s.kind === 'lantern') drawLantern(g, s, palette, w);
         else if (g && s.id === PRESS) {
@@ -920,7 +1014,7 @@ export function createMeadowView(
           const phase = phaseOf(c.id);
           if (up) {
             // Each bird keeps its own place in the band, above its place on the ground, and drifts about it.
-            const turn = 2 * Math.PI * (seconds / DRIFT_SECONDS + phase);
+            const turn = 2 * Math.PI * (drift / DRIFT_SECONDS + phase);
             const x = c.x + SPREAD * (across - 0.5);
             const y = skyTop + (skyBottom - skyTop) * high;
             const k = BIRD * skyDepth * (FLIER_MIN + FLIER_RANGE * ((phase * 7) % 1));
@@ -1163,6 +1257,9 @@ export function createMeadowView(
       beds = plantBeds();
       // The next update redraws the ground, the trees, and the water over the new scene.
       lineWidth = 0;
+    },
+    setGateLamp(on) {
+      gateLamp = on;
     },
     setPalette(p) {
       if (p === palette) return;

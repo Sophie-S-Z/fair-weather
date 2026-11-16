@@ -82,13 +82,29 @@ function apply(s: Scenario, o: Overrides): void {
   if (o.friendsForgive) s.friendsForgive = true;
 }
 
+/** Inside `r`, edges included, as the sim's water test (story may not import sim values). */
+export const inRect = (r: Rect, x: number, y: number): boolean =>
+  x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
 /**
- * Throws when a creature still in the valley, a bush, a bench, or the gate is in water or at or
- * past the ridge, or a bridge is outside every water rectangle (ADR 0012 item 3).
+ * Why (x, y) is not dry land (ADR 0012 item 3), or null on dry land: in a water rectangle, edges
+ * included, or at or past the ridge.
  */
-function checkLand(s: Scenario): void {
-  const wet = (r: Rect, x: number, y: number): boolean =>
-    x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+export function offLand(
+  land: { readonly water?: readonly Rect[]; readonly ridgeX?: number },
+  x: number,
+  y: number,
+): string | null {
+  if (land.water?.some((r) => inRect(r, x, y))) return 'in water';
+  if (land.ridgeX !== undefined && x >= land.ridgeX) return 'at or past the ridge';
+  return null;
+}
+
+/**
+ * Throws when a creature still in the valley, a bush, a bench, or the gate is off dry land, or a
+ * bridge is outside every water rectangle (ADR 0012 item 3).
+ */
+export function checkLand(s: Scenario): void {
   const { gateX, gateY } = tuning.scene;
   const things = [
     ...s.creatures.filter((c) => !c.gone),
@@ -97,11 +113,11 @@ function checkLand(s: Scenario): void {
     { id: 'the gate', x: gateX, y: gateY },
   ];
   for (const b of s.structures.filter((x) => x.kind === 'bridge')) {
-    if (!s.water?.some((r) => wet(r, b.x, b.y))) throw new Error(`${b.id} stands on dry land`);
+    if (!s.water?.some((r) => inRect(r, b.x, b.y))) throw new Error(`${b.id} stands on dry land`);
   }
   for (const t of things) {
-    if (s.water?.some((r) => wet(r, t.x, t.y))) throw new Error(`${t.id} stands in water`);
-    if (s.ridgeX !== undefined && t.x >= s.ridgeX) throw new Error(`${t.id} stands at or past the ridge`);
+    const off = offLand(s, t.x, t.y);
+    if (off !== null) throw new Error(`${t.id} stands ${off}`);
   }
 }
 

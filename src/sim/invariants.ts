@@ -57,6 +57,10 @@ function inRange(x: number, lo: number, hi: number): boolean {
   return x >= lo && x <= hi;
 }
 
+function inScene(x: number, y: number, t: Tuning): boolean {
+  return inRange(x, 0, t.scene.width) && inRange(y, 0, t.scene.height);
+}
+
 /**
  * Every number finite; berries >= 0; warmth, opinions, and sky warmth in [-1, 1]; light sky
  * warmth in [0, sky.lightDailyCap]; dials and shells in [0, 1]; fog in [0, 1]; creatures inside
@@ -67,7 +71,8 @@ function inRange(x: number, lo: number, hi: number): boolean {
  * thresholds in [0, 1], each flier and restless starling one with a threshold, no flier twice, every
  * restless starling in flight, and a hero in flight only in a world with a hero; with a Hollow
  * (ADR 0013 item 6), the lens at the sky, every fame and drama score at least 0, and no drama
- * subject twice. The hero is a creature, so every creature limit holds for it too.
+ * subject twice; both ends of every path inside the scene (ADR 0014 item 5). The hero is a
+ * creature, so every creature limit holds for it too.
  */
 export function checkInvariants(world: World, t: Tuning): string[] {
   const out: string[] = [];
@@ -81,7 +86,7 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (ids.has(c.id)) out.push(`duplicate creature id ${c.id}`);
     ids.add(c.id);
     if (!(c.berries >= 0)) out.push(`${c.id}.berries ${String(c.berries)} < 0`);
-    if (!inRange(c.x, 0, t.scene.width) || !inRange(c.y, 0, t.scene.height)) {
+    if (!inScene(c.x, c.y, t)) {
       out.push(`${c.id} at (${String(c.x)}, ${String(c.y)}) is outside the scene`);
     }
     if (c.state !== 'away' && inWater(world, c.x, c.y) && !decks.some((d) => inRect(d, c.x, c.y))) {
@@ -107,6 +112,11 @@ export function checkInvariants(world: World, t: Tuning): string[] {
     if (!b.gift) continue;
     if (b.berries > t.knack.seedBerries) out.push(`gift ${b.id} holds ${String(b.berries)} berries`);
     if (new Set(b.gift.found).size !== b.gift.found.length) out.push(`gift ${b.id} has a finder twice`);
+  }
+  for (const s of world.structures) {
+    if (s.kind === 'path' && !(inScene(s.x, s.y, t) && inScene(s.x2, s.y2, t))) {
+      out.push(`${s.id} ends outside the scene`);
+    }
   }
   for (const [key, tie] of world.ties) {
     if (key !== tieKey(tie.a, tie.b)) out.push(`tie ${key} holds ${tie.a} and ${tie.b}`);

@@ -50,6 +50,10 @@ function randomVerb(rng: Rng, verb: WorldVerb): VerbInput {
     case 'pose':
     case 'keepsake':
       throw new Error(`No Part 1 chapter lists the Part 2 verb ${verb}`);
+    case 'rain':
+    case 'path':
+    case 'welcome':
+      throw new Error(`No Part 1 chapter lists the sandbox verb ${verb}`);
   }
 }
 

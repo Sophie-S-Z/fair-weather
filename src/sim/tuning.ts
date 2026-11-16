@@ -7,6 +7,7 @@ const signed = z.number().min(-1).max(1); // signed deltas and warmth thresholds
 const count = z.number().int().positive();
 const pos = z.number().positive();
 const nonNeg = z.number().nonnegative();
+const whole = z.number().int().nonnegative();
 
 const obj = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
@@ -21,7 +22,7 @@ export const TuningSchema = obj({
   scene: obj({ width: count, height: count, gateX: nonNeg, gateY: nonNeg }),
   move: obj({ speed: pos, accel: pos, arriveRadius: pos }),
   meet: obj({ radius: pos, benchRepeatMultiplier: pos, durationTicks: count }),
-  goal: obj({ benchChance: prob }),
+  goal: obj({ benchChance: prob, pathChance: prob }),
   forage: obj({ carryMax: count, cooldownTicks: count }),
   eat: obj({ perDusk: count }),
   bush: obj({ limit: count, growth: prob, base: nonNeg }),
@@ -65,7 +66,8 @@ export const TuningSchema = obj({
     newcomerDial: prob,
   }),
   bid: obj({ gain: pos, openerWeight: prob, hungerWeight: prob, againstBelowWarmth: signed }),
-  gift: obj({ cost: count, value: count, valueWinter: count, maxSlightsPerForgiveness: count }),
+  // Whole berries; the sandbox's Gift value knob sets 0 to 6, and winter one less (ADR 0014 item 2).
+  gift: obj({ cost: count, value: whole, valueWinter: whole, maxSlightsPerForgiveness: count }),
   memory: obj({ halfLifeMinDays: pos, halfLifeSpanDays: pos }),
   warmth: obj({
     toward: signed,
@@ -76,7 +78,7 @@ export const TuningSchema = obj({
     dailyDrift: prob,
   }),
   friend: obj({ threshold: prob }),
-  gossip: obj({ simpleEarBelow: prob, simpleChance: prob }),
+  gossip: obj({ simpleEarBelow: prob, simpleChance: prob, drift: nonNeg }),
   imitation: obj({ everyDays: count, radius: pos, rate: prob, friendWeight: nonNeg }),
   art: obj({ minWarmth: signed, minBerries: nonNeg, days: count }),
   cap: obj({ story: count, sandbox: count }),
@@ -161,6 +163,10 @@ export const TuningSchema = obj({
     fearAt: pos,
     drama: obj({ against: nonNeg, keep: nonNeg, away: nonNeg, pose: nonNeg }),
   }),
+  /** The sandbox's rain (ADR 0014 item 5): each bush within `radius` gains `berries`, up to bush.limit. */
+  rain: obj({ radius: pos, berries: count }),
+  /** A creature within `reach` of a path end may walk the path (ADR 0014 item 5). */
+  path: obj({ reach: pos }),
 });
 
 export type Tuning = z.infer<typeof TuningSchema>;

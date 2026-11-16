@@ -113,3 +113,11 @@ test('lite carries the Fen flock: who flies, the hero while it has joined, and e
   const later = toLite(w, t).pack;
   expect(later?.id === 'fen' && later.flying).toEqual(['hero']);
 });
+
+test('toLite carries season, day, and gateDark', () => {
+  const w = createWorld(1, t, { ...scenario, season: 'autumn', sandbox: true });
+  w.day = 3;
+  expect(toLite(w, t)).toMatchObject({ season: 'autumn', day: 3, gateDark: false });
+  applyCommand(w, { t: 'welcome', on: false }, t, scriptedRng([]));
+  expect(toLite(w, t).gateDark).toBe(true);
+});

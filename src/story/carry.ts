@@ -20,13 +20,16 @@ export interface Carry {
 }
 
 const unit = z.number().min(0).max(1);
+/** A carried creature's dials and shell fields, each 0 to 1; the sandbox's link schema shares them. */
+export const DIALS_SHAPE = { opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit };
+export const SHELL_SHAPE = { tightness: unit, bristle: unit, color: unit, softness: unit };
 /** A carry as a save holds it (spec 15.1). */
 export const CarrySchema = z.object({
   creatures: z.array(
     z.object({
       id: z.string(),
-      dials: z.object({ opener: unit, forgiveness: unit, memory: unit, ear: unit, wanderlust: unit }),
-      shell: z.object({ tightness: unit, bristle: unit, color: unit, softness: unit }),
+      dials: z.object(DIALS_SHAPE),
+      shell: z.object(SHELL_SHAPE),
       skyWarmth: z.number(),
       away: z.boolean(),
       gone: z.boolean(),
@@ -112,4 +115,28 @@ export function receivedDials(carry: Carry | undefined, base: Scenario): Map<str
 export function carriedDiaries(carry: Carry, s: Scenario): Map<string, string[]> {
   const ids = new Set(s.creatures.map((c) => c.id));
   return new Map(carry.creatures.filter((c) => ids.has(c.id)).map((c) => [c.id, [...c.diary]]));
+}
+
+/**
+ * The carry the sandbox keeps of Kith (ADR 0014 item 1): only the creatures in `ids` and the ties
+ * between them, every number rounded to thousandths, and no diaries.
+ */
+export function quantizeCarry(carry: Carry, ids: ReadonlySet<string>): Carry {
+  const q = (v: number): number => Math.round(v * 1000) / 1000;
+  const each = <T extends object>(o: T): T =>
+    Object.fromEntries(Object.entries(o).map(([k, v]) => [k, q(v as number)])) as T;
+  return {
+    creatures: carry.creatures
+      .filter((c) => ids.has(c.id))
+      .map((c) => ({
+        ...c,
+        dials: each(c.dials),
+        shell: each(c.shell),
+        skyWarmth: q(c.skyWarmth),
+        diary: [],
+      })),
+    ties: carry.ties
+      .filter((t) => ids.has(t.a) && ids.has(t.b))
+      .map((t) => ({ ...t, ab: q(t.ab), ba: q(t.ba) })),
+  };
 }

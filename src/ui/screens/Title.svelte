@@ -2,26 +2,48 @@
   let {
     hasSave,
     hasBook,
+    sandboxClosed,
+    notice,
     onBegin,
     onContinue,
     onBook,
+    onSandbox,
+    onLimits,
     onSettings,
   }: {
     hasSave: boolean;
     /** True when the Book of Skies has at least one page. */
     hasBook: boolean;
+    /** Why the Sandbox button is disabled (ADR 0014 item 1), or null while it opens. */
+    sandboxClosed: string | null;
+    /** A line for the status region (a seed link that needs WebGL); '' while there is none. */
+    notice: string;
     onBegin: () => void;
     onContinue: () => void;
     onBook: () => void;
+    onSandbox: () => void;
+    onLimits: () => void;
     onSettings: () => void;
   } = $props();
 </script>
 
 <h1>Fair Weather</h1>
+<p role="status" class="notice">{notice}</p>
 <nav aria-label="Main menu">
   <button type="button" onclick={onBegin}>Begin</button>
   <button type="button" disabled={!hasSave} onclick={onContinue}>Continue</button>
   <button type="button" disabled={!hasBook} onclick={onBook}>Book of Skies</button>
+  <button
+    type="button"
+    id="title-sandbox"
+    disabled={sandboxClosed !== null}
+    aria-describedby={sandboxClosed === null ? undefined : 'sandbox-closed'}
+    onclick={onSandbox}>Sandbox</button
+  >
+  {#if sandboxClosed !== null}
+    <p id="sandbox-closed" class="why">{sandboxClosed}</p>
+  {/if}
+  <button type="button" id="title-limits" onclick={onLimits}>Where this model is wrong</button>
   <button type="button" onclick={onSettings}>Settings</button>
 </nav>
 
@@ -30,5 +52,16 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+  /* The region stays in the page so that its text is announced, but it takes no room while empty. */
+  .notice {
+    margin: 0;
+  }
+  .notice:not(:empty) {
+    margin: 0 0 0.75rem;
+  }
+  .why {
+    margin: -0.5rem 0 0;
+    color: var(--muted);
   }
 </style>

@@ -18,14 +18,19 @@ const e2eChromium = {
 };
 
 /** The whole-year runs, which the e2e-year project plays on their own. */
-const YEAR = ['part1.spec.ts', 'part2.spec.ts'];
+const YEAR = ['part1.spec.ts', 'part2.spec.ts', 'launch-year.spec.ts'];
 
 export default defineConfig({
   // On CI the tests run one at a time. With no GPU a page draws flat out in software, on the CPUs its
   // sim worker needs too, so a second page on the runner halves the first one's frames and its sim's
   // share: waits double, and a real-time run falls behind its sim. One worker costs a little time.
   ...(process.env['CI'] ? { workers: 1 } : {}),
-  webServer: { command: 'npx vite --port 5179 --strictPort', port: 5179 },
+  // Only this dev server names an analytics address, so the e2e tests see the Settings switch.
+  webServer: {
+    command: 'npx vite --port 5179 --strictPort',
+    port: 5179,
+    env: { VITE_ANALYTICS_URL: 'http://localhost:5179/__count' },
+  },
   use: { baseURL: 'http://localhost:5179', trace: 'off' },
   projects: [
     // The whole-year runs (Part 1, and Part 2 from the bridge) play in real time at ?fast=10, so they
@@ -39,7 +44,16 @@ export default defineConfig({
       use: e2eChromium,
       dependencies: ['e2e'],
     },
-    { name: 'e2e-firefox', testDir: 'tests/e2e', use: devices['Desktop Firefox'] },
+    {
+      name: 'e2e-firefox',
+      testDir: 'tests/e2e',
+      // On a machine with no GPU, Firefox blocks WebGL on its software renderer, and the sandbox
+      // needs WebGL. CI also runs Firefox headed (see ci.yml).
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+      },
+    },
     { name: 'e2e-webkit', testDir: 'tests/e2e', use: devices['Desktop Safari'] },
     { name: 'visual', testDir: 'tests/visual', use: chromium },
     {

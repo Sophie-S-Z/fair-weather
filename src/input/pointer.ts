@@ -1,11 +1,11 @@
-// Pointer play: a click takes the same path as Enter; drags blow and thread; the wheel and a pinch
+// Pointer play: a click takes the same path as Enter; drags blow, draw paths, and thread; the wheel and a pinch
 // zoom. `pick` is render's hit test, in the current view.
 import { activeTool, EAST, HERO, threadTo, useTool, waveAt, type InputContext } from './keyboard.ts';
 import type { Point } from './verbs.ts';
 
 export type PickFn = (x: number, y: number) => { creature: string | null };
 
-/** With blow, a press that moves this many screen pixels or more is a gust, not a click. */
+/** With blow or paths, a press that moves this many screen pixels or more is a gust or a path, not a click. */
 const DRAG_PIXELS = 40;
 /** The wheel zooms at most one step in this many milliseconds. */
 const WHEEL_MS = 300;
@@ -46,7 +46,14 @@ export function createPointer(
         return;
       }
       ctx.moveCursor(scene);
-    } else if (tool === 'place' || tool === 'shine' || tool === 'fog' || tool === 'blow') {
+    } else if (
+      tool === 'place' ||
+      tool === 'shine' ||
+      tool === 'fog' ||
+      tool === 'blow' ||
+      tool === 'rain' ||
+      tool === 'path'
+    ) {
       ctx.moveCursor(scene);
     } else {
       ctx.select(pick(at.x, at.y).creature);
@@ -66,10 +73,11 @@ export function createPointer(
         return;
       }
     }
-    if (tool === 'blow' && distance(from, to) >= DRAG_PIXELS) {
+    if ((tool === 'blow' || tool === 'path') && distance(from, to) >= DRAG_PIXELS) {
       const s = toScene(from.x, from.y);
       const e = toScene(to.x, to.y);
-      ctx.act({ verb: 'blow', x: s.x, y: s.y, dx: e.x - s.x, dy: e.y - s.y });
+      if (tool === 'blow') ctx.act({ verb: 'blow', x: s.x, y: s.y, dx: e.x - s.x, dy: e.y - s.y });
+      else ctx.act({ verb: 'path', x: s.x, y: s.y, x2: e.x, y2: e.y });
     } else {
       click(to, shift);
     }

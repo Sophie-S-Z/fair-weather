@@ -1,5 +1,5 @@
 // Player and story commands (spec 9, ADR 0002 items 7 and 8, ADR 0004 item 12, ADR 0005 item 4,
-// ADR 0013 items 1 to 4 and 10).
+// ADR 0013 items 1 to 4 and 10, ADR 0014 item 5).
 import type { BidReply, Command, Creature, GiftMove, Season, SimEvent, World } from './types.ts';
 import { DIAL_KEYS, HERO, SEASONS } from './types.ts';
 import type { Rng } from './rng.ts';
@@ -107,14 +107,37 @@ function walk(world: World, cmd: Extract<Command, { t: 'walk' }>, t: Tuning): vo
   }
 }
 
+/** Every bush within rain.radius of (x, y) gains rain.berries, up to bush.limit (ADR 0014 item 5). */
+function rain(world: World, x: number, y: number, t: Tuning): void {
+  const r2 = t.rain.radius * t.rain.radius;
+  for (const b of world.bushes) {
+    if (dist2(b.x, b.y, x, y) <= r2 && b.berries < t.bush.limit) {
+      b.berries = Math.min(b.berries + t.rain.berries, t.bush.limit);
+    }
+  }
+}
+
+/**
+ * A path between two points, each clamped to the scene, with id `path-<nextId>` (ADR 0014 item 5).
+ * A path shorter than meet.radius is ignored.
+ */
+function path(world: World, cmd: Extract<Command, { t: 'path' }>, t: Tuning): void {
+  const { width, height } = t.scene;
+  const [x, y] = [clamp(cmd.x, 0, width), clamp(cmd.y, 0, height)];
+  const [x2, y2] = [clamp(cmd.x2, 0, width), clamp(cmd.y2, 0, height)];
+  if (dist2(x, y, x2, y2) < t.meet.radius * t.meet.radius) return;
+  world.structures.push({ id: `path-${String(world.nextId)}`, kind: 'path', x, y, x2, y2 });
+  world.nextId += 1;
+}
+
 /**
  * Applies one command. Returns [] and changes nothing for a command that is not an object, an
- * unknown or away creature id, a non-finite number, a shine, fog, gust start, or place point
+ * unknown or away creature id, a non-finite number, a shine, fog, gust start, place, or rain point
  * outside the scene, a bridge outside water, an unknown tag or value, a pair naming one creature
  * twice, a fog radius of 0 or less, a gust whose length squared is 0 or overflows, a `walk` or
- * `manner` in a world without a hero, a `plant` by a hero that cannot (plantGift), or a `local` in a
- * world without a rule pack. Only `blow`, and a `local` as its pack's onVerb says, draw from the
- * PRNG.
+ * `manner` in a world without a hero, a `plant` by a hero that cannot (plantGift), a `local` in a
+ * world without a rule pack, or a `rain`, `welcome`, or `path` in a world without `sandbox`. Only
+ * `blow`, and a `local` as its pack's onVerb says, draw from the PRNG.
  */
 export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): SimEvent[] {
   const raw: unknown = cmd; // commands cross the worker boundary, so check at runtime
@@ -241,6 +264,19 @@ export function applyCommand(world: World, cmd: Command, t: Tuning, rng: Rng): S
       }
       return [];
     }
+    case 'rain':
+      if (!world.sandbox || !onScene(cmd.x, cmd.y, t)) return [];
+      rain(world, cmd.x, cmd.y, t);
+      return [];
+    case 'welcome':
+      if (!world.sandbox || typeof cmd.on !== 'boolean') return [];
+      if (cmd.on) delete world.gateDark;
+      else world.gateDark = true;
+      return [];
+    case 'path':
+      if (!world.sandbox || !finite(cmd.x, cmd.y, cmd.x2, cmd.y2)) return [];
+      path(world, cmd, t);
+      return [];
     case 'overPoke':
       for (const c of world.creatures) {
         if (c.state === 'away') continue;

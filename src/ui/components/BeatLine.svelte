@@ -1,9 +1,47 @@
 <script lang="ts">
-  let { lines }: { lines: readonly { id: number; text: string }[] } = $props();
+  let {
+    lines,
+    fixed = false,
+  }: {
+    lines: readonly { id: number; text: string }[];
+    /** The strip has one fixed height (portrait, where it must not resize the scene), else a ceiling. */
+    fixed?: boolean;
+  } = $props();
+
+  let el: HTMLElement | undefined = $state();
+  /** The lines are taller than the strip: it scrolls, so the keyboard needs to reach it. */
+  let scrolls = $state(false);
+  const measure = (): void => {
+    if (el) scrolls = el.scrollHeight > el.clientHeight;
+  };
+  $effect(() => {
+    // Each new line scrolls into view; the focus stays where it is.
+    const count = lines.length;
+    if (el && count > 0) el.scrollTop = el.scrollHeight;
+    measure();
+  });
+  $effect(() => {
+    if (!el) return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => {
+      watch.disconnect();
+    };
+  });
 </script>
 
 <!-- One live region for the story lines, hints, and bet results; each new line is announced. -->
-<div class="beat-line" aria-live="polite" aria-relevant="additions">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<div
+  class="beat-line"
+  class:fixed
+  bind:this={el}
+  aria-live="polite"
+  aria-relevant="additions"
+  role="group"
+  aria-label="Story lines"
+  tabindex={scrolls ? 0 : undefined}
+>
   {#each lines as line, i (line.id)}
     <p class:old={i < lines.length - 1}>{line.text}</p>
   {/each}
@@ -16,6 +54,21 @@
     align-items: center;
     gap: 0.25rem;
     max-width: 36rem;
+  }
+  /* A strip that scrolls: the lines of the chapter stay readable. */
+  .beat-line {
+    box-sizing: border-box;
+    max-height: 6rem;
+    overflow-y: auto;
+  }
+  .beat-line p {
+    flex: none;
+  }
+  .fixed {
+    height: 6rem;
+    max-width: none;
+    align-items: stretch;
+    background: var(--bg);
   }
   p {
     margin: 0;

@@ -1,9 +1,10 @@
-// Gossip at dusk (spec 9.4, ADR 0002 items 5 and 6).
+// Gossip at dusk (spec 9.4, ADR 0002 items 5 and 6, ADR 0014 item 3).
 import type { Creature, SimEvent, World } from '../types.ts';
 import type { Rng } from '../rng.ts';
 import type { Tuning } from '../tuning.ts';
 import { isHero } from '../hero.ts';
-import { activeCreatures, friendsOf } from '../world.ts';
+import { clamp } from '../math.ts';
+import { activeCreatures, friendsOf, getTie, side } from '../world.ts';
 
 /** True when `c` holds an opinion of `about` with this sign (ADR 0002 item 5). */
 export function holds(c: Creature, about: string, sign: 1 | -1, t: Tuning): boolean {
@@ -40,6 +41,16 @@ function opinionToShare(
   return { about: best, sign: (sharer.opinions[best] ?? 0) < 0 ? -1 : 1 };
 }
 
+/** The listener's summed warmth toward `friends` (ADR 0014 item 3). */
+function warmthToward(world: World, listener: Creature, friends: Creature[]): number {
+  let sum = 0;
+  for (const f of friends) {
+    const tie = getTie(world, listener.id, f.id);
+    if (tie) sum += side(tie, listener.id).warmth;
+  }
+  return sum;
+}
+
 function compareShares(x: { about: string; sign: number }, y: { about: string; sign: number }): number {
   if (x.about !== y.about) return x.about < y.about ? -1 : 1;
   return y.sign - x.sign; // positive before negative
@@ -58,6 +69,12 @@ function compareShares(x: { about: string; sign: number }, y: { about: string; s
  * when the listener's Ear is below gossip.simpleEarBelow, one draw per holder among its friends,
  * in id order. Complex contagion takes no draws. A listener adopts at most one opinion per
  * subject: the first that succeeds.
+ *
+ * The network switches (ADR 0014 item 3): with `weighted`, complex contagion compares the
+ * listener's summed warmth toward the holders with its summed warmth toward all those friends
+ * (positive, since every friend's warmth is above friend.threshold). With `drift`, each adopted
+ * value moves by a uniform draw in [-gossip.drift, gossip.drift], clamped to [-1, 1]: one draw per
+ * adoption, after that listener's other draws, in adoption order.
  */
 export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
   const active = activeCreatures(world);
@@ -79,6 +96,7 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
     shares.sort(compareShares);
     const friends = friendsOf(world, listener, t).filter((f) => !isHero(world, f));
     const done = new Set<string>();
+    const first = adopted.length;
     for (const { about, sign } of shares) {
       const holders = friends.filter((f) => holds(f, about, sign, t));
       if (done.has(about) || holds(listener, about, sign, t) || holders.length === 0) continue;
@@ -87,6 +105,10 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
         for (let i = 0; i < holders.length; i++) {
           if (rng.next() < t.gossip.simpleChance) takes = true;
         }
+      } else if (world.network?.weighted) {
+        takes =
+          warmthToward(world, listener, holders) / warmthToward(world, listener, friends) >=
+          listener.dials.ear;
       } else {
         takes = holders.length / friends.length >= listener.dials.ear;
       }
@@ -95,6 +117,11 @@ export function gossip(world: World, t: Tuning, rng: Rng): SimEvent[] {
       let sum = 0;
       for (const h of holders) sum += h.opinions[about] ?? 0;
       adopted.push({ holder: listener, about, value: sum / holders.length });
+    }
+    if (world.network?.drift) {
+      for (const a of adopted.slice(first)) {
+        a.value = clamp(a.value + (2 * rng.next() - 1) * t.gossip.drift, -1, 1);
+      }
     }
   }
 

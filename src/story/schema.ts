@@ -45,7 +45,7 @@ const SEASON_SET: Record<Season, true> = {
   winter: true,
   thaw: true,
 };
-const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
+export const season = z.enum(Object.keys(SEASON_SET) as [Season, ...Season[]]);
 const STATE_SET: Record<CreatureState, true> = {
   wander: true,
   meet: true,
@@ -199,13 +199,15 @@ export const ExitSpecSchema = z.union([
 
 /** A margin note (spec 10.5, ADR 0012 item 13). */
 const text = z.string().min(1);
+/** A source link, shared by margin notes and the model-limits page so the two cannot drift. */
+export const SourceSchema = z.strictObject({ label: text, url: z.url() });
 export const NoteSchema = z.strictObject({
   title: text,
   science: text,
   limits: text,
   counter: text,
   question: text,
-  sources: z.array(z.strictObject({ label: text, url: z.url() })).min(1),
+  sources: z.array(SourceSchema).min(1),
 });
 export type Note = z.infer<typeof NoteSchema>;
 
@@ -248,6 +250,8 @@ const ChapterObject = z.strictObject({
   valley: ValleySchema.optional(),
   /** The chapter's name (spec 6.2), shown in the heading. */
   title: z.string().min(1),
+  /** The still version's image (ADR 0014 item 10); absent means the scene's placeholder. */
+  still: id.optional(),
   season,
   scene: id,
   dayLengthSeconds: z.number().positive(),

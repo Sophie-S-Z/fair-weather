@@ -12,12 +12,15 @@ import { SixthSchema } from '../../src/myth/sixth.ts';
 import { CastSchema } from '../../src/render/cast.ts';
 import { RigSchema } from '../../src/render/line/rig.ts';
 import { PaletteSchema } from '../../src/render/palette.ts';
+import { sceneStill } from '../../src/story/stills.ts';
 import { SceneSchema } from '../../src/render/scene.ts';
 import { TuningSchema } from '../../src/sim/tuning.ts';
 import { HERO_KINDS } from '../../src/sim/types.ts';
+import { ChallengesSchema } from '../../src/story/challenges.ts';
 import { DiarySchema } from '../../src/story/diary.ts';
 import { FlagsSchema } from '../../src/story/flags.ts';
 import { HeroesSchema, JournalSchema } from '../../src/story/journey.ts';
+import { ModelLimitsSchema } from '../../src/story/limits.ts';
 import { ChapterSchema } from '../../src/story/schema.ts';
 import type { Chapter, Overrides } from '../../src/story/schema.ts';
 import { MARKERS } from './placeholder-guard.ts';
@@ -78,7 +81,8 @@ function creatureRefs(c: Chapter): string[] {
 
 /**
  * Checks tuning, flags, diary, heroes, journal, myth verses and the sixth verse, rigs, palettes, scenes, cast, chapter and valley camera
- * names and creature ids, and Ink under `root/content`, and counts placeholder occurrences by kind.
+ * names and creature ids, the sandbox challenges and the creatures their starts name, and Ink under
+ * `root/content`, and counts placeholder occurrences by kind.
  */
 export function validateContent(root: string): ValidationResult {
   const errors: string[] = [];
@@ -123,6 +127,14 @@ export function validateContent(root: string): ValidationResult {
       JournalSchema.parse(JSON.parse(readFileSync(journalPath, 'utf8')));
     } catch (e) {
       errors.push(`journal.json: ${(e as Error).message}`);
+    }
+  }
+  const limitsPath = join(content, 'notes', 'model-limits.json');
+  if (existsSync(limitsPath)) {
+    try {
+      ModelLimitsSchema.parse(JSON.parse(readFileSync(limitsPath, 'utf8')));
+    } catch (e) {
+      errors.push(`notes/model-limits.json: ${(e as Error).message}`);
     }
   }
   const versesPath = join(content, 'myth', 'verses.json');
@@ -203,6 +215,12 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);
       continue;
     }
+    // The still version's picture (ADR 0014 item 10): the config's `still`, or its scene's placeholder.
+    const still = c.still ?? sceneStill(c.scene);
+    if (!['stills', 'placeholder'].some((dir) => existsSync(join(content, dir, `${still}.svg`))))
+      errors.push(
+        `${f}: still image ${still} has no file content/stills/${still}.svg or content/placeholder/${still}.svg`,
+      );
     const scene = SceneSchema.safeParse(JSON.parse(readFileSync(scenePath, 'utf8')));
     if (!scene.success) continue; // reported above
     for (const beat of parsed.data.beats) {
@@ -213,6 +231,18 @@ export function validateContent(root: string): ValidationResult {
           );
         }
       }
+    }
+  }
+  // A challenge starts from a new Kith (ADR 0014 item 6), so every creature its start names is in m0.
+  const sandboxPath = join(content, 'sandbox.json');
+  if (existsSync(sandboxPath)) {
+    const parsed = ChallengesSchema.safeParse(JSON.parse(readFileSync(sandboxPath, 'utf8')));
+    if (!parsed.success) errors.push(`sandbox.json: ${parsed.error.message}`);
+    const kith = creaturesOf('m0');
+    for (const c of parsed.data?.challenges ?? []) {
+      const named = [...Object.keys(c.start.shell ?? {}), ...Object.keys(c.start.danceThreshold ?? {})];
+      for (const id of named)
+        if (kith && !kith.has(id)) errors.push(`sandbox.json: ${c.id} names creature ${id}, which m0 lacks`);
     }
   }
   // An INCLUDEd file compiles inside the file that includes it, so it may use that file's VARs.

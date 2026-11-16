@@ -1,5 +1,5 @@
 import { devices, expect, test, type Locator, type Page } from '@playwright/test';
-import { canvasPoints, tabTo, tap } from './helpers.ts';
+import { canvasPoints, pausedFrames, sent, tabTo, tap } from './helpers.ts';
 
 // The vertical slice (M1.8, M1.12). Dev builds only: ?chapter=N starts at chapter N, and ?fast=N
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
@@ -548,23 +548,6 @@ test.describe('on a phone', () => {
   });
 });
 
-/** Two shots of the paused scene, half a second apart. */
-async function pausedFrames(page: Page): Promise<[Buffer, Buffer]> {
-  // Wait until the scene is being drawn from snapshots, so the pause holds a drawn world.
-  const frames = (await dev(page)).frames;
-  await expect.poll(async () => (await dev(page)).frames).toBeGreaterThan(frames);
-  await page.getByRole('button', { name: 'Pause' }).click();
-  await expect(page.getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true');
-  await page.waitForTimeout(500); // the last snapshot's tween and any camera move settle
-  const canvas = page.locator('canvas');
-  // The scene's pixels only: the HTML over the canvas is hidden in the shot. Its tool tray shows the
-  // ghost hand after 10 s of idle (spec 12.6), and on software rendering one shot takes seconds.
-  const style = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
-  const a = await canvas.screenshot({ style });
-  await page.waitForTimeout(500);
-  return [a, await canvas.screenshot({ style })];
-}
-
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
@@ -594,8 +577,6 @@ test('without reduced motion, the paused scene boils (the control for the test a
 test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now restores the speed', async ({
   page,
 }) => {
-  const sent = async () =>
-    page.evaluate(() => (window as unknown as { fairWeather: { sent: number } }).fairWeather.sent);
   await page.goto('/?chapter=9');
   await page.getByRole('button', { name: 'Begin' }).click();
   // ch6 opens its bet at tick 1; the range waits for its reveal.
@@ -606,8 +587,13 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
   await page.keyboard.press('z');
   const range = page.getByLabel('Rewind');
   await expect(range).toBeEnabled();
-  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab.
+  // The scene help's keyboard path to the panel: Escape to the tools, then Shift+Tab back through
+  // the story lines, which sit above the tools, to the panel's Rewind range.
+  const strip = page.getByRole('group', { name: 'Story lines' });
+  await expect(strip).toHaveAttribute('tabindex', '0');
   await page.keyboard.press('Escape');
+  await page.keyboard.press('Shift+Tab');
+  await expect(strip).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(range).toBeFocused();
   // A few seconds of chapter, so the range has room to move.
@@ -634,21 +620,21 @@ test('ch6: the rewind range pauses the sim, verbs send nothing, and Back to now 
       { intervals: [500] },
     )
     .toBe(true);
-  const before = await sent();
+  const before = await sent(page);
   // Space and the tool send nothing while rewound.
   const cosmos = page.getByRole('application', { name: /^The Cosmos/ });
   await cosmos.focus();
   await page.keyboard.press('Enter');
   await page.keyboard.press(' ');
   await page.waitForTimeout(300);
-  expect(await sent()).toBe(before);
+  expect(await sent(page)).toBe(before);
   expect((await dev(page)).speeds.at(-1)).toBe(0);
   await page.getByRole('button', { name: 'Back to now' }).click();
   await expect.poll(async () => (await dev(page)).speeds.at(-1)).toBe(1);
   // The control: back at now, the same Enter sends the fog command.
   await cosmos.focus();
   await page.keyboard.press('Enter');
-  await expect.poll(sent).toBeGreaterThan(before);
+  await expect.poll(() => sent(page)).toBeGreaterThan(before);
 });
 
 for (const [n, heading] of [

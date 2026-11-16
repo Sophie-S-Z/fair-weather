@@ -136,6 +136,7 @@ test('a pending checkpoint request is sent again to the restarted worker', async
   const s = spawner(() => null);
   const host = createSimHost(s.spawn);
   host.post(initGolden);
+  await host.requestHash(); // the worker has loaded
   const pending = host.requestCheckpoint();
   s.spawned[0]?.port.dispatchEvent(new Event('error'));
   const cp = await pending;
@@ -171,6 +172,7 @@ test('host.rewind rejects when the worker errors before answering', async () => 
   const s = spawner(() => null);
   const host = createSimHost(s.spawn);
   play(host, 30);
+  await host.requestHash(); // the worker has loaded
   const pending = host.rewind(10);
   s.spawned[0]?.port.dispatchEvent(new Event('error'));
   await expect(pending).rejects.toThrow(/restarted/);
@@ -184,6 +186,7 @@ test('host.fastForward resolves with the forwarded world, and rejects on a resta
   const seen: FromWorker[] = [];
   host.onMessage((m) => seen.push(m));
   host.post(initGolden);
+  await host.requestHash(); // the worker has loaded
   const pending = host.fastForward(100);
   s.spawned[0]?.port.dispatchEvent(new Event('error'));
   await expect(pending).rejects.toThrow(/restarted/);
@@ -262,4 +265,210 @@ test('a rewind and a fastForward in flight at once resolve by id, and one restar
   const both = [host.rewind(5), host.fastForward(10)];
   s.spawned[0]?.port.dispatchEvent(new Event('error'));
   for (const p of both) await expect(p).rejects.toThrow(/restarted/);
+});
+
+const script: { tick: number; list: Command[] }[] = [
+  { tick: 150, list: [{ t: 'blow', x: 200, y: 450, dx: 600, dy: 0 }] },
+  { tick: 20, list: [{ t: 'shine', x: 400, y: 300 }] },
+  { tick: 150, list: [{ t: 'paintFog', x: 1000, y: 500, r: 160, amount: 0.6 }] },
+];
+/** The script in tick order, as log() holds it. */
+const scriptLog = [script[1], script[0], script[2]];
+
+test('after a scripted forward, log() holds the script, and a restart reaches the same hash', async () => {
+  const plain = createSimHost(spawner(() => null).spawn);
+  plain.post(initGolden);
+  let at = 0;
+  for (const e of scriptLog) {
+    if (!e) continue;
+    if (e.tick > at) plain.post({ t: 'advance', ticks: e.tick - at });
+    at = e.tick;
+    plain.send(e.list);
+  }
+  plain.post({ t: 'advance', ticks: 200 - at });
+  const want = await plain.requestHash();
+
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const done = await host.fastForward(200, script);
+  expect(done.tick).toBe(200);
+  expect(host.log()).toEqual(scriptLog);
+  expect(await host.requestHash()).toEqual(want);
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  expect(await host.requestHash()).toEqual(want);
+  expect(s.spawned).toHaveLength(2);
+  // The restart replayed the script as commands, and the log still holds each list once.
+  const sent = s.spawned[1]?.received.flatMap((m) => (m.t === 'commands' ? [m.list] : [])) ?? [];
+  expect(sent).toEqual(scriptLog.map((e) => e?.list));
+  expect(host.log()).toEqual(scriptLog);
+});
+
+test('an init during a scripted forward rejects it, and the new log holds none of the script', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const forward = host.fastForward(200, script);
+  play(host, 10); // a new init, then the golden lists before tick 10
+  await expect(forward).rejects.toThrow(/new init/);
+  expect((await host.requestHash()).tick).toBe(10);
+  await new Promise((r) => setTimeout(r, 20)); // no late answer from the old worker changes the log
+  expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 10));
+});
+
+test('a restart during a scripted forward rejects it and leaves the log unchanged', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  play(host, 10);
+  const before = await host.requestHash();
+  const forward = host.fastForward(200, script);
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  await expect(forward).rejects.toThrow(/restarted/);
+  expect(await host.requestHash()).toEqual(before);
+  expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 10));
+});
+
+/**
+ * A spawn function whose workers listed in `failing` fail to load: the spawn throws (`'throw'`),
+ * or the worker fires an `error` event before it posts anything (`'error'`).
+ */
+function loader(failing: Record<number, 'throw' | 'error'>): {
+  spawn: () => MessagePort;
+  spawned: Endpoint[];
+  tries: () => number;
+} {
+  const spawned: Endpoint[] = [];
+  let tries = 0;
+  const spawn = (): MessagePort => {
+    const how = failing[tries++];
+    if (how === 'throw') throw new Error('injected load failure');
+    const ep = coreOverChannel();
+    spawned.push(ep);
+    open.push(ep);
+    if (how === 'error') {
+      queueMicrotask(() => ep.port.dispatchEvent(new Event('error')));
+    }
+    return ep.port;
+  };
+  return { spawn, spawned, tries: () => tries };
+}
+
+test('a worker that fails before its first message is spawned again after 1000 and 2000 ms, then onGiveUp fires', async () => {
+  const s = loader({ 0: 'error', 1: 'throw', 2: 'error' });
+  const waits: number[] = [];
+  const host = createSimHost(s.spawn, {
+    loadWaitsMs: [1000, 2000],
+    wait: (ms) => {
+      waits.push(ms);
+      return Promise.resolve();
+    },
+  });
+  const reasons: string[] = [];
+  const gaveUp = new Promise<void>((resolve) => {
+    host.onGiveUp((reason) => {
+      reasons.push(reason);
+      resolve();
+    });
+  });
+  play(host, 30);
+  const hash = host.requestHash();
+  await gaveUp;
+  await expect(hash).rejects.toThrow(/load/);
+  await new Promise((r) => setTimeout(r, 20));
+  expect(waits).toEqual([1000, 2000]);
+  expect(s.tries()).toBe(3);
+  expect(reasons).toHaveLength(1);
+  await expect(host.requestHash()).rejects.toThrow(/load/);
+});
+
+test('a load that works on the second try plays on, and onGiveUp never fires', async () => {
+  const s = loader({ 0: 'error' });
+  const waits: number[] = [];
+  const host = createSimHost(s.spawn, {
+    loadWaitsMs: [1000, 2000],
+    wait: (ms) => {
+      waits.push(ms);
+      return Promise.resolve();
+    },
+  });
+  const reasons: string[] = [];
+  host.onGiveUp((reason) => reasons.push(reason));
+  play(host, 30);
+  const plain = createSimHost(spawner(() => null).spawn);
+  play(plain, 30);
+  expect(await host.requestHash()).toEqual(await plain.requestHash());
+  expect(host.log()).toEqual(goldenLists().filter((e) => e.tick < 30));
+  expect(waits).toEqual([1000]);
+  expect(s.tries()).toBe(2);
+  expect(reasons).toEqual([]);
+});
+
+test('onGiveUp fires once when the host gives up on a repeated fault', async () => {
+  const s = spawner(() => 50);
+  const host = createSimHost(s.spawn);
+  const reasons: string[] = [];
+  host.onGiveUp((reason) => reasons.push(reason));
+  play(host, 100);
+  await expect(host.requestHash()).rejects.toThrow(/not restarting/);
+  expect(reasons).toEqual([expect.stringMatching(/not restarting/)]);
+  // A second error from the worker it gave up on does not stop the host again.
+  s.spawned[1]?.port.dispatchEvent(new Event('error'));
+  expect(s.spawned).toHaveLength(2);
+  expect(reasons).toHaveLength(1);
+});
+
+test('a spawn that throws on the first connect is tried again after the wait, and the run plays on', async () => {
+  const s = loader({ 0: 'throw' });
+  const host = createSimHost(s.spawn, { loadWaitsMs: [1000], wait: () => Promise.resolve() });
+  const reasons: string[] = [];
+  host.onGiveUp((reason) => reasons.push(reason));
+  play(host, 30);
+  const plain = createSimHost(spawner(() => null).spawn);
+  play(plain, 30);
+  expect(await host.requestHash()).toEqual(await plain.requestHash());
+  expect(s.tries()).toBe(2);
+  expect(reasons).toEqual([]);
+});
+
+test('a wait that rejects gives up instead of leaving the host waiting', async () => {
+  const s = loader({ 0: 'error' });
+  const host = createSimHost(s.spawn, {
+    loadWaitsMs: [1000],
+    wait: () => Promise.reject(new Error('no timer')),
+  });
+  const gaveUp = new Promise<string>((resolve) => host.onGiveUp(resolve));
+  host.post(initGolden);
+  const hash = host.requestHash();
+  expect(await gaveUp).toMatch(/not restarting/);
+  await expect(hash).rejects.toThrow(/not restarting/);
+  expect(s.tries()).toBe(1);
+});
+
+test('a script entry whose tick is not a whole number is not logged, as the core does not run it', async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  host.post(initGolden);
+  const odd = { tick: 20.5, list: [{ t: 'shine', x: 100, y: 100 }] as Command[] };
+  await host.fastForward(200, [...script, odd]);
+  expect(host.log()).toEqual(scriptLog);
+  const want = await host.requestHash();
+  s.spawned[0]?.port.dispatchEvent(new Event('error'));
+  expect(await host.requestHash()).toEqual(want);
+});
+
+test("a reported fastForward resolves with the worker's steps, and an unreported one with none", async () => {
+  const s = spawner(() => null);
+  const host = createSimHost(s.spawn);
+  const seen: FromWorker[] = [];
+  host.onMessage((m) => seen.push(m));
+  host.post(initGolden);
+  const plain = await host.fastForward(50);
+  expect(plain.steps).toBeUndefined();
+  const done = await host.fastForward(50, undefined, true);
+  expect(done.tick).toBe(100);
+  // Its first step is tick 50, with the world after it; every other step has events.
+  expect(done.steps?.[0]?.tick).toBe(50);
+  expect(done.steps?.[0]?.lite?.creatures).toHaveLength(plain.lite.creatures.length);
+  expect(done.steps?.slice(1).every((st) => st.lite === undefined && st.events.length > 0)).toBe(true);
+  expect(seen).toEqual([]);
 });

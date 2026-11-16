@@ -2,20 +2,33 @@
   import { onMount, tick } from 'svelte';
   import { CAPTION_LENGTH, characters } from '../../story/journey.ts';
   import Note from '../components/Note.svelte';
-  import { inSentence } from '../journal-pages.ts';
+  import type { PageBlock } from '../../persist/page-image.ts';
+  import { inSentence, journalBlocks } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
+  import { retryImage } from '../retry-image.ts';
+  import { saveFile } from '../save-file.ts';
+  import { trapFocus } from '../trap-focus.ts';
 
   let {
     entries,
     at = null,
+    waits,
+    fallbackOf,
     onCaption,
+    onExport,
     onBack,
   }: {
     entries: readonly JournalEntry[];
     /** The valley whose page takes focus and scrolls into view; the title without one. */
     at?: string | null;
+    /** The waits before each new try of a drawing that fails to load (ASSET_WAITS_MS). */
+    waits: readonly number[];
+    /** The image a valley's drawing gives way to after the last try, or null for the alt text. */
+    fallbackOf: (valley: string) => string | null;
     /** Keeps the player's line for a valley's page. The line stays on the device. */
     onCaption: (valley: string, text: string) => void;
+    /** A page as a PNG made on the device (GameService.exportPage). */
+    onExport: (blocks: PageBlock[]) => Promise<Blob>;
     onBack: () => void;
   } = $props();
 
@@ -39,6 +52,25 @@
     const chars = characters(line);
     if (chars.length > CAPTION_LENGTH) lines[valley] = chars.slice(0, CAPTION_LENGTH).join('');
   }
+  /** Whether a page image is being made, and the valley of the page that could not be made. */
+  let saving = $state(false);
+  let failed: string | null = $state(null);
+  /** Saves the page as the player sees it, with the line as typed now. */
+  async function savePage(entry: JournalEntry): Promise<void> {
+    saving = true;
+    failed = null;
+    try {
+      const fallback = fallbackOf(entry.valley);
+      const blocks = journalBlocks({ ...entry, caption: lines[entry.valley] ?? '' }).map((b) =>
+        b.kind === 'image' && fallback !== null ? { ...b, fallback } : b,
+      );
+      saveFile(await onExport(blocks), `fair-weather-journal-${entry.valley}.png`);
+    } catch (e) {
+      console.error(e);
+      failed = entry.valley;
+    }
+    saving = false;
+  }
   function close(): void {
     for (const e of entries) keep(e.valley);
     onBack();
@@ -57,24 +89,12 @@
     };
   });
 
-  /** Escape closes the dialog; Tab stays inside it. */
+  /** Escape closes the dialog. */
   function onKey(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       close();
-    } else if (e.key === 'Tab') {
-      const items = [...(root?.querySelectorAll<HTMLElement>('button, input, a[href]') ?? [])];
-      const first = items[0];
-      const last = items[items.length - 1];
-      const inside = items.some((b) => b === document.activeElement);
-      if (e.shiftKey && (!inside || document.activeElement === first)) {
-        e.preventDefault();
-        last?.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first?.focus();
-      }
     }
   }
 </script>
@@ -88,6 +108,7 @@
     tabindex="-1"
     bind:this={root}
     onkeydown={onKey}
+    use:trapFocus
   >
     <h2 id="journal-title" tabindex="-1">Travel journal</h2>
     {#if entries.length === 0}
@@ -97,7 +118,13 @@
       <article aria-labelledby="page-{entry.valley}">
         <h3 id="page-{entry.valley}" tabindex="-1" data-page={entry.valley}>{entry.title}</h3>
         {#if entry.drawing}
-          <img src={entry.drawing.src} alt={entry.drawing.alt} width="160" height="100" />
+          <img
+            src={entry.drawing.src}
+            alt={entry.drawing.alt}
+            width="160"
+            height="100"
+            use:retryImage={{ waits, fallback: fallbackOf(entry.valley) }}
+          />
         {/if}
         {#if entry.keepsake}
           <p>
@@ -137,6 +164,18 @@
         {#each entry.notes as note, i (i)}
           <Note {note} level={4} />
         {/each}
+        <p>
+          <button
+            type="button"
+            disabled={saving}
+            aria-describedby="export-{entry.valley}"
+            onclick={() => void savePage(entry)}>Save this page as an image</button
+          >
+        </p>
+        <p id="export-{entry.valley}" class="hint">
+          The image shows the words that you wrote. It stays on this device until you share it.
+        </p>
+        <p role="status">{failed === entry.valley ? 'The game could not make the image.' : ''}</p>
       </article>
     {/each}
     {#if entries.length > 0}
@@ -206,5 +245,17 @@
   }
   .hint {
     color: var(--muted);
+  }
+
+  /* Below 600 pixels the dialog is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .card {
+      width: 100vw;
+      max-height: none;
+      height: 100vh;
+      height: 100dvh;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

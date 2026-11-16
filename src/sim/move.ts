@@ -1,5 +1,5 @@
 // Steering, goal choice, foraging, dew drops, and visit counts (ADR 0005, ADR 0004 item 2,
-// ADR 0003 item 9, ADR 0012 item 5, ADR 0013 items 1 and 3).
+// ADR 0003 item 9, ADR 0012 item 5, ADR 0013 items 1 and 3, ADR 0014 item 5).
 // Velocity is in world units per second; position advances by velocity / stepsPerSecond per tick.
 import type { Creature, Rect, Structure, World } from './types.ts';
 import type { Rng } from './rng.ts';
@@ -19,8 +19,36 @@ function visitCell(x: number, y: number, tuning: Tuning): number {
   return row * COLS + col;
 }
 
+/**
+ * The far end of the path whose end is nearest `c`, within path.reach (ADR 0014 item 5). A tie goes
+ * to the earlier path, and within one path to its start, so the walk goes to its end.
+ */
+function pathFrom(c: Creature, world: World, tuning: Tuning): { x: number; y: number } | undefined {
+  const reach2 = tuning.path.reach * tuning.path.reach;
+  let best: { x: number; y: number } | undefined;
+  let bestD = Infinity;
+  for (const s of world.structures) {
+    if (s.kind !== 'path') continue;
+    for (const [d, x, y] of [
+      [dist2(c.x, c.y, s.x, s.y), s.x2, s.y2],
+      [dist2(c.x, c.y, s.x2, s.y2), s.x, s.y],
+    ] as const) {
+      if (d > reach2 || d >= bestD) continue;
+      bestD = d;
+      best = { x, y };
+    }
+  }
+  return best;
+}
+
 function pickGoal(c: Creature, world: World, land: Land, tuning: Tuning, rng: Rng): void {
-  // 1. A bench (ADR 0003 item 9).
+  // 1. Along a path, with one draw only near a path end (ADR 0014 item 5).
+  const far = pathFrom(c, world, tuning);
+  if (far && rng.next() < tuning.goal.pathChance) {
+    setGoal(c, far.x, far.y, world, land, tuning);
+    return;
+  }
+  // 2. A bench (ADR 0003 item 9).
   const benches = benchesOf(world);
   if (benches.length > 0) {
     const mem = c.benchMemory;
@@ -37,7 +65,7 @@ function pickGoal(c: Creature, world: World, land: Land, tuning: Tuning, rng: Rn
       return;
     }
   }
-  // 2. The nearest bush with berries, or the mushroom with a drop for it, when hungry.
+  // 3. The nearest bush with berries, or the mushroom with a drop for it, when hungry.
   if (c.berries < 1) {
     let best: { x: number; y: number } | undefined;
     let bestD = Infinity;
@@ -56,14 +84,14 @@ function pickGoal(c: Creature, world: World, land: Land, tuning: Tuning, rng: Rn
       return;
     }
   }
-  // 3. A random friend, with chance 1 - wanderlust.
+  // 4. A random friend, with chance 1 - wanderlust.
   const friends = friendsOf(world, c, tuning);
   if (friends.length > 0 && rng.next() < 1 - c.dials.wanderlust) {
     const f = rng.pick(friends);
     setGoal(c, f.x, f.y, world, land, tuning);
     return;
   }
-  // 4. A random point in a least-visited cell.
+  // 5. A random point in a least-visited cell.
   pickRandomGoal(c, world, land, tuning, rng);
 }
 

@@ -3,13 +3,24 @@
 // outlasts every save slot.
 import { z } from 'zod';
 import type { MythPage } from '../myth/grammar.ts';
+import { CarrySchema } from '../story/carry.ts';
+import type { Carry } from '../story/carry.ts';
+import { SANDBOX_VALLEYS, cutNote } from '../story/sandbox.ts';
+import type { SandboxValley } from '../story/sandbox.ts';
 import { openDb } from './db.ts';
 import type { Db } from './db.ts';
+import { MAX_LINK_TEXT } from './seed-link.ts';
 
 /** A kept myth: `year` counts the finished years from 1, and `seed` is the valley's seed. */
 export interface BookPage extends MythPage {
   year: number;
   seed: number;
+}
+
+/** A kept sandbox: the `v1.<data>` link (stored as text, decoded by the caller) and the player's notes. */
+export interface SandboxSave {
+  link: string;
+  notes: { tick: number; text: string }[];
 }
 
 export interface Profile {
@@ -24,11 +35,44 @@ export interface Profile {
   feathers(): Promise<number>;
   /** Counts one more feather and returns the new count. */
   addFeather(): Promise<number>;
+  /** The Kith the player carries on, or null. */
+  kith(): Promise<Carry | null>;
+  /** Keeps `carry`, replacing any earlier one. */
+  setKith(carry: Carry): Promise<void>;
+  /** The finished valleys, each once, in first-played order. */
+  valleys(): Promise<string[]>;
+  /** Keeps a sandbox valley id once; any other id changes nothing. */
+  addValley(id: string): Promise<void>;
+  sandbox(): Promise<SandboxSave | null>;
+  /** Keeps the sandbox, cutting each note to NOTE_LENGTH characters. */
+  keepSandbox(save: SandboxSave): Promise<void>;
+  /**
+   * Forgets the kept sandbox: one that no longer opens (an older build's) is not offered again.
+   * It forgets only the save with this link, so a save that another tab kept since stays.
+   */
+  dropSandbox(link: string): Promise<void>;
 }
 
 const KEY = 'profile';
 /** A page holds the five Part 1 verses, then the sixth. */
 const SIXTH = 6;
+
+/** Unknown ids and repeats drop out; the rest keep their order. */
+const ValleysSchema = z
+  .array(z.string())
+  .transform((ids) =>
+    [...new Set(ids)].filter((v): v is SandboxValley => (SANDBOX_VALLEYS as readonly string[]).includes(v)),
+  );
+/** A sandbox as stored or kept: a note over NOTE_LENGTH characters is cut, not refused. */
+const SandboxSchema = z.object({
+  link: z.string().max(MAX_LINK_TEXT).startsWith('v1.'),
+  notes: z.array(
+    z.object({
+      tick: z.number().int().nonnegative(),
+      text: z.string().transform(cutNote),
+    }),
+  ),
+});
 
 const ProfileSchema = z.object({
   pages: z.array(
@@ -40,10 +84,21 @@ const ProfileSchema = z.object({
     }),
   ),
   feathers: z.number().int().nonnegative(),
-}) satisfies z.ZodType<{ pages: BookPage[]; feathers: number }>;
+  // A profile from before these keys reads as the defaults, and a bad value in one of them falls
+  // back to its default without losing the pages, the feathers, or the other new fields.
+  kith: CarrySchema.nullable().catch(null),
+  valleys: ValleysSchema.catch([]),
+  sandbox: SandboxSchema.nullable().catch(null),
+}) satisfies z.ZodType<{
+  pages: BookPage[];
+  feathers: number;
+  kith: Carry | null;
+  valleys: SandboxValley[];
+  sandbox: SandboxSave | null;
+}>;
 
 type Data = z.infer<typeof ProfileSchema>;
-const empty = (): Data => ({ pages: [], feathers: 0 });
+const empty = (): Data => ({ pages: [], feathers: 0, kith: null, valleys: [], sandbox: null });
 /** Stored data, or empty when there is none or it is damaged. */
 const parse = (raw: unknown): Data => {
   const parsed = ProfileSchema.safeParse(raw);
@@ -126,6 +181,33 @@ export async function createProfile(
           d.feathers += 1;
         })
       ).feathers;
+    },
+    kith: async () => (await read()).kith,
+    async setKith(carry) {
+      const kept = CarrySchema.parse(carry); // a bad carry is a caller bug: throw, never store it
+      await write((d) => {
+        d.kith = kept;
+      });
+    },
+    valleys: async () => (await read()).valleys,
+    async addValley(id) {
+      const valley = SANDBOX_VALLEYS.find((v) => v === id);
+      if (!valley) return;
+      await write((d) => {
+        if (!d.valleys.includes(valley)) d.valleys.push(valley);
+      });
+    },
+    sandbox: async () => (await read()).sandbox,
+    async keepSandbox(save) {
+      const kept = SandboxSchema.parse(save); // a bad link or tick is a caller bug: throw
+      await write((d) => {
+        d.sandbox = kept;
+      });
+    },
+    async dropSandbox(link) {
+      await write((d) => {
+        if (d.sandbox?.link === link) d.sandbox = null;
+      });
     },
   };
 }

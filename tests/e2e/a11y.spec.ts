@@ -1,11 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
-import { tap } from './helpers.ts';
-
-async function seriousViolations(page: Page) {
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  return violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-}
+import { lastSpeed, seriousViolations, tap } from './helpers.ts';
 
 test('title and settings screens have no serious axe issues', async ({ page }) => {
   await page.goto('/');
@@ -30,8 +24,14 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Book of Skies' })).toBeDisabled();
+  // A fresh profile has no Book of Skies page, so the sandbox is closed and says why (ADR 0014 item 1).
+  const sandbox = page.getByRole('button', { name: 'Sandbox' });
+  await expect(sandbox).toBeDisabled();
+  await expect(sandbox).toHaveAccessibleDescription('The sandbox opens when you finish Part 1.');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Begin' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Where this model is wrong' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Settings' })).toBeFocused();
   await page.keyboard.press('Enter');
@@ -41,6 +41,8 @@ test('Tab reaches every enabled button in order; Enter works', async ({ page }) 
     page.getByLabel('High contrast'),
     page.getByLabel('Reduced motion'),
     page.getByLabel('Sound'),
+    // The e2e dev server names an analytics address, so the switch shows (ADR 0014 item 9).
+    page.getByLabel('Send counts to help us make the game better'),
     page.getByRole('button', { name: 'Back' }),
   ];
   for (const el of order) {
@@ -409,10 +411,7 @@ test('B opens the Book of Skies as a modal dialog with the sim paused; Escape cl
   await page.getByRole('button', { name: 'Begin' }).click();
   const scene = page.getByRole('application', { name: 'The meadow' });
   await expect(scene).toBeFocused();
-  const speeds = () =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = () => lastSpeed(page);
   await expect.poll(speeds).toBe(1);
   await page.keyboard.press('b');
   const book = page.getByRole('dialog', { name: 'Book of Skies' });
@@ -437,6 +436,88 @@ test('B opens the Book of Skies as a modal dialog with the sim paused; Escape cl
   await book.getByRole('button', { name: 'Back' }).click();
   await expect(book).toBeHidden();
   await expect(scene).toBeFocused();
+});
+
+test('the title opens Where this model is wrong as a page; Back gives focus back to its button', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const open = page.getByRole('button', { name: 'Where this model is wrong' });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1, name: 'Where this model is wrong' })).toBeFocused();
+  const copycat = page.getByRole('region', { name: 'Copycat does not always win' });
+  await expect(copycat).toContainText('"Copycat wins" holds only under some noise levels and payoffs.');
+  // A link opens in a new tab, so the game keeps its place, and its text is its label.
+  const link = copycat.getByRole('link', { name: 'The Evolution of Trust, full text' });
+  await expect(link).toHaveAttribute('href', 'https://ncase.me/trust/words.html');
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: 'Fair Weather' })).toBeVisible();
+  await expect(open).toBeFocused();
+});
+
+test('the drawer opens Where this model is wrong as a modal dialog with the sim paused; Escape closes it and gives focus back', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  const scene = page.getByRole('application', { name: 'The meadow' });
+  await expect(scene).toBeFocused();
+  const speeds = () => lastSpeed(page);
+  await expect.poll(speeds).toBe(1);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('region', { name: 'Margin notes' }).getByRole('button', {
+    name: 'Where this model is wrong',
+  });
+  await open.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog.getByRole('heading', { name: 'Where this model is wrong', level: 2 })).toBeFocused();
+  await expect.poll(speeds).toBe(0);
+  expect(await seriousViolations(page)).toEqual([]);
+  // Tab stays inside the dialog: the links, then Back, and round again.
+  const stops = dialog.locator('a[href], button');
+  const count = await stops.count();
+  for (let i = 0; i < count + 1; i++) {
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Shift+Tab');
+  expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(open).toBeFocused();
+  await expect.poll(speeds).toBe(1);
+  // Back closes it too.
+  await open.click();
+  await dialog.getByRole('button', { name: 'Back' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(open).toBeFocused();
+});
+
+test('Where this model is wrong in the game leaves a paused sim paused, and cannot open twice', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Begin' }).click();
+  await expect(page.getByRole('application', { name: 'The meadow' })).toBeFocused();
+  const speeds = () => lastSpeed(page);
+  await expect.poll(speeds).toBe(1);
+  await page.keyboard.press('Space');
+  await expect.poll(speeds).toBe(0);
+  await page.getByRole('button', { name: 'Diary and notes' }).click();
+  const open = page.getByRole('region', { name: 'Margin notes' }).getByRole('button', {
+    name: 'Where this model is wrong',
+  });
+  await open.click();
+  const dialog = page.getByRole('dialog', { name: 'Where this model is wrong' });
+  await expect(dialog).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect.poll(speeds).toBe(0);
 });
 
 test('the myth tells only this year: five gusts show behind a toggle, and the next year does not count them', async ({
@@ -887,10 +968,7 @@ test.describe('the travel journal', () => {
     );
     return scene;
   }
-  const speeds = (page: Page) =>
-    page.evaluate(() =>
-      (window as unknown as { fairWeather: { speeds: number[] } }).fairWeather.speeds.at(-1),
-    );
+  const speeds = lastSpeed;
 
   test('J opens a one-page journal with the sim paused; Escape closes it; no serious axe issues', async ({
     page,

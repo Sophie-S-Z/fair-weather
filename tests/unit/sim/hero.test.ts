@@ -369,7 +369,7 @@ test('a planted gift costs 1 berry, holds 3 berries two dusks later, and warms e
   expect(hero.berries).toBe(2);
   const bush = w.bushes[0]!;
   expect(bush).toEqual({
-    id: 'bush-1',
+    id: 'gift-1',
     x: 800,
     y: 450,
     berries: 0,

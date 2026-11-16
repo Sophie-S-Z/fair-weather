@@ -11,7 +11,11 @@ export const HIGH_CONTRAST_WIDTH = 1.5;
 export const inkStroke = (palette: Palette, width: number, alpha = 1) =>
   ({ color: palette.ink, width, alpha, cap: 'round', join: 'round' }) as const;
 
-/** A dashed straight path from (x1, y1) to (x2, y2): `dash` drawn, then `gap` skipped, from the start. */
+/**
+ * A dashed straight path from (x1, y1) to (x2, y2): `dash` drawn, then `gap` skipped, from the start.
+ * Each dash starts at a multiple of `dash + gap`, not at a running sum, so rounding does not build
+ * up into a stray dash at the end.
+ */
 export function dashedLine(
   g: Graphics,
   x1: number,
@@ -24,7 +28,7 @@ export function dashedLine(
   const len = Math.hypot(x2 - x1, y2 - y1);
   if (len === 0) return g;
   const [ux, uy] = [(x2 - x1) / len, (y2 - y1) / len];
-  for (let d = 0; d < len; d += dash + gap) {
+  for (let k = 0, d = 0; d < len; k++, d = k * (dash + gap)) {
     const e = Math.min(len, d + dash);
     g.moveTo(x1 + ux * d, y1 + uy * d).lineTo(x1 + ux * e, y1 + uy * e);
   }

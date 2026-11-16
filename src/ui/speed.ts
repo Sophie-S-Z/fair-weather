@@ -8,6 +8,8 @@ export interface SpeedControl {
   /** The player's choice: 0 pauses; 1 or 2 is kept as the multiplier and resumes a pause. */
   player(multiplier: number): void;
   setHidden(hidden: boolean): void;
+  /** Pauses as the player's pause does, and gives a function that puts back the speed from before. */
+  hold(): () => void;
   /** The speed asked for now (runner times player), whether or not the tab is hidden. */
   current(): number;
 }
@@ -35,6 +37,15 @@ export function createSpeedControl(send: (multiplier: number) => void, hidden: b
       if (h === hidden) return;
       hidden = h;
       push();
+    },
+    hold() {
+      const was = base;
+      base = 0;
+      push();
+      return () => {
+        base = was;
+        push();
+      };
     },
     current: () => base * choice,
   };

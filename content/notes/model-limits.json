@@ -1,0 +1,41 @@
+{
+  "title": "Where this model is wrong",
+  "items": [
+    {
+      "heading": "Copycat does not always win",
+      "text": "\"Copycat wins\" holds only under some noise levels and payoffs. The game teaches the conditions, never a champion.",
+      "sources": [
+        { "label": "The Evolution of Trust, full text", "url": "https://ncase.me/trust/words.html" }
+      ]
+    },
+    {
+      "heading": "Bid figures show a link, not a cause",
+      "text": "Gottman's bid figures (86% and 33%) come from observation and show correlation. The game never shows a bid score as a health score for real relationships.",
+      "sources": [
+        {
+          "label": "Gottman Institute on bids",
+          "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        },
+        {
+          "label": "Simply Psychology on the limits of the bid research",
+          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
+        }
+      ]
+    },
+    {
+      "heading": "Real cities sort less than the model",
+      "text": "Schelling-style models predict more sorting than real cities show, and real segregation also has institutional and economic causes. The Lily Shallows margin notes say so.",
+      "sources": []
+    },
+    {
+      "heading": "The friendship claim is contested",
+      "text": "The claim that close friendships fell sharply from 1985 to 2004 is contested. The game does not use it.",
+      "sources": []
+    },
+    {
+      "heading": "[PLACEHOLDER] What the model leaves out",
+      "text": "[PLACEHOLDER] The writer lists here what the model leaves out.",
+      "sources": []
+    }
+  ]
+}

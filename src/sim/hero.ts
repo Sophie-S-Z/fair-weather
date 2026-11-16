@@ -126,7 +126,7 @@ export function plantGift(world: World, t: Tuning): void {
   if (world.hero?.kind !== 'seedcarrier' || !hero || hero.berries < t.knack.seedCost) return;
   hero.berries -= t.knack.seedCost;
   const gift = { from: HERO, readyDay: world.day + t.knack.seedDays, found: [] };
-  world.bushes.push({ id: `bush-${String(world.nextId)}`, x: hero.x, y: hero.y, berries: 0, gift });
+  world.bushes.push({ id: `gift-${String(world.nextId)}`, x: hero.x, y: hero.y, berries: 0, gift });
   world.nextId += 1;
 }
 

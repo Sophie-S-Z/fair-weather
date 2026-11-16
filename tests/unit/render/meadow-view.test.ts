@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { Container, Graphics, Mesh, MeshGeometry, Sprite, type Application } from 'pixi.js';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import tuningJson from '../../../content/tuning.json';
 import autumnJson from '../../../content/palettes/autumn.json';
 import springJson from '../../../content/palettes/spring.json';
@@ -99,6 +99,9 @@ const snapshot = (
   decks: [],
   islets: [],
   mushroom: null,
+  season: 'spring',
+  day: 0,
+  gateDark: false,
   bushes: [],
   ties: [],
   rumor: null,
@@ -529,6 +532,161 @@ test('ground the water closes in is drawn as an islet', () => {
   expect(isle[0]?.minX).toBeLessThan(990);
   expect(isle[0]?.maxX).toBeGreaterThan(1050);
   expect(isle[0]?.maxX).toBeLessThan(1090);
+});
+
+/** The strokes of a Graphics that draw something, as color, width, and the bounds of the stroked path. */
+function strokesOf(
+  g: Graphics,
+): { color: number; width: number; minX: number; minY: number; maxX: number; maxY: number }[] {
+  return g.context.instructions.flatMap((i) => {
+    if (i.action !== 'stroke') return [];
+    const { color, width } = i.data.style as { color: number; width: number };
+    const { minX, minY, maxX, maxY } = i.data.path.bounds;
+    // An empty stroke (the ripples of no water) has no bounds.
+    return Number.isFinite(minX) ? [{ color, width, minX, minY, maxX, maxY }] : [];
+  });
+}
+const pathTo = (i: number, x: number, y: number, x2: number, y2: number) => ({
+  id: `path-${String(i)}`,
+  kind: 'path' as const,
+  x,
+  y,
+  x2,
+  y2,
+});
+
+test('paths are dashed ink lines from end to end in the land Graphics, adding no display object for any number', () => {
+  const count = (world: WorldLite): number => {
+    const app = fakeApp(800, 450);
+    const view = createMeadowView(app, scene, rigs, palette, options);
+    view.setGateLamp(true);
+    view.update(world, world, 1, settings);
+    return objectCount(app.stage);
+  };
+  const plain = snapshot([['pim', 400, 400]]);
+  const many: WorldLite = {
+    ...plain,
+    structures: [
+      ...plain.structures,
+      ...Array.from({ length: 12 }, (_, i) => pathTo(i, 100, 50 + i * 60, 1500, 80 + i * 60)),
+    ],
+  };
+  expect(count(many)).toBe(count(plain));
+
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const world: WorldLite = { ...plain, structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, world, 1, settings);
+  const [line] = strokesOf(graphicsIn(app, 'land'));
+  // Ink at the land's width, inked at both ends, and in more than one dash.
+  expect(line?.color).toBe(palette.ink);
+  expect([line?.minX, line?.minY, line?.maxX, line?.maxY].map((v) => Math.round(v ?? 0))).toEqual([
+    200, 500, 700, 600,
+  ]);
+  const dashes = graphicsIn(app, 'land').context.instructions.flatMap((i) =>
+    i.action === 'stroke' ? i.data.path.instructions.filter((m) => m.action === 'moveTo') : [],
+  );
+  expect(dashes.length).toBeGreaterThan(1);
+  // High contrast thickens it as it does the rest of the land.
+  view.update(world, world, 1, { ...settings, highContrast: true });
+  expect(strokesOf(graphicsIn(app, 'land'))[0]?.width).toBe((line?.width ?? 0) * 1.5);
+});
+
+/** Each dash the land's ink strokes draw, as [x1, y1, x2, y2]: a moveTo and the lineTo after it. */
+function dashesOf(g: Graphics): number[][] {
+  return g.context.instructions.flatMap((i) => {
+    if (i.action !== 'stroke' || (i.data.style as { color: number }).color !== palette.ink) return [];
+    const steps = i.data.path.instructions;
+    return steps.flatMap((m, k) => {
+      const to = steps[k + 1];
+      return m.action === 'moveTo' && to?.action === 'lineTo'
+        ? [[...(m.data as number[]), ...(to.data as number[])]]
+        : [];
+    });
+  });
+}
+
+test('a path of any length and angle is inked at both ends, with every dash full length', () => {
+  const draw = (...ends: [number, number, number, number]): number[][] => {
+    const app = fakeApp(800, 450);
+    const world: WorldLite = { ...snapshot([]), structures: [pathTo(1, ...ends)] };
+    createMeadowView(app, scene, rigs, palette, options).update(world, world, 1, settings);
+    return dashesOf(graphicsIn(app, 'land'));
+  };
+  const length = ([x1, y1, x2, y2]: number[]): number =>
+    Math.hypot((x2 ?? 0) - (x1 ?? 0), (y2 ?? 0) - (y1 ?? 0));
+  // Zero length: nothing. Under one dash and a gap (32): one solid dash from end to end.
+  expect(draw(300, 300, 300, 300)).toEqual([]);
+  expect(draw(300, 300, 324, 300)).toEqual([[300, 300, 324, 300]]);
+  // Vertical and diagonal: the first dash starts at one end and the last ends at the other.
+  for (const ends of [
+    [500, 100, 500, 800],
+    [100, 100, 900, 700],
+  ] as [number, number, number, number][]) {
+    const dashes = draw(...ends);
+    expect(dashes.length).toBeGreaterThan(1);
+    expect(dashes[0]?.slice(0, 2)).toEqual(ends.slice(0, 2));
+    expect(
+      dashes
+        .at(-1)
+        ?.slice(2)
+        .map((v) => Math.round(v * 1e6) / 1e6),
+    ).toEqual(ends.slice(2));
+  }
+  // Across many lengths and angles, no stray short dash at the end.
+  for (let len = 24; len < 700; len += 7.3) {
+    for (const angle of [0, 0.4, 1.1, Math.PI / 2, 2.5]) {
+      const dashes = draw(200, 200, 200 + len * Math.cos(angle), 200 + len * Math.sin(angle));
+      expect(Math.min(...dashes.map(length))).toBeGreaterThan(Math.min(len, 18) - 1e-6);
+    }
+  }
+});
+
+test('the gate lamp is lit in an accent ring unless the gate is dark, and a story valley has none', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const lit = snapshot([]);
+  const dark: WorldLite = { ...lit, gateDark: true };
+  const accents = (): number =>
+    strokesOf(graphicsIn(app, 'land')).filter((s) => s.color === palette.accent).length;
+  view.update(lit, lit, 1, settings);
+  expect(strokesOf(graphicsIn(app, 'land'))).toEqual([]);
+  view.setGateLamp(true);
+  view.update(lit, lit, 1, settings);
+  expect(accents()).toBe(1);
+  // The lamp stands at the gate.
+  const near = strokesOf(graphicsIn(app, 'land')).every(
+    (s) => Math.abs((s.minX + s.maxX) / 2 - options.gate.x) < 30 && s.maxY <= options.gate.y + 10,
+  );
+  expect(near).toBe(true);
+  // High contrast thickens every lamp line by half again, as it does the rest of the land.
+  const widths = strokesOf(graphicsIn(app, 'land')).map((s) => s.width);
+  view.update(lit, lit, 1, { ...settings, highContrast: true });
+  const thick = strokesOf(graphicsIn(app, 'land')).map((s) => s.width);
+  expect(thick).toHaveLength(widths.length);
+  thick.forEach((w, i) => {
+    expect(w).toBeCloseTo((widths[i] ?? 0) * 1.5);
+  });
+  view.update(dark, dark, 1, settings);
+  expect(accents()).toBe(0);
+  expect(strokesOf(graphicsIn(app, 'land')).length).toBeGreaterThan(0);
+});
+
+test('the land is redrawn only when the water, the paths, or the gate change', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  view.setGateLamp(true);
+  const world: WorldLite = { ...snapshot([['pim', 400, 400]]), structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, world, 1, settings);
+  const clear = vi.spyOn(graphicsIn(app, 'land'), 'clear');
+  const moved: WorldLite = { ...snapshot([['pim', 420, 400]]), structures: [pathTo(1, 200, 600, 700, 500)] };
+  view.update(world, moved, 0.5, settings);
+  expect(clear).not.toHaveBeenCalled();
+  view.update(moved, { ...moved, gateDark: true }, 1, settings);
+  expect(clear).toHaveBeenCalledTimes(1);
+  const two = { ...moved, gateDark: true, structures: [...moved.structures, pathTo(2, 900, 300, 1400, 500)] };
+  view.update(two, two, 1, settings);
+  expect(clear).toHaveBeenCalledTimes(2);
 });
 
 test('dancing creatures hop, and reduced motion stops the hop', () => {
@@ -1124,6 +1282,26 @@ test('flying starlings are drawn in the sky band and drift slowly, even with red
   expect(after).not.toBe(minX);
   // Slow: three seconds move the flock a few units, not across the sky.
   expect(Math.abs(after - minX)).toBeLessThan(20);
+});
+
+test('flying starlings hold still with reduced motion from the first paused frame, and move on when the game runs', () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, fenScene, rigs, fenPalette, options);
+  const ids = Array.from({ length: 40 }, (_, i) => `starling-${String(i + 1)}`);
+  const world = fen(40, ids);
+  const still = { ...settings, reducedMotion: true };
+  const at = (seconds: number, paused: boolean): number => {
+    (app.ticker as { lastTime: number }).lastTime = seconds * 1000;
+    view.update(world, world, 1, still, paused);
+    return graphicsIn(app, 'flock').getLocalBounds().minX;
+  };
+  at(0, false);
+  const running = at(1, false);
+  const held = at(1.01, true); // paused 10 ms later: already still
+  expect(held).toBeCloseTo(running, 0);
+  expect(at(4, true)).toBe(held);
+  expect(at(9, true)).toBe(held);
+  expect(at(10, false)).not.toBe(held);
 });
 
 /** The fills of the flock in the given color. */

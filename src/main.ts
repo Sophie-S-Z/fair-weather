@@ -1,4 +1,6 @@
 // The composition root (ADR 0011): the only file that imports every module.
+import '@fontsource/atkinson-hyperlegible/400.css';
+import '@fontsource/atkinson-hyperlegible/700.css';
 import { Application } from 'pixi.js';
 import { mount } from 'svelte';
 import tuningJson from '../content/tuning.json';
@@ -31,7 +33,7 @@ import { soundFor } from './audio/event-sounds.ts';
 import { VoiceSchema, type Timbre } from './audio/voices.ts';
 import { createHints, realTimer } from './input/hints.ts';
 import { createHoldStill } from './input/hold-still.ts';
-import { createKeyboard } from './input/keyboard.ts';
+import { createHelpKey, createKeyboard, keyRows } from './input/keyboard.ts';
 import { createOverPoke } from './input/over-poke.ts';
 import { createPointer } from './input/pointer.ts';
 import { createWait } from './input/wait.ts';
@@ -40,6 +42,7 @@ import { brushShare, extractFeatures } from './myth/features.ts';
 import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { SixthSchema, sixthFeatures, tellSixth } from './myth/sixth.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
+import { createFrameRing } from './render/frame-ring.ts';
 import { RigSchema, type Rig } from './render/line/rig.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
@@ -49,8 +52,20 @@ import { createSoulView } from './render/soul-view.ts';
 import { tieKind } from './render/ties.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from './render/timeline.ts';
 import { hashTuning } from './persist/format.ts';
+import { encodeGif } from './persist/gif.ts';
+import { ATKINSON, layoutPage, PAGE_WIDTH } from './persist/page-image.ts';
+import type { PageBlock } from './persist/page-image.ts';
 import type { SaveV3 } from './persist/format.ts';
 import { createProfile } from './persist/profile.ts';
+import {
+  LINK_CHARS,
+  MAX_LINK_TEXT,
+  MAX_LINK_TICKS,
+  VALLEY_FILE,
+  decodeLink,
+  encodeLink,
+  fitsInLink,
+} from './persist/seed-link.ts';
 import type { BookPage } from './persist/profile.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
@@ -59,7 +74,7 @@ import type { SimPort, WorldLite } from './sim-host/protocol.ts';
 import { parseTuning } from './sim/tuning.ts';
 import type { Scenario, Season } from './sim/types.ts';
 import type { YearLog } from './story/action-log.ts';
-import { carriedDiaries, receivedDials } from './story/carry.ts';
+import { carriedDiaries, carryFrom, quantizeCarry, receivedDials } from './story/carry.ts';
 import type { Carry } from './story/carry.ts';
 import { createChapterRunner } from './story/chapter-runner.ts';
 import type { ChapterRunner } from './story/chapter-runner.ts';
@@ -81,21 +96,32 @@ import type { Journey } from './story/journey.ts';
 import { displayName } from './story/names.ts';
 import { peekRule } from './story/peek.ts';
 import { createInk } from './story/ink.ts';
+import { stillPages } from './story/stills.ts';
+import { loadImageWithRetry } from './ui/retry-image.ts';
+import {
+  createSandboxRunner,
+  cutNote,
+  DEFAULT_SWITCHES,
+  SANDBOX_VALLEYS,
+  sandboxScenario,
+  sandboxTuning,
+} from './story/sandbox.ts';
+import type { SandboxRunner, SandboxSetup, SandboxValley } from './story/sandbox.ts';
 import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
 import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
 import type { Chapter } from './story/schema.ts';
 import App from './ui/App.svelte';
-import type { GameService } from './ui/game-service.ts';
+import type { GameService, Stage } from './ui/game-service.ts';
 import { RHYTHMS } from './ui/interludes/activities.ts';
+import { betCounts, createAnalytics, createVisibleTimer, fetchPost } from './persist/analytics.ts';
 import { createSettingsStore, type SettingsStorage } from './ui/settings.ts';
+import { oneAtATime } from './ui/one-at-a-time.ts';
 import { createSpeedControl } from './ui/speed.ts';
 
 const KEY = 'fair-weather.settings';
 /** The Cosmos timeline takes one point per this many ticks: one a second at 1x. */
 const TIMELINE_EVERY = 10;
-/** Every player gets the same valley in M1; seed links come in M4. */
-const SEED = 1;
 /** Three minutes of real time with no input bring the Quiet Visitor (spec 6.4). */
 const QUIET_VISIT_MS = 180_000;
 const tuning = parseTuning(tuningJson);
@@ -120,6 +146,11 @@ const storage: SettingsStorage = {
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const settings = createSettingsStore(storage, reduced);
+let analyticsOn = false;
+settings.subscribe((s) => {
+  analyticsOn = s.analytics;
+});
+const analytics = createAnalytics(import.meta.env.VITE_ANALYTICS_URL || null, () => analyticsOn, fetchPost);
 
 const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
 const rigs = new Map<string, Rig>(
@@ -208,11 +239,42 @@ const scenarioFiles = import.meta.glob<Scenario>('../content/scenarios/*.json', 
   eager: true,
   import: 'default',
 });
+/** The base scenario content/scenarios/<id>.json. */
+function scenarioNamed(id: string): Scenario {
+  const s = scenarioFiles[`../content/scenarios/${id}.json`];
+  if (!s) throw new Error(`No scenario ${id}`);
+  return s;
+}
 /** The base scenario a chapter names: content/scenarios/<chapter.scenario>.json. */
 function baseOf(chapter: Chapter): Scenario {
-  const s = scenarioFiles[`../content/scenarios/${chapter.scenario}.json`];
-  if (!s) throw new Error(`${chapter.id} names scenario ${chapter.scenario}, which has no file`);
-  return s;
+  return scenarioNamed(chapter.scenario);
+}
+/** Each sandbox valley's base scenario (Kith's is m0) and scene (ADR 0014 item 1). */
+const SANDBOX_BASES: Record<SandboxValley, Scenario> = {
+  kith: scenarioNamed('m0'),
+  fen: scenarioNamed('fen'),
+  hollow: scenarioNamed('hollow'),
+  halcyon: scenarioNamed('halcyon'),
+};
+const SANDBOX_SCENES: Record<SandboxValley, string> = {
+  kith: firstScene.id,
+  fen: 'fen',
+  hollow: 'hollow',
+  halcyon: 'halcyon',
+};
+/** The creatures of m0, the only ones the Kith the profile keeps holds (ADR 0014 item 1). */
+const KITH_IDS: ReadonlySet<string> = new Set(SANDBOX_BASES.kith.creatures.map((c) => c.id));
+/** Asked once at load: a `webgl2` or `webgl` context on a scratch canvas (ADR 0014 item 10). */
+function hasWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    // Gives the context back at once, so it does not count against the browser's limit.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return gl !== null;
+  } catch {
+    return false;
+  }
 }
 /** The journal's drawings by path (ADR 0010: placeholders, which the production build refuses). */
 const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHOLDER-journal-*.svg', {
@@ -220,6 +282,16 @@ const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHO
   query: '?url',
   import: 'default',
 });
+/** The still images by path (ADR 0010: placeholders; a chapter's own `still` joins them later). */
+const stillImages = import.meta.glob<string>(
+  ['../content/placeholder/PLACEHOLDER-still-*.svg', '../content/stills/*.svg'],
+  { eager: true, query: '?url', import: 'default' },
+);
+/**
+ * The waits before each new try of an asset that fails after the page loads: the sim worker's
+ * script, the journal drawings and stills, and the PNG export's images (ADR 0014 item 11).
+ */
+const ASSET_WAITS_MS = [1000, 2000] as const;
 const ink = createInk(inkStory);
 const verses = VersesSchema.parse(versesJson);
 const sixth = SixthSchema.parse(sixthJson);
@@ -228,7 +300,13 @@ const songFrom = chapters.findIndex((c) => c.activity === 'rhythm');
 
 const spawnWorker = (): Worker =>
   new Worker(new URL('./sim-host/worker.ts', import.meta.url), { type: 'module' });
-const host = createSimHost(spawnWorker);
+/** Called when a story host stops restarting its worker (GameService.onSimLost). */
+const simLostListeners = new Set<() => void>();
+const simLost = (): void => {
+  for (const cb of [...simLostListeners]) cb();
+};
+const host = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
+host.onGiveUp(simLost);
 /**
  * Dev only: every speed sent to the sim, frames drawn, command lists the runner sent, and snapshots
  * since the chapter started, so e2e can see the tab-hidden pause, that a rewind sends nothing, and
@@ -237,10 +315,18 @@ const host = createSimHost(spawnWorker);
 const dev = {
   speeds: [] as number[],
   frames: 0,
+  /** Scene captures for the postcard ring, so e2e can see that only the sandbox records. */
+  captures: 0,
   sent: 0,
   snapshots: 0,
   /** The journey now (undefined outside Part 2), so e2e can write pages without playing whole valleys. */
   journey: (): Journey | null => journeyNow,
+  /** The sandbox run's newest snapshot and its tick, or null outside a run or before its first. */
+  sandbox: () => game.sandbox.snapshot(),
+  /** The world's hash now and its tick, so e2e can see that an opened link gives the same world. */
+  hash: () => host.requestHash(),
+  /** The postcard's encoder, so e2e can check that the browser decodes its output to the same pixels. */
+  encodeGif,
 };
 if (import.meta.env.DEV) {
   (window as unknown as { fairWeather: unknown }).fairWeather = dev;
@@ -252,6 +338,16 @@ const params = new URLSearchParams(location.search);
 /** Dev only: ?fast=N multiplies every speed sent to the sim, so e2e can play whole chapters in minutes. */
 const devFast = Number(params.get('fast'));
 const fast = import.meta.env.DEV && devFast > 0 ? devFast : 1;
+/** Dev only: ?seed=N is the seed of Begin and of a new sandbox valley; without it, 1 (ADR 0014 item 18). */
+const devSeed = params.has('seed') ? Number(params.get('seed')) : 1;
+/** A new year's or a new sandbox valley's seed: one random uint32, or the dev seed in a dev build. */
+function newSeed(): number {
+  if (import.meta.env.DEV)
+    return Number.isInteger(devSeed) && devSeed >= 0 && devSeed < 2 ** 32 ? devSeed : 1;
+  return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+}
+/** The year's seed (ADR 0014 item 18): Begin draws it, and Continue reads it from the save. */
+let yearSeed = newSeed();
 function send(multiplier: number): void {
   if (import.meta.env.DEV) dev.speeds.push(multiplier);
   host.speed(multiplier * fast);
@@ -265,6 +361,8 @@ const port: SimPort = {
   ...host,
   send: (list) => {
     if (import.meta.env.DEV) dev.sent += 1;
+    // Only the sandbox runner sends while a sandbox run goes on: the player acted.
+    if (sandboxRun) sandboxActed = true;
     host.send(list);
   },
   speed: (m) => {
@@ -341,9 +439,37 @@ let lastLite: WorldLite | null = null;
 let lastRunner: ChapterRunner | null = null;
 /** What the last chapter started from and its dial overrides, which the carry puts back. */
 let lastStart: ChapterStart | null = null;
+/**
+ * The sandbox run now: its runner, the ids of the structures and bushes that the player did not
+ * place (the base scenario's and the bench density's), its newest snapshot and tick, and its notes
+ * in tick order.
+ */
+let sandboxRun: {
+  runner: SandboxRunner;
+  made: ReadonlySet<string>;
+  lite: WorldLite | null;
+  tick: number;
+  notes: { tick: number; text: string }[];
+} | null = null;
+/** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
+let startWaiting: ((why: string) => void) | null = null;
+/** Ends the give-up listener of the sandbox run now, which lives as long as the run does. */
+let endRunGiveUp: (() => void) | null = null;
+/** Whether the last sandbox start failed in the worker (an error or a give-up before its first snapshot). */
+let workerFailed = false;
+const sandboxWorkerFailed = (): boolean => workerFailed;
 host.onMessage((m) => {
-  if (m.t === 'snapshot') lastLite = m.lite;
+  if (m.t !== 'snapshot') return;
+  // A sandbox run is no chapter: the story's carry stays the last chapter's.
+  if (sandboxRun) {
+    sandboxRun.lite = m.lite;
+    sandboxRun.tick = m.tick;
+  } else lastLite = m.lite;
 });
+/** Keeps Kith from the last snapshot for the sandbox (ADR 0014 item 1). */
+async function keepKith(): Promise<void> {
+  if (lastLite) await (await profileReady).setKith(quantizeCarry(carryFrom(lastLite, new Map()), KITH_IDS));
+}
 /** The scenario the current chapter was built from, variants included; peek reads its rules. */
 let scenarioNow: Scenario | null = null;
 /** Every chapter's log this year, in play order (spec 10.4); the myth reads it, and a Continue restores it. */
@@ -379,10 +505,17 @@ function kithAt(answer: Promise<{ lite: WorldLite }>): void {
 /** Starts Kith's silent run on its own worker from `from`, Kith at the end of Part 1 (ADR 0013 item 10). */
 function startKith(from: Carry | null): SimHost {
   kithStart = from;
-  kith ??= createSimHost(spawnWorker);
+  if (!kith) {
+    kith = createSimHost(spawnWorker, { loadWaitsMs: ASSET_WAITS_MS });
+    // Kith's silent run is part of the story: when its worker is lost, so is the chapter.
+    // A sandbox run has its own give-up path; Kith's loss does not stop it.
+    kith.onGiveUp(() => {
+      if (!sandboxRun) simLost();
+    });
+  }
   kith.post({
     t: 'init',
-    seed: SEED,
+    seed: yearSeed,
     tuning: tuningJson,
     scenario: kithScenario(bridgeChapter, homecoming, baseOf(bridgeChapter), kithStart),
   });
@@ -405,8 +538,396 @@ async function continueJourney(journey: Journey, chapterId: string): Promise<voi
   for (const leg of kithLegsBefore(journey, chapterId, homecoming)) runKithLeg(host, leg);
 }
 
+/** The scenario a sandbox setup starts from; throws when it cannot be built. */
+const sandboxStart = (setup: SandboxSetup): Scenario =>
+  sandboxScenario(setup, SANDBOX_BASES, sceneOf(SANDBOX_SCENES[setup.valley]).benchSpots);
+/**
+ * Whether the player acted (sent a command, or started a run from a run, such as a rule change)
+ * since the start choice or an open. Only then does leaving keep the run as the sandbox save, so
+ * an opened link replaces the player's own save only once the player acts (ADR 0014 item 7).
+ */
+let sandboxActed = false;
+/** How many times the sandbox stopped: an open that waited across a stop gives up. */
+let sandboxStops = 0;
+/**
+ * Starts a sandbox run of `setup` from `scenario`, and resolves with its runner at the run's first
+ * snapshot. `acted` is whether the player acted by starting it (sandboxActed). `go` sets the run going once the worker has the run's init; `fail` ends the start as a
+ * failure in the worker.
+ */
+function beginSandbox(
+  setup: SandboxSetup,
+  scenario: Scenario,
+  acted: boolean,
+  go: (runner: SandboxRunner, fail: (why: string) => void) => void,
+): Promise<SandboxRunner> {
+  return new Promise((resolve, reject) => {
+    workerFailed = false;
+    sandboxActed = acted;
+    // A new run starts a new postcard: no frame of the run before it (ADR 0014 item 8).
+    recording?.setRecording(true);
+    const kept = new Set([...setup.structures, ...setup.bushes].map((x) => x.id));
+    const made = new Set(
+      [...scenario.structures, ...scenario.bushes].map((x) => x.id).filter((id) => !kept.has(id)),
+    );
+    startWaiting?.('a newer start replaced this one');
+    sandboxRun?.runner.dispose();
+    endRunGiveUp?.();
+    // Before the init, so the runner sees the run's first snapshot.
+    const runner = createSandboxRunner(port, setup);
+    const run = { runner, made, lite: null, tick: 0, notes: [] };
+    sandboxRun = run;
+    const offs: (() => void)[] = [];
+    const settle = (): void => {
+      for (const off of offs) off();
+      if (startWaiting === drop) startWaiting = null;
+    };
+    const drop = (why: string): void => {
+      settle();
+      reject(new Error(`The sandbox run did not start: ${why}`));
+    };
+    // The worker refused the run, or the host gave up, before or after its first snapshot: no run
+    // goes on (`workerFailed` is true).
+    const fail = (why: string): void => {
+      workerFailed = true;
+      if (sandboxRun === run) {
+        runner.dispose();
+        sandboxRun = null;
+        speedControl.runner(0);
+      }
+      drop(why);
+    };
+    startWaiting = drop;
+    // After the listener that keeps the run's snapshot, so the run has it when `start` resolves.
+    offs.push(
+      host.onMessage((m) => {
+        if (m.t === 'snapshot') {
+          settle();
+          resolve(runner);
+        } else if (m.t === 'error') fail(m.message);
+      }),
+    );
+    endRunGiveUp = host.onGiveUp(fail);
+    season = scenario.season;
+    greeting = undefined;
+    host.post({ t: 'init', seed: setup.seed, tuning: sandboxTuning(setup, tuningJson), scenario });
+    // A worker that cannot spawn gives up inside the post: that start failed, and gets no speed.
+    if (sandboxWorkerFailed()) return;
+    go(runner, fail);
+  });
+}
+/**
+ * The longest whole URL that Share offers as a link: LINK_CHARS, or less in a dev build with
+ * ?linkChars=N, so e2e reaches the valley file.
+ */
+const devLinkChars = Number(params.get('linkChars'));
+const linkChars = import.meta.env.DEV && devLinkChars > 0 ? Math.min(devLinkChars, LINK_CHARS) : LINK_CHARS;
+/**
+ * Pauses the sandbox run (unless `pause` is false: the hidden tab has paused it) and gives its link
+ * now (ADR 0014 item 7): its text, or `tooOld` past 100 days, or `tooBig` past a link's other
+ * limits. The tick is the worker's, after the pause. A list accepted at that tick has not run yet,
+ * so the run first steps one tick, and the link keeps everything the player did. One link is made
+ * at a time (Share and each keep take turns), so the run steps once for those lists, not once a
+ * link.
+ */
+const sandboxLink = oneAtATime(async function (
+  pause: boolean = true,
+): Promise<{ kind: 'link'; text: string } | { kind: 'tooOld' } | { kind: 'tooBig' }> {
+  const run = sandboxRun;
+  if (!run) throw new Error('No sandbox run to share');
+  if (pause) speedControl.player(0);
+  const now = async (): Promise<number> => {
+    const { tick } = await host.requestHash();
+    if (sandboxRun !== run) throw new Error('The sandbox run changed while it was shared');
+    return tick;
+  };
+  let tick = await now();
+  if (host.log().some((e) => e.tick >= tick)) {
+    host.post({ t: 'advance', ticks: 1 });
+    tick = await now();
+  }
+  if (tick > MAX_LINK_TICKS) return { kind: 'tooOld' };
+  const script = host.log().filter((e) => e.tick < tick);
+  try {
+    const text = await encodeLink({ v: 1, tuning: tuningHash, setup: run.runner.setup, script, tick });
+    return { kind: 'link', text };
+  } catch {
+    return { kind: 'tooBig' }; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
+  }
+});
+/** The stage that records the sandbox for the postcard (ADR 0014 item 8), or null. */
+let recording: Stage | null = null;
+/** The postcard paper and ink (ADR 0014 item 8), whatever the contrast setting. */
+const PAPER = '#f6f1e7';
+const INK = '#1f2a33';
+/** The caption band under the scene, in pixels. */
+const BAND = 48;
+/** The caption's room in the band: the postcard's 480 pixels less 12 at each side. */
+const CAPTION_WIDTH = 456;
+
+/**
+ * Loads the face (ADR 0014 item 14) in each of `fonts` (CSS font shorthands) if the page has it;
+ * with no such face it resolves at once. A face that fails to load leaves the fallback font, and
+ * the export goes on.
+ */
+async function loadFaces(...fonts: string[]): Promise<void> {
+  try {
+    await Promise.all(fonts.map((f) => document.fonts.load(f)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+/** The URL of a still image by id (`PLACEHOLDER-still-<scene>` or a chapter's own `still`). */
+function stillUrl(id: string): string {
+  const url = stillImages[`../content/placeholder/${id}.svg`] ?? stillImages[`../content/stills/${id}.svg`];
+  if (!url) throw new Error(`No still image ${id}`);
+  return url;
+}
+
+/**
+ * Draws `blocks` as a PAGE_WIDTH page (ADR 0014 item 8) in ink on the paper, whatever the contrast
+ * setting, and gives it as a PNG with no metadata. An image block whose source fails to load is
+ * tried again, then replaced by the block's fallback (its scene's still image) once, then left out;
+ * the page is still made.
+ */
+async function drawPage(blocks: readonly PageBlock[]): Promise<Blob> {
+  await loadFaces(`28px ${ATKINSON}`, `bold 28px ${ATKINSON}`);
+  const srcs = [...new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.src] : [])))];
+  const fallbacks = new Map(
+    blocks.flatMap((b) => (b.kind === 'image' && b.fallback ? [[b.src, b.fallback] as const] : [])),
+  );
+  const images = new Map(
+    await Promise.all(
+      srcs.map(
+        async (src) =>
+          [src, await loadImageWithRetry(src, ASSET_WAITS_MS, fallbacks.get(src) ?? null)] as const,
+      ),
+    ),
+  );
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No 2D context for the page');
+  const { height, ops } = layoutPage(blocks, (font, text) => {
+    ctx.font = font;
+    return ctx.measureText(text).width;
+  });
+  // A new size clears the canvas and its state, so the fill and the text settings come after.
+  [canvas.width, canvas.height] = [PAGE_WIDTH, Math.ceil(height)];
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = INK;
+  ctx.textBaseline = 'middle';
+  for (const op of ops) {
+    if (op.op === 'text') {
+      ctx.font = op.font;
+      ctx.fillText(op.text, op.x, op.y);
+    } else {
+      const img = images.get(op.src);
+      if (img) ctx.drawImage(img, op.x, op.y, op.w, op.h);
+    }
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('The page did not encode as a PNG'));
+    }, 'image/png');
+  });
+}
+
+/** Keeps the run now as the sandbox save: its link and its notes, which stay on the device. */
+async function keepSandboxRun(pause = true): Promise<void> {
+  const notes = sandboxRun?.notes ?? [];
+  const link = await sandboxLink(pause);
+  if (link.kind === 'link')
+    await (await profileReady).keepSandbox({ link: link.text, notes: notes.map((n) => ({ ...n })) });
+}
+// A tab that goes hidden may never come back (the player closes it): keep the run the player
+// acted in. The hidden tab has already paused the sim.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && sandboxRun && sandboxActed)
+    keepSandboxRun(false).catch((e: unknown) => {
+      console.error(e); // the save stays as it was
+    });
+});
+/**
+ * Opens a link's `v1.<data>` text with `notes` as a new run (ADR 0014 item 7), or null for an old
+ * or broken link, a setup that cannot be built included. The worker runs the script in one
+ * forward to the tick before the link's, and the lists of that tick and the last step live, so
+ * the run's first snapshot is at the link's tick; the run waits there, paused.
+ */
+async function openSandbox(text: string, notes: readonly { tick: number; text: string }[]) {
+  const stops = sandboxStops;
+  const link = await decodeLink(text, tuningHash);
+  if (!link) return null;
+  let scenario: Scenario;
+  try {
+    scenario = sandboxStart(link.setup);
+  } catch {
+    return null;
+  }
+  // The player's own run, when they acted in it, is their save before the link replaces it.
+  const run = sandboxRun;
+  if (run && sandboxActed)
+    await keepSandboxRun().catch((e: unknown) => {
+      console.error(e); // the save stays as it was, and the link opens
+    });
+  // Back to title, or another start, while this open waited: no run starts behind them.
+  if (sandboxStops !== stops || sandboxRun !== run)
+    throw new Error('The sandbox stopped or changed while the valley opened');
+  const before = Math.max(link.tick - 1, 0);
+  const runner = await beginSandbox(link.setup, scenario, false, (r, fail) => {
+    speedControl.runner(0);
+    // A challenge's check reads the forward's steps (its events and season turns).
+    host.fastForward(before, link.script, link.setup.challenge !== null).then(
+      ({ steps }) => {
+        if (sandboxRun?.runner !== r) return;
+        r.forwarded(steps ?? [], link.script);
+        for (const e of link.script) if (e.tick >= before) host.send(e.list);
+        host.post({ t: 'advance', ticks: 1 });
+      },
+      (e: unknown) => {
+        // A newer start's init rejects the forward too, and that start is no failure.
+        if (sandboxRun?.runner === r) fail(e instanceof Error ? e.message : String(e));
+      },
+    );
+  });
+  if (sandboxRun?.runner === runner) sandboxRun.notes = notes.map((n) => ({ ...n }));
+  return runner;
+}
+
 const game: GameService = {
   chapters,
+  webgl: hasWebGL(),
+  sandbox: {
+    async status() {
+      const p = await profileReady;
+      const [pages, kith, valleys, save] = await Promise.all([p.pages(), p.kith(), p.valleys(), p.sandbox()]);
+      // The profile's order, which is the order the valleys were first played in.
+      const finished = valleys.filter(
+        (v): v is SandboxValley => v !== 'kith' && (SANDBOX_VALLEYS as readonly string[]).includes(v),
+      );
+      return { unlocked: pages.length > 0, kith: kith !== null, valleys: finished, saved: save !== null };
+    },
+    devOpen: import.meta.env.DEV && params.get('sandbox') === 'new',
+    valleyFile: { name: VALLEY_FILE, maxBytes: MAX_LINK_TEXT + 2 },
+    scene: (valley) => SANDBOX_SCENES[valley],
+    async newSetup(valley, fromKith) {
+      const kith = fromKith && valley === 'kith' ? await (await profileReady).kith() : null;
+      return {
+        seed: newSeed(),
+        valley,
+        kith,
+        challenge: null,
+        knobs: {},
+        switches: { ...DEFAULT_SWITCHES },
+        structures: [],
+        bushes: [],
+      };
+    },
+    start(setup) {
+      // First, so a setup that does not build is never taken for the last visit's failed worker.
+      workerFailed = false;
+      let scenario: Scenario;
+      try {
+        scenario = sandboxStart(setup);
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+      }
+      // A start from a run (a rule change, a challenge) is the player's act.
+      return beginSandbox(setup, scenario, sandboxRun !== null, () => {
+        // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
+        speedControl.runner(1);
+        speedControl.player(1);
+      });
+    },
+    workerFailed: sandboxWorkerFailed,
+    snapshot: () => (sandboxRun?.lite ? { tick: sandboxRun.tick, lite: sandboxRun.lite } : null),
+    placedStructures() {
+      const run = sandboxRun;
+      if (!run) return [];
+      // Before the run's first snapshot, its world holds what its setup placed.
+      const now = run.lite?.structures ?? run.runner.setup.structures;
+      return now.filter((x) => !run.made.has(x.id)).map((x) => ({ ...x }));
+    },
+    placedBushes() {
+      const run = sandboxRun;
+      if (!run) return [];
+      const now = run.lite?.bushes ?? run.runner.setup.bushes;
+      return now.filter((b) => !run.made.has(b.id)).map(({ id, x, y }) => ({ id, x, y }));
+    },
+    notes: () => sandboxRun?.notes ?? [],
+    pin(tick, text) {
+      const cut = cutNote(text);
+      if (!sandboxRun || !Number.isInteger(tick) || tick < 0 || cut.trim() === '') return;
+      // A new array, so a screen that holds the last one sees the change; after the notes on the same tick.
+      const notes = [...sandboxRun.notes];
+      notes.splice(notes.filter((n) => n.tick <= tick).length, 0, { tick, text: cut });
+      sandboxRun.notes = notes;
+    },
+    async share() {
+      const link = await sandboxLink();
+      if (link.kind !== 'link') return link;
+      // The page's own address with no query: a dev query is not part of the valley.
+      const url = `${location.origin}${location.pathname}#${link.text}`;
+      return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link.text };
+    },
+    open: (text) => openSandbox(text, []),
+    // One at a time, so a second Save does not take the first one's pause for the player's speed.
+    postcard: oneAtATime(async (caption: string) => {
+      const stage = recording;
+      if (!stage) throw new Error('No sandbox stage records');
+      const back = speedControl.hold();
+      try {
+        // The caption's face. The wait also lets the pause go out, and the page show Save off,
+        // before the encode holds the thread.
+        await loadFaces(`20px ${ATKINSON}`);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        // A copy on an ArrayBuffer, as a Blob takes.
+        return new Blob([encodeGif(stage.postcard(caption)).slice()], { type: 'image/gif' });
+      } finally {
+        back();
+      }
+    }),
+    async openSaved() {
+      const profile = await profileReady;
+      const save = await profile.sandbox();
+      if (!save) return null;
+      const runner = await openSandbox(save.link, save.notes);
+      // A save that no longer opens (an older build's) is not offered again.
+      if (!runner) await profile.dropSandbox(save.link);
+      return runner;
+    },
+    async leave() {
+      try {
+        if (sandboxRun && sandboxActed) await keepSandboxRun();
+      } catch (e) {
+        console.error(e); // the save stays as it was
+      }
+      game.sandbox.stop();
+    },
+    visit() {
+      // The timer lives from the sandbox screen's opening to its closing, on every exit (analytics only).
+      const timer = createVisibleTimer(Date.now, document.visibilityState === 'hidden');
+      const onVisibility = (): void => {
+        timer.setHidden(document.visibilityState === 'hidden');
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      return () => {
+        document.removeEventListener('visibilitychange', onVisibility);
+        const minutes = timer.stop();
+        if (minutes >= 1) analytics.count({ v: 1, e: 'sandbox', minutes });
+      };
+    },
+    stop() {
+      sandboxStops += 1;
+      startWaiting?.('the sandbox stopped');
+      endRunGiveUp?.();
+      endRunGiveUp = null;
+      sandboxRun?.runner.dispose();
+      sandboxRun = null;
+      speedControl.runner(0);
+    },
+  },
   defaultFlags: DEFAULT_FLAGS,
   castIds: [...cast.keys()].sort(),
   isFriend(lite, a, b) {
@@ -441,6 +962,12 @@ const game: GameService = {
       autoStart: false,
       skipExtensionImports: true,
     });
+    // Pixi falls back to a canvas renderer when the browser gives no WebGL context. That cannot draw
+    // the valley, so it is a failed start: the still version at once, with no retry (ADR 0014 item 11).
+    if (app.renderer.name !== 'webgl') {
+      app.destroy(true, true);
+      throw new Error('The browser gave no WebGL context');
+    }
     app.canvas.setAttribute('aria-hidden', 'true');
     el.appendChild(app.canvas);
     let scene = firstScene;
@@ -483,15 +1010,84 @@ const game: GameService = {
     // A node sits on its creature's body center, a villager's half height above its feet.
     const nodeAt = (x: number, y: number): [number, number] => view.toScreen(x, y - CREATURE_HEIGHT / 2);
     const views = { meadow: view, cosmos, soul };
-    return {
-      draw(prev: WorldLite, next: WorldLite, alpha, s) {
+    /** The 2D canvas a capture draws the scene into. */
+    const grab = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    /**
+     * The scene as the canvas shows it now, as `w` x `h` pixels: the WebGL canvas's scene box, read
+     * in the same task as its render, so the drawing buffer still holds the frame.
+     */
+    const capture = (w: number, h: number): Uint8ClampedArray => {
+      if (!grab) throw new Error('No 2D context for the postcard');
+      if (grab.canvas.width !== w || grab.canvas.height !== h)
+        [grab.canvas.width, grab.canvas.height] = [w, h];
+      const k = app.canvas.width / app.screen.width;
+      const [x0, y0] = view.toScreen(0, 0);
+      const [x1, y1] = view.toScreen(scene.width, scene.height);
+      grab.drawImage(app.canvas, x0 * k, y0 * k, (x1 - x0) * k, (y1 - y0) * k, 0, 0, w, h);
+      if (import.meta.env.DEV) dev.captures += 1;
+      return grab.getImageData(0, 0, w, h).data;
+    };
+    let ring: ReturnType<typeof createFrameRing> | null = null;
+    const newRing = () =>
+      createFrameRing(capture, { seconds: 5, fps: 12, width: 480, aspect: scene.height / scene.width });
+    // Pixi resizes with the window only; the phone layout also changes the element (the scene ends above the bottom bar).
+    // Resized in the next frame, as Pixi does, so the observer's own callback changes no layout.
+    let resizeFrame = 0;
+    const resized = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        if (el.clientWidth !== app.screen.width || el.clientHeight !== app.screen.height) app.resize();
+      });
+    });
+    resized.observe(el);
+    const stage: Stage = {
+      draw(prev: WorldLite, next: WorldLite, alpha, s, paused) {
         if (import.meta.env.DEV) dev.frames += 1;
         const cosmosBand = current === 'cosmos' ? band : null;
         view.setTopInset(cosmosBand ? valleyTop(cosmosBand, app.screen.height, scene.height) : 0);
-        view.update(prev, next, alpha, s);
+        view.update(prev, next, alpha, s, paused);
         if (current === 'cosmos') cosmos.update(next, s, nodeAt, { points, breaks }, cosmosBand, soulId);
         if (current === 'soul') soul.update(next, s, soulId, insets);
         app.ticker.update(); // advances the view's clock and renders
+        ring?.offer(performance.now());
+      },
+      setRecording(on) {
+        ring?.clear();
+        ring = on ? newRing() : null;
+        if (on) recording = stage;
+        else if (recording === stage) recording = null;
+      },
+      postcard(caption) {
+        const out = document.createElement('canvas');
+        const ctx = out.getContext('2d');
+        if (!ctx) throw new Error('No 2D context for the postcard');
+        // Atkinson Hyperlegible once the page has loaded it (ADR 0014 item 14), else the page's own font.
+        const atkinson = [...document.fonts].some(
+          (f) => f.family.replace(/"/g, '') === 'Atkinson Hyperlegible' && f.status === 'loaded',
+        );
+        const family = atkinson ? ATKINSON : getComputedStyle(document.body).fontFamily;
+        // 20 px, or smaller down to 14 px until the caption fits; only past that does it squeeze.
+        let size = 20;
+        const fits = (): boolean => {
+          ctx.font = `${String(size)}px ${family}`;
+          return ctx.measureText(caption).width <= CAPTION_WIDTH;
+        };
+        while (size > 14 && !fits()) size -= 1;
+        const font = `${String(size)}px ${family}`;
+        return (ring?.frames() ?? []).map((f) => {
+          [out.width, out.height] = [f.width, f.height + BAND];
+          ctx.fillStyle = PAPER;
+          ctx.fillRect(0, 0, out.width, out.height);
+          const px = ctx.createImageData(f.width, f.height);
+          px.data.set(f.data);
+          ctx.putImageData(px, 0, 0);
+          ctx.font = font;
+          ctx.fillStyle = INK;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(caption, out.width / 2, f.height + BAND / 2, CAPTION_WIDTH);
+          return { ...f, height: out.height, data: ctx.getImageData(0, 0, out.width, out.height).data };
+        });
       },
       pick: (x, y) => views[current].pick(...local(x, y)),
       toScene(x, y) {
@@ -521,6 +1117,11 @@ const game: GameService = {
         lastSeen = lite;
       },
       timeline: () => ({ points, breaks }),
+      clearTimeline() {
+        points.length = 0;
+        breaks.length = 0;
+        lastSeen = null;
+      },
       setInsets(i) {
         insets = i;
       },
@@ -530,6 +1131,8 @@ const game: GameService = {
       setScene(id) {
         scene = sceneOf(id);
         view.setScene(scene);
+        // The frames keep one size: a new scene's aspect starts a new ring.
+        if (ring) ring = newRing();
       },
       setPalette(id) {
         const p = paletteOf(id);
@@ -544,6 +1147,9 @@ const game: GameService = {
       setCursor: (p) => {
         view.setCursor(p);
       },
+      setGateLamp: (on) => {
+        view.setGateLamp(on);
+      },
       visitor: () => view.visitor(),
       endVisit: () => {
         view.endVisit();
@@ -555,10 +1161,14 @@ const game: GameService = {
         return { width: scene.width, height: scene.height };
       },
       destroy() {
+        stage.setRecording(false); // the frames go with the stage
         stopCounting();
+        resized.disconnect();
+        cancelAnimationFrame(resizeFrame);
         app.destroy(true, true);
       },
     };
+    return stage;
   },
   async resume() {
     const save = await (await slotsReady).load('auto');
@@ -573,6 +1183,7 @@ const game: GameService = {
       return null;
     }
     resuming = save; // a different tuning hash still loads: tuning changes between versions are expected
+    yearSeed = save.seed;
     if (valley && save.journey) await continueJourney(save.journey, save.chapterId);
     // The bridge comes right after the fire's page is kept, so that year's page is the newest.
     else if (save.chapterId === bridgeChapter.id)
@@ -593,6 +1204,9 @@ const game: GameService = {
     if (import.meta.env.DEV) dev.snapshots = 0;
     const resumed = resuming?.chapterId === chapter.id ? resuming : null;
     resuming = null;
+    const at = chapters.indexOf(chapter);
+    // Begin starts a new year at the first chapter, with a new seed; play only moves on from there.
+    if (!resumed && at === firstChapter) yearSeed = newSeed();
     // Continue: the carry and the year so far come from the save (spec 15.1).
     if (resumed) yearLog.splice(0, yearLog.length, ...resumed.year);
     const base = baseOf(chapter);
@@ -627,7 +1241,6 @@ const game: GameService = {
     season = scenario.season;
     // A year that starts again at this chapter (Begin after an earlier year this visit) forgets
     // what the earlier year logged from here on, so the myth tells only the year it ends.
-    const at = chapters.indexOf(chapter);
     for (let i = yearLog.length - 1; i >= 0; i--) {
       if (chapters.findIndex((c) => c.id === yearLog[i]?.chapterId) >= at) yearLog.splice(i, 1);
     }
@@ -635,7 +1248,7 @@ const game: GameService = {
     scenarioNow = scenario;
     host.post({
       t: 'init',
-      seed: SEED,
+      seed: yearSeed,
       tuning: tuningJson,
       scenario,
       ...(resumed ? { checkpoint: resumed.checkpoint } : {}),
@@ -651,7 +1264,7 @@ const game: GameService = {
         async ({ world }) =>
           (await slotsReady).save('auto', {
             version: 3,
-            seed: SEED,
+            seed: yearSeed,
             tuningHash,
             ink: inkState,
             flags,
@@ -664,6 +1277,9 @@ const game: GameService = {
         () => undefined, // the worker gave up; the chapter plays without this save
       );
     }
+    // A content id from the fixed chapter list; a chapter that Continue resumes was counted when it began.
+    if (!resumed && chapters.some((c) => c.id === chapter.id))
+      analytics.count({ v: 1, e: 'chapter', chapter: chapter.id });
     const made = createChapterRunner(
       port,
       ink,
@@ -687,6 +1303,13 @@ const game: GameService = {
       if (start === starts) yearLog.push({ chapterId: chapter.id, log: runner.log });
     };
     runner.done.then(keep, keep);
+    runner.done.then(
+      () => {
+        if (start === starts && chapters.some((c) => c.id === chapter.id))
+          for (const c of betCounts(chapter.id, runner.log)) analytics.count(c);
+      },
+      () => undefined,
+    );
     /**
      * Runs `update` once this runner is done, unless a newer start or a stop dropped it. A failure
      * makes the next valley's start fail ("This chapter stopped"), so nothing plays out of step.
@@ -719,8 +1342,12 @@ const game: GameService = {
         const sent = runner.log.flatMap((e) => (e.kind === 'postcard' ? [e.type] : []));
         // Kith's leg first, with the postcard sent here; Continue replays it from the journal page.
         if (leg >= 0 && kith) runKithLeg(kith, kithLeg(leg, sent.at(-1) ?? null, homecoming));
-        if ((!skipped || sent.length > 0) && journeyNow && lastLite)
+        if ((!skipped || sent.length > 0) && journeyNow && lastLite) {
           journeyNow = leaveValley(journeyNow, chapter, lastLite, runner.log);
+          // A valley with a journal page is a finished valley, which the sandbox offers (ADR 0014 item 1).
+          if (journeyNow.pages.some((p) => p.valley === chapter.id))
+            void profileReady.then((p) => p.addValley(chapter.id));
+        }
       });
     }
     return runner;
@@ -740,14 +1367,28 @@ const game: GameService = {
     return (await profileReady).pages();
   },
   async keepMyth(page) {
-    keptPage = await (await profileReady).keepMyth(page, SEED);
+    keptPage = await (await profileReady).keepMyth(page, yearSeed);
     // The year is over: Continue no longer offers its last chapter, so the fire cannot add a second page.
+    // First, so a Kith that the profile refuses cannot make it offer the fire again.
     await (await slotsReady).keepYear();
+    await keepKith();
   },
   stop: dropStart,
   journey: () => journeyNow,
   setCaption: (valley, text) => {
     if (journeyNow) setCaption(journeyNow, valley, text);
+  },
+  assetWaits: ASSET_WAITS_MS,
+  stills: () => stillPages(chapters, createInk(inkStory), DEFAULT_FLAGS),
+  stillUrl,
+  async savedChapter() {
+    const save = await (await slotsReady).load('auto');
+    const index = save ? chapters.findIndex((c) => c.id === save.chapterId) : -1;
+    return index < 0 ? null : index;
+  },
+  onSimLost: (cb) => {
+    simLostListeners.add(cb);
+    return () => simLostListeners.delete(cb);
   },
   journalDrawing: (valley) =>
     journalDrawings[`../content/placeholder/PLACEHOLDER-journal-${valley}.svg`] ?? null,
@@ -762,6 +1403,7 @@ const game: GameService = {
     const year = journeyNow?.bookYear ?? null;
     if (year !== null) await (await profileReady).addVerse(year, verse);
     await (await slotsReady).keepYear();
+    await keepKith();
   },
   async feathers() {
     return (await profileReady).feathers();
@@ -769,6 +1411,7 @@ const game: GameService = {
   async addFeather() {
     return (await profileReady).addFeather();
   },
+  exportPage: oneAtATime(drawPage),
   onSnapshot(cb) {
     return host.onMessage((m) => {
       if (m.t === 'snapshot') cb(m.lite, m.tick);
@@ -780,6 +1423,8 @@ const game: GameService = {
   currentSpeed: () => speedControl.current(),
   input: {
     createKeyboard,
+    createHelpKey,
+    keyRows,
     createPointer,
     createHints: () => createHints(),
     createOverPoke: () =>
@@ -791,4 +1436,23 @@ const game: GameService = {
 };
 
 const app = document.getElementById('app');
-if (app) mount(App, { target: app, props: { settings, hasSave: false, game } });
+/**
+ * A seed link in the address (ADR 0014 item 7): a fragment `#v<n>.`, which opens the sandbox on it.
+ * Only `v1` decodes; any other version opens the lost-valley page.
+ */
+const LINK_FRAGMENT = /^#v[0-9]+\./;
+const link = LINK_FRAGMENT.test(location.hash) ? location.hash.slice(1) : null;
+// A link pasted into this page's address changes only the fragment, which loads nothing: load
+// the page again, so it opens the link as a new page would.
+window.addEventListener('hashchange', () => {
+  if (LINK_FRAGMENT.test(location.hash)) location.reload();
+});
+if (app) mount(App, { target: app, props: { settings, hasSave: false, game, link } });
+
+// Offline after the first load (ADR 0014 item 12). A build registers the worker; the dev server never does.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Playing offline is a bonus: a refused registration (blocked site data) changes nothing else.
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
+  });
+}

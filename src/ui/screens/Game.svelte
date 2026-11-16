@@ -2,7 +2,6 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { Writable } from 'svelte/store';
   import type { InputContext } from '../../input/keyboard.ts';
-  import type { BenchSpot } from '../../input/verbs.ts';
   import type { ViewName } from '../../input/zoom.ts';
   import type { MythPage } from '../../myth/grammar.ts';
   import type { BookPage } from '../../persist/profile.ts';
@@ -19,6 +18,17 @@
   import type { GameService, Stage } from '../game-service.ts';
   import type { Settings } from '../settings.ts';
   import { chapterHeading } from '../chapter-label.ts';
+  import { createFrameLoop } from '../frame-loop.ts';
+  import { createRewind } from '../rewind.svelte.ts';
+  import {
+    byId,
+    clampToScene,
+    createPauseToggle,
+    nearestCreature,
+    spotLine,
+    spotName as nearestSpot,
+    whisperOthers,
+  } from '../scene-helpers.ts';
   import BeatLine from '../components/BeatLine.svelte';
   import BetCard from '../components/BetCard.svelte';
   import ChapterRibbon from '../components/ChapterRibbon.svelte';
@@ -34,18 +44,30 @@
   import Postcard from '../interludes/Postcard.svelte';
   import { inSentence, journalEntries } from '../journal-pages.ts';
   import type { JournalEntry } from '../journal-pages.ts';
+  import { sceneStill } from '../../story/stills.ts';
   import Rhythm from '../interludes/Rhythm.svelte';
   import Stillness from '../interludes/Stillness.svelte';
   import Telephone from '../interludes/Telephone.svelte';
   import BookOfSkies from './BookOfSkies.svelte';
+  import ModelLimits from './ModelLimits.svelte';
   import Journal from './Journal.svelte';
+  import HelpSheet from '../components/HelpSheet.svelte';
+  import { PHONE, PORTRAIT, SHORT_LANDSCAPE, watchMedia } from '../phone.ts';
 
   let {
     game,
     settings,
     resume,
     onExit,
-  }: { game: GameService; settings: Writable<Settings>; resume: boolean; onExit: () => void } = $props();
+    onStills,
+  }: {
+    game: GameService;
+    settings: Writable<Settings>;
+    resume: boolean;
+    onExit: () => void;
+    /** The sim is lost or the scene cannot draw (ADR 0014 item 11): the still version at this chapter. */
+    onStills: (chapter: number) => void;
+  } = $props();
 
   /**
    * The verbs with a line of prompt text when new (spec 12.6, P1): each tray verb, also when a
@@ -69,6 +91,9 @@
     join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
     pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
     keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
+    rain: '[PLACEHOLDER] Press Enter to rain on the bushes near the spot.',
+    path: '[PLACEHOLDER] Press Enter at one end of a path, then at the other.',
+    welcome: '[PLACEHOLDER] Light the gate for newcomers, or darken it.',
     zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
     peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
@@ -124,7 +149,7 @@
   /** How many things the place tool has set in this chapter. */
   let placed = 0;
   let reply: BidReply = $state('toward');
-  /** The last few story lines, hints, and results; new ones are announced. */
+  /** The chapter's story lines, hints, and results, in order; new ones are announced. */
   let lines: { id: number; text: string; reveal: boolean }[] = $state([]);
   let lineId = 0;
   /** How long a bet's answer stays into the next chapter. */
@@ -155,27 +180,18 @@
   let threadFrom: string | null = $state(null);
   /** The open whisper card: the creature it whispers to, and those it can be about. */
   let whisperCard: { target: string; others: string[] } | null = $state(null);
-  /** The newest live snapshot and its tick. */
+  /** The newest live snapshot. */
   let live: WorldLite | null = $state.raw(null);
-  let liveTick = 0;
   /**
-   * The live snapshot the last frame drew, its tick, and this run's Cosmos timeline then. The Cosmos
-   * panel and the drawer read these, so their text changes as often as the scene is drawn, not at
-   * every step: at a bet's reveal speed the sim steps hundreds of times a second, and rewriting the
-   * panel for each step costs the page more than the steps come in, so it falls behind the sim.
+   * The rewind range's tick and the rewound world; the live snapshot the last frame drew, its tick,
+   * and this run's Cosmos timeline then, which the Cosmos panel and the drawer read. While rewound
+   * the sim is paused and verbs send nothing (ADR 0012 item 10).
    */
-  let drawn: WorldLite | null = $state.raw(null);
-  let drawnTick = $state(0);
-  let timeline: ReturnType<Stage['timeline']> = $state.raw({ points: [], breaks: [] });
-  /**
-   * The tick the rewind range asks for, or null for now; the rewound world once it arrives. While
-   * rewound the sim is paused and verbs send nothing (ADR 0012 item 10).
-   */
-  let rewindAt: number | null = $state(null);
-  let rewound: WorldLite | null = $state.raw(null);
-  /** Only the newest rewind request is drawn. */
-  let rewindRequest = 0;
-  let speedBeforeRewind = 1;
+  const rw = createRewind({
+    currentSpeed: () => game.currentSpeed(),
+    setSpeed,
+    rewind: (t) => game.rewind(t),
+  });
   /** Where the drawer opens next: P opens it at Under the hood, the Soul view at Diary. */
   let drawerAt: { section: 'diary' | 'peek'; focus: boolean } | null = $state.raw(null);
   let drawerEl: HTMLElement | undefined = $state();
@@ -185,6 +201,35 @@
   /** The pixels the drawer takes from the scene's right edge, and the height of the HUD at the bottom. */
   let inset = $state(0);
   let hudHeight = $state(0);
+  /** The viewport is taller than wide: the scene sits between the top row and the bottom bar (ADR 0014 item 15). */
+  let portrait = $state(false);
+  /** In portrait and on a short landscape screen the Cosmos panel is part of the bottom bar. */
+  let shortLandscape = $state(false);
+  const panelInBar = $derived(portrait || shortLandscape);
+  /** Below 600 pixels wide, where the open drawer is a modal sheet. */
+  let phone = $state(false);
+  /** The top row (title and drawer button), and the bottom bar without the story lines. */
+  let topHeight = $state(0);
+  /**
+   * The pixels the scene leaves above and below. Set in the next frame, so the scene does not resize
+   * inside the callback that measured the bars (the browser reports that as a resize loop). On a wide
+   * portrait screen the open drawer makes the top row taller; the scene keeps its place under it.
+   */
+  let sceneTop = $state(0);
+  let sceneBottom = $state(0);
+  $effect(() => {
+    const bottom = portrait ? hudHeight : 0;
+    const top = !portrait ? 0 : drawerOpen ? untrack(() => sceneTop) : topHeight;
+    const frame = requestAnimationFrame(() => {
+      sceneTop = top;
+      sceneBottom = bottom;
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  });
+  /** The drawer is a full-screen sheet: the rest of the screen is inert behind it. */
+  const sheet = $derived(drawerOpen && phone);
   /** The Cosmos timeline band and the empty slot in it where the canvas draws the strip. */
   let bandEl: HTMLElement | undefined = $state();
   let stripEl: HTMLElement | undefined = $state();
@@ -196,6 +241,33 @@
   /** Whether the Book of Skies has a page, so the drawer offers it, as the title does. */
   let hasBook = $state(false);
   let speedBeforeBook = 0;
+  /** The open "Where this model is wrong" page, a modal dialog with the sim paused, and the speed it puts back. */
+  let limits = $state(false);
+  let speedBeforeLimits = 0;
+  /** The open key list (the ? key), a modal dialog with the sim paused, and the speed it puts back. */
+  let help = $state(false);
+  let speedBeforeHelp = 0;
+  let helpRows: { keys: string; does: string }[] = $state.raw([]);
+  function openHelp(): void {
+    if (help || limits || book || bookOpening || journal || betRunning || bet || postcard || whisperCard)
+      return;
+    helpRows = game.input.keyRows({
+      screen: 'game',
+      verbs: chapter?.verbs ?? [],
+      activity: Boolean(chapter?.activity),
+      journey: hasJourney,
+      heroKind: next?.hero?.kind ?? null,
+    });
+    if (!ended) {
+      speedBeforeHelp = game.currentSpeed();
+      setSpeed(0);
+    }
+    help = true;
+  }
+  function closeHelp(): void {
+    help = false;
+    if (!ended) setSpeed(speedBeforeHelp);
+  }
   /**
    * The open travel journal (Part 2), a modal dialog like the Book of Skies: the page to open at,
    * and what to do on close (a valley's end goes on to the next valley).
@@ -220,16 +292,12 @@
   let due = $state(false);
   let visitToken = 0;
 
-  let stage: Stage | null = $state.raw(null);
+  let stage = $state.raw<Stage | null>(null);
   let runner: ChapterRunner | null = null;
-  let prev: WorldLite | null = null;
+  /** The newest live snapshot, which the tools act on. */
   let next: WorldLite | null = null;
-  let prevAt = 0;
-  let nextAt = 0;
-  let raf: number | null = null;
   let hidden = $state(document.visibilityState === 'hidden');
   let ghostTimer: ReturnType<typeof setTimeout> | undefined;
-  let unpauseSpeed = 1;
 
   // The service never changes, so these are made once.
   const hints = untrack(() => game.input.createHints());
@@ -239,9 +307,9 @@
   const chapter = $derived(game.chapters[index]);
   /** The world now, live or rewound: what the valley line says. */
   // In closures, so TypeScript does not narrow the state to its first value.
-  const shown = $derived.by(() => rewound ?? live);
+  const shown = $derived.by(() => rw.world ?? live);
   /** The same, as the last frame drew it: what the Cosmos panel and the drawer say about it. */
-  const seen = $derived.by(() => rewound ?? drawn);
+  const seen = $derived.by(() => rw.world ?? rw.drawn);
   /** A creature's name in the scene's text: the player's name for the hero. */
   const nameOf = (id: string): string => (id === 'hero' && live?.hero ? live.hero.name : displayName(id));
   const ties = $derived.by(() => (seen && (view === 'cosmos' || picked !== null) ? game.ties(seen) : null));
@@ -256,7 +324,7 @@
       name: nameOf(c.id),
       lines: runner?.diary(c.id) ?? [],
       // The diary lines are the live ones; the rest is the rewound world.
-      linesNow: rewound !== null,
+      linesNow: rw.world !== null,
       dials: c.dials,
       friends: (mine?.friends ?? []).map(named),
       scars: (mine?.scars ?? []).map(named),
@@ -267,18 +335,7 @@
   /** A point tool acts at the cursor, which the Meadow then draws and the status line names. */
   const pointing = $derived(view === 'meadow' && tool !== null && POINT_TOOLS.has(tool));
   const heading = $derived(chapter ? chapterHeading(chapter) : '');
-  const spotName = $derived.by(() => {
-    let best: BenchSpot | undefined;
-    let bestD = Infinity;
-    for (const s of stage?.benchSpots ?? []) {
-      const d = (s.x - cursor.x) ** 2 + (s.y - cursor.y) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = s;
-      }
-    }
-    return best ? best.id.replace(/-/g, ' ') : '';
-  });
+  const spotName = $derived(nearestSpot(stage?.benchSpots ?? [], cursor));
   /**
    * What the tool would act on, as text: the bench spot, the cursor's nearest spot and creature, or
    * the picked creature; then the thread mark and the view.
@@ -288,7 +345,7 @@
       tool === 'place' && placeKind === 'bench'
         ? `Bench spot: ${spotName}`
         : pointing
-          ? `Spot near: ${spotName}${nearby === null ? '' : `, by ${nameOf(nearby)}`}`
+          ? spotLine(spotName, nearby === null ? null : nameOf(nearby))
           : picked
             ? `Picked: ${nameOf(picked)}${pickedState ? `, ${pickedState}` : ''}`
             : '',
@@ -296,7 +353,7 @@
       pointing && tool === 'walk' && picked ? `Picked: ${nameOf(picked)}` : '',
       tool === 'thread' && threadFrom !== null ? `Thread from ${nameOf(threadFrom)}` : '',
       view === 'meadow' ? '' : VIEW_NAMES[view],
-      rewindAt === null ? '' : 'Rewound: the tools wait for Back to now',
+      rw.at === null ? '' : 'Rewound: the tools wait for Back to now',
     ]
       .filter((part) => part !== '')
       .join('. '),
@@ -311,12 +368,12 @@
   }
 
   function say(text: string, reveal = false): void {
-    lines = [...lines.slice(-2), { id: (lineId += 1), text, reveal }];
+    lines = [...lines, { id: (lineId += 1), text, reveal }];
   }
 
   function act(v: VerbInput): void {
     hints.activity();
-    if (!runner || rewindAt !== null) return;
+    if (!runner || rw.at !== null) return;
     if (runner.verb(v)) {
       hints.used(unlockingVerb(v));
       if (v.verb === 'place') {
@@ -333,15 +390,10 @@
     game.speed(m);
     speedNow = m;
   }
+  const pause = createPauseToggle(() => game.currentSpeed(), setSpeed);
   function togglePause(): void {
-    if (bet || betRunning || rewindAt !== null) return;
-    const now = game.currentSpeed();
-    if (now > 0) {
-      unpauseSpeed = now;
-      setSpeed(0);
-    } else {
-      setSpeed(unpauseSpeed);
-    }
+    if (bet || betRunning || rw.at !== null) return;
+    pause();
   }
 
   /**
@@ -349,7 +401,7 @@
    * answer plays, since the pause would take the runner's speed.
    */
   async function openBook(): Promise<void> {
-    if (book || bookOpening || journal || betRunning) return;
+    if (book || bookOpening || journal || limits || help || betRunning) return;
     bookOpening = true;
     if (!ended) {
       speedBeforeBook = game.currentSpeed();
@@ -360,13 +412,18 @@
     bookOpening = false;
     book = { pages, feathers };
   }
+  /** The scene's still image for a journal drawing that does not load (ADR 0014 item 11). */
+  function fallbackOf(valley: string): string | null {
+    const chapter = game.chapters.find((c) => c.id === valley);
+    return chapter ? game.stillUrl(sceneStill(chapter.scene)) : null;
+  }
   /**
    * Opens the travel journal at `at` (a valley's page; the title without one). Opened by the player
    * (`after` null) it pauses the sim; at a valley's end the sim has stopped, and closing runs `after`.
    */
   function openJournal(at: string | null, after: (() => void) | null = null): void {
     const j = game.journey();
-    if (!j || journal || book || bookOpening || betRunning) {
+    if (!j || journal || book || bookOpening || limits || help || betRunning) {
       after?.();
       return;
     }
@@ -389,6 +446,18 @@
   async function loadHasBook(): Promise<void> {
     hasBook = (await game.book()).length > 0;
   }
+  function openLimits(): void {
+    if (limits || help || book || bookOpening || journal || betRunning) return;
+    if (!ended) {
+      speedBeforeLimits = game.currentSpeed();
+      setSpeed(0);
+    }
+    limits = true;
+  }
+  function closeLimits(): void {
+    limits = false;
+    if (!ended) setSpeed(speedBeforeLimits);
+  }
   function closeBook(): void {
     book = null;
     if (!ended) setSpeed(speedBeforeBook);
@@ -408,34 +477,11 @@
     });
   }
 
-  /** Pauses the sim on the first move of the range, and asks for the world at `t`. */
-  function rewindTo(t: number): void {
-    if (rewindAt === null) {
-      speedBeforeRewind = game.currentSpeed();
-      setSpeed(0);
-    }
-    rewindAt = t;
-    const request = (rewindRequest += 1);
-    game.rewind(t).then(
-      (lite) => {
-        if (request === rewindRequest) rewound = lite;
-      },
-      () => undefined, // the worker restarted; the range asks again on its next move
-    );
-  }
-  function backToNow(): void {
-    if (rewindAt === null) return;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
-    setSpeed(speedBeforeRewind);
-  }
-
   function onPrompt(p: Prompt): void {
     if (p.kind === 'line') say(p.text);
     else if (p.kind === 'bet') {
       // Answering starts the sim, so a bet that arrives while rewound brings the world back to now.
-      backToNow();
+      rw.backToNow();
       bet = { question: p.question, options: p.options };
     } else if (p.kind === 'reveal') {
       betRunning = false;
@@ -469,14 +515,30 @@
   }
   // A due visit arrives once the Meadow shows, the tab is visible, and no card, activity, or book covers it.
   $effect(() => {
-    if (!due || !stage || hidden || ended || book || bookOpening || journal || view !== 'meadow') return;
+    if (
+      !due ||
+      !stage ||
+      hidden ||
+      ended ||
+      book ||
+      bookOpening ||
+      journal ||
+      limits ||
+      help ||
+      view !== 'meadow'
+    )
+      return;
     if (bet || betRunning || whisperCard || postcard || chapter?.activity) return;
     untrack(visit);
   });
 
+  /** The chapter now starting or playing, where the still version opens when the sim is lost. */
+  let playingAt = untrack(() => game.firstChapter);
+
   async function begin(i: number, flags: Flags): Promise<void> {
     const chapter = game.chapters[i];
     if (!chapter || !stage) return;
+    playingAt = i;
     const token = (starting += 1);
     // A valley's start waits for Kith. Meanwhile there is no runner, so verbs send nothing, the last
     // world's snapshots are not drawn, and the heading changes only once Skip reaches the new runner.
@@ -501,12 +563,14 @@
     picked = null;
     threadFrom = null;
     whisperCard = null;
-    rewindAt = null;
-    rewound = null;
-    rewindRequest += 1;
+    rw.reset();
     used = [];
     placed = 0;
-    prev = next = null;
+    next = null;
+    speedNow = game.currentSpeed();
+    // The new run's first snapshot is not tweened from the last run's world.
+    loop.stop();
+    loop.start();
     // Each chapter is a new scene, with its own three-minute wait.
     endVisit();
     visited = false;
@@ -524,7 +588,6 @@
     // (host.ts connect), and only a microtask passes between that post and here, so no old world
     // comes back.
     live = null;
-    drawn = null;
     flagsNow = flags;
     myth = null;
     tools = WORLD_VERBS.filter((v) => chapter.verbs.includes(v));
@@ -599,39 +662,22 @@
     endVisit();
     runner = null;
     setSpeed(0);
-    if (raf !== null) cancelAnimationFrame(raf);
-    raf = null;
+    loop.stop();
     ended = how;
     void tick().then(() => document.getElementById('end-title')?.focus());
   }
 
-  function frame(now: number): void {
-    raf = requestAnimationFrame(frame);
-    speedNow = game.currentSpeed();
-    if (stage && rewound) {
-      stage.draw(rewound, rewound, 1, $settings);
-      return;
-    }
-    if (!stage || !prev || !next) return;
-    if (drawn !== next) {
-      drawn = next;
-      drawnTick = liveTick;
-      timeline = stage.timeline();
-    }
-    const span = nextAt - prevAt;
-    const alpha = span > 0 ? Math.min(1, Math.max(0, (now - nextAt) / span)) : 1;
-    stage.draw(prev, next, alpha, $settings);
-  }
+  const loop = createFrameLoop(
+    (from, to, alpha) => {
+      speedNow = game.currentSpeed();
+      if (stage) rw.frame(stage, from, to, alpha, $settings, speedNow === 0);
+    },
+    () => performance.now(),
+  );
 
-  /** The frame loop stops while the tab is hidden; main.ts holds the sim at speed 0 meanwhile. */
+  /** The frame loop stops by itself while the tab is hidden; the Quiet Visitor waits too. */
   function onVisibility(): void {
     hidden = document.visibilityState === 'hidden';
-    if (hidden) {
-      if (raf !== null) cancelAnimationFrame(raf);
-      raf = null;
-    } else if (stage && !ended && raf === null) {
-      raf = requestAnimationFrame(frame);
-    }
   }
 
   // The Soul view, and the HUD at the bottom while the drawer is open, keep clear of the drawer.
@@ -640,7 +686,7 @@
     inset = sceneEl.getBoundingClientRect().right - drawerEl.getBoundingClientRect().left;
   });
   $effect(() => {
-    stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: hudHeight });
+    stage?.setInsets({ right: drawerOpen ? inset : 0, bottom: portrait ? 0 : hudHeight });
   });
   // The Cosmos draws its timeline strip in the band's slot, and the valley fits below the band.
   $effect(() => {
@@ -680,26 +726,13 @@
   }
 
   /** The creature not away whose feet are nearest `p`, within NEAR scene units, or null. */
-  function nearbyAt(p: { x: number; y: number }): string | null {
-    let best: string | null = null;
-    let bestD = NEAR;
-    for (const c of next?.creatures ?? []) {
-      const d = Math.hypot(c.x - p.x, c.y - p.y);
-      if (c.state !== 'away' && d <= bestD) {
-        bestD = d;
-        best = c.id;
-      }
-    }
-    return best;
-  }
+  const nearbyAt = (p: { x: number; y: number }): string | null =>
+    nearestCreature(next?.creatures ?? [], p, NEAR);
 
   /** Opens the whisper card for `target`, about every other named creature (spec 5.3) not gone, in id order. */
   function openWhisper(target: string): void {
-    if (rewindAt !== null) return;
-    const others = (next?.creatures ?? [])
-      .filter((c) => !c.gone && c.id !== target && game.castIds.includes(c.id))
-      .map((c) => c.id);
-    whisperCard = { target, others: others.sort() };
+    if (rw.at !== null) return;
+    whisperCard = { target, others: whisperOthers(next?.creatures ?? [], target, game.castIds) };
   }
 
   function whisper(about: string, sign: 1 | -1): void {
@@ -720,6 +753,19 @@
       due = true;
     });
     void loadHasBook();
+    offs.push(
+      watchMedia(PORTRAIT, (m) => {
+        portrait = m;
+      }),
+      watchMedia(SHORT_LANDSCAPE, (m) => {
+        shortLandscape = m;
+      }),
+      watchMedia(PHONE, (m) => {
+        phone = m;
+      }),
+      // ? opens the keys from any focus on the screen; the scene's own handler takes it first.
+      game.input.createHelpKey(window, openHelp),
+    );
     window.addEventListener('keydown', activity);
     window.addEventListener('pointerdown', activity);
     document.addEventListener('visibilitychange', onVisibility);
@@ -728,96 +774,113 @@
       clearTimeout(ghostTimer);
       ghostTimer = setTimeout(() => (ghost = null), GHOST_MS);
     });
+    // The host stopped restarting the worker: the chapter goes on as the still version.
+    offs.push(
+      game.onSimLost(() => {
+        // A finished game keeps its end page; there is no sim left to lose.
+        if (!ended) onStills(playingAt);
+      }),
+    );
     offs.push(
       game.onSnapshot((lite, at) => {
         if (!runner) return;
         stage?.snapshot(at, lite);
         live = lite;
-        liveTick = at;
+        rw.live(at);
         if (myth === null && flagsNow && chapter?.activity === 'fire') myth = game.myth(flagsNow);
-        prev = next ?? lite;
         next = lite;
-        prevAt = nextAt;
-        nextAt = performance.now();
+        loop.push(lite);
         nearby = nearbyAt(cursor);
         if (picked !== null)
           pickedState = STATES[lite.creatures.find((c) => c.id === picked)?.state ?? ''] ?? '';
       }),
     );
 
-    void game.createStage(sceneEl).then(async (s) => {
-      if (gone) {
-        s.destroy();
-        return;
-      }
-      stage = s;
-      const ctx: InputContext = {
-        // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
-        tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
-        creatures: () =>
-          [...(next?.creatures ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
-        benchSpots: () => s.benchSpots,
-        placeKind: () => placeKind,
-        water: () => next?.water ?? [],
-        cursor: () => cursor,
-        tool: () => tool,
-        setTool: (v) => (tool = v),
-        reply: () => reply,
-        setReply: (r) => (reply = r),
-        act,
-        togglePause,
-        picked: () => picked,
-        select: (id) => {
-          picked = id;
-          if (view !== 'meadow') s.setView(view, id);
-        },
-        moveCursor: (p) => {
-          const { width, height } = s.sceneSize;
-          cursor = { x: Math.min(width, Math.max(0, p.x)), y: Math.min(height, Math.max(0, p.y)) };
-          nearby = nearbyAt(cursor);
-        },
-        view: () => view,
-        zoom: (dir) => {
-          const v = game.input.nextView(view, dir, picked);
-          if (v === view) return;
-          if (view === 'cosmos') backToNow();
-          view = v;
-          s.setView(v, picked);
-          if (v === 'soul') drawerAt = { section: 'diary', focus: false };
-        },
-        isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
-        threadFrom: () => threadFrom,
-        setThreadFrom: (id) => (threadFrom = id),
-        openWhisper,
-        manner: () => mannerOf(next),
-        heroKind: () => next?.hero?.kind ?? null,
-        heroBerries: () => heroBerries(next),
-        heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
-        keepsakes: () => next?.hero?.keepsakes ?? [],
-      };
-      offs.push(game.input.createKeyboard(sceneEl, ctx));
-      offs.push(
-        game.input.createPointer(
-          sceneEl,
-          (x, y) => ({ creature: s.pick(x, y) }),
-          (x, y) => s.toScene(x, y),
-          ctx,
-        ),
-      );
-      // Continue starts the saved chapter over from its start; no save means a new game.
-      const saved = untrack(() => resume) ? await game.resume() : null;
-      if (isGone()) return;
-      if (saved) void begin(saved.index, saved.flags);
-      else void begin(game.firstChapter, game.defaultFlags);
-      sceneEl.focus();
-      if (!hidden) raf = requestAnimationFrame(frame);
-    });
+    void game.createStage(sceneEl).then(
+      async (s) => {
+        if (gone) {
+          s.destroy();
+          return;
+        }
+        stage = s;
+        const ctx: InputContext = {
+          // In VERBS order, which starts with the world verbs in the tray's order, so 1 to 3 match it.
+          tools: () => VERBS.filter((v) => chapter?.verbs.includes(v)),
+          creatures: () => [...(next?.creatures ?? [])].sort(byId),
+          benchSpots: () => s.benchSpots,
+          placeKind: () => placeKind,
+          water: () => next?.water ?? [],
+          cursor: () => cursor,
+          tool: () => tool,
+          setTool: (v) => (tool = v),
+          reply: () => reply,
+          setReply: (r) => (reply = r),
+          act,
+          togglePause,
+          picked: () => picked,
+          select: (id) => {
+            picked = id;
+            if (view !== 'meadow') s.setView(view, id);
+          },
+          moveCursor: (p) => {
+            cursor = clampToScene(p, s.sceneSize);
+            nearby = nearbyAt(cursor);
+          },
+          view: () => view,
+          zoom: (dir) => {
+            const v = game.input.nextView(view, dir, picked);
+            if (v === view) return;
+            if (view === 'cosmos') rw.backToNow();
+            view = v;
+            s.setView(v, picked);
+            if (v === 'soul') drawerAt = { section: 'diary', focus: false };
+          },
+          isFriend: (a, b) => next !== null && game.isFriend(next, a, b),
+          threadFrom: () => threadFrom,
+          setThreadFrom: (id) => (threadFrom = id),
+          // Paths are a sandbox tool (ADR 0014 item 5); no chapter has them.
+          pathFrom: () => null,
+          setPathFrom: () => undefined,
+          openWhisper,
+          help: openHelp,
+          manner: () => mannerOf(next),
+          heroKind: () => next?.hero?.kind ?? null,
+          heroBerries: () => heroBerries(next),
+          heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+          keepsakes: () => next?.hero?.keepsakes ?? [],
+        };
+        offs.push(game.input.createKeyboard(sceneEl, ctx));
+        offs.push(
+          game.input.createPointer(
+            sceneEl,
+            (x, y) => ({ creature: s.pick(x, y) }),
+            (x, y) => s.toScene(x, y),
+            ctx,
+          ),
+        );
+        // Continue starts the saved chapter over from its start; no save means a new game.
+        const saved = untrack(() => resume) ? await game.resume() : null;
+        if (isGone()) return;
+        if (saved) void begin(saved.index, saved.flags);
+        else void begin(game.firstChapter, game.defaultFlags);
+        sceneEl.focus();
+        loop.start();
+      },
+      (e: unknown) => {
+        // The WebGL context did not start: the still version at once, with no retry (ADR 0014 item 11).
+        console.error(e);
+        if (gone) return;
+        void (untrack(() => resume) ? game.savedChapter() : Promise.resolve(null)).then((saved) => {
+          if (!gone) onStills(saved ?? game.firstChapter);
+        });
+      },
+    );
 
     return () => {
       gone = true;
       starting += 1;
       runner = null;
-      if (raf !== null) cancelAnimationFrame(raf);
+      loop.stop();
       clearTimeout(ghostTimer);
       clearTimeout(revealTimer);
       for (const off of offs) off();
@@ -833,11 +896,17 @@
   });
 </script>
 
-<div class="game">
+<div class="game" style:--top-row="{String(sceneTop)}px">
   <!-- Everything but the bet card (a bet or a postcard), the whisper card, or the Book of Skies goes inert while one is open. -->
   <div
     class="layer"
-    inert={bet !== null || postcard !== null || whisperCard !== null || book !== null || journal !== null}
+    inert={bet !== null ||
+      postcard !== null ||
+      whisperCard !== null ||
+      book !== null ||
+      journal !== null ||
+      limits ||
+      help}
   >
     <!-- The scene is a keyboard surface (spec 12.5): Tab picks creatures, Escape leaves it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -848,6 +917,9 @@
       aria-describedby="scene-help"
       tabindex="0"
       bind:this={sceneEl}
+      style:top="{String(sceneTop)}px"
+      style:bottom="{String(sceneBottom)}px"
+      inert={sheet}
       onkeydown={onSceneKey}
     ></div>
     <p id="scene-help" class="sr-only">
@@ -862,8 +934,9 @@
       )
         ? ' P peeks under the hood of the picked creature.'
         : ''}{chapter?.verbs.includes('rewind')
-        ? ' In the Cosmos, Escape and then Shift+Tab reach the Cosmos panel and its Rewind range.'
-        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''}
+        ? ' In the Cosmos, Escape moves to the tools, and Shift+Tab then moves back through the story lines to the Cosmos panel and its Rewind range.'
+        : ''} B opens the Book of Skies.{hasJourney ? ' J opens the travel journal.' : ''} The question mark key
+      lists the keys.
     </p>
 
     {#if ended}
@@ -896,52 +969,72 @@
       </main>
     {:else}
       <main class="hud">
-        <h1 class="title">{heading}</h1>
-        <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
-          <Drawer
-            notes={chapter?.notes ?? []}
-            {diary}
-            openAt={drawerAt}
-            bind:open={drawerOpen}
-            onBook={hasBook ? () => void openBook() : undefined}
-            onJournal={hasJourney
-              ? () => {
-                  openJournal(null);
-                }
-              : undefined}
-          />
+        <div class="top" bind:clientHeight={topHeight}>
+          <h1 class="title" inert={sheet}>{heading}</h1>
+          <div class="drawer" bind:this={drawerEl} bind:clientWidth={drawerWidth}>
+            <Drawer
+              notes={chapter?.notes ?? []}
+              {diary}
+              openAt={drawerAt}
+              bind:open={drawerOpen}
+              onBook={hasBook ? () => void openBook() : undefined}
+              onLimits={openLimits}
+              onJournal={hasJourney
+                ? () => {
+                    openJournal(null);
+                  }
+                : undefined}
+            />
+          </div>
         </div>
         {#if view === 'cosmos'}
-          <div class="band" bind:this={bandEl} bind:clientWidth={bandWidth} bind:clientHeight={bandHeight}>
+          <div
+            class="band"
+            inert={sheet}
+            bind:this={bandEl}
+            bind:clientWidth={bandWidth}
+            bind:clientHeight={bandHeight}
+          >
             <p class="band-label">Village size and trust this chapter</p>
             <!-- The canvas draws the strip here; the Cosmos panel says the same in words. -->
             <div class="strip" bind:this={stripEl}></div>
           </div>
         {/if}
-        {#if view === 'cosmos' && seen && ties && chapter}
-          <div class="cosmos">
-            <CosmosPanel
-              lite={seen}
-              {ties}
-              {timeline}
-              label={nameOf}
-              rewind={chapter.verbs.includes('rewind')
-                ? {
-                    now: drawnTick,
-                    at: rewindAt,
-                    ticksPerDay: chapterTicksPerDay(chapter),
-                    disabled: bet !== null || betRunning,
-                  }
-                : null}
-              onRewind={rewindTo}
-              onBackToNow={backToNow}
-            />
-          </div>
+        {#snippet cosmosPanel()}
+          {#if seen && ties && chapter}
+            <div class="cosmos" inert={sheet}>
+              <CosmosPanel
+                lite={seen}
+                {ties}
+                timeline={rw.timeline}
+                label={nameOf}
+                rewind={chapter.verbs.includes('rewind')
+                  ? {
+                      now: rw.drawnTick,
+                      at: rw.at,
+                      ticksPerDay: chapterTicksPerDay(chapter),
+                      disabled: bet !== null || betRunning,
+                    }
+                  : null}
+                onRewind={rw.to}
+                onBackToNow={rw.backToNow}
+              />
+            </div>
+          {/if}
+        {/snippet}
+        <!-- In portrait the panel is part of the bottom bar, so no control is over the canvas; on a short
+             landscape screen too, so it does not run into the tools. -->
+        {#if view === 'cosmos' && seen && ties && chapter && !panelInBar}
+          {@render cosmosPanel()}
         {/if}
-        <div class="bottom" bind:clientHeight={hudHeight}>
+        <div class="bottom" class:under-band={view === 'cosmos'} inert={sheet} bind:clientHeight={hudHeight}>
+          {#if view === 'cosmos' && seen && ties && chapter && panelInBar}
+            {@render cosmosPanel()}
+          {/if}
           <!-- The lines, status, and tools keep clear of the open drawer; the ribbon runs full width. -->
           <div class="play" style:padding-right={drawerOpen ? `${String(inset)}px` : '0'}>
-            <BeatLine {lines} />
+            <!-- First on screen and in the tab order: Shift+Tab from the tools reaches it, then the Cosmos panel. -->
+            <div class="beat"><BeatLine {lines} fixed={portrait} /></div>
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
@@ -1019,22 +1112,40 @@
             </div>
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
-        </div>
-        <div class="time">
-          <TimeControls
-            speed={speedNow}
-            disabled={betRunning || rewindAt !== null}
-            onPause={togglePause}
-            onSpeed={setSpeed}
-          />
+          <div class="time">
+            <TimeControls
+              speed={speedNow}
+              disabled={betRunning || rw.at !== null}
+              onPause={togglePause}
+              onSpeed={setSpeed}
+            />
+          </div>
         </div>
       </main>
     {/if}
   </div>
   {#if book}
-    <BookOfSkies pages={book.pages} feathers={book.feathers} modal onBack={closeBook} />
+    <BookOfSkies
+      pages={book.pages}
+      feathers={book.feathers}
+      modal
+      onExport={game.exportPage}
+      onBack={closeBook}
+    />
+  {:else if limits}
+    <ModelLimits modal onBack={closeLimits} />
+  {:else if help}
+    <HelpSheet rows={helpRows} onClose={closeHelp} />
   {:else if journal}
-    <Journal entries={journal.entries} at={journal.at} onCaption={game.setCaption} onBack={closeJournal} />
+    <Journal
+      entries={journal.entries}
+      at={journal.at}
+      waits={game.assetWaits}
+      {fallbackOf}
+      onCaption={game.setCaption}
+      onExport={game.exportPage}
+      onBack={closeJournal}
+    />
   {:else if bet}
     <BetCard
       question={bet.question}
@@ -1087,9 +1198,19 @@
   .hud {
     pointer-events: none;
   }
+  /* In landscape the title and the drawer button place themselves; the row is for portrait. */
+  .top,
+  .beat {
+    display: contents;
+  }
   .hud :global(button),
   .hud :global(section) {
     pointer-events: auto;
+  }
+  /* The strip scrolls by wheel and by a finger drag; the rest of the HUD lets taps through to the scene. */
+  .hud :global(.beat-line) {
+    pointer-events: auto;
+    touch-action: pan-y;
   }
   .title {
     position: absolute;
@@ -1174,6 +1295,101 @@
     right: 0.75rem;
     bottom: 3.5rem;
   }
+  /*
+   * A short landscape screen, such as a phone on its side: the time controls share a row with the
+   * tools, the story strip is shorter, and the Cosmos panel is the bar's first row, with its own cap
+   * and scroll. The bar ends under the title and the drawer button (3.25rem tall), or in the Cosmos
+   * under its band (7.5rem), and scrolls inside, so it never covers them at any text size. A wheel
+   * or a drag on a control scrolls it; the bar's empty space lets taps through to the scene.
+   */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-auto-flow: row dense;
+      align-items: end;
+      max-height: calc(100dvh - 3.5rem);
+      overflow-y: auto;
+    }
+    .bottom.under-band {
+      max-height: calc(100dvh - 7.5rem);
+    }
+    .cosmos,
+    .bottom > :global(.ribbon) {
+      grid-column: 1 / -1;
+      justify-self: center;
+    }
+    .cosmos {
+      position: static;
+      max-width: calc(100% - 1.5rem);
+      max-height: 30vh;
+      overflow-y: auto;
+    }
+    .play {
+      grid-column: 1;
+    }
+    .time {
+      position: static;
+      grid-column: 2;
+      margin-right: 0.75rem;
+    }
+    .play :global(.beat-line) {
+      max-height: 4rem;
+    }
+  }
+  /*
+   * Portrait (ADR 0014 item 15): the title and the drawer button take a row above the scene, and the
+   * time controls and the Cosmos panel rows in the bottom bar, so no control is over the canvas. The
+   * story lines scroll in a strip of a fixed height, so a new line does not move the canvas.
+   */
+  @media (orientation: portrait) {
+    .top {
+      display: flex;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      box-sizing: border-box;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .title,
+    .drawer {
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
+    }
+    .beat {
+      display: block;
+      align-self: stretch;
+      padding: 0 0.75rem;
+    }
+    .cosmos {
+      position: static;
+      align-self: center;
+      max-width: calc(100% - 1.5rem);
+      /* The panel scrolls inside, so its controls stay in reach and the canvas keeps its height. */
+      max-height: 30vh;
+      overflow-y: auto;
+    }
+    /* The bar has a ceiling that leaves the scene its 12rem, and scrolls inside it. */
+    .bottom {
+      max-height: calc(100dvh - var(--top-row, 0px) - 12rem);
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+    .bottom > :global(*) {
+      flex: none;
+    }
+    .time {
+      position: static;
+      align-self: flex-end;
+      margin: 0 0.75rem 0.5rem;
+    }
+  }
   .end {
     position: absolute;
     inset: 0;
@@ -1201,13 +1417,5 @@
   }
   .activity :global(p) {
     margin: 0.25rem 0;
-  }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 </style>

@@ -39,5 +39,8 @@ export function lite(
     decks: [],
     islets: [],
     mushroom: null,
+    season: 'spring',
+    day: 0,
+    gateDark: false,
   };
 }

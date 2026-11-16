@@ -19,10 +19,12 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
+    "test:offline": "playwright test -c playwright.offline.config.ts",
     "validate-content": "node tools/content-validate/validate.ts",
     "rig": "node tools/svg-to-rig/cli.ts"
   },
   "dependencies": {
+    "@fontsource/atkinson-hyperlegible": "5.3.0",
     "inkjs": "2.4.0",
     "pixi.js": "8.22.0",
     "svelte": "5.57.3",

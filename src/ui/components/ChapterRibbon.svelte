@@ -51,12 +51,4 @@
     min-height: 2rem;
     padding: 0.25rem 0.75rem;
   }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 </style>

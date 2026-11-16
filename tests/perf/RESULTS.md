@@ -19,3 +19,47 @@ The same machine passed the e2e test (golden hash in the real worker) in Chromiu
 ## Cloud container (smoke check only)
 
 Headless Chromium with software rendering and no GPU. The timing asserts do not apply there. Mean about 31 ms at d17a27f, because software rendering fills every body. 1 draw call.
+
+# Perf results: the Meadow (M4, test T9)
+
+CI checks the draw-call budget only (`tests/e2e/budget.spec.ts`: at most 100 a frame). Frame times are your measurement on real devices (ADR 0014 item 16). The probe is `dev/perf.html?scene=meadow&n=30&seconds=30`. It draws the heaviest Meadow: 30 creatures, fog, the lens, the heat map, the brook with two bridges, a lantern, the mushroom, and two paths. It skips a 1 s warm-up. It then times a 60-frame postcard GIF encode at 480 x 318.
+
+## Your steps
+
+### Reference desktop
+
+1. Open a terminal in the project folder.
+2. Run `PERF_HEADED=1 npm run test:perf`.
+3. Wait for both tests to pass. Each takes about 40 s.
+4. Copy the `perf (...)` lines from the output into the table below.
+5. Pass is: mean at most 16.9 ms, p95 at most 20 ms, draw calls at most 100, GIF encode at most 2000 ms.
+
+### Reference phone
+
+1. Name the phone in the blank below. Spec 22 leaves it open.
+2. Connect the phone and the computer to the same network.
+3. Run `npm run dev -- --host`.
+4. Open `/dev/perf.html?scene=meadow&n=30&seconds=30` on the phone. Use the address that the command prints.
+5. Wait 35 s for the page to show the numbers.
+6. Copy the printed numbers into the table below.
+7. Pass is: mean at most 33.4 ms and p95 at most 40 ms.
+
+A failed phone run becomes its own follow-up task. Attach the trace to that task.
+
+Reference phone: ______________________
+
+| Device            | Date | Commit | Frames | Mean | p95 | p99 | Draw calls | GIF encode | Result |
+| ----------------- | ---- | ------ | ------ | ---- | --- | --- | ---------- | ---------- | ------ |
+| Reference desktop |      |        |        |      |     |     |            |            |        |
+| Reference phone   |      |        |        |      |     |     |            | not run    |        |
+
+## Phone proxy (printed only)
+
+`PERF_PHONE=1 npm run test:perf` uses 4x CPU throttling and a 412 x 915 viewport. It never asserts. It does not replace the phone run.
+
+## Cloud container (smoke check only)
+
+Headless Chromium with software rendering and no GPU. The timing asserts do not apply there.
+
+- Meadow, 2026-11-15, smoke only: 189 frames, mean 159 ms, p95 183 ms, p99 200 ms, 10 draw calls, 60-frame GIF encode 201 ms. The frame holds 30 creatures, the brook, 2 bridges, 1 lantern, 2 paths, the mushroom, fog, the lens, and the heat map. Software rendering fills every pixel, so the frame time says nothing about a GPU.
+- Meadow with `PERF_PHONE=1` (proxy, printed only, 412 x 915 canvas): mean 93 ms, p95 117 ms, 10 draw calls, GIF encode 645 ms.

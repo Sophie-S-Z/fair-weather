@@ -1,9 +1,19 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { Dials } from '../../sim/types.ts';
   import type { peekRule } from '../../story/peek.ts';
   import type { Note as NoteData } from '../../story/schema.ts';
   import Note from './Note.svelte';
+  import { PHONE, watchMedia } from '../phone.ts';
+  import { trapFocus } from '../trap-focus.ts';
+
+  /** Below 600 pixels wide the open drawer is a modal sheet: Tab stays in it (the screen makes the rest inert). */
+  let phone = $state(false);
+  onMount(() =>
+    watchMedia(PHONE, (m) => {
+      phone = m;
+    }),
+  );
 
   type Section = 'diary' | 'peek' | 'notes';
 
@@ -13,6 +23,7 @@
     openAt,
     open = $bindable(false),
     onBook,
+    onLimits,
     onJournal,
   }: {
     notes: readonly NoteData[];
@@ -36,6 +47,8 @@
     open?: boolean;
     /** Opens the Book of Skies; the button shows only when this is given. */
     onBook?: (() => void) | undefined;
+    /** Opens the "Where this model is wrong" page; the button shows under the margin notes when this is given. */
+    onLimits?: (() => void) | undefined;
     /** Opens the travel journal; the button shows only when this is given (Part 2). */
     onJournal?: (() => void) | undefined;
   } = $props();
@@ -105,7 +118,7 @@
   {#if open}
     <!-- Escape from anywhere inside the open drawer closes it. -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div id="drawer-panel" class="panel" bind:this={panel} onkeydown={onKey}>
+    <div id="drawer-panel" class="panel" bind:this={panel} onkeydown={onKey} use:trapFocus={phone}>
       {#if diary}
         <section aria-labelledby="diary-title" tabindex="-1" bind:this={sections.diary}>
           <h2 id="diary-title">Diary: {diary.name}</h2>
@@ -157,6 +170,9 @@
         {#each notes as note, i (i)}
           <Note {note} />
         {/each}
+        {#if onLimits}
+          <button type="button" onclick={onLimits}>Where this model is wrong</button>
+        {/if}
       </section>
       {#if onJournal}
         <button type="button" onclick={onJournal}>Travel journal</button>
@@ -223,5 +239,16 @@
   td {
     padding: 0.1rem 0.5rem 0.1rem 0;
     text-align: left;
+  }
+  /* Below 600 pixels the open drawer is a full-screen sheet (ADR 0014 item 15). */
+  @media (max-width: 599.98px) {
+    .panel {
+      position: fixed;
+      inset: 0;
+      width: auto;
+      max-height: none;
+      border-width: 0;
+      border-radius: 0;
+    }
   }
 </style>

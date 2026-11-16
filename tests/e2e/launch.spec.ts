@@ -417,6 +417,8 @@ test.describe('on a phone', () => {
     await page.getByText('Weather', { exact: true }).tap();
     const panel = page.locator('details[open]');
     await expect(panel).toBeVisible();
+    // The sheet traps Tab from its toggle event, which comes a task after the panel opens.
+    await expect(page.locator('details:not([open])').first()).toHaveAttribute('inert', '');
     for (let i = 0; i < 14; i++) {
       await page.keyboard.press('Tab');
       expect(await focusOutside(page, 'details[open]')).toBeNull();

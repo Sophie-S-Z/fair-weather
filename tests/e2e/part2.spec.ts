@@ -45,11 +45,11 @@ const BENCH = { x: 600, y: 430 };
 const CURSOR_STEP = 20;
 /** Each chapter's first story line (content/ink): the runner has taken its first snapshot. */
 const INTRO: Record<string, string> = {
-  'Murmuration Fen': 'Starlings sit in the reeds',
-  'Hearsay Hollow': 'The press runs by the square',
-  'Foglight Heights': 'Fog fills the low ground',
-  'Toadstool Council': 'The council votes at dusk',
-  'Lily Shallows': 'Each frog wants only a few pad-mates',
+  'Murmuration Fen': 'Starlings crowd the reeds of Murmuration Fen',
+  'Hearsay Hollow': 'In Hearsay Hollow the press never stops',
+  'Foglight Heights': 'Fog fills the low ground of Foglight Heights',
+  'Toadstool Council': 'The Toadstool Council votes at dusk',
+  'Lily Shallows': 'Each frog of Lily Shallows wants only a few pad-mates',
   Halcyon: 'A calm meadow lies over a mirror sea',
   'The Homecoming': 'You walk back over the ridge',
 };

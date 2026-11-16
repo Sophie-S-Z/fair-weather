@@ -66,8 +66,9 @@ test('fog lies on low ground and the meadow is clear', () => {
   const w = foglightWorld([]);
   const { fog: cells, fogW } = w.fields;
   const fogAt = (x: number, y: number) => cells[Math.floor(y / 40) * fogW + Math.floor(x / 40)];
-  expect(fogAt(...at(7, 4))).toBeCloseTo((6 - 1) / 6);
-  expect(fogAt(...at(4, 4))).toBeCloseTo((6 - 5) / 6);
+  const below = t.foglight.fogBelow;
+  expect(fogAt(...at(7, 4))).toBeCloseTo((below - 1) / below);
+  expect(fogAt(...at(3, 4))).toBeCloseTo((below - 4) / below);
   expect(fogAt(...at(15, 4))).toBe(0);
 });
 

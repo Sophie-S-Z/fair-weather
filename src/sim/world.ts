@@ -213,6 +213,7 @@ function packState(p: NonNullable<Scenario['pack']>, tuning: Tuning): PackState 
         slotOf: {},
         songs: Object.fromEntries(Object.entries(p.songs).map(([k, v]) => [k, [...v]])),
         heroSong: null,
+        sangOn: null,
         variety: p.variety === true,
         settled: false,
       };

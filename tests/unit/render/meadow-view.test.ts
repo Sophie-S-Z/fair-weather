@@ -54,6 +54,7 @@ const autumn = PaletteSchema.parse(autumnJson);
 const tuning = parseTuning(tuningJson);
 const options = {
   lensRadius: tuning.light.lensRadius,
+  sight: { plain: tuning.foglight.sight, kite: tuning.foglight.kiteSight },
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 };

@@ -17,6 +17,9 @@ import fenJson from '../../content/valleys/fen.json';
 import halcyonJson from '../../content/valleys/halcyon.json';
 import homeJson from '../../content/valleys/home.json';
 import hollowJson from '../../content/valleys/hollow.json';
+import foglightJson from '../../content/valleys/foglight.json';
+import councilJson from '../../content/valleys/council.json';
+import shallowsJson from '../../content/valleys/shallows.json';
 import type { WorldLite } from '../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../src/sim-host/worker-core.ts';
 import { parseTuning } from '../../src/sim/tuning.ts';
@@ -73,7 +76,7 @@ test('the seed-1 year log through ch9 tells five verses with no open slot', asyn
 });
 
 // ADR 0013 items 10 and 18: Kith from the year's end (the bridge's base: spring, the first bench,
-// Wisp gone), counting the homecoming's days, runs silently through the three valleys in order.
+// Wisp gone), counting the homecoming's days, runs silently through the six valleys in order.
 // Each valley's leg starts with the nudge of the T3 player's postcard, its first.
 test('Kith after Part 2 gives the stored home carry, and it held', async () => {
   const { results, carries } = await year;
@@ -100,7 +103,8 @@ test('Kith after Part 2 gives the stored home carry, and it held', async () => {
     { now: () => 0, every: () => () => undefined },
   );
   core({ t: 'init', seed: 1, tuning: tuningJson, scenario });
-  for (const [i, valley] of [fenJson, hollowJson, halcyonJson].entries()) {
+  const valleys = [fenJson, hollowJson, foglightJson, councilJson, shallowsJson, halcyonJson];
+  for (const [i, valley] of valleys.entries()) {
     const card = ChapterSchema.parse(valley).valley?.postcards[0];
     if (!card) throw new Error(`${valley.id} has no postcard`);
     const leg = kithLeg(i, card, home);

@@ -183,8 +183,9 @@ export const shallows: RulePack = {
 
   /**
    * `learn` takes the first song of a frog in reach as the hero's; `sing` teaches the hero's song to
-   * a frog in reach that knows one song, not that one (event `song`), and at shallows.varietyAt frogs
-   * who know two the variety rule turns on (event `variety`). Other verbs do nothing here. No draws.
+   * a frog in reach that knows one song, not that one (event `song`), at most once a day, and at
+   * shallows.varietyAt frogs who know two the variety rule turns on (event `variety`). Other verbs do
+   * nothing here. No draws.
    */
   onVerb(world: World, verb, t: Tuning) {
     const s = shallowsOf(world);
@@ -195,11 +196,12 @@ export const shallows: RulePack = {
       if (song) s.heroSong = song;
       return [];
     }
-    if (verb.verb !== 'sing' || s.heroSong === null) return [];
+    if (verb.verb !== 'sing' || s.heroSong === null || s.sangOn === world.day) return [];
     const to = inReach(world, verb.to, t);
     const known = to && s.songs[to.id];
     if (!to || known?.length !== 1 || known.includes(s.heroSong)) return [];
     known.push(s.heroSong);
+    s.sangOn = world.day;
     const out: SimEvent[] = [{ t: 'song', who: to.id, song: s.heroSong }];
     const bilingual = Object.values(s.songs).filter((x) => x.length > 1).length;
     if (!s.variety && bilingual >= t.shallows.varietyAt) {

@@ -1,9 +1,10 @@
 // Keyboard play (spec 12.5). The Game screen supplies the InputContext.
 import type { ViewName } from './zoom.ts';
 import type { BidReply, Command, GiftMove, HeroKind, Rect } from '../sim/types.ts';
+import type { WorldLite } from '../sim-host/protocol.ts';
 import { tuning } from '../story/tuning.ts';
 import type { Verb, VerbInput, WorldVerb } from '../story/verbs.ts';
-import { keyboardTools, snapToBench, snapToWater, type BenchSpot, type Point } from './verbs.ts';
+import { keyboardTools, nearest, snapToBench, snapToWater, type BenchSpot, type Point } from './verbs.ts';
 
 export type InputContext = {
   /** The chapter's unlocked verbs; the world verbs among them are the tools. */
@@ -53,6 +54,8 @@ export type InputContext = {
   heroFlying: () => boolean;
   /** The keepsakes the hero still holds, in order. */
   keepsakes: () => readonly string[];
+  /** The valley's pack in the last snapshot (Step down's state, the council's spots), or null. */
+  pack: () => WorldLite['pack'];
 };
 
 /** The hero's creature id (sim/types.ts HERO, which input may not import as a value). */
@@ -163,6 +166,20 @@ export function useTool(ctx: InputContext, at: Point, clear: boolean, dir: Point
       break;
     case 'pose':
       ctx.act({ verb: 'pose' });
+      break;
+    case 'stepDown': {
+      const pack = ctx.pack();
+      if (pack?.id === 'foglight') ctx.act({ verb: 'stepDown', on: !pack.stepDown });
+      break;
+    }
+    case 'vote': {
+      const pack = ctx.pack();
+      const spot = pack?.id === 'council' ? nearest(pack.spots, at) : undefined;
+      if (spot) ctx.act({ verb: 'vote', spot: spot.id });
+      break;
+    }
+    case 'sing':
+      if (picked !== null && picked !== HERO) ctx.act({ verb: 'sing', to: picked });
       break;
     case 'keepsake': {
       const item = ctx.keepsakes()[0];
@@ -281,6 +298,8 @@ export function keyRows(s: KeyScreen): KeyRow[] {
     if (s.heroKind === 'seedcarrier')
       add('L', 'With Manner: plant a seed. Your hero must carry enough berries');
   }
+  if (has('vote')) add('Enter', 'With Vote: vote for the stake nearest the cursor');
+  if (has('sing')) add('L', "With Sing: learn the picked frog's song");
   if (has('peek')) add('P', 'Look under the hood of the picked creature');
   if (!sandbox && has('rewind'))
     add(
@@ -356,6 +375,9 @@ export function createKeyboard(target: EventTarget, ctx: InputContext): () => vo
       ctx.heroBerries() >= tuning.knack.seedCost
     ) {
       ctx.act({ verb: 'plant' });
+    } else if (lower === 'l' && activeTool(ctx) === 'sing') {
+      const picked = ctx.picked();
+      if (picked !== null && picked !== HERO) ctx.act({ verb: 'learn', from: picked });
     } else if (lower === 'w' && activeTool(ctx) === 'walk') {
       const picked = ctx.picked();
       if (picked !== null) waveAt(ctx, picked);

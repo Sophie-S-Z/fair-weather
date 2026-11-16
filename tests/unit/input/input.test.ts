@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { WorldLite } from '../../../src/sim-host/protocol.ts';
 import {
   createHelpKey,
   createKeyboard,
@@ -71,6 +72,7 @@ function context(over: Partial<InputContext> = {}) {
     heroKind: () => 'lantern',
     heroBerries: () => 3,
     heroFlying: () => false,
+    pack: () => null,
     keepsakes: () => ['starling-feather', 'clipping'],
     ...over,
   };
@@ -693,6 +695,61 @@ describe('Part 2 tools', () => {
     expect([...up.acts, ...down.acts]).toEqual([
       { verb: 'join', on: true },
       { verb: 'join', on: false },
+    ]);
+  });
+  it('Step down: Enter steps down, or keeps to high ground while stepping down', () => {
+    const fog = (stepDown: boolean) => () =>
+      ({
+        id: 'foglight',
+        cols: 1,
+        heights: [0],
+        meadow: 9,
+        guide: 'brume',
+        following: false,
+        stepDown,
+      }) as WorldLite['pack'];
+    const down = setup({ tools: () => ['walk', 'stepDown', 'manner'], pack: fog(false) });
+    down.press('2');
+    down.press('Enter');
+    const up = setup({ tools: () => ['walk', 'stepDown', 'manner'], pack: fog(true) });
+    up.press('2');
+    up.press('Enter');
+    expect([...down.acts, ...up.acts]).toEqual([
+      { verb: 'stepDown', on: true },
+      { verb: 'stepDown', on: false },
+    ]);
+  });
+  it('Vote: Enter votes for the stake nearest the cursor', () => {
+    const spots = [
+      { id: 'near', x: 100, y: 100, wet: 0, far: 0 },
+      { id: 'far', x: 900, y: 100, wet: 1, far: 1 },
+    ];
+    const pack = () =>
+      ({
+        id: 'council',
+        spots,
+        rule: 'plurality',
+        proposed: null,
+        heroVote: null,
+        winner: null,
+      }) as WorldLite['pack'];
+    const s = setup({ tools: () => ['walk', 'vote', 'manner'], pack, cursor: () => ({ x: 700, y: 300 }) });
+    s.press('2');
+    s.press('Enter');
+    expect(s.acts).toEqual([{ verb: 'vote', spot: 'far' }]);
+  });
+  it('Sing: Enter sings to the picked frog and L learns its song; nothing for the hero or no pick', () => {
+    const s = setup({ tools: () => ['walk', 'sing', 'manner'], picked: () => 'frog-1' });
+    s.press('2');
+    s.press('Enter');
+    s.press('l');
+    const none = setup({ tools: () => ['walk', 'sing', 'manner'], picked: () => 'hero' });
+    none.press('2');
+    none.press('Enter');
+    none.press('l');
+    expect([...s.acts, ...none.acts]).toEqual([
+      { verb: 'sing', to: 'frog-1' },
+      { verb: 'learn', from: 'frog-1' },
     ]);
   });
   it('Pose: Enter poses', () => {

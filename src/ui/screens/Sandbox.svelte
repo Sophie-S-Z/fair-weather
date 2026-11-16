@@ -622,6 +622,7 @@
           heroKind: () => null,
           heroBerries: () => 0,
           heroFlying: () => false,
+          pack: () => null,
           keepsakes: () => [],
         };
         offs.push(game.input.createKeyboard(sceneEl, ctx));

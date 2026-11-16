@@ -117,21 +117,21 @@
     "everyTicks": 10,
     "sight": 1,
     "kiteSight": 2,
-    "fogBelow": 6,
+    "fogBelow": 5,
     "followRadii": 2,
     "carrySpeed": 0.5
   },
   "council": { "warmth": 0.1 },
   "shallows": {
-    "everyTicks": 20,
+    "everyTicks": 50,
     "minShare": 0.3333333333333333,
     "maxShare": 0.9,
     "varietyAt": 3,
     "padCap": 8,
     "slot": 30,
     "reachRadii": 2,
-    "sortedAt": 0.9,
-    "mixedAt": 0.7
+    "sortedAt": 0.8,
+    "mixedAt": 0.5
   },
   "cards": { "likedFriends": 3 }
 }

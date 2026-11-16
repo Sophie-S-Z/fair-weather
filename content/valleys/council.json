@@ -1,0 +1,119 @@
+{
+  "id": "council",
+  "kind": "valley",
+  "scenario": "council",
+  "palette": "council",
+  "valley": {
+    "pack": "council",
+    "guide": "ambry",
+    "postcards": ["listening", "remembering"],
+    "keepsake": {
+      "id": "ballot-chit",
+      "label": "A ballot chit"
+    },
+    "drawingAlt": "[PLACEHOLDER] A ring of toadstools under one rain cloud. Four stakes mark where the rain can fall.",
+    "locals": [
+      "[PLACEHOLDER] The cloud goes where the most of us point.",
+      "[PLACEHOLDER] Mossbank and Rootstep split our votes again.",
+      "[PLACEHOLDER] Ambry counts every chit twice."
+    ]
+  },
+  "title": "Toadstool Council",
+  "season": "summer",
+  "scene": "council",
+  "dayLengthSeconds": 200,
+  "carry": false,
+  "verbs": ["walk", "vote", "manner", "zoom", "peek"],
+  "newVerb": "vote",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "council_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "ink": "council_intro"
+        }
+      ]
+    },
+    {
+      "id": "council_heard",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "ink": "council_heard"
+        },
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "council_card",
+      "trigger": {
+        "closeCall": true
+      },
+      "actions": [
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "council_sent",
+      "trigger": {
+        "postcard": true
+      },
+      "actions": [
+        {
+          "ink": "council_sent"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "ruleHeard",
+    "withinDays": 3,
+    "retryArrange": ["ambry", "toadstool-1"],
+    "retries": 0
+  },
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "council_sent"
+  },
+  "feeling": "[PLACEHOLDER] Listening, fairness",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] The split vote",
+      "science": "[PLACEHOLDER] When two near spots share their friends, a third spot can win with fewer.",
+      "limits": "[PLACEHOLDER] Real elections have many more voters and reasons.",
+      "counter": "[PLACEHOLDER] Plurality is simple, and simple has value.",
+      "question": "[PLACEHOLDER] Which rule would you trust?",
+      "sources": [
+        {
+          "label": "To Build a Better Ballot, Nicky Case",
+          "url": "https://ncase.me/ballot/"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Other ways to count",
+      "science": "[PLACEHOLDER] Approval, runoff, and score count the same wishes in other ways.",
+      "limits": "[PLACEHOLDER] No rule is fair in every case.",
+      "counter": "[PLACEHOLDER] A rule that finds a compromise can leave nobody glad.",
+      "question": "[PLACEHOLDER] What does a rule hide?",
+      "sources": [
+        {
+          "label": "To Build a Better Ballot, Nicky Case",
+          "url": "https://ncase.me/ballot/"
+        }
+      ]
+    }
+  ]
+}

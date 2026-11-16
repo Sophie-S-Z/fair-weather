@@ -23,6 +23,9 @@ import ch10 from '../content/chapters/ch10.json';
 import bridge from '../content/chapters/bridge.json';
 import fen from '../content/valleys/fen.json';
 import hollow from '../content/valleys/hollow.json';
+import foglight from '../content/valleys/foglight.json';
+import council from '../content/valleys/council.json';
+import shallows from '../content/valleys/shallows.json';
 import halcyon from '../content/valleys/halcyon.json';
 import home from '../content/valleys/home.json';
 import inkStory from '../content/ink/main.ink';
@@ -228,6 +231,9 @@ const chapters = [
   bridge,
   fen,
   hollow,
+  foglight,
+  council,
+  shallows,
   halcyon,
   home,
 ].map((c) => ChapterSchema.parse(c));
@@ -973,6 +979,7 @@ const game: GameService = {
     let scene = firstScene;
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
+      sight: { plain: tuning.foglight.sight, kite: tuning.foglight.kiteSight },
       cast,
       gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
     });

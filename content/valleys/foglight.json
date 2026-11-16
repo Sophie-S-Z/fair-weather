@@ -1,0 +1,119 @@
+{
+  "id": "foglight",
+  "kind": "valley",
+  "scenario": "foglight",
+  "palette": "foglight",
+  "valley": {
+    "pack": "foglight",
+    "guide": "brume",
+    "postcards": ["patience", "wandering"],
+    "keepsake": {
+      "id": "spiral-shell",
+      "label": "A spiral shell"
+    },
+    "drawingAlt": "[PLACEHOLDER] A snail on a small hill in the fog. Far off, a bright meadow stands above the clouds.",
+    "locals": [
+      "[PLACEHOLDER] Always climb. Never go down.",
+      "[PLACEHOLDER] This hill is the highest place there is.",
+      "[PLACEHOLDER] Brume stopped climbing long ago."
+    ]
+  },
+  "title": "Foglight Heights",
+  "season": "spring",
+  "scene": "foglight",
+  "dayLengthSeconds": 360,
+  "carry": false,
+  "verbs": ["walk", "stepDown", "manner", "zoom", "peek"],
+  "newVerb": "stepDown",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "foglight_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "ink": "foglight_intro"
+        }
+      ]
+    },
+    {
+      "id": "foglight_climbed",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "ink": "foglight_climbed"
+        },
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "foglight_card",
+      "trigger": {
+        "closeCall": true
+      },
+      "actions": [
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "foglight_sent",
+      "trigger": {
+        "postcard": true
+      },
+      "actions": [
+        {
+          "ink": "foglight_sent"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "brumeClimbs",
+    "withinDays": 3,
+    "retryArrange": ["brume", "snail-1"],
+    "retries": 0
+  },
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "foglight_sent"
+  },
+  "feeling": "[PLACEHOLDER] Patience, a step back",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Stuck on a small hill",
+      "science": "[PLACEHOLDER] A climber that only goes up stops on the first top it finds.",
+      "limits": "[PLACEHOLDER] Real searchers can remember, jump, or look far.",
+      "counter": "[PLACEHOLDER] Sometimes the small hill is good enough.",
+      "question": "[PLACEHOLDER] When did you go down to go further up?",
+      "sources": [
+        {
+          "label": "Hill climbing, Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Hill_climbing"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] Fog and a short sight",
+      "science": "[PLACEHOLDER] With a short view, every top looks like the highest.",
+      "limits": "[PLACEHOLDER] A map of real land is not a map of every choice.",
+      "counter": "[PLACEHOLDER] A guide who sees one ridge more can help.",
+      "question": "[PLACEHOLDER] Who saw further than you?",
+      "sources": [
+        {
+          "label": "Hill climbing, Wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Hill_climbing"
+        }
+      ]
+    }
+  ]
+}

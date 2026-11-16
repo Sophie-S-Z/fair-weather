@@ -87,6 +87,7 @@ function packLite(w: World, tuning: Tuning): WorldLite['pack'] {
         padOf: { ...p.padOf },
         songs: Object.fromEntries(Object.entries(p.songs).map(([k, v]) => [k, [...v]])),
         heroSong: p.heroSong,
+        sangToday: p.sangOn === w.day,
         variety: p.variety,
         sorting: sorting(w),
       };

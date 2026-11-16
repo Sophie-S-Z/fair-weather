@@ -1,0 +1,576 @@
+{
+  "valleyId": "shallows",
+  "season": "summer",
+  "creatures": [
+    {
+      "id": "pell",
+      "speciesId": "frog",
+      "name": "Pell",
+      "x": 350,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-1",
+      "speciesId": "frog",
+      "name": "Frog 1",
+      "x": 350,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-2",
+      "speciesId": "frog",
+      "name": "Frog 2",
+      "x": 350,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-3",
+      "speciesId": "frog",
+      "name": "Frog 3",
+      "x": 350,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-4",
+      "speciesId": "frog",
+      "name": "Frog 4",
+      "x": 350,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-5",
+      "speciesId": "frog",
+      "name": "Frog 5",
+      "x": 800,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-6",
+      "speciesId": "frog",
+      "name": "Frog 6",
+      "x": 800,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-7",
+      "speciesId": "frog",
+      "name": "Frog 7",
+      "x": 800,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-8",
+      "speciesId": "frog",
+      "name": "Frog 8",
+      "x": 800,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-9",
+      "speciesId": "frog",
+      "name": "Frog 9",
+      "x": 800,
+      "y": 260,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-10",
+      "speciesId": "frog",
+      "name": "Frog 10",
+      "x": 1250,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-11",
+      "speciesId": "frog",
+      "name": "Frog 11",
+      "x": 1250,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-12",
+      "speciesId": "frog",
+      "name": "Frog 12",
+      "x": 1250,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-13",
+      "speciesId": "frog",
+      "name": "Frog 13",
+      "x": 1250,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-14",
+      "speciesId": "frog",
+      "name": "Frog 14",
+      "x": 1250,
+      "y": 330,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-15",
+      "speciesId": "frog",
+      "name": "Frog 15",
+      "x": 350,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-16",
+      "speciesId": "frog",
+      "name": "Frog 16",
+      "x": 350,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-17",
+      "speciesId": "frog",
+      "name": "Frog 17",
+      "x": 350,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-18",
+      "speciesId": "frog",
+      "name": "Frog 18",
+      "x": 350,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-19",
+      "speciesId": "frog",
+      "name": "Frog 19",
+      "x": 350,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-20",
+      "speciesId": "frog",
+      "name": "Frog 20",
+      "x": 800,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-21",
+      "speciesId": "frog",
+      "name": "Frog 21",
+      "x": 800,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-22",
+      "speciesId": "frog",
+      "name": "Frog 22",
+      "x": 800,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-23",
+      "speciesId": "frog",
+      "name": "Frog 23",
+      "x": 800,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-24",
+      "speciesId": "frog",
+      "name": "Frog 24",
+      "x": 800,
+      "y": 700,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-25",
+      "speciesId": "frog",
+      "name": "Frog 25",
+      "x": 1250,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-26",
+      "speciesId": "frog",
+      "name": "Frog 26",
+      "x": 1250,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-27",
+      "speciesId": "frog",
+      "name": "Frog 27",
+      "x": 1250,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-28",
+      "speciesId": "frog",
+      "name": "Frog 28",
+      "x": 1250,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    },
+    {
+      "id": "frog-29",
+      "speciesId": "frog",
+      "name": "Frog 29",
+      "x": 1250,
+      "y": 640,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.2
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 120,
+      "y": 200,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 1500,
+      "y": 200,
+      "berries": 5
+    },
+    {
+      "id": "bush-3",
+      "x": 800,
+      "y": 840,
+      "berries": 5
+    }
+  ],
+  "structures": [],
+  "pack": {
+    "id": "shallows",
+    "pads": [
+      {
+        "id": "pad-1",
+        "x": 350,
+        "y": 330
+      },
+      {
+        "id": "pad-2",
+        "x": 800,
+        "y": 260
+      },
+      {
+        "id": "pad-3",
+        "x": 1250,
+        "y": 330
+      },
+      {
+        "id": "pad-4",
+        "x": 350,
+        "y": 640
+      },
+      {
+        "id": "pad-5",
+        "x": 800,
+        "y": 700
+      },
+      {
+        "id": "pad-6",
+        "x": 1250,
+        "y": 640
+      }
+    ],
+    "padOf": {
+      "pell": "pad-1",
+      "frog-1": "pad-1",
+      "frog-2": "pad-1",
+      "frog-3": "pad-1",
+      "frog-4": "pad-1",
+      "frog-5": "pad-2",
+      "frog-6": "pad-2",
+      "frog-7": "pad-2",
+      "frog-8": "pad-2",
+      "frog-9": "pad-2",
+      "frog-10": "pad-3",
+      "frog-11": "pad-3",
+      "frog-12": "pad-3",
+      "frog-13": "pad-3",
+      "frog-14": "pad-3",
+      "frog-15": "pad-4",
+      "frog-16": "pad-4",
+      "frog-17": "pad-4",
+      "frog-18": "pad-4",
+      "frog-19": "pad-4",
+      "frog-20": "pad-5",
+      "frog-21": "pad-5",
+      "frog-22": "pad-5",
+      "frog-23": "pad-5",
+      "frog-24": "pad-5",
+      "frog-25": "pad-6",
+      "frog-26": "pad-6",
+      "frog-27": "pad-6",
+      "frog-28": "pad-6",
+      "frog-29": "pad-6"
+    },
+    "songs": {
+      "pell": ["old"],
+      "frog-1": ["reed"],
+      "frog-2": ["rain"],
+      "frog-3": ["rain"],
+      "frog-4": ["old"],
+      "frog-5": ["rain"],
+      "frog-6": ["rain"],
+      "frog-7": ["old"],
+      "frog-8": ["old"],
+      "frog-9": ["reed"],
+      "frog-10": ["old"],
+      "frog-11": ["old"],
+      "frog-12": ["reed"],
+      "frog-13": ["reed"],
+      "frog-14": ["rain"],
+      "frog-15": ["reed"],
+      "frog-16": ["reed"],
+      "frog-17": ["rain"],
+      "frog-18": ["rain"],
+      "frog-19": ["old"],
+      "frog-20": ["rain"],
+      "frog-21": ["rain"],
+      "frog-22": ["old"],
+      "frog-23": ["old"],
+      "frog-24": ["reed"],
+      "frog-25": ["old"],
+      "frog-26": ["old"],
+      "frog-27": ["reed"],
+      "frog-28": ["reed"],
+      "frog-29": ["rain"]
+    }
+  }
+}

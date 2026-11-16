@@ -850,6 +850,7 @@
           heroKind: () => next?.hero?.kind ?? null,
           heroBerries: () => heroBerries(next),
           heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+          pack: () => next?.pack ?? null,
           keepsakes: () => next?.hero?.keepsakes ?? [],
         };
         offs.push(game.input.createKeyboard(sceneEl, ctx));
@@ -1110,6 +1111,9 @@
                   onGive={(id: string) => {
                     if (picked !== null && picked !== 'hero') act({ verb: 'keepsake', to: picked, item: id });
                   }}
+                  pack={live?.pack ?? null}
+                  picked={picked === null || picked === 'hero' ? null : { id: picked, name: nameOf(picked) }}
+                  onAct={act}
                 />
               {/if}
             </div>

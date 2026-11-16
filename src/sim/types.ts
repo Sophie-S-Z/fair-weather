@@ -114,6 +114,8 @@ export interface ShallowsState {
   slotOf: Record<string, number>;
   songs: Record<string, Song[]>;
   heroSong: Song | null;
+  /** The day the hero last taught a song: it teaches one a day (ADR 0015 item 16). */
+  sangOn: number | null;
   variety: boolean;
   settled: boolean;
 }

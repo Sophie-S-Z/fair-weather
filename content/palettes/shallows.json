@@ -1,0 +1,28 @@
+{
+  "id": "shallows",
+  "ink": "#2b2a28",
+  "paper": "#fffdf8",
+  "accent": "#8a6cc0",
+  "warmth": "#e5dcef",
+  "leaf": "#a8cfa0",
+  "background": "#eef3ef",
+  "light": {
+    "color": "#ffe08a",
+    "alpha": 0.5
+  },
+  "fog": {
+    "color": "#dfe2e8",
+    "alpha": 0.85
+  },
+  "water": "#bcd9df",
+  "full": ["#e8604c", "#f08a3c", "#f2c84b", "#7bb661", "#4f8fc0", "#8a63b8"],
+  "land": "#e3ead9",
+  "sky": {
+    "top": "#a3c7dd",
+    "horizon": "#f1eedd"
+  },
+  "ground": {
+    "far": "#e6ece2",
+    "near": "#b6d0a2"
+  }
+}

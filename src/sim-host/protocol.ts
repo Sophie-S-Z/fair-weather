@@ -93,6 +93,8 @@ export interface WorldLite {
         padOf: Record<string, string>;
         songs: Record<string, Song[]>;
         heroSong: Song | null;
+        /** True when the hero taught a song today: the next waits for tomorrow. */
+        sangToday: boolean;
         variety: boolean;
         sorting: number;
       }

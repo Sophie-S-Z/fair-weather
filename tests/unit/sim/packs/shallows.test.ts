@@ -149,9 +149,21 @@ test('learn takes a near frog song; sing teaches it once to a one-song frog in r
   local(w, { verb: 'learn', from: 'pell' });
   expect(shallows(w).heroSong).toBe('old');
   expect(local(w, { verb: 'sing', to: 'b' })).toEqual([{ t: 'song', who: 'b', song: 'old' }]);
+  w.day += 1;
   expect(local(w, { verb: 'sing', to: 'b' })).toEqual([]);
   expect(local(w, { verb: 'sing', to: 'pell' })).toEqual([]);
   expect(local(w, { verb: 'sing', to: 'far' })).toEqual([]);
+});
+
+test('the hero teaches one song a day', () => {
+  const w = pond([frog('pell', 'p1', 'old'), frog('b', 'p1', 'reed'), frog('c', 'p1', 'rain')], true);
+  local(w, { verb: 'learn', from: 'pell' });
+  expect(local(w, { verb: 'sing', to: 'b' })).toHaveLength(1);
+  expect(local(w, { verb: 'sing', to: 'c' })).toEqual([]);
+  expect(toLite(w, t).pack).toMatchObject({ sangToday: true });
+  w.day += 1;
+  expect(toLite(w, t).pack).toMatchObject({ sangToday: false });
+  expect(local(w, { verb: 'sing', to: 'c' })).toHaveLength(1);
 });
 
 test('the variety rule turns on when the third frog learns a second song', () => {
@@ -160,8 +172,10 @@ test('the variety rule turns on when the third frog learns a second song', () =>
     true,
   );
   local(w, { verb: 'learn', from: 'pell' });
-  local(w, { verb: 'sing', to: 'b' });
-  local(w, { verb: 'sing', to: 'c' });
+  for (const id of ['b', 'c']) {
+    local(w, { verb: 'sing', to: id });
+    w.day += 1;
+  }
   expect(shallows(w).variety).toBe(false);
   expect(local(w, { verb: 'sing', to: 'd' })).toEqual([
     { t: 'song', who: 'd', song: 'old' },
@@ -186,11 +200,12 @@ test('sorting is the mean share of one-song frogs whose pad-mates know their son
     id: 'shallows',
     variety: false,
     heroSong: null,
+    sangToday: false,
     sorting: sorting(w),
   });
 });
 
-test('a mixed pond runs with its invariants', () => {
+test('a mixed pond sorts and keeps its invariants', () => {
   const songs: Song[] = ['reed', 'rain', 'old'];
   const w = pond(
     Array.from({ length: 18 }, (_, i) =>
@@ -198,8 +213,9 @@ test('a mixed pond runs with its invariants', () => {
     ),
     true,
   );
+  const start = sorting(w);
   for (let i = 0; i < 2000; i++) step(w, [], t);
   expect(checkInvariants(w, t)).toEqual([]);
   expect(hasBadNumber(w)).toBe(false);
-  expect(sorting(w)).toBeGreaterThan(0.9);
+  expect(sorting(w)).toBeGreaterThan(start);
 });

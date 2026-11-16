@@ -1,0 +1,10 @@
+<!-- A toadstool of the Council: a round cap on a stout stem, with a ring at its waist. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 42 90 C 36 90 34 87 34.5 83 C 35 78 35.5 73 36.2 69 C 32.5 68.5 30.5 66.5 31 64.5 C 31.5 63 34 62.3 37.2 62.3 L 37.4 60.4 C 27 60 16.5 58.5 14.5 54.5 C 12 49.5 19.5 37.5 32.5 31.5 C 38.5 28.7 44.5 27.5 50 27.5 C 55.5 27.5 61.5 28.7 67.5 31.5 C 80.5 37.5 88 49.5 85.5 54.5 C 83.5 58.5 73 60 62.6 60.4 L 62.8 62.3 C 66 62.3 68.5 63 69 64.5 C 69.5 66.5 67.5 68.5 63.8 69 C 64.5 73 65 78 65.5 83 C 66 87 64 90 58 90" />
+  <circle id="eye-l" cx="45.5" cy="76" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="54.5" cy="76" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="60" cy="80.5" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="61" x2="100" y2="61" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

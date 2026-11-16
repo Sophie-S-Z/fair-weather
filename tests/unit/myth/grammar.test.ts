@@ -68,7 +68,7 @@ test('the first template whose every condition holds is told, with its slots fil
     text: 'I, Krit, heard 3 rumbles.',
     note: 'You turned against 3 bids.',
   });
-  expect(tell({ rumbles: 3, narrator: 'villager-2' })?.text).toBe('Villager 2 heard 3 rumbles.');
+  expect(tell({ rumbles: 3, narrator: 'villager-2' })?.text).toBe('Burr heard 3 rumbles.');
   expect(tell({ rumbles: 1 })).toEqual({ title: 'The Waking', text: 'The end.', note: null });
 });
 
@@ -82,7 +82,7 @@ test('a template that names the most-lit creature is passed over when nobody was
   );
   expect(tellMyth(skipped, v, displayName).verses[1]?.text).toBe('The end.');
   expect(tellMyth({ ...skipped, mostLit: 'moss' }, v, displayName).verses[1]?.text).toBe(
-    'The eye found Moss.',
+    'The eye found Old Moss.',
   );
 });
 

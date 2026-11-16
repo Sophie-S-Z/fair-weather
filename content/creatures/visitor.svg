@@ -1,0 +1,10 @@
+<!-- The Quiet Visitor: tall and still, with one long plume that it leaves behind. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 45 90.5 C 37 90.5 33.5 85 34.5 77 C 35.5 69 41 64 42.5 57 C 43.5 52 41 48 41 41.5 C 41 34 44.5 29.5 50 29 C 46 25.5 40 24.5 33 27 C 27.5 29 23.5 34 22 40 C 21.5 42 19.8 42 20 39.8 C 21 30 29.5 21 40.5 21.5 C 46 21.8 50.5 24.5 52.8 29.4 C 57 30.5 59 35 59 41.5 C 59 48 56.5 52 57.5 57 C 59 64 64.5 69 65.5 77 C 66.5 85 63 90.5 55 90.5" />
+  <circle id="eye-l" cx="46.2" cy="40" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="53.8" cy="40" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="57.6" cy="44.5" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="52" x2="100" y2="52" />
+  <line id="base" x1="0" y1="88.4" x2="100" y2="88.4" />
+</svg>

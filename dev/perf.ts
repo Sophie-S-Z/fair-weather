@@ -3,7 +3,7 @@
 // lens, the heat map, the brook with two bridges, a lantern, the mushroom, and two paths), then
 // times a 60-frame postcard GIF encode at 480 x 318. The result is also text on the page.
 import { Application } from 'pixi.js';
-import pimJson from '../content/rigs/PLACEHOLDER-pim.rig.json';
+import pimJson from '../content/rigs/pim.rig.json';
 import tuningJson from '../content/tuning.json';
 import scenarioJson from '../content/scenarios/m0.json';
 import { RigSchema } from '../src/render/line/rig.ts';

@@ -1,0 +1,10 @@
+<!-- A villager of Kith: a wide bean with a bobbing feeler. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 43 90 C 29 90 21 84 21 75 C 21 61 30 49 42 46.5 C 44.5 46 47 45.8 49.2 45.8 C 49.6 41 50.8 36 53.3 32.4 C 51 31 50.3 28 52 26 C 54 23.8 57.7 24.6 58.4 27.4 C 59 30 57 32.6 54.4 32.7 C 52.3 36.5 51.6 41 51.6 45.9 C 66 46.6 79 58.5 79 75 C 79 84 71 90 57 90" />
+  <circle id="eye-l" cx="45" cy="62" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="62" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61.5" cy="67" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="66" x2="100" y2="66" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

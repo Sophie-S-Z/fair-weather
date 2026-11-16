@@ -1,0 +1,10 @@
+<!-- Krit, of Kith: a round body under a crown of zigzag spikes that grew in a hungry winter. The keeper. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 31 90.5 24 85 24.5 74 C 25 65 27 56 29 49 C 29.6 46.5 30.2 44 30.5 41.5 L 23 36.5 L 32.5 34 L 29 25 L 38.5 29.5 L 40.5 19.5 L 46.5 27.5 L 51 16 L 55.5 26.5 L 62.5 19 L 63 29 L 71.5 24.5 L 68.5 33.5 L 78 35 L 71 40.5 L 76.5 46.5 L 71.5 48 C 73.5 56 75.5 65 75.5 74 C 76 85 69 90.5 56 90" />
+  <circle id="eye-l" cx="45" cy="51" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="51" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="62" cy="56" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="62" x2="100" y2="62" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

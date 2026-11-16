@@ -1,0 +1,10 @@
+<!-- Ambry, clerk of the Toadstool Council: a tall pointed cap that tips over at the top like a nib. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 42 90 C 36 90 34 87 34.5 83 C 35 78 35.5 72.5 36.2 68 C 28.5 67.5 21.5 65.5 20.5 62 C 19 57 28.5 46.5 35.5 37.5 C 40.5 31 44 23.5 47.5 15.5 C 48.5 13 51.5 11.5 54.5 12.5 C 58.5 14 61 17.5 60 20 C 57.5 18.5 54.5 18 53.5 20 C 53.5 26.5 57.5 34.5 63.5 41.5 C 70.5 50 80.5 57.5 79 62 C 78 65.5 71 67.5 63.8 68 C 64.5 72.5 65 78 65.5 83 C 66 87 64 90 58 90" />
+  <circle id="eye-l" cx="45.5" cy="77" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="54.5" cy="77" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="60" cy="81.5" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="68" x2="100" y2="68" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

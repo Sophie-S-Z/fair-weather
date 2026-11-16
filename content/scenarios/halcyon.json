@@ -20,7 +20,7 @@
     {
       "id": "local-1",
       "speciesId": "kith",
-      "name": "Local 1",
+      "name": "Lull",
       "x": 900,
       "y": 260,
       "berries": 3,
@@ -35,7 +35,7 @@
     {
       "id": "local-2",
       "speciesId": "kith",
-      "name": "Local 2",
+      "name": "Gleam",
       "x": 1060,
       "y": 220,
       "berries": 3,
@@ -50,7 +50,7 @@
     {
       "id": "local-3",
       "speciesId": "kith",
-      "name": "Local 3",
+      "name": "Drowse",
       "x": 1220,
       "y": 300,
       "berries": 3,
@@ -65,7 +65,7 @@
     {
       "id": "local-4",
       "speciesId": "kith",
-      "name": "Local 4",
+      "name": "Balm",
       "x": 1340,
       "y": 420,
       "berries": 3,
@@ -80,7 +80,7 @@
     {
       "id": "local-5",
       "speciesId": "kith",
-      "name": "Local 5",
+      "name": "Hush",
       "x": 980,
       "y": 420,
       "berries": 3,
@@ -95,7 +95,7 @@
     {
       "id": "local-6",
       "speciesId": "kith",
-      "name": "Local 6",
+      "name": "Idle",
       "x": 1140,
       "y": 480,
       "berries": 3,
@@ -110,7 +110,7 @@
     {
       "id": "local-7",
       "speciesId": "kith",
-      "name": "Local 7",
+      "name": "Sheen",
       "x": 900,
       "y": 600,
       "berries": 3,
@@ -125,7 +125,7 @@
     {
       "id": "local-8",
       "speciesId": "kith",
-      "name": "Local 8",
+      "name": "Mere",
       "x": 1260,
       "y": 620,
       "berries": 3,

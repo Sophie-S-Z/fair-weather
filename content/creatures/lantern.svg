@@ -1,0 +1,10 @@
+<!-- The Lantern-bearer, a hero: a round body under a tiny lantern on a bent stalk. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 31 90 25 82 25 69 C 25 52.5 36 41 49.3 40.5 C 49.5 33 52 26 57.5 22.5 C 61 20.3 65 20.5 67.6 22.4 C 66.4 23.2 65.6 24.4 65.6 25.8 C 64 26.4 63 27.8 63 29.6 L 63 33.5 C 63 35.8 64.6 37.4 66.8 37.4 L 69.2 37.4 C 71.4 37.4 73 35.8 73 33.5 L 73 29.6 C 73 27.8 72 26.4 70.4 25.8 C 70.4 23 68.5 20.6 66 20 C 62 19 56.5 20.5 53.3 25 C 51 28.4 50.8 34 51 40.6 C 64 41.6 75 53 75 69 C 75 82 69 90 56 90" />
+  <circle id="eye-l" cx="44.5" cy="60" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="54.5" cy="60" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61" cy="65" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="66" x2="100" y2="66" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

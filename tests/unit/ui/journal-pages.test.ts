@@ -113,7 +113,7 @@ describe('mythBlocks', () => {
     });
     expect(blocks).toEqual([
       { kind: 'title', text: 'Year 2' },
-      { kind: 'note', text: 'Told by Villager 3' },
+      { kind: 'note', text: 'Told by Sorrel' },
       { kind: 'heading', text: 'The Waking' },
       { kind: 'text', text: 'The valley woke.' },
       { kind: 'note', text: 'What the sky did: You blew 5 gusts.' },

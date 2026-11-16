@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
+import pimJson from '../../../content/rigs/pim.rig.json';
 import { bodyColor, crossing, fillOutline } from '../../../src/render/line/fill.ts';
 import { RigSchema } from '../../../src/render/line/rig.ts';
 

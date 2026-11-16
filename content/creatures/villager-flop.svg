@@ -1,0 +1,10 @@
+<!-- A villager of Kith: one ear up, one ear folded down. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 31 90 25.5 83.5 25.5 72 C 25.5 66 26.5 60 28.5 55 C 23 55.5 18.5 52.5 19 48 C 19.5 44 25 42 33 44 C 35.5 41.5 38.5 39.5 42 38.5 C 41.5 32 43.5 24 48 19.5 C 52 24 52.5 31.5 51.5 37.8 C 63.5 38.5 73.5 51 74.5 63 C 75 66 74.5 69 74.5 72 C 74.5 83.5 69 90 56 90" />
+  <circle id="eye-l" cx="45.5" cy="56" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55.5" cy="56" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="62" cy="61" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="65" x2="100" y2="65" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

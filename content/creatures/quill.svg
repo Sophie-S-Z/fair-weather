@@ -1,0 +1,10 @@
+<!-- Quill, editor of the Hearsay Hollow gazette: a frog with a quill pen tucked behind one eye. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 42 90 C 28 90 17.5 85.5 17.5 77 C 17.5 67 24 59 33.5 55 C 33.2 54 33 53 33 52 C 33 46.5 37.5 42 43 42 C 46.5 42 49.3 43.8 50 46.5 C 50.7 43.8 53.5 42 57 42 C 59 42 60.8 42.6 62.3 43.6 C 64.5 35 70 26 78.5 18.5 C 81.5 16 84 18 82 21 C 77 28.5 71.5 37 67.3 47.2 C 66.7 48.6 67 50.3 67 52 C 67 53 66.8 54 66.5 55 C 76 59 82.5 67 82.5 77 C 82.5 85.5 72 90 58 90" />
+  <circle id="eye-l" cx="43" cy="51" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="57" cy="51" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="63" cy="61" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="58" x2="100" y2="58" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

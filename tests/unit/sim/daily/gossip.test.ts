@@ -214,7 +214,7 @@ test('a world without network takes the same draws and gives the same opinions (
   gossip(w, t, rng);
   expect(rng.used()).toBe(2);
   expect(get(w, 'L').opinions.X).toBeCloseTo(0.7, 12);
-  expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf');
+  expect(hashWorld(runGolden())).toBe('c2cb400e2f6e75e5');
 });
 
 test('weighted gossip with the smallest warmths above a threshold of 0 gives no NaN', () => {

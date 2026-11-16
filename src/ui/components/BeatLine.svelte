@@ -11,8 +11,12 @@
   let el: HTMLElement | undefined = $state();
   /** The lines are taller than the strip: it scrolls, so the keyboard needs to reach it. */
   let scrolls = $state(false);
+  /** Lines are above the top of the strip: the top edge fades, so no line shows cut in half. */
+  let above = $state(false);
   const measure = (): void => {
-    if (el) scrolls = el.scrollHeight > el.clientHeight;
+    if (!el) return;
+    scrolls = el.scrollHeight > el.clientHeight;
+    above = el.scrollTop > 0;
   };
   $effect(() => {
     // Each new line scrolls into view; the focus stays where it is.
@@ -35,7 +39,9 @@
 <div
   class="beat-line"
   class:fixed
+  class:above
   bind:this={el}
+  onscroll={measure}
   aria-live="polite"
   aria-relevant="additions"
   role="group"
@@ -63,6 +69,9 @@
   }
   .beat-line p {
     flex: none;
+  }
+  .above {
+    mask-image: linear-gradient(to bottom, transparent, #000 1.5rem);
   }
   .fixed {
     height: 6rem;

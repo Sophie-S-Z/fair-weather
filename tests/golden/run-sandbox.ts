@@ -1,11 +1,17 @@
 // T3 sandbox runs (plan task M4.5): one sandbox setup, headless, over the real worker core in this
 // process, as run-chapter.ts plays a chapter. The sandbox runner sends the player's tools through a
 // direct SimPort; `advance` steps one tick at a time, so the run is deterministic and needs no clock.
+import councilScene from '../../content/scenes/council.json';
 import fenScene from '../../content/scenes/fen.json';
+import foglightScene from '../../content/scenes/foglight.json';
+import shallowsScene from '../../content/scenes/shallows.json';
 import halcyonScene from '../../content/scenes/halcyon.json';
 import hollowScene from '../../content/scenes/hollow.json';
 import kithScene from '../../content/scenes/kith-meadow.json';
+import councilJson from '../../content/scenarios/council.json';
 import fenJson from '../../content/scenarios/fen.json';
+import foglightJson from '../../content/scenarios/foglight.json';
+import shallowsJson from '../../content/scenarios/shallows.json';
 import halcyonJson from '../../content/scenarios/halcyon.json';
 import hollowJson from '../../content/scenarios/hollow.json';
 import m0Json from '../../content/scenarios/m0.json';
@@ -22,6 +28,9 @@ export const SANDBOX_BASES: Record<SandboxValley, Scenario> = {
   kith: m0Json as Scenario,
   fen: fenJson as Scenario,
   hollow: hollowJson as Scenario,
+  foglight: foglightJson as Scenario,
+  council: councilJson as Scenario,
+  shallows: shallowsJson as Scenario,
   halcyon: halcyonJson as Scenario,
 };
 /** Each valley's bench spots, from its scene. */
@@ -29,6 +38,9 @@ const BENCH_SPOTS: Record<SandboxValley, readonly { id: string; x: number; y: nu
   kith: kithScene.benchSpots,
   fen: fenScene.benchSpots,
   hollow: hollowScene.benchSpots,
+  foglight: foglightScene.benchSpots,
+  council: councilScene.benchSpots,
+  shallows: shallowsScene.benchSpots,
   halcyon: halcyonScene.benchSpots,
 };
 

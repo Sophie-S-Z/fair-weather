@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { trapFocus } from '../trap-focus.ts';
-  import { knobValue } from '../../story/sandbox.ts';
   import type { Knob, KnobId, SandboxTool } from '../../story/sandbox.ts';
 
   let {
@@ -18,8 +17,8 @@
     children,
   }: {
     title: string;
-    /** The panel's knobs: each one's step index now, its last index, and why it is off, or null. */
-    knobs: readonly { knob: Knob; index: number; max: number; why: string | null }[];
+    /** The panel's knobs: each one's step index now, its last index, what it shows, and why it is off, or null. */
+    knobs: readonly { knob: Knob; index: number; max: number; text: string; why: string | null }[];
     /** A knob moved to `index`; `input` is its range, which a start that fails puts back. */
     onKnob: (id: KnobId, index: number, input: HTMLInputElement) => void;
     /** The knobs are off while a start waits, and after the worker failed (each one restarts the run). */
@@ -72,7 +71,7 @@
 >
   <summary bind:this={summary}>{title}</summary>
   <div class="body">
-    {#each knobs as { knob, index, max, why } (knob.id)}
+    {#each knobs as { knob, index, max, text, why } (knob.id)}
       <div class="knob">
         <label for="knob-{knob.id}">{knob.label}</label>
         <input
@@ -82,14 +81,14 @@
           {max}
           step="1"
           value={index}
-          aria-valuetext={String(knobValue(knob, index))}
+          aria-valuetext={text}
           disabled={why !== null || locked}
           aria-describedby={why === null ? undefined : `why-${knob.id}`}
           onchange={(e) => {
             onKnob(knob.id, Number(e.currentTarget.value), e.currentTarget);
           }}
         />
-        <span class="value" aria-hidden="true">{knobValue(knob, index)}</span>
+        <span class="value" aria-hidden="true">{text}</span>
         {#if why !== null}
           <p class="why" id="why-{knob.id}">{why}</p>
         {/if}

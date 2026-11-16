@@ -3,16 +3,20 @@
   import type { Writable } from 'svelte/store';
   import type { InputContext } from '../../input/keyboard.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
-  import type { Command, Season } from '../../sim/types.ts';
+  import type { CardThen, CardWhen, Command, RuleCard, Season } from '../../sim/types.ts';
   import { outcome } from '../../story/challenges.ts';
   import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
   import { displayName } from '../../story/names.ts';
   import {
     DEFAULT_SWITCHES,
+    CARD_THEN_LABELS,
+    CARD_WHEN_LABELS,
     KNOBS,
+    MAX_CARDS,
     SANDBOX_TICKS_PER_DAY,
     SANDBOX_TOOLS,
     TOOL_PANEL,
+    knobText,
   } from '../../story/sandbox.ts';
   import type {
     Knob,
@@ -191,6 +195,7 @@
         knob: k,
         index: stepOf(k),
         max: k.steps === 'benchSpots' ? (stage?.benchSpots.length ?? 0) : k.steps,
+        text: knobText(k, setup?.knobs[k.id]),
         why:
           k.id === 'gossipThreshold' && setup?.switches.mixed !== false
             ? 'Turn off Mixed thresholds to give all creatures one threshold.'
@@ -360,11 +365,11 @@
   const startOf = (s: SandboxSetup) => () => game.sandbox.start(s);
 
   /**
-   * A knob or a switch changed: the run starts again from day 0, keeping what the player placed
+   * A knob, a switch, or a rule card changed: the run starts again from day 0, keeping what the player placed
    * (ADR 0014 item 2). `undo` puts the control back when the start fails.
    */
   function restart(
-    change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'>,
+    change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'> | Pick<SandboxSetup, 'cards'>,
     undo: () => void,
     from: HTMLElement,
   ): void {
@@ -403,6 +408,27 @@
       },
       input,
     );
+  }
+
+  const WHENS = Object.keys(CARD_WHEN_LABELS) as CardWhen[];
+  const THENS = Object.keys(CARD_THEN_LABELS) as CardThen[];
+  /** The setup's rule cards: a link without them has none. */
+  const cards = $derived(setup?.cards ?? []);
+  /** The Add button, which gets the focus when Remove takes its own row away. */
+  let addCard = $state<HTMLButtonElement>();
+  /** Card `i`'s `part` changed to the select's value (ADR 0015 item 8); a start that fails puts it back. */
+  function setCard(i: number, part: 'when' | 'then', select: HTMLSelectElement): void {
+    const card = cards[i];
+    if (!card) return;
+    const before = card[part];
+    restart(
+      { cards: cards.with(i, { ...card, [part]: select.value }) },
+      () => (select.value = before),
+      select,
+    );
+  }
+  function setCards(next: RuleCard[]): void {
+    if (addCard) restart({ cards: next }, () => undefined, addCard);
   }
 
   /** Opens a valley from the start choice: the gate's lamp, then the run (its scene comes with it, the palette with its first snapshot). */
@@ -751,6 +777,58 @@
             {tool}
             onTool={pickTool}
           >
+            <fieldset class="choices">
+              <legend>Rule cards</legend>
+              {#each cards as card, i (i)}
+                <div class="card">
+                  <span>When a creature is</span>
+                  <select
+                    aria-label="Card {i + 1}: when a creature is"
+                    value={card.when}
+                    disabled={locked}
+                    onchange={(e) => {
+                      setCard(i, 'when', e.currentTarget);
+                    }}
+                  >
+                    {#each WHENS as w (w)}
+                      <option value={w}>{CARD_WHEN_LABELS[w]}</option>
+                    {/each}
+                  </select>
+                  <span>it</span>
+                  <select
+                    aria-label="Card {i + 1}: it"
+                    value={card.then}
+                    disabled={locked}
+                    onchange={(e) => {
+                      setCard(i, 'then', e.currentTarget);
+                    }}
+                  >
+                    {#each THENS as t (t)}
+                      <option value={t}>{CARD_THEN_LABELS[t]}</option>
+                    {/each}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Remove card {i + 1}"
+                    disabled={locked}
+                    onclick={() => {
+                      setCards(cards.toSpliced(i, 1));
+                    }}>Remove</button
+                  >
+                </div>
+              {:else}
+                <p class="line">With no cards, each creature follows its own dials.</p>
+              {/each}
+              <button
+                type="button"
+                bind:this={addCard}
+                disabled={locked || cards.length >= MAX_CARDS}
+                onclick={() => {
+                  setCards([...cards, { when: 'hungry', then: 'keep' }]);
+                }}>Add a rule card</button
+              >
+              <p class="line">In a meeting, the first card that fits a creature sets its move.</p>
+            </fieldset>
             <p class="line">When you change a rule, the valley starts again from its first day.</p>
             <button type="button" onclick={openLimits}>Where this model is wrong</button>
           </SandboxPanel>
@@ -942,6 +1020,20 @@
   }
   .line {
     margin: 0;
+  }
+  /* A rule card reads as one sentence, and wraps between its parts. */
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem;
+    border: 1px solid var(--fg);
+    border-radius: 0.4rem;
+  }
+  .card select,
+  .card button {
+    min-height: 1.75rem;
   }
   /* Under the scene, between the panels and the time controls. */
   .timeline {

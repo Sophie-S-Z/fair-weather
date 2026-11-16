@@ -260,12 +260,18 @@ const SANDBOX_BASES: Record<SandboxValley, Scenario> = {
   kith: scenarioNamed('m0'),
   fen: scenarioNamed('fen'),
   hollow: scenarioNamed('hollow'),
+  foglight: scenarioNamed('foglight'),
+  council: scenarioNamed('council'),
+  shallows: scenarioNamed('shallows'),
   halcyon: scenarioNamed('halcyon'),
 };
 const SANDBOX_SCENES: Record<SandboxValley, string> = {
   kith: firstScene.id,
   fen: 'fen',
   hollow: 'hollow',
+  foglight: 'foglight',
+  council: 'council',
+  shallows: 'shallows',
   halcyon: 'halcyon',
 };
 /** The creatures of m0, the only ones the Kith the profile keeps holds (ADR 0014 item 1). */

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
+import { SANDBOX_BASES } from '../../golden/run-sandbox.ts';
 import fenJson from '../../../content/scenarios/fen.json';
 import halcyonJson from '../../../content/scenarios/halcyon.json';
-import hollowJson from '../../../content/scenarios/hollow.json';
 import m0Json from '../../../content/scenarios/m0.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
 import tuningJson from '../../../content/tuning.json';
@@ -14,9 +14,11 @@ import {
   GUST_REACH,
   KNOBS,
   KNOB_IDS,
+  MAX_CARDS,
   MAX_ENTRIES,
   SandboxSetupSchema,
   createSandboxRunner,
+  knobText,
   knobValue,
   sandboxScenario,
   sandboxTuning,
@@ -24,12 +26,7 @@ import {
 import type { KnobId, SandboxSetup } from '../../../src/story/sandbox.ts';
 
 const base: Tuning = tuningJson;
-const bases = {
-  kith: m0Json as Scenario,
-  fen: fenJson as Scenario,
-  hollow: hollowJson as Scenario,
-  halcyon: halcyonJson as Scenario,
-};
+const bases = SANDBOX_BASES;
 const spots = sceneJson.benchSpots;
 const knob = (id: KnobId) => {
   const k = KNOBS.find((x) => x.id === id);
@@ -169,6 +166,47 @@ test('a fen setup keeps the fen pack and has no hero; halcyon gets kithWarmth 0'
   const halcyon = build({ valley: 'halcyon' });
   expect(halcyon.pack).toEqual({ ...halcyonJson.pack, kithWarmth: 0 });
   expect(halcyon.season).toBe('summer');
+});
+
+test('knobText shows a named knob by name and an unset knob to two places', () => {
+  expect(knobText(knob('votingRule'), undefined)).toBe('Plurality');
+  expect(knobText(knob('votingRule'), 2)).toBe('Instant runoff');
+  expect(knobText(knob('minShare'), undefined)).toBe('0.33');
+  expect(knobText(knob('minShare'), 4)).toBe('0.2');
+  expect(knobText(knob('snailSight'), 1)).toBe('2');
+});
+
+test('the Stage 2 knobs set sight, the voting rule, and the frog shares; maxShare turns the variety rule on', () => {
+  const t = sandboxTuning(setup({ valley: 'foglight', knobs: { snailSight: 2 } }), base);
+  expect(t.foglight.sight).toBe(3);
+  const council = build({ valley: 'council', knobs: { votingRule: 3 } });
+  expect(council.pack?.id === 'council' && council.pack.rule).toBe('score');
+  const shares = sandboxTuning(setup({ valley: 'shallows', knobs: { minShare: 6, maxShare: 2 } }), base);
+  expect([shares.shallows.minShare, shares.shallows.maxShare]).toEqual([0.3, 0.6]);
+  const pond = (knobs: SandboxSetup['knobs']) => {
+    const p = build({ valley: 'shallows', knobs }).pack;
+    return p?.id === 'shallows' && p.variety === true;
+  };
+  expect(pond({})).toBe(false);
+  expect(pond({ maxShare: 8 })).toBe(true);
+});
+
+test('rule cards come into the scenario as copies; none leaves the field unset; the schema takes at most MAX_CARDS', () => {
+  expect(build().cards).toBeUndefined();
+  expect(build({ cards: [] }).cards).toBeUndefined();
+  const cards = [{ when: 'hungry', then: 'keep' }] as const satisfies SandboxSetup['cards'];
+  const s = setup({ cards: [...cards] });
+  const scenario = sandboxScenario(s, bases, spots);
+  expect(scenario.cards).toEqual(cards);
+  expect(scenario.cards).not.toBe(s.cards);
+  expect(SandboxSetupSchema.parse(s)).toEqual(s);
+  const many = setup({
+    cards: Array.from({ length: MAX_CARDS + 1 }, () => ({ when: 'full', then: 'give' })),
+  });
+  expect(SandboxSetupSchema.safeParse(many).success).toBe(false);
+  expect(
+    SandboxSetupSchema.safeParse(setup({ cards: [{ when: 'kind', then: 'give' }] } as never)).success,
+  ).toBe(false);
 });
 
 test('the setup schema refuses a knob index out of range and a structure id with a space', () => {

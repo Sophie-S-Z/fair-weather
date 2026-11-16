@@ -9,6 +9,7 @@
   import { DIARY, memoryText } from '../../story/diary.ts';
   import { MAX_TRAVELERS, travelerName } from '../../story/traveler.ts';
   import type { Traveler } from '../../story/traveler.ts';
+  import type { KeptLink } from '../../persist/profile.ts';
   import {
     DEFAULT_SWITCHES,
     CARD_THEN_LABELS,
@@ -123,6 +124,8 @@
   /** What Share gave while the Share panel is open, or null. */
   type Shared = Awaited<ReturnType<GameService['sandbox']['share']>>;
   let shared: Shared | null = $state.raw(null);
+  /** The remix tree's links, read as Share opens its panel. */
+  let kept: readonly KeptLink[] = $state.raw([]);
   /** Whether the postcard dialog is open (ADR 0014 item 8). */
   let postcard = $state(false);
   let cursor = $state({ x: 0, y: 0 });
@@ -527,7 +530,9 @@
   /** Share pauses the run and opens the Share panel with what it gave (ADR 0014 item 7). */
   async function share(): Promise<void> {
     try {
-      shared = await game.sandbox.share();
+      const s = await game.sandbox.share();
+      kept = await game.sandbox.keptLinks();
+      shared = s;
     } catch (e) {
       console.error(e);
       notice = 'The game could not share the valley.';
@@ -985,6 +990,8 @@
     <SharePanel
       {shared}
       valleyFile={game.sandbox.valleyFile}
+      {kept}
+      valleyName={(v: SandboxValley) => (v === 'kith' ? 'Kith' : (valleyChapter(v)?.title ?? v))}
       onOpen={openText}
       onClose={() => (shared = null)}
     />

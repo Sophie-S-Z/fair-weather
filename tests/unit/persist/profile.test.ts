@@ -5,7 +5,8 @@ import type { Carry } from '../../../src/story/carry.ts';
 import { characters } from '../../../src/story/journey.ts';
 import { cutNote } from '../../../src/story/sandbox.ts';
 import { openDb } from '../../../src/persist/db.ts';
-import { createProfile } from '../../../src/persist/profile.ts';
+import { MAX_KEPT_LINKS, createProfile } from '../../../src/persist/profile.ts';
+import type { KeptLink } from '../../../src/persist/profile.ts';
 import { createSlots } from '../../../src/persist/slots.ts';
 
 const page = (narrator: string): MythPage => ({
@@ -323,4 +324,35 @@ test('setKith and keepSandbox throw on a bad value and keep what was there', asy
   await expect(profile.setKith({ creatures: 'x', ties: [] } as unknown as Carry)).rejects.toThrow();
   expect(await profile.sandbox()).toEqual({ link: 'v1.abc', notes: [] });
   expect(await profile.kith()).toEqual(carry(0.2));
+});
+
+const kept = (id: string, from: string[] = []): KeptLink => ({
+  id,
+  from,
+  valley: 'kith',
+  day: 2,
+  text: `v1.${id}`,
+});
+
+test('keepLink keeps each id once as the newest, and at most MAX_KEPT_LINKS', async () => {
+  const profile = await createProfile(new IDBFactory());
+  expect(await profile.links()).toEqual([]);
+  await profile.keepLink(kept('0000000a'));
+  await profile.keepLink(kept('0000000b', ['0000000a']));
+  await profile.keepLink(kept('0000000a'));
+  expect((await profile.links()).map((l) => l.id)).toEqual(['0000000b', '0000000a']);
+  for (let i = 0; i < MAX_KEPT_LINKS; i++) await profile.keepLink(kept(i.toString(16).padStart(8, '0')));
+  const links = await profile.links();
+  expect(links).toHaveLength(MAX_KEPT_LINKS);
+  expect(links[0]?.id).toBe('00000000');
+  await expect(profile.keepLink({ ...kept('0000000c'), text: 'my own words' })).rejects.toThrow();
+});
+
+test('damaged kept links read as none, and the rest of the profile stays', async () => {
+  const factory = new IDBFactory();
+  const db = await openDb(factory);
+  await db.update('profile', () => ({ pages: [], feathers: 3, links: [{ id: 'nope' }] }));
+  const profile = await createProfile(factory);
+  expect(await profile.links()).toEqual([]);
+  expect(await profile.feathers()).toBe(3);
 });

@@ -31,6 +31,8 @@ const FEED_BYTES = 1024;
 /** The longest whole URL the Share panel offers as a link; past it, a file. */
 export const LINK_CHARS = 2000;
 export const VALLEY_FILE = 'fair-weather-valley.fairweather';
+/** The most link ids a link's lineage holds (ADR 0015 item 10). */
+export const MAX_LINEAGE = 16;
 
 export interface SeedLink {
   v: 1;
@@ -41,6 +43,8 @@ export interface SeedLink {
   script: { tick: number; list: Command[] }[];
   /** The tick the link was made at. */
   tick: number;
+  /** The ids of the links it was remixed from, oldest first (ADR 0015 item 10); an M4 link has none. */
+  from?: string[];
 }
 
 const { brushRadius, brushAmount } = tuning.fog;
@@ -83,6 +87,8 @@ const LinkCommandSchema = CommandSchema.superRefine((c, ctx) => {
 });
 
 const tick = z.number().int().nonnegative();
+/** A link's id: 8 hex digits (linkId). */
+export const LinkIdSchema = z.string().regex(/^[0-9a-f]{8}$/);
 
 /**
  * A link, strict at every level (ADR 0014 item 7), with SandboxSetupSchema's closed id sets and only
@@ -97,6 +103,8 @@ export const SeedLinkSchema = z
     setup: SandboxSetupSchema,
     script: z.array(z.strictObject({ tick, list: z.array(LinkCommandSchema) })).max(MAX_LINK_LISTS),
     tick: tick.max(MAX_LINK_TICKS),
+    // At least one id, so a link without a lineage has one form: no `from`.
+    from: z.array(LinkIdSchema).min(1).max(MAX_LINEAGE).exactOptional(),
   })
   .superRefine((link, ctx) => {
     let last = 0;
@@ -220,6 +228,17 @@ export async function decodeLink(text: string, tuningHash: string): Promise<Seed
   const link = json === null ? null : canonical(json, SeedLinkSchema);
   return link?.tuning === tuningHash ? link : null;
 }
+
+/** A link's id (ADR 0015 item 10): the first 8 hex digits of 32-bit FNV-1a over its text. */
+export function linkId(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+/** The lineage a run opened from `link` (whose text is `text`) carries: its own, then its id. */
+export const lineageOf = (link: SeedLink, text: string): string[] =>
+  [...(link.from ?? []), linkId(text)].slice(-MAX_LINEAGE);
 
 /**
  * Whether the whole URL is short enough to share as a link (ADR 0014 item 7). `limit` is LINK_CHARS

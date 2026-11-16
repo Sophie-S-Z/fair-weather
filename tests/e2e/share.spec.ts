@@ -430,3 +430,39 @@ test('a link says it is opening, and a worker that cannot run says the valley co
   await page.goto(url);
   await untilStatus(page, 'could not open', 'The valley could not open. Go back to the title to try again.');
 });
+
+test('a link remixed from an opened link holds its lineage, and the Remix tree shows it under its parent', async ({
+  page,
+  browser,
+}) => {
+  await openNew(page);
+  await pauseNow(page);
+  await share(page);
+  const first = await dialog(page).getByLabel('Link to this valley').inputValue();
+  expect(linkJson(first)).not.toContain('"from"');
+  const tree = dialog(page).getByRole('region', { name: 'Remix tree' });
+  await expect(tree.getByRole('button', { name: /^Open / })).toHaveCount(1);
+  await page.close();
+
+  // Another player opens it, remixes it, and shares the remix.
+  const other = await (await browser.newContext({ viewport: { width: 960, height: 540 } })).newPage();
+  await other.goto(first);
+  await expect(heading(other)).toBeVisible();
+  await scene(other).focus();
+  await other.keyboard.press('1');
+  // Paused, so the bench waits for Share, which steps the run one tick first.
+  await other.keyboard.press('Enter');
+  await share(other);
+  const second = await dialog(other).getByLabel('Link to this valley').inputValue();
+  const remix = JSON.parse(linkJson(second)) as { from: string[]; script: unknown[] };
+  expect(remix.from).toHaveLength(1);
+  expect(remix.script).toHaveLength(1);
+  const otherTree = dialog(other).getByRole('region', { name: 'Remix tree' });
+  // The opened link is the root, and the remix sits in a list inside its item.
+  await expect(otherTree.getByRole('listitem')).toHaveCount(2);
+  await expect(otherTree.getByRole('listitem').first().getByRole('list')).toHaveCount(1);
+  await press(other, otherTree.getByRole('button', { name: /^Open / }).first());
+  await expect(dialog(other)).toBeHidden();
+  await expect(heading(other)).toBeVisible();
+  await other.context().close();
+});

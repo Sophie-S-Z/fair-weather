@@ -9,7 +9,7 @@ import { SANDBOX_VALLEYS, cutNote } from '../story/sandbox.ts';
 import type { SandboxValley } from '../story/sandbox.ts';
 import { openDb } from './db.ts';
 import type { Db } from './db.ts';
-import { MAX_LINK_TEXT } from './seed-link.ts';
+import { LINK_CHARS, LinkIdSchema, MAX_LINEAGE, MAX_LINK_TEXT } from './seed-link.ts';
 
 /** A kept myth: `year` counts the finished years from 1, and `seed` is the valley's seed. */
 export interface BookPage extends MythPage {
@@ -21,6 +21,19 @@ export interface BookPage extends MythPage {
 export interface SandboxSave {
   link: string;
   notes: { tick: number; text: string }[];
+}
+
+/** The most links the remix tree keeps (ADR 0015 item 10); the oldest drops out. */
+export const MAX_KEPT_LINKS = 30;
+/** A link the player made or opened, for the remix tree: never sent anywhere. */
+export interface KeptLink {
+  id: string;
+  /** Its lineage, oldest first. */
+  from: string[];
+  valley: SandboxValley;
+  day: number;
+  /** The `v1.<data>` text, which Open opens; at most LINK_CHARS. */
+  text: string;
 }
 
 export interface Profile {
@@ -51,6 +64,10 @@ export interface Profile {
    * It forgets only the save with this link, so a save that another tab kept since stays.
    */
   dropSandbox(link: string): Promise<void>;
+  /** The kept links, oldest first. */
+  links(): Promise<KeptLink[]>;
+  /** Keeps `link` as the newest, once (an earlier one with its id drops out), and at most MAX_KEPT_LINKS. */
+  keepLink(link: KeptLink): Promise<void>;
 }
 
 const KEY = 'profile';
@@ -74,6 +91,14 @@ const SandboxSchema = z.object({
   ),
 });
 
+const KeptLinkSchema = z.object({
+  id: LinkIdSchema,
+  from: z.array(LinkIdSchema).max(MAX_LINEAGE),
+  valley: z.enum(SANDBOX_VALLEYS),
+  day: z.number().int().nonnegative(),
+  text: z.string().max(LINK_CHARS).startsWith('v1.'),
+});
+
 const ProfileSchema = z.object({
   pages: z.array(
     z.object({
@@ -89,16 +114,18 @@ const ProfileSchema = z.object({
   kith: CarrySchema.nullable().catch(null),
   valleys: ValleysSchema.catch([]),
   sandbox: SandboxSchema.nullable().catch(null),
+  links: z.array(KeptLinkSchema).max(MAX_KEPT_LINKS).catch([]),
 }) satisfies z.ZodType<{
   pages: BookPage[];
   feathers: number;
   kith: Carry | null;
   valleys: SandboxValley[];
   sandbox: SandboxSave | null;
+  links: KeptLink[];
 }>;
 
 type Data = z.infer<typeof ProfileSchema>;
-const empty = (): Data => ({ pages: [], feathers: 0, kith: null, valleys: [], sandbox: null });
+const empty = (): Data => ({ pages: [], feathers: 0, kith: null, valleys: [], sandbox: null, links: [] });
 /** Stored data, or empty when there is none or it is damaged. */
 const parse = (raw: unknown): Data => {
   const parsed = ProfileSchema.safeParse(raw);
@@ -207,6 +234,13 @@ export async function createProfile(
     async dropSandbox(link) {
       await write((d) => {
         if (d.sandbox?.link === link) d.sandbox = null;
+      });
+    },
+    links: async () => (await read()).links,
+    async keepLink(link) {
+      const kept = KeptLinkSchema.parse(link); // a bad link is a caller bug: throw, never store it
+      await write((d) => {
+        d.links = [...d.links.filter((l) => l.id !== kept.id), kept].slice(-MAX_KEPT_LINKS);
       });
     },
   };

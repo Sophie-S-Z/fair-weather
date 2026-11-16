@@ -44,5 +44,9 @@ jobs:
       - run: npm ci
       - name: Install Playwright Firefox and WebKit
         run: npx playwright install --with-deps firefox webkit
-      - name: Links and the worker in Firefox and WebKit
-        run: npx playwright test --project=e2e-firefox --project=e2e-webkit tests/e2e/worker.spec.ts tests/e2e/share.spec.ts
+      - name: Links and the worker in WebKit
+        run: npx playwright test --project=e2e-webkit tests/e2e/worker.spec.ts tests/e2e/share.spec.ts
+      # Headless Firefox on the runner gives no WebGL context, and the sandbox needs WebGL, so
+      # Firefox runs headed on a virtual screen.
+      - name: Links and the worker in Firefox
+        run: xvfb-run --auto-servernum npx playwright test --headed --project=e2e-firefox tests/e2e/worker.spec.ts tests/e2e/share.spec.ts

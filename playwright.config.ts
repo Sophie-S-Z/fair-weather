@@ -47,8 +47,8 @@ export default defineConfig({
     {
       name: 'e2e-firefox',
       testDir: 'tests/e2e',
-      // Headless Firefox on a machine with no GPU blocks WebGL on its software renderer, and the
-      // sandbox needs WebGL.
+      // On a machine with no GPU, Firefox blocks WebGL on its software renderer, and the sandbox
+      // needs WebGL. CI also runs Firefox headed (see ci.yml).
       use: {
         ...devices['Desktop Firefox'],
         launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },

@@ -1,5 +1,6 @@
-// What the Meadow dev pages share: the art loaded from content/ and the commands that set up the
-// brook (two bridges, a lantern, the mushroom) and the sandbox's two paths.
+// What the Meadow dev pages share: the art loaded from content/, the commands that set up the
+// brook (two bridges, a lantern, the mushroom) and the sandbox's two paths, and a draw-call count.
+import type { Application } from 'pixi.js';
 import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { PaletteSchema, type Palette } from '../src/render/palette.ts';
 import type { Command } from '../src/sim/types.ts';
@@ -32,3 +33,30 @@ export const SANDBOX_SETUP: Command[] = [
   { t: 'path', x: 900, y: 640, x2: 1380, y2: 380 },
   { t: 'welcome', on: false },
 ];
+
+/**
+ * Counts `app`'s WebGL2 draw calls, instanced ones included (Pixi 8 has no draw-call counter).
+ * `calls()` gives the count since the last `reset()`.
+ */
+export function countDrawCalls(app: Application): { calls(): number; reset(): void } {
+  const gl = (app.renderer as unknown as { gl: WebGL2RenderingContext }).gl;
+  let calls = 0;
+  for (const name of [
+    'drawElements',
+    'drawArrays',
+    'drawElementsInstanced',
+    'drawArraysInstanced',
+  ] as const) {
+    const original = gl[name].bind(gl) as (...a: unknown[]) => void;
+    (gl as unknown as Record<string, unknown>)[name] = (...a: unknown[]): void => {
+      calls += 1;
+      original(...a);
+    };
+  }
+  return {
+    calls: () => calls,
+    reset: () => {
+      calls = 0;
+    },
+  };
+}

@@ -1,5 +1,5 @@
 // Verb types for story and input (ADR 0011 item 4). One source: the verb tuples.
-import type { BidReply, GiftMove, VotingRule } from '../sim/types.ts';
+import type { BidReply, GiftMove, LocalVerb } from '../sim/types.ts';
 
 /**
  * Verbs that act on the world: the only tray tools (ADR 0012 item 8). Part 2 adds the hero's
@@ -28,10 +28,9 @@ export const WORLD_VERBS = [
   'welcome',
 ] as const;
 /** Verbs that only read the world; never tray tools. */
-export const MIND_VERBS = ['peek', 'zoom', 'rewind'] as const;
+const MIND_VERBS = ['peek', 'zoom', 'rewind'] as const;
 export const VERBS = [...WORLD_VERBS, 'bet', 'listen', ...MIND_VERBS] as const;
 export type WorldVerb = (typeof WORLD_VERBS)[number];
-export type MindVerb = (typeof MIND_VERBS)[number];
 export type Verb = (typeof VERBS)[number];
 
 /**
@@ -51,14 +50,7 @@ export type VerbInput =
   | { verb: 'walk'; to: string }
   | { verb: 'manner'; reply: BidReply; gift: GiftMove }
   | { verb: 'plant' }
-  | { verb: 'join'; on: boolean }
-  | { verb: 'pose' }
-  | { verb: 'keepsake'; to: string; item: string }
-  | { verb: 'stepDown'; on: boolean }
-  | { verb: 'vote'; spot: string }
-  | { verb: 'propose'; rule: Exclude<VotingRule, 'plurality'> }
-  | { verb: 'sing'; to: string }
-  | { verb: 'learn'; from: string }
+  | LocalVerb
   | { verb: 'rain'; x: number; y: number }
   | { verb: 'path'; x: number; y: number; x2: number; y2: number }
   | { verb: 'welcome'; on: boolean };

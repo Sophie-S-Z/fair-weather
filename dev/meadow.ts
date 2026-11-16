@@ -47,7 +47,15 @@ import { parseFlags } from '../src/story/flags.ts';
 import { buildScenario, chapterTicksPerDay } from '../src/story/scenario.ts';
 import { ChapterSchema } from '../src/story/schema.ts';
 import type { Settings } from '../src/ui/settings.ts';
-import { BROOK_MUSHROOM, BROOK_PLACEMENTS, cast, paletteFor, rigs, SANDBOX_SETUP } from './meadow-setup.ts';
+import {
+  BROOK_MUSHROOM,
+  BROOK_PLACEMENTS,
+  cast,
+  countDrawCalls,
+  paletteFor,
+  rigs,
+  SANDBOX_SETUP,
+} from './meadow-setup.ts';
 
 const W = 1280;
 const H = 720;
@@ -171,15 +179,7 @@ await app.init({
 });
 document.body.appendChild(app.canvas);
 
-const gl = (app.renderer as unknown as { gl: WebGL2RenderingContext }).gl;
-let calls = 0;
-for (const name of ['drawElements', 'drawArrays'] as const) {
-  const original = gl[name].bind(gl) as (...a: unknown[]) => void;
-  (gl as unknown as Record<string, unknown>)[name] = (...a: unknown[]): void => {
-    calls += 1;
-    original(...a);
-  };
-}
+const drawCalls = countDrawCalls(app);
 
 const settings: Settings = {
   textScale: 1,
@@ -200,5 +200,5 @@ for (const lite of snapshots) view.countLens(lite);
 view.showHeatmap(heat);
 view.update(prev, next, 0.5, settings);
 app.render();
-document.body.dataset['calls'] = String(calls);
+document.body.dataset['calls'] = String(drawCalls.calls());
 document.body.dataset['ready'] = '1';

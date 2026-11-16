@@ -1159,11 +1159,7 @@ const game: GameService = {
         showView();
       },
       snapshot(tick, lite) {
-        if (tick < (points.at(-1)?.tick ?? 0)) {
-          points.length = 0;
-          breaks.length = 0;
-          lastSeen = null;
-        }
+        if (tick < (points.at(-1)?.tick ?? 0)) stage.clearTimeline();
         sampleTimeline(points, tick, lite, TIMELINE_EVERY);
         if (lastSeen && friendshipBreaks(lastSeen, lite, threshold).length > 0) breaks.push(tick);
         lastSeen = lite;

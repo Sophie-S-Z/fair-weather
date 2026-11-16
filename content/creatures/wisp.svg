@@ -1,0 +1,10 @@
+<!-- Wisp, of Kith: a long ribbon with a round head, always leaning toward somewhere else. The drifter. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44.83 91 C 40.6 90.5 37.78 88 39.19 84.5 C 41.07 80 46.71 78.5 47.65 72.5 C 48.59 66.5 41.54 63 37.78 57.5 C 34.49 52.5 33.55 46 34.49 40 C 36.37 27 46.24 21 54.7 22 C 65.04 23.2 71.15 32.5 69.74 43 C 68.8 50.5 63.63 55 60.81 59.5 C 57.71 64.5 58.93 70 57.99 75 C 57.05 81.5 51.88 84.5 50.47 87.5 C 49.53 89.5 51.41 91.5 54.7 90.5" />
+  <circle id="eye-l" cx="48.12" cy="41" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="57.52" cy="41" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="62.69" cy="46" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="58" x2="100" y2="58" />
+  <line id="base" x1="0" y1="88.5" x2="100" y2="88.5" />
+</svg>

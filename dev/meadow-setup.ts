@@ -1,17 +1,10 @@
 // What the Meadow dev pages share: the art loaded from content/ and the commands that set up the
 // brook (two bridges, a lantern, the mushroom) and the sandbox's two paths.
 import { CastSchema, type Cast } from '../src/render/cast.ts';
-import { RigSchema, type Rig } from '../src/render/line/rig.ts';
 import { PaletteSchema, type Palette } from '../src/render/palette.ts';
 import type { Command } from '../src/sim/types.ts';
 
-const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
-export const rigs = new Map<string, Rig>(
-  Object.values(rigFiles).map((json) => {
-    const rig = RigSchema.parse(json);
-    return [rig.id, rig];
-  }),
-);
+export { rigs } from '../src/rigs.ts';
 const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
 export const cast = new Map<string, Cast>(
   Object.values(castFiles).map((json) => {

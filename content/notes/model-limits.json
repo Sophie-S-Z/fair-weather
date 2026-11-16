@@ -5,7 +5,10 @@
       "heading": "Copycat does not always win",
       "text": "\"Copycat wins\" holds only under some noise levels and payoffs. The game teaches the conditions, never a champion.",
       "sources": [
-        { "label": "The Evolution of Trust, full text", "url": "https://ncase.me/trust/words.html" }
+        {
+          "label": "The Evolution of Trust, full text",
+          "url": "https://ncase.me/trust/words.html"
+        }
       ]
     },
     {
@@ -25,7 +28,16 @@
     {
       "heading": "Real cities sort less than the model",
       "text": "Schelling-style models predict more sorting than real cities show, and real segregation also has institutional and economic causes. The Lily Shallows margin notes say so.",
-      "sources": []
+      "sources": [
+        {
+          "label": "Understanding the Social Context of the Schelling Segregation Model, Clark and Fossett, 2008",
+          "url": "https://doi.org/10.1073/pnas.0708155105"
+        },
+        {
+          "label": "The Color of Law, Richard Rothstein, 2017",
+          "url": "https://en.wikipedia.org/wiki/The_Color_of_Law"
+        }
+      ]
     },
     {
       "heading": "The friendship claim is contested",
@@ -33,9 +45,14 @@
       "sources": []
     },
     {
-      "heading": "[PLACEHOLDER] What the model leaves out",
-      "text": "[PLACEHOLDER] The writer lists here what the model leaves out.",
-      "sources": []
+      "heading": "What the model leaves out",
+      "text": "Each creature here is a handful of numbers and a few rules. The model leaves out words, bodies, money, power, and history, and every other reason a real person shares or keeps. It gives each tie one number for warmth on each side, and each creature the same kind of memory. Use it to ask questions about trust. Do not use it to answer them about real people.",
+      "sources": [
+        {
+          "label": "The Evolution of Trust, Nicky Case",
+          "url": "https://ncase.me/trust/words.html"
+        }
+      ]
     }
   ]
 }

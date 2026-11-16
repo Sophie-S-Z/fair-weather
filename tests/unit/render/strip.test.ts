@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import pimJson from '../../../content/rigs/PLACEHOLDER-pim.rig.json';
+import pimJson from '../../../content/rigs/pim.rig.json';
 import { RIG_POINTS, RigSchema } from '../../../src/render/line/rig.ts';
 import { buildStrip, dashMask, taperedWidth } from '../../../src/render/line/strip.ts';
 

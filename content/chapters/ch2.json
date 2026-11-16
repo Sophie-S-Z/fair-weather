@@ -100,31 +100,39 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Surprise, unease",
+  "feeling": "Surprise, unease",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Reading the opener strategy",
-      "science": "[PLACEHOLDER] Sharing with everyone has a cost against a keeper.",
-      "limits": "[PLACEHOLDER] The game here has only two moves.",
-      "counter": "[PLACEHOLDER] Exploitation in one meeting says little about a long game.",
-      "question": "[PLACEHOLDER] Can an opener stay open after a keeper?",
+      "title": "Open hands and closed ones",
+      "science": "In a trust game, a creature that always shares does well among sharers and badly against a keeper. Krit takes the berry and gives nothing back.",
+      "limits": "The game here has only two moves, share or keep, with the same payoff every time.",
+      "counter": "One meeting says little. Over many meetings, a keeper can run out of creatures who will share with it.",
+      "question": "Can Pim stay open after meeting Krit?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "label": "The Evolution of Trust, Nicky Case",
           "url": "https://ncase.me/trust/words.html"
+        },
+        {
+          "label": "The Evolution of Cooperation, Axelrod and Hamilton, 1981",
+          "url": "https://doi.org/10.1126/science.7466396"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Noise",
-      "science": "[PLACEHOLDER] A gift can be seen wrongly, and a mistake can start a feud.",
-      "limits": "[PLACEHOLDER] The chance of a mistake is set by hand.",
-      "counter": "[PLACEHOLDER] Real misreadings are rarely random.",
-      "question": "[PLACEHOLDER] How much forgiveness does noise call for?",
+      "title": "Mistakes happen",
+      "science": "Sometimes a gift fails to arrive, or it arrives and looks like something else. In a long game, one mistake can start a feud between two fair creatures.",
+      "limits": "Here the chance of a mistake is one number, set by hand.",
+      "counter": "Real misreadings are rarely random. They follow fear, history, and who is watching.",
+      "question": "How much forgiveness does a mistake call for?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "label": "The Evolution of Trust, Nicky Case",
           "url": "https://ncase.me/trust/words.html"
+        },
+        {
+          "label": "How to Cope with Noise in the Iterated Prisoner's Dilemma, Wu and Axelrod, 1995",
+          "url": "https://ideas.repec.org/a/sae/jocore/v39y1995i1p183-189.html"
         }
       ]
     }

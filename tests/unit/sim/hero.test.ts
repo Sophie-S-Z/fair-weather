@@ -469,5 +469,5 @@ test('plant is ignored for other kinds and below 1 berry', () => {
 });
 
 test('the m0 golden hash is unchanged', () => {
-  expect(hashWorld(runGolden())).toBe('c29d2fa4dbda4dcf');
+  expect(hashWorld(runGolden())).toBe('c2cb400e2f6e75e5');
 });

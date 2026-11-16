@@ -1,20 +1,21 @@
 === hollow_intro ===
-The press runs by the square. The sky looks for drama. #placeholder
+In Hearsay Hollow the press never stops, and the sky above it is a lens that looks only for trouble.
+You know this sky; you used to be one.
 -> END
 
 === hollow_famous ===
-The gazette prints your face again. Now the town keeps its distance. #placeholder
-The gazette prints people. It never asks them first. #placeholder
+The gazette prints your face again, and now the town steps aside when you pass.
+Nobody asked you first; the gazette never asks.
 -> END
 
 === hollow_close_call ===
-Your face never stayed on the front page. The town forgot you. #placeholder
+You stayed kind, the front page moved on, and the town forgot your name.
 -> END
 
 === hollow_postcard ===
-Which postcard will you send home? #placeholder
+The gazette will post one card to Kith, once it has read it. Which one?
 -> END
 
 === hollow_sent ===
-The postcard flies home to Kith. #placeholder
+The card goes out with the morning edition, a little smudged.
 -> END

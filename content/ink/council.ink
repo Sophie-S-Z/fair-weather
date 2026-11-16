@@ -1,21 +1,21 @@
 === council_intro ===
-The council votes at dusk. The rain cloud goes where the vote says. #placeholder
-Ambry counts the chits. Mossbank and Rootstep split their friends again. #placeholder
+The Toadstool Council votes at dusk, and the rain cloud goes where the count says.
+Ambry counts the chits, and Mossbank and Rootstep split their friends again.
 -> END
 
 === council_heard ===
-The council counts the chits a new way. The toadstools talk about it all night. #placeholder
-A rule decides as much as a vote. #placeholder
+The council counts the chits a new way, and the toadstools argue about it all night.
+The rule picked the winner as much as the votes did.
 -> END
 
 === council_close_call ===
-The council keeps its old count. The cloud rains on Highstone again. #placeholder
+The council keeps its old count, and the cloud rains on Highstone again.
 -> END
 
 === council_postcard ===
-Which postcard will you send home? #placeholder
+Ambry will stamp one card for Kith. Which one?
 -> END
 
 === council_sent ===
-The postcard flies home to Kith. #placeholder
+Ambry stamps the card twice, to be sure, and sends it.
 -> END

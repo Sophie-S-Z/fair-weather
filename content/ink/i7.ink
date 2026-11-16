@@ -1,11 +1,11 @@
 === i7_intro ===
 {wispPushed:
-    A postcard comes over the ridge, with a path drawn on it. #placeholder
+    A postcard comes back over the ridge in Wisp's loopy hand, with a path drawn on it.
 - else:
-    Wisp went over the ridge on its own, and now a postcard comes back, with a path drawn on it. #placeholder
+    Wisp left on its own, and now a postcard comes back over the ridge, with a path drawn on it.
 }
 -> END
 
 === i7_done ===
-The path ends at the valley, and the postcard goes on the wall. #placeholder
+Traced from end to end, Wisp's path spells a word: home.
 -> END

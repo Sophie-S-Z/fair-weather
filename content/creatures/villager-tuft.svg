@@ -1,0 +1,10 @@
+<!-- A villager of Kith: a tall egg with one cowlick it cannot flatten. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 32 90 27.5 82 27.5 70 C 27.5 52 33.5 36.5 44.5 33 C 43.5 29 40.5 26.5 37 26.5 C 42 24 47.5 26 49 31.5 C 49.5 28 52.5 25 56.5 25.5 C 54 27 52.5 29.5 52.4 32.6 C 65.5 34.5 72.5 51 72.5 70 C 72.5 82 68 90 56 90" />
+  <circle id="eye-l" cx="45" cy="55" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="55" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61" cy="60" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="64" x2="100" y2="64" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

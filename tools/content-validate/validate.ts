@@ -215,12 +215,10 @@ export function validateContent(root: string): ValidationResult {
       errors.push(`${f}: scene ${parsed.data.scene} has no file content/scenes/${parsed.data.scene}.json`);
       continue;
     }
-    // The still version's picture (ADR 0014 item 10): the config's `still`, or its scene's placeholder.
+    // The still version's picture (ADR 0014 item 10): the config's `still`, or its scene's own.
     const still = c.still ?? sceneStill(c.scene);
-    if (!['stills', 'placeholder'].some((dir) => existsSync(join(content, dir, `${still}.svg`))))
-      errors.push(
-        `${f}: still image ${still} has no file content/stills/${still}.svg or content/placeholder/${still}.svg`,
-      );
+    if (!existsSync(join(content, 'stills', `${still}.svg`)))
+      errors.push(`${f}: still image ${still} has no file content/stills/${still}.svg`);
     const scene = SceneSchema.safeParse(JSON.parse(readFileSync(scenePath, 'utf8')));
     if (!scene.success) continue; // reported above
     for (const beat of parsed.data.beats) {

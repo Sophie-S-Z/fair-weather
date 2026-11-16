@@ -9,7 +9,11 @@ test("i7's opening line follows whether the wind pushed Wisp", () => {
     ink.setVar('wispPushed', wispPushed);
     return ink.play('i7_intro');
   };
-  expect(line(true).lines).toEqual(['A postcard comes over the ridge, with a path drawn on it.']);
-  expect(line(false).lines[0]).toMatch(/^Wisp went over the ridge on its own/);
-  expect(line(false).tags).toEqual(['placeholder']);
+  expect(line(true).lines).toEqual([
+    "A postcard comes back over the ridge in Wisp's loopy hand, with a path drawn on it.",
+  ]);
+  expect(line(false).lines).toEqual([
+    'Wisp left on its own, and now a postcard comes back over the ridge, with a path drawn on it.',
+  ]);
+  expect(line(false).tags).toEqual([]);
 });

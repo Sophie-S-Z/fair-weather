@@ -1,0 +1,10 @@
+<!-- The Glassling, a hero: a clear glass bottle with a round stopper. Its feelings show inside. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 33 90 28.5 86 28.5 77 L 28.5 54 C 28.5 46 33 41 40 39 C 42.5 38.2 43.5 36.6 43.5 34.4 L 43.5 32.6 C 41.5 31.6 40.5 29.5 40.5 27 C 40.5 22.4 45 19 50 19 C 55 19 59.5 22.4 59.5 27 C 59.5 29.5 58.5 31.6 56.5 32.6 L 56.5 34.4 C 56.5 36.6 57.5 38.2 60 39 C 67 41 71.5 46 71.5 54 L 71.5 77 C 71.5 86 67 90 56 90" />
+  <circle id="eye-l" cx="45" cy="55" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="55" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61" cy="60" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="64" x2="100" y2="64" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

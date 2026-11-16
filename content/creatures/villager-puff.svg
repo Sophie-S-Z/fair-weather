@@ -1,0 +1,10 @@
+<!-- A villager of Kith: a small cloud of a creature, puffed on top. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 31 90 24 83 24 73 C 24 66 26.5 60 30 56 C 25.5 52 25.5 44.5 30.5 41 C 34 38.5 38.5 39 41 41 C 41 35 45.5 31 50.5 31 C 55.5 31 60 35 60 41 C 62.5 39 67 38.5 70 41 C 75 44.5 74.5 52 70 56 C 73.5 60 76 66 76 73 C 76 83 69 90 56 90" />
+  <circle id="eye-l" cx="45" cy="57" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="57" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61.5" cy="62" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="65" x2="100" y2="65" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

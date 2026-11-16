@@ -13,7 +13,7 @@ import meadowJson from '../content/scenes/kith-meadow.json';
 import carryJson from '../tests/golden/carry/ch6.json';
 import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { createCosmosView, valleyTop, type Band } from '../src/render/cosmos-view.ts';
-import { RigSchema, type Rig } from '../src/render/line/rig.ts';
+import { rigs } from '../src/rigs.ts';
 import { CREATURE_HEIGHT, createMeadowView } from '../src/render/meadow-view.ts';
 import { PaletteSchema } from '../src/render/palette.ts';
 import { SceneSchema } from '../src/render/scene.ts';
@@ -37,13 +37,6 @@ const TICKS = 1200;
 /** As main.ts samples the timeline. */
 const TIMELINE_EVERY = 10;
 
-const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
-const rigs = new Map<string, Rig>(
-  Object.values(rigFiles).map((json) => {
-    const rig = RigSchema.parse(json);
-    return [rig.id, rig];
-  }),
-);
 const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
 const cast = new Map<string, Cast>(
   Object.values(castFiles).map((json) => {

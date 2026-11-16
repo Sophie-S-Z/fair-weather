@@ -11,11 +11,11 @@
       "id": "ballot-chit",
       "label": "A ballot chit"
     },
-    "drawingAlt": "[PLACEHOLDER] A ring of toadstools under one rain cloud. Four stakes mark where the rain can fall.",
+    "drawingAlt": "A ring of toadstools under one rain cloud. Four stakes in the grass mark where the rain can fall.",
     "locals": [
-      "[PLACEHOLDER] The cloud goes where the most of us point.",
-      "[PLACEHOLDER] Mossbank and Rootstep split our votes again.",
-      "[PLACEHOLDER] Ambry counts every chit twice."
+      "The cloud rains where the most of us point. That is the rule, and a rule is a rule.",
+      "Mossbank and Rootstep split our votes again, and the rain went somewhere neither of them wanted.",
+      "Ambry counts every chit twice, and then once more for luck."
     ]
   },
   "title": "Toadstool Council",
@@ -87,31 +87,39 @@
   "exit": {
     "onBeat": "council_sent"
   },
-  "feeling": "[PLACEHOLDER] Listening, fairness",
+  "feeling": "Listening, fairness",
   "notes": [
     {
-      "title": "[PLACEHOLDER] The split vote",
-      "science": "[PLACEHOLDER] When two near spots share their friends, a third spot can win with fewer.",
-      "limits": "[PLACEHOLDER] Real elections have many more voters and reasons.",
-      "counter": "[PLACEHOLDER] Plurality is simple, and simple has value.",
-      "question": "[PLACEHOLDER] Which rule would you trust?",
+      "title": "The split vote",
+      "science": "When two close choices share their fans, a third choice can win with fewer votes than either.",
+      "limits": "Real elections have many more voters, and many more reasons to vote.",
+      "counter": "Plurality is easy to count and easy to trust, and that has value.",
+      "question": "Which rule would you trust with the rain?",
       "sources": [
         {
           "label": "To Build a Better Ballot, Nicky Case",
           "url": "https://ncase.me/ballot/"
+        },
+        {
+          "label": "Voting Methods, Stanford Encyclopedia of Philosophy",
+          "url": "https://plato.stanford.edu/entries/voting-methods/"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Other ways to count",
-      "science": "[PLACEHOLDER] Approval, runoff, and score count the same wishes in other ways.",
-      "limits": "[PLACEHOLDER] No rule is fair in every case.",
-      "counter": "[PLACEHOLDER] A rule that finds a compromise can leave nobody glad.",
-      "question": "[PLACEHOLDER] What does a rule hide?",
+      "title": "Other ways to count",
+      "science": "Approval, runoff, and score voting count the same wishes in other ways, and each can pick a different winner.",
+      "limits": "Arrow showed that no ranked rule is fair in every case, and this ring is no exception.",
+      "counter": "A rule that finds a compromise can leave nobody glad.",
+      "question": "What does each rule hide?",
       "sources": [
         {
-          "label": "To Build a Better Ballot, Nicky Case",
-          "url": "https://ncase.me/ballot/"
+          "label": "A Difficulty in the Concept of Social Welfare, Arrow, 1950",
+          "url": "https://doi.org/10.1086/256963"
+        },
+        {
+          "label": "A Theory of Measuring, Electing, and Ranking, Balinski and Laraki, 2007",
+          "url": "https://doi.org/10.1073/pnas.0702634104"
         }
       ]
     }

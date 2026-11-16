@@ -48,31 +48,35 @@
   "exit": {
     "onBeat": "reply"
   },
-  "feeling": "[PLACEHOLDER] Tenderness",
+  "feeling": "Tenderness",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Three replies",
-      "science": "[PLACEHOLDER] The sky answers, stays still, or rumbles: three replies in a trust game.",
-      "limits": "[PLACEHOLDER] One wave is a tiny sample of trust.",
-      "counter": "[PLACEHOLDER] Silence can read as kindness in some places.",
-      "question": "[PLACEHOLDER] When does no answer hurt more than a bad one?",
+      "title": "Three ways to answer",
+      "science": "Gottman sorts the replies to a bid three ways: toward, away, and against. Here they are a warm answer, a still sky, and a rumble.",
+      "limits": "One wave is a tiny sample. A real bond rests on thousands of small replies.",
+      "counter": "In some homes and cultures, a quiet reply is the kind one.",
+      "question": "When does no answer hurt more than a bad one?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] Gottman Institute on bids",
+          "label": "Gottman Institute on bids",
           "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        },
+        {
+          "label": "Simply Psychology on the limits of the bid research",
+          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] One wave",
-      "science": "[PLACEHOLDER] A single reply moves a feeling a little, not all the way.",
-      "limits": "[PLACEHOLDER] The size of the move is a tuning choice.",
-      "counter": "[PLACEHOLDER] Some first replies are remembered far more than later ones.",
-      "question": "[PLACEHOLDER] How many waves does it take to change a mind?",
+      "title": "One wave moves a little",
+      "science": "Each reply moves Pim's warmth toward the sky a little way, never all the way.",
+      "limits": "The size of each move is a number someone tuned by hand. Real hearts do not share one step size.",
+      "counter": "Some first meetings stay with people far longer than any later one.",
+      "question": "How many waves would it take to change Pim's mind about you?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] Simply Psychology on the limits of the bid research",
-          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
+          "label": "The Evolution of Trust, Nicky Case",
+          "url": "https://ncase.me/trust/words.html"
         }
       ]
     }

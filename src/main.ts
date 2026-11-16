@@ -46,7 +46,7 @@ import { tellMyth, VersesSchema } from './myth/grammar.ts';
 import { SixthSchema, sixthFeatures, tellSixth } from './myth/sixth.ts';
 import { CastSchema, type Cast } from './render/cast.ts';
 import { createFrameRing } from './render/frame-ring.ts';
-import { RigSchema, type Rig } from './render/line/rig.ts';
+import { rigs } from './rigs.ts';
 import { createCosmosView, valleyTop, type Band } from './render/cosmos-view.ts';
 import { CREATURE_HEIGHT, createMeadowView } from './render/meadow-view.ts';
 import { PaletteSchema, type Palette } from './render/palette.ts';
@@ -160,13 +160,6 @@ settings.subscribe((s) => {
 });
 const analytics = createAnalytics(import.meta.env.VITE_ANALYTICS_URL || null, () => analyticsOn, fetchPost);
 
-const rigFiles = import.meta.glob<unknown>('../content/rigs/*.rig.json', { eager: true, import: 'default' });
-const rigs = new Map<string, Rig>(
-  Object.values(rigFiles).map((json) => {
-    const rig = RigSchema.parse(json);
-    return [rig.id, rig];
-  }),
-);
 const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
 const cast = new Map<string, Cast>(
   Object.values(castFiles).map((json) => {
@@ -293,17 +286,18 @@ function hasWebGL(): boolean {
     return false;
   }
 }
-/** The journal's drawings by path (ADR 0010: placeholders, which the production build refuses). */
-const journalDrawings = import.meta.glob<string>('../content/placeholder/PLACEHOLDER-journal-*.svg', {
+/** The journal's drawings by path, one per valley. */
+const journalDrawings = import.meta.glob<string>('../content/journal/*.svg', {
   eager: true,
   query: '?url',
   import: 'default',
 });
-/** The still images by path (ADR 0010: placeholders; a chapter's own `still` joins them later). */
-const stillImages = import.meta.glob<string>(
-  ['../content/placeholder/PLACEHOLDER-still-*.svg', '../content/stills/*.svg'],
-  { eager: true, query: '?url', import: 'default' },
-);
+/** The still images by path: one per scene, and any chapter's own `still`. */
+const stillImages = import.meta.glob<string>('../content/stills/*.svg', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+});
 /**
  * The waits before each new try of an asset that fails after the page loads: the sim worker's
  * script, the journal drawings and stills, and the PNG export's images (ADR 0014 item 11).
@@ -705,9 +699,9 @@ async function loadFaces(...fonts: string[]): Promise<void> {
   }
 }
 
-/** The URL of a still image by id (`PLACEHOLDER-still-<scene>` or a chapter's own `still`). */
+/** The URL of a still image by id (a scene's id or a chapter's own `still`). */
 function stillUrl(id: string): string {
-  const url = stillImages[`../content/placeholder/${id}.svg`] ?? stillImages[`../content/stills/${id}.svg`];
+  const url = stillImages[`../content/stills/${id}.svg`];
   if (!url) throw new Error(`No still image ${id}`);
   return url;
 }
@@ -1448,8 +1442,7 @@ const game: GameService = {
     simLostListeners.add(cb);
     return () => simLostListeners.delete(cb);
   },
-  journalDrawing: (valley) =>
-    journalDrawings[`../content/placeholder/PLACEHOLDER-journal-${valley}.svg`] ?? null,
+  journalDrawing: (valley) => journalDrawings[`../content/journal/${valley}.svg`] ?? null,
   sixthVerse(flags) {
     if (!journeyNow) throw new Error('The sixth verse needs a journey');
     const { name } = journeyNow.hero;

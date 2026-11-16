@@ -162,8 +162,9 @@ test("Soul redraws the hero's body when the hero's kind changes", () => {
     const b = soul.container.getChildByLabel('hero')?.getLocalBounds();
     return (b?.width ?? 0) / (b?.height ?? 1);
   };
-  soul.update(as('kite'), settings, 'hero', none);
-  const kite = aspect();
-  soul.update(as('mosscoat'), settings, 'hero', none);
-  expect(aspect()).toBeGreaterThan(kite + 0.5);
+  // The glassling is a tall bottle and the moss pebble wide: the redraw changes the proportions.
+  soul.update(as('glassling'), settings, 'hero', none);
+  const glassling = aspect();
+  soul.update(as('moss'), settings, 'hero', none);
+  expect(aspect()).toBeGreaterThan(glassling + 0.5);
 });

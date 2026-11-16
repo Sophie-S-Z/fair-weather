@@ -17,11 +17,11 @@ jobs:
       - run: npm run test:t3
       - name: Validate content
         run: npm run validate-content
-      - name: Build (development mode, placeholders allowed until writers deliver)
-        run: npx vite build --mode development
+      - name: Build (production; the placeholder guard fails it on any placeholder)
+        run: npm run build
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-      # Offline play over the development-mode build above (the production build refuses placeholders).
+      # Offline play over the production build above.
       - name: Offline after the first load
         run: npm run test:offline
       # Chromium e2e (axe, keyboard-only and auto-player runs); the cross-browser job below covers

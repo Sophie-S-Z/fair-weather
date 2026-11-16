@@ -1595,21 +1595,21 @@ test("the Fen's sky band lies above its far hills", () => {
   expect(fenScene.sky[1]).toBeLessThan(top);
 });
 
-test('a hero of kind kite draws the kite rig', () => {
+test('a hero of kind glassling draws the glassling rig', () => {
   const app = fakeApp(800, 450);
   const view = createMeadowView(app, scene, rigs, palette, options);
   const base = snapshot([['hero', 400, 400]]);
-  const kite = { ...base, creatures: base.creatures.map((c) => ({ ...c, speciesId: 'kite' })) };
-  view.update(kite, kite, 1, { ...settings, reducedMotion: true });
+  const glassling = { ...base, creatures: base.creatures.map((c) => ({ ...c, speciesId: 'glassling' })) };
+  view.update(glassling, glassling, 1, { ...settings, reducedMotion: true });
   const b = creatureIn(app, 'hero').getLocalBounds();
   const span = (r: Rig, axis: 0 | 1): number => {
     const v = r.points.filter((_, i) => i % 2 === axis);
     return Math.max(...v) - Math.min(...v);
   };
-  // Drawn at the kite rig's proportions, a tall ribbon, not a round villager.
+  // Drawn at the glassling rig's proportions, a tall bottle, not a round villager.
   const aspect = (r: Rig): number => span(r, 0) / span(r, 1);
-  expect(Math.abs(b.width / b.height - aspect(rig('kite')))).toBeLessThan(0.1);
-  expect(Math.abs(aspect(rig('kite')) - aspect(rig('villager')))).toBeGreaterThan(0.2);
+  expect(Math.abs(b.width / b.height - aspect(rig('glassling')))).toBeLessThan(0.1);
+  expect(Math.abs(aspect(rig('glassling')) - aspect(rig('villager')))).toBeGreaterThan(0.2);
   for (const kind of HERO_KINDS) expect(rigs.has(kind)).toBe(true);
 });
 

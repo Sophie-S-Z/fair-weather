@@ -53,18 +53,18 @@
   "exit": {
     "onBeat": "i8_end"
   },
-  "feeling": "[PLACEHOLDER] Quiet, the weather that does nothing",
+  "feeling": "Quiet, the weather that does nothing",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Doing nothing",
-      "science": "[PLACEHOLDER] Sometimes the kindest help is to wait and be there.",
-      "limits": "[PLACEHOLDER] The stillness here changes nothing in the sim.",
-      "counter": "[PLACEHOLDER] Some say waiting is only a way to avoid acting.",
-      "question": "[PLACEHOLDER] When is it best to do nothing?",
+      "title": "Doing nothing",
+      "science": "Goalkeepers facing a penalty almost always dive, though staying in the middle would stop more shots. Doing something feels better than waiting, even when waiting works.",
+      "limits": "The stillness here changes nothing in the sim.",
+      "counter": "Some say waiting is only a way to avoid acting.",
+      "question": "When is it best to do nothing?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Action Bias among Elite Soccer Goalkeepers, Bar-Eli and others, 2007",
+          "url": "https://doi.org/10.1016/j.joep.2006.12.001"
         }
       ]
     }

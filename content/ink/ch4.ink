@@ -1,19 +1,19 @@
 === ch4_intro ===
-Summer is hot. Nobody shares first, and nobody shares with Krit at all. #placeholder
+Summer comes in hot and slow; nobody shares first, and nobody shares with Krit at all.
 -> END
 
 === ch4_bet ===
-Where will the thorns grow? #placeholder
+Your light makes things grow. Whose shell will grow the sharpest thorns?
 -> END
 
 === ch4_shine ===
-The light settles on one spot and stays. #placeholder
+Wherever your light rests, things grow, and everyone can see where it rests.
 -> END
 
 === ch4_thorns ===
-Where the light stayed longest, the shells grew thorns. #placeholder
+Where your light stayed longest, the shells grew thorns, and here is where it stayed.
 -> END
 
 === ch4_close_call ===
-The light has looked a long time, but the shells are still smooth. #placeholder
+You looked for a long time, and the shells are still smooth.
 -> END

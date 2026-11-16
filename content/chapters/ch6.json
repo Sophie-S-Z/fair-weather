@@ -323,33 +323,46 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Sorrow, a misread kindness",
+  "feeling": "Sorrow, a misread kindness",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Noise",
-      "science": "[PLACEHOLDER] When signals are noisy, a kind act can look like a slight.",
-      "limits": "[PLACEHOLDER] The fog flips what one side sees, never what happened.",
-      "counter": "[PLACEHOLDER] Some say noise matters less than intent.",
-      "question": "[PLACEHOLDER] How much forgiveness does a noisy world need?",
+      "title": "Fog",
+      "science": "When signals are noisy, a kind act can look like a slight. Then two fair creatures can drift into a feud that neither one chose.",
+      "limits": "The fog flips what one side sees. It never changes what happened.",
+      "counter": "Some say intent shows through in the end, fog or no fog.",
+      "question": "How much forgiveness does a foggy world need?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "label": "The Evolution of Trust, Nicky Case",
           "url": "https://ncase.me/trust/words.html"
+        },
+        {
+          "label": "How to Cope with Noise in the Iterated Prisoner's Dilemma, Wu and Axelrod, 1995",
+          "url": "https://ideas.repec.org/a/sae/jocore/v39y1995i1p183-189.html"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Tit for tat and its slips",
-      "science": "[PLACEHOLDER] A strict copy of the last move can lock two friends in a feud after one mistake.",
-      "limits": "[PLACEHOLDER] Here forgiveness is one dial per creature.",
-      "counter": "[PLACEHOLDER] Generous strategies can be exploited by the unkind.",
-      "question": "[PLACEHOLDER] What breaks a revenge loop?",
+      "title": "Echo's slip",
+      "science": "A strict copycat repeats your last move. After one misread gift it hits back, and then two copycats trade blows forever. A copycat that sometimes forgives breaks the loop.",
+      "limits": "Here forgiveness is one dial on each creature.",
+      "counter": "A forgiving copycat can be used by creatures who never share.",
+      "question": "What breaks a revenge loop?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "A Strategy of Win-Stay, Lose-Shift, Nowak and Sigmund, 1993",
+          "url": "https://doi.org/10.1038/364056a0"
+        },
+        {
+          "label": "Slow to Anger and Fast to Forgive, Fudenberg, Rand and Dreber, 2012",
+          "url": "https://doi.org/10.1257/aer.102.2.720"
         }
       ]
     }
-  ]
+  ],
+  "diary": {
+    "echo": [
+      "I do to you what you did to me last time. It seemed fair. In the fog I cannot tell what you did."
+    ]
+  }
 }

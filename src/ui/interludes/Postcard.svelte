@@ -4,16 +4,36 @@
   let { finish }: { finish: (result: string) => void } = $props();
 
   /**
-   * [PLACEHOLDER] art: Wisp's path in a 140 by 80 box, drawn by hand in parts: the stem and arch
-   * of an h, a round o, the two arches of an m, and an e. Together they spell "home" (spec 6.4).
+   * Wisp's path in a 140 by 80 box, drawn by hand in parts. It reads as a trail that climbs over
+   * the ridge, rounds a pond, crosses two hills, and curls to a house. Traced, it spells "home" in
+   * joined letters: h, o, the two arches of m, and e with its tail (spec 6.4).
    */
   const PARTS = [
-    [10, 8, 10, 70],
-    [10, 48, 16, 40, 24, 38, 31, 42, 33, 50, 33, 70],
-    [52, 44, 60, 47, 64, 56, 60, 65, 52, 68, 44, 65, 40, 56, 44, 47, 52, 44],
-    [72, 70, 72, 46, 72, 50, 78, 43, 84, 44, 87, 50, 87, 70],
-    [87, 50, 93, 43, 99, 44, 102, 50, 102, 70],
-    [110, 57, 128, 57, 127, 51, 122, 45, 116, 44, 111, 48, 109, 56, 111, 64, 117, 68, 124, 68, 129, 64],
+    [
+      4, 74, 5, 74, 7, 72, 9, 70, 11, 68, 13, 62, 16, 56, 18, 48, 20, 40, 22, 32, 22, 26, 23, 20, 22, 15, 21,
+      12, 19, 10, 17, 10, 15, 11, 14, 15, 13, 21, 13, 30, 14, 40, 14, 52, 15, 64, 15, 70,
+    ],
+    [
+      15, 70, 15, 67, 16, 61, 17, 56, 19, 52, 22, 49, 24, 48, 27, 48, 30, 50, 31, 53, 32, 58, 32, 62, 32, 65,
+      33, 68, 34, 70, 36, 70, 39, 70, 40, 69,
+    ],
+    [
+      40, 69, 41, 66, 42, 62, 44, 57, 47, 54, 50, 52, 52, 51, 55, 52, 56, 55, 57, 58, 56, 62, 55, 65, 52, 68,
+      50, 69, 46, 69, 44, 68, 43, 64, 43, 61, 44, 58, 47, 55, 50, 53, 54, 52, 56, 52, 59, 53, 62, 54, 63, 55,
+    ],
+    [
+      63, 55, 63, 57, 64, 60, 64, 64, 64, 68, 64, 67, 65, 62, 66, 57, 68, 54, 70, 52, 73, 51, 75, 52, 76, 55,
+      77, 60, 77, 66, 77, 70,
+    ],
+    [
+      77, 70, 77, 67, 78, 61, 79, 56, 81, 54, 83, 52, 86, 51, 88, 52, 89, 55, 90, 58, 90, 63, 91, 66, 92, 69,
+      94, 70, 97, 69, 98, 69,
+    ],
+    [
+      98, 69, 100, 68, 102, 65, 106, 63, 108, 60, 110, 58, 112, 55, 111, 53, 109, 51, 106, 50, 104, 52, 102,
+      54, 100, 57, 100, 61, 102, 64, 104, 67, 106, 69, 110, 70, 114, 69, 118, 68, 122, 66, 126, 64, 129, 61,
+      132, 60, 135, 58, 136, 58,
+    ],
   ];
   const PATH = PARTS.flat();
   /** How near the path a traced point counts, in path units. */
@@ -60,8 +80,10 @@
 </script>
 
 <section aria-label="Wisp's path">
-  <p class="card">[PLACEHOLDER] Wisp writes: I walked this path. Follow it, and see where it goes.</p>
-  <p>[PLACEHOLDER] Trace the path with a finger or the pointer, or trace one part at a time.</p>
+  <p class="card">
+    Wisp writes: I walked this path the long way round. Follow it, and you will see what I mean.
+  </p>
+  <p>Trace the path with a finger or the pointer, or trace one part at a time.</p>
   <svg
     viewBox="0 0 140 80"
     role="img"
@@ -71,6 +93,10 @@
     onpointerup={() => (dragging = false)}
     onpointercancel={() => (dragging = false)}
   >
+    <!-- The land under the trail: the ridge Wisp crossed, a pond, and a house at the end. -->
+    <path class="land" d="M0 30 L10 22 L18 26 L30 14 L40 24 L48 20 L60 30" />
+    <ellipse class="land" cx="49" cy="61" rx="3.5" ry="2.5" />
+    <path class="land" d="M126 58 L126 50 L131 45 L136 50 L136 58 Z M130 58 L130 54 L132 54 L132 58" />
     {#each PARTS as part, i (i)}
       <polyline class="path" points={part.join(' ')} />
     {/each}
@@ -100,10 +126,16 @@
     touch-action: none;
     cursor: crosshair;
   }
-  polyline {
+  polyline,
+  .land {
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+  .land {
+    stroke: var(--muted);
+    stroke-width: 1;
+    opacity: 0.6;
   }
   .path {
     stroke: var(--muted);

@@ -299,7 +299,7 @@ test('a world without a pack takes no pack draw (golden hash unchanged)', () => 
   expect(giftCost(plain, t)).toBe(t.gift.cost);
   expect(giftWarmth(plain, t)).toBe(t.warmth.giftReceived);
   expect(hashWorld(runGolden())).toBe(golden.hash);
-  expect(golden.hash).toBe('c29d2fa4dbda4dcf');
+  expect(golden.hash).toBe('c2cb400e2f6e75e5');
 
   // In the Fen, gifts are plain, and pose and keepsake change nothing and draw nothing.
   const w = toveWorld();

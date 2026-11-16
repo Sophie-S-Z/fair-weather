@@ -1,7 +1,7 @@
 // Dev page: draws the Pim rig. ?shell=t,b,c,s sets the shell; ?frame=N renders boil frame N once;
 // ?pair=1 draws two overlapping Pims.
 import { Application } from 'pixi.js';
-import pimJson from '../content/rigs/PLACEHOLDER-pim.rig.json';
+import pimJson from '../content/rigs/pim.rig.json';
 import { RigSchema } from '../src/render/line/rig.ts';
 import { BOIL_FPS } from '../src/render/line/deform.ts';
 import { createLineView } from '../src/render/line/line-view.ts';

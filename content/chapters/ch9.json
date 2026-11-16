@@ -113,33 +113,44 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Hope or ache",
+  "feeling": "Hope or ache",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Thresholds",
-      "science": "[PLACEHOLDER] Some people join only when enough friends already have.",
-      "limits": "[PLACEHOLDER] Here each creature has one fixed threshold.",
-      "counter": "[PLACEHOLDER] Some joiners follow strangers, not friends.",
-      "question": "[PLACEHOLDER] How many friends would it take for you to dance?",
+      "title": "Waiting for friends",
+      "science": "Some creatures join only when enough of their friends already have. Each one has a threshold, and one new dancer can tip the next.",
+      "limits": "Each creature here has one fixed threshold that never changes.",
+      "counter": "Some people join to follow strangers or a crowd, not friends.",
+      "question": "How many friends would it take for you to dance?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Threshold Models of Collective Behavior, Granovetter, 1978",
+          "url": "https://doi.org/10.1086/226707"
+        },
+        {
+          "label": "The Wisdom and/or Madness of Crowds, Nicky Case",
+          "url": "https://ncase.me/crowds/"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Friends across a gap",
-      "science": "[PLACEHOLDER] A dance spreads through friendships, wherever the friends stand.",
-      "limits": "[PLACEHOLDER] Here a bridge only lets creatures cross; the dance follows ties, not paths.",
-      "counter": "[PLACEHOLDER] Some say being near matters more than being friends.",
-      "question": "[PLACEHOLDER] Who would you be waiting for before you joined in?",
+      "title": "Across the brook",
+      "science": "A dance spreads along friendships, wherever the friends stand. Wide bridges, where several ties overlap, carry it best.",
+      "limits": "The bridge here only lets creatures cross. The dance follows ties, not paths.",
+      "counter": "Some say being near matters more than being friends.",
+      "question": "Who was Bell waiting for?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "The Spread of Behavior in an Online Social Network Experiment, Centola, 2010",
+          "url": "https://doi.org/10.1126/science.1185231"
+        },
+        {
+          "label": "The Wisdom and/or Madness of Crowds, Nicky Case",
+          "url": "https://ncase.me/crowds/"
         }
       ]
     }
-  ]
+  ],
+  "diary": {
+    "bell": ["I will dance when my friends dance. Not before. I am not brave alone, and I know it."]
+  }
 }

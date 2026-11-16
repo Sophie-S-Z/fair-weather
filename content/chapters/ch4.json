@@ -479,31 +479,39 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Unease, a watched heat",
+  "feeling": "Unease, a watched heat",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Being watched",
-      "science": "[PLACEHOLDER] People act differently when they know they are seen.",
-      "limits": "[PLACEHOLDER] The light here only adds weight to what already happens.",
-      "counter": "[PLACEHOLDER] Some studies find the watching effect small or absent.",
-      "question": "[PLACEHOLDER] Does attention reward the loud more than the kind?",
+      "title": "What the light lands on",
+      "science": "Where your light rests, things grow, and everyone can see where it rests. Attention works like that: what gets seen gets copied. Online, angry posts travel further than calm ones.",
+      "limits": "Your light only adds weight to what already happens. It cannot make a creature kind or cruel.",
+      "counter": "Attention can also calm a quarrel by bringing it into the open.",
+      "question": "Did you shine on the loud ones or the kind ones?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Emotion Shapes the Diffusion of Moralized Content, Brady and others, 2017",
+          "url": "https://doi.org/10.1073/pnas.1618923114"
+        },
+        {
+          "label": "Moral Outrage in the Digital Age, Crockett, 2017",
+          "url": "https://doi.org/10.1038/s41562-017-0213-3"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Amplifying a signal",
-      "science": "[PLACEHOLDER] A boost to one behavior spreads to others nearby.",
-      "limits": "[PLACEHOLDER] One lens is a toy model of attention.",
-      "counter": "[PLACEHOLDER] Attention can also calm a conflict by making it public.",
-      "question": "[PLACEHOLDER] What would you light up on purpose?",
+      "title": "Being watched",
+      "science": "In one office, people paid more for their tea in the weeks when a picture of eyes hung over the honesty box.",
+      "limits": "The creatures here never know that you are looking. Your light changes the meadow, not their minds.",
+      "counter": "Larger studies since then find the watching-eyes effect small or absent.",
+      "question": "Do you act differently when you know someone sees?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Cues of Being Watched Enhance Cooperation, Bateson, Nettle and Roberts, 2006",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1686213/"
+        },
+        {
+          "label": "Two meta-analyses find no evidence that watching eyes boost generosity, BPS Research Digest",
+          "url": "https://www.bps.org.uk/research-digest/two-meta-analyses-find-no-evidence-big-brother-eyes-boost-generosity"
         }
       ]
     }

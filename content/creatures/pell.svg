@@ -1,0 +1,10 @@
+<!-- Pell, of Lily Shallows: an old frog under a lily-pad hat, who sings the old song. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 42 90 C 28 90 17.5 85.5 17.5 77 C 17.5 68 23 60.5 31 56 C 22 55.5 13 53.5 13 50.5 C 13 47 22 45 33 44.5 C 35.5 39 42 35.5 50 35.5 C 58 35.5 64.5 39 67 44.5 C 78 45 87 47 87 50.5 C 87 53.5 78 55.5 69 56 C 77 60.5 82.5 68 82.5 77 C 82.5 85.5 72 90 58 90" />
+  <circle id="eye-l" cx="44" cy="64" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="56" cy="64" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="62.5" cy="69" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="58" x2="100" y2="58" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

@@ -1,0 +1,10 @@
+<!-- A villager of Kith: an egg with a two-leaf sprout. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 44 90 C 32 90 26 82 26 70 C 26 52 36 39 47.6 38.2 C 47.8 35 47.5 32 46.3 29.5 C 42 31.5 36.5 30 34.5 25 C 39.5 22.5 45 24.5 46.8 28.7 C 48 26 50.5 22 54.5 19.5 C 58 23.5 57.5 29 53 31 C 51.2 31.8 49.6 31.2 49 29.8 C 50 32.5 50.5 35.2 50.5 38.2 C 63.5 39 74 52 74 70 C 74 82 68 90 56 90" />
+  <circle id="eye-l" cx="45" cy="58" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="55" cy="58" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="61.5" cy="63" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="66" x2="100" y2="66" />
+  <line id="base" x1="0" y1="88" x2="100" y2="88" />
+</svg>

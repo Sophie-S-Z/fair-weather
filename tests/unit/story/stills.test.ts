@@ -57,9 +57,9 @@ test('a close-call beat is left out; a chapter with no still uses its scene plac
   expect(played).not.toContain('missed_knot');
   expect(pages[0]?.lines).not.toContain('line of missed_knot');
   expect(stillPages(chapters, fakeInk(), DEFAULT_FLAGS).map((p) => p.still)).toEqual(
-    chapters.map((c) => `PLACEHOLDER-still-${c.scene}`),
+    chapters.map((c) => c.scene),
   );
-  expect(sceneStill('fen')).toBe('PLACEHOLDER-still-fen');
+  expect(sceneStill('fen')).toBe('fen');
   const own = { ...chapters[0], still: 'meadow-dawn' } as (typeof chapters)[number];
   expect(stillPages([own], fakeInk(), DEFAULT_FLAGS)[0]?.still).toBe('meadow-dawn');
 });

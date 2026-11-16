@@ -1,6 +1,6 @@
 # ADR 0010: Placeholder art and placeholder text
 
-**Status:** Accepted
+**Status:** Accepted. ADR 0016 replaced every placeholder; the guard (item 3) stays.
 
 ## Context
 
@@ -16,4 +16,4 @@ Hard constraint 5 bans AI-generated text, art, music, and myths in the shipped g
 ## Consequences
 
 - A production build cannot ship until a human replaces all placeholder art and text.
-- Since the game screen imports the Ink story (M1.8), `npm run build` fails while any placeholder is referenced. Until writers deliver, CI builds in development mode (`npx vite build --mode development`), which keeps placeholders. `npm run build` stays the ship gate.
+- Since the game screen imports the Ink story (M1.8), `npm run build` fails while any placeholder is referenced. Until the content was final, CI built in development mode. Since ADR 0016, CI runs `npm run build`, the ship gate.

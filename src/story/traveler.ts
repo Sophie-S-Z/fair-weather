@@ -11,8 +11,8 @@ import shallowsJson from '../../content/scenarios/shallows.json' with { type: 'j
 import type { WorldLite } from '../sim-host/protocol.ts';
 import type { Dials, Scenario, Shell } from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE } from './carry.ts';
-import { DIARY } from './diary.ts';
-import type { Diary, Memory } from './diary.ts';
+import { DIARY_KEYS } from './diary.ts';
+import type { DiaryKey, Memory } from './diary.ts';
 import { displayName } from './names.ts';
 import { tuning } from './tuning.ts';
 
@@ -37,9 +37,8 @@ export interface Traveler {
   memories: Memory[];
 }
 
-const ONE_LINE: ReadonlySet<keyof Diary> = new Set(['leave', 'return', 'dance']);
+const ONE_LINE: ReadonlySet<DiaryKey> = new Set(['leave', 'return', 'dance']);
 const baseId = z.string().refine((id) => BASE_CREATURES.has(id));
-const keys = Object.keys(DIARY) as [keyof Diary, ...(keyof Diary)[]];
 
 /** A traveler as a code holds it: strict, ids from the closed base set, every number bounded. */
 export const TravelerSchema = z.strictObject({
@@ -50,7 +49,7 @@ export const TravelerSchema = z.strictObject({
   memories: z
     .array(
       z
-        .strictObject({ key: z.enum(keys), other: baseId.exactOptional() })
+        .strictObject({ key: z.enum(DIARY_KEYS), other: baseId.exactOptional() })
         .refine(
           (m) => ONE_LINE.has(m.key) === (m.other === undefined),
           'A line names another only when its template does',

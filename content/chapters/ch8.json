@@ -115,33 +115,46 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Dread, then solidarity",
+  "feeling": "Dread, then solidarity",
   "notes": [
     {
-      "title": "[PLACEHOLDER] The commons",
-      "science": "[PLACEHOLDER] A shared store lasts only while each takes a little.",
-      "limits": "[PLACEHOLDER] One mushroom and one rule for taking are a toy model of a commons.",
-      "counter": "[PLACEHOLDER] Some say a commons needs an owner or a rule from outside.",
-      "question": "[PLACEHOLDER] Who takes too much when everyone is hungry?",
+      "title": "The commons",
+      "science": "A shared store lasts while each one takes a little. When each takes a little more, it can run out for everyone.",
+      "limits": "One mushroom and one rule for taking make a toy commons.",
+      "counter": "Elinor Ostrom found many real groups that keep a commons for centuries with rules of their own, and no owner.",
+      "question": "Who took too much when everyone was hungry?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "The Tragedy of the Commons, Hardin, 1968",
+          "url": "https://doi.org/10.1126/science.162.3859.1243"
+        },
+        {
+          "label": "Beyond Markets and States, Ostrom, 2010",
+          "url": "https://doi.org/10.1257/aer.100.3.641"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Giving when it costs",
-      "science": "[PLACEHOLDER] Sharing in hard times is rarer, and it says more.",
-      "limits": "[PLACEHOLDER] Here a gift is worth less in winter, so giving costs more.",
-      "counter": "[PLACEHOLDER] Some say people share most when times are hardest.",
-      "question": "[PLACEHOLDER] Would you share with someone who once kept from you?",
+      "title": "Giving when it costs",
+      "science": "A gift that costs the giver more says more. A berry in winter tells the other creature something a berry in summer cannot.",
+      "limits": "Here a winter gift takes more from the giver's store. Nothing else about the giver changes.",
+      "counter": "A small kindness given often can mean as much as one costly gift.",
+      "question": "Would you share with someone who once kept from you?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Mate Selection: A Selection for a Handicap, Zahavi, 1975",
+          "url": "https://doi.org/10.1016/0022-5193(75)90111-3"
+        },
+        {
+          "label": "Signaling Theory, Strategic Interaction, and Symbolic Capital, Bliege Bird and Smith, 2005",
+          "url": "https://doi.org/10.1086/427115"
         }
       ]
     }
-  ]
+  ],
+  "diary": {
+    "moss": [
+      "I have seen a great many winters. The mushroom fed us through all of them, in the years when nobody took too much."
+    ]
+  }
 }

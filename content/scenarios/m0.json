@@ -95,7 +95,7 @@
     {
       "id": "villager-1",
       "speciesId": "kith",
-      "name": "Villager 1",
+      "name": "Tansy",
       "x": 160,
       "y": 290,
       "berries": 2,
@@ -110,7 +110,7 @@
     {
       "id": "villager-2",
       "speciesId": "kith",
-      "name": "Villager 2",
+      "name": "Burr",
       "x": 416,
       "y": 290,
       "berries": 2,
@@ -125,7 +125,7 @@
     {
       "id": "villager-3",
       "speciesId": "kith",
-      "name": "Villager 3",
+      "name": "Sorrel",
       "x": 672,
       "y": 290,
       "berries": 2,
@@ -140,7 +140,7 @@
     {
       "id": "villager-4",
       "speciesId": "kith",
-      "name": "Villager 4",
+      "name": "Hob",
       "x": 928,
       "y": 290,
       "berries": 2,
@@ -155,7 +155,7 @@
     {
       "id": "villager-5",
       "speciesId": "kith",
-      "name": "Villager 5",
+      "name": "Rook",
       "x": 1184,
       "y": 290,
       "berries": 2,
@@ -170,7 +170,7 @@
     {
       "id": "villager-6",
       "speciesId": "kith",
-      "name": "Villager 6",
+      "name": "Teasel",
       "x": 1440,
       "y": 290,
       "berries": 2,
@@ -185,7 +185,7 @@
     {
       "id": "villager-7",
       "speciesId": "kith",
-      "name": "Villager 7",
+      "name": "Cob",
       "x": 160,
       "y": 450,
       "berries": 2,
@@ -200,7 +200,7 @@
     {
       "id": "villager-8",
       "speciesId": "kith",
-      "name": "Villager 8",
+      "name": "Nettle",
       "x": 416,
       "y": 450,
       "berries": 2,
@@ -215,7 +215,7 @@
     {
       "id": "villager-9",
       "speciesId": "kith",
-      "name": "Villager 9",
+      "name": "Sedge",
       "x": 672,
       "y": 450,
       "berries": 2,
@@ -230,7 +230,7 @@
     {
       "id": "villager-10",
       "speciesId": "kith",
-      "name": "Villager 10",
+      "name": "Rue",
       "x": 928,
       "y": 450,
       "berries": 2,
@@ -245,7 +245,7 @@
     {
       "id": "villager-11",
       "speciesId": "kith",
-      "name": "Villager 11",
+      "name": "Loam",
       "x": 1184,
       "y": 450,
       "berries": 2,
@@ -260,7 +260,7 @@
     {
       "id": "villager-12",
       "speciesId": "kith",
-      "name": "Villager 12",
+      "name": "Flint",
       "x": 1440,
       "y": 450,
       "berries": 2,
@@ -275,7 +275,7 @@
     {
       "id": "villager-13",
       "speciesId": "kith",
-      "name": "Villager 13",
+      "name": "Hazel",
       "x": 160,
       "y": 610,
       "berries": 2,
@@ -290,7 +290,7 @@
     {
       "id": "villager-14",
       "speciesId": "kith",
-      "name": "Villager 14",
+      "name": "Tarn",
       "x": 416,
       "y": 610,
       "berries": 2,
@@ -305,7 +305,7 @@
     {
       "id": "villager-15",
       "speciesId": "kith",
-      "name": "Villager 15",
+      "name": "Clove",
       "x": 672,
       "y": 610,
       "berries": 2,
@@ -320,7 +320,7 @@
     {
       "id": "villager-16",
       "speciesId": "kith",
-      "name": "Villager 16",
+      "name": "Quince",
       "x": 928,
       "y": 610,
       "berries": 2,
@@ -335,7 +335,7 @@
     {
       "id": "villager-17",
       "speciesId": "kith",
-      "name": "Villager 17",
+      "name": "Yarrow",
       "x": 1184,
       "y": 610,
       "berries": 2,
@@ -350,7 +350,7 @@
     {
       "id": "villager-18",
       "speciesId": "kith",
-      "name": "Villager 18",
+      "name": "Sloe",
       "x": 1440,
       "y": 610,
       "berries": 2,
@@ -365,7 +365,7 @@
     {
       "id": "villager-19",
       "speciesId": "kith",
-      "name": "Villager 19",
+      "name": "Furze",
       "x": 160,
       "y": 770,
       "berries": 2,
@@ -380,7 +380,7 @@
     {
       "id": "villager-20",
       "speciesId": "kith",
-      "name": "Villager 20",
+      "name": "Mallow",
       "x": 416,
       "y": 770,
       "berries": 2,
@@ -395,7 +395,7 @@
     {
       "id": "villager-21",
       "speciesId": "kith",
-      "name": "Villager 21",
+      "name": "Vetch",
       "x": 672,
       "y": 770,
       "berries": 2,
@@ -410,7 +410,7 @@
     {
       "id": "villager-22",
       "speciesId": "kith",
-      "name": "Villager 22",
+      "name": "Rill",
       "x": 928,
       "y": 770,
       "berries": 2,
@@ -425,7 +425,7 @@
     {
       "id": "villager-23",
       "speciesId": "kith",
-      "name": "Villager 23",
+      "name": "Spindle",
       "x": 1184,
       "y": 770,
       "berries": 2,
@@ -440,7 +440,7 @@
     {
       "id": "villager-24",
       "speciesId": "kith",
-      "name": "Villager 24",
+      "name": "Haw",
       "x": 1440,
       "y": 770,
       "berries": 2,

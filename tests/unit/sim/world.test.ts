@@ -42,8 +42,8 @@ test('the m0 scenario has the named cast, 24 villagers, 8 bushes, no benches', (
     'Bell',
   ]);
   expect(scenario.creatures).toHaveLength(30);
-  expect(scenario.creatures[6]?.name).toBe('Villager 1');
-  expect(scenario.creatures[29]?.name).toBe('Villager 24');
+  expect(scenario.creatures[6]?.name).toBe('Tansy');
+  expect(scenario.creatures[29]?.name).toBe('Haw');
   expect(scenario.bushes).toHaveLength(8);
   expect(scenario.structures).toHaveLength(0);
 });

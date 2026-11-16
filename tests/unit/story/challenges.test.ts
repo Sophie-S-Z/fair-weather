@@ -212,8 +212,7 @@ test('the challenges file has the three spec texts, untagged', () => {
   for (const t of texts) expect(line).toContain(`"${t}"`);
   for (const c of parsed.challenges) {
     for (const m of MARKERS) expect(c.text).not.toContain(m);
-    expect(c.pass.startsWith('[PLACEHOLDER] ')).toBe(true);
-    expect(c.fail.startsWith('[PLACEHOLDER] ')).toBe(true);
+    for (const m of MARKERS) expect(`${c.pass} ${c.fail}`).not.toContain(m);
   }
 });
 

@@ -1,19 +1,19 @@
 === ch6_intro ===
-Autumn fog rolls in. Echo and Krit sit on the islet in the pond, where each gives as the other gave last. #placeholder
+Autumn fog rolls over the pond, where Echo and Krit share an islet and a habit: each gives as the other gave last.
 -> END
 
 === ch6_bet ===
-Will Echo forgive Krit in this fog? #placeholder
+When the fog lifts, will Echo still be warm to Krit?
 -> END
 
 === ch6_lantern ===
-A lantern makes a small clear place in the fog. #placeholder
+A lantern makes a small, clear room in the fog.
 -> END
 
 === ch6_loop ===
-Each saw a slight in the fog, and now neither will give first. #placeholder
+Each saw a slight in the fog that was never there, and now neither will give first.
 -> END
 
 === ch6_close_call ===
-The fog is thick, but Echo and Krit have not turned on each other yet. #placeholder
+The fog is thick, but Echo and Krit still read each other right.
 -> END

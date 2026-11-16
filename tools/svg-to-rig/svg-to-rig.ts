@@ -2,10 +2,11 @@ import { svgPathProperties } from 'svg-path-properties';
 import { RIG_POINTS, RigSchema } from '../../src/render/line/rig.ts';
 import type { Rig } from '../../src/render/line/rig.ts';
 
-// The library's length-to-point lookup is not uniform near segment joins, and finer than
-// about 2000 steps it only adds jitter. So the path is walked at this density and re-sampled
-// by cumulative chord length.
-const DENSE_SAMPLES = 1024;
+// The library's whole-path length-to-point lookup is not uniform near segment joins. So each
+// segment is walked on its own, at this many steps per path unit (and at least MIN_PART_STEPS),
+// and the walk is re-sampled by cumulative chord length.
+const STEPS_PER_UNIT = 4;
+const MIN_PART_STEPS = 16;
 
 type Pt = { x: number; y: number };
 
@@ -64,28 +65,32 @@ export function svgToRig(svgText: string, id: string): Rig {
   const base = required(svgText, 'base');
   const prop = tagWithId(svgText, 'prop');
 
-  const props = new svgPathProperties(d);
-  const total = props.getTotalLength();
-  if (!(total > 0)) throw new Error('svg-to-rig: path#line has zero length');
-
+  const parts = new svgPathProperties(d).getParts();
   const dense: Pt[] = [];
+  for (const part of parts) {
+    const steps = Math.max(MIN_PART_STEPS, Math.ceil(part.length * STEPS_PER_UNIT));
+    // Each part starts where the one before ended, so that shared point is walked once.
+    for (let i = dense.length === 0 ? 0 : 1; i <= steps; i++)
+      dense.push(part.getPointAtLength((part.length * i) / steps));
+  }
+  if (dense.length < 2) throw new Error('svg-to-rig: path#line has zero length');
+
   const cumulative: number[] = [];
   let arc = 0;
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
   let maxY = -Infinity;
-  for (let i = 0; i <= DENSE_SAMPLES; i++) {
-    const p = props.getPointAtLength((total * i) / DENSE_SAMPLES);
+  dense.forEach((p, i) => {
     const prev = dense[i - 1];
     if (prev) arc += Math.hypot(p.x - prev.x, p.y - prev.y);
     cumulative.push(arc);
-    dense.push(p);
     minX = Math.min(minX, p.x);
     maxX = Math.max(maxX, p.x);
     minY = Math.min(minY, p.y);
     maxY = Math.max(maxY, p.y);
-  }
+  });
+  if (!(arc > 0)) throw new Error('svg-to-rig: path#line has zero length');
   const height = maxY - minY;
   if (!(height > 0)) throw new Error('svg-to-rig: path#line has no height');
 

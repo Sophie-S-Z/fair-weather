@@ -4,17 +4,38 @@ import { describe, expect, test } from 'vitest';
 import { RigSchema } from '../../../src/render/line/rig.ts';
 import { rigToJson, svgToRig } from '../../../tools/svg-to-rig/svg-to-rig.ts';
 
-/**
- * Every placeholder body: the rig id is the part of the file name after `PLACEHOLDER-`. The
- * journal's drawings (`PLACEHOLDER-journal-*`) and the still version's pictures (`PLACEHOLDER-still-*`)
- * are pictures, not bodies, and have no rig.
- */
-const bodies = readdirSync('content/placeholder')
-  .filter(
-    (f) => f.endsWith('.svg') && !f.startsWith('PLACEHOLDER-journal-') && !f.startsWith('PLACEHOLDER-still-'),
-  )
+/** Every body drawing in content/creatures: the rig id is the file name. */
+const bodies = readdirSync('content/creatures')
+  .filter((f) => f.endsWith('.svg'))
   .sort()
-  .map((f) => ({ id: f.slice('PLACEHOLDER-'.length, -'.svg'.length), file: f }));
+  .map((f) => ({ id: f.slice(0, -'.svg'.length), file: f }));
+
+/**
+ * The path walked by the curve formulas themselves, not the library's length lookup: each line or
+ * cubic segment in even steps of its parameter, about 20 steps per path unit.
+ */
+function exactWalk(d: string): { x: number; y: number }[] {
+  const walk: { x: number; y: number }[] = [];
+  for (const { start: s, end: e, length, details } of new svgPathProperties(d).getParts()) {
+    const steps = Math.max(8, Math.ceil(length * 20));
+    for (let i = walk.length === 0 ? 0 : 1; i <= steps; i++) {
+      const t = i / steps;
+      const u = 1 - t;
+      if (details[0] === 'C') {
+        const [, x1, y1, x2, y2] = details;
+        walk.push({
+          x: u * u * u * s.x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * e.x,
+          y: u * u * u * s.y + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * e.y,
+        });
+      } else if (details[0] === 'L') {
+        walk.push({ x: s.x + (e.x - s.x) * t, y: s.y + (e.y - s.y) * t });
+      } else {
+        throw new Error(`a body path uses only L and C segments, not ${details[0]}`);
+      }
+    }
+  }
+  return walk;
+}
 
 /** Indexed read that fails loudly instead of returning undefined. */
 function at<T>(a: readonly T[], i: number): T {
@@ -62,7 +83,7 @@ function arcPositionNear(
 }
 
 describe.each(bodies)('svgToRig on $file', ({ id, file }) => {
-  const svg = readFileSync(`content/placeholder/${file}`, 'utf8');
+  const svg = readFileSync(`content/creatures/${file}`, 'utf8');
   /** The y1 of the svg's `<line id=...>` marker. */
   const lineY = (marker: string): number =>
     Number(new RegExp(`id="${marker}"[^>]*y1="([^"]+)"`).exec(svg)?.[1]);
@@ -76,10 +97,8 @@ describe.each(bodies)('svgToRig on $file', ({ id, file }) => {
     // Independent check: walk the source path, locate each rig point on it, and compare the
     // arc distance between neighbours with the mean gap.
     const d = /<path\b[^>]*\bd="([^"]+)"/.exec(svg)?.[1] ?? '';
-    const props = new svgPathProperties(d);
-    const total = props.getTotalLength();
-    const N = 2000;
-    const walk = Array.from({ length: N + 1 }, (_, i) => props.getPointAtLength((total * i) / N));
+    const walk = exactWalk(d);
+    const N = walk.length - 1;
     const arc = [0];
     for (let i = 1; i <= N; i++) {
       const p = at(walk, i);
@@ -109,13 +128,16 @@ describe.each(bodies)('svgToRig on $file', ({ id, file }) => {
     const rig = svgToRig(svg, id);
     const ys = rig.points.filter((_, i) => i % 2 === 1);
     const xs = rig.points.filter((_, i) => i % 2 === 0);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(1, 2);
-    expect(Math.abs(Math.max(...xs) + Math.min(...xs))).toBeLessThan(0.001);
-    // The base line is at rig y 0, so the lowest point is below it and the eyes are far above.
+    // The path, not its 128 samples, sets the scale: a sharp tip can fall between two samples.
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(1, 1);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(1);
+    expect(Math.abs(Math.max(...xs) + Math.min(...xs))).toBeLessThan(0.02);
+    // The base line is at rig y 0, so the lowest point is below it and the eyes are above it. A
+    // prop (a cap, a kite, a plume) can move the middle, so the eyes need only be left and right.
     expect(Math.min(...ys)).toBeLessThan(0);
-    expect(rig.markers.eyeL[1]).toBeGreaterThan(0.5);
-    expect(rig.markers.eyeL[0]).toBeLessThan(0);
-    expect(rig.markers.eyeR[0]).toBeGreaterThan(0);
+    expect(rig.markers.eyeL[1]).toBeGreaterThan(0);
+    expect(rig.markers.eyeL[1]).toBeLessThan(Math.max(...ys));
+    expect(rig.markers.eyeL[0]).toBeLessThan(rig.markers.eyeR[0]);
   });
 
   test('assigns regions by neck and base lines', () => {
@@ -170,7 +192,7 @@ describe.each(bodies)('svgToRig on $file', ({ id, file }) => {
 
 describe.each(bodies)('checked-in rig for $file', ({ id, file }) => {
   test('equals the tool output', () => {
-    const svg = readFileSync(`content/placeholder/${file}`, 'utf8');
+    const svg = readFileSync(`content/creatures/${file}`, 'utf8');
     const rig = readFileSync(`content/rigs/${file.replace('.svg', '.rig.json')}`, 'utf8');
     expect(rig).toBe(rigToJson(svgToRig(svg, id)));
   });

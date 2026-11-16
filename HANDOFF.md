@@ -61,8 +61,8 @@ The game is client-only, works offline after load, and is desktop-first with wor
 2. **Module boundaries.** `render` and `ui` read snapshots and never change the world. Only `story` changes the chapter, the valley, or the unlocked verbs. `content` holds data only, no logic.
 3. **The honesty rule.** A story beat may arrange who meets whom, and when. It never overwrites a simulation result (spec 10.2).
 4. **No player-drawn characters.** No verb, tool, or sandbox feature lets a player draw a creature or hero.
-5. **No AI-generated content in the shipped game.** No generated art, text, music, or myths. The myth comes from hand-written templates.
-6. **Placeholder art rule.** Final art comes from a human designer. You may hand-author simple one-line SVG placeholders so engineering can proceed. Put them in `content/placeholder/`, name every file `PLACEHOLDER-*.svg`, and add a build check that fails a production build if any placeholder is still referenced. Do not use image-generation models for any art.
+5. **No AI-generated content in the shipped game.** (Changed by ADR 0016: the owner asked Claude to write and draw the final content.) No generated art, text, music, or myths. The myth comes from hand-written templates.
+6. **Placeholder art rule.** (Changed by ADR 0016: the final art is in place, and the guard stays.) Final art comes from a human designer. You may hand-author simple one-line SVG placeholders so engineering can proceed. Put them in `content/placeholder/`, name every file `PLACEHOLDER-*.svg`, and add a build check that fails a production build if any placeholder is still referenced. Do not use image-generation models for any art.
 7. **Privacy.** No accounts, no cookies, no identifiers. Analytics stay off unless the player opts in, and then send counts only (spec 15.4).
 8. **No dark patterns.** No streaks, no guilt for time away, no leaderboards.
 9. **Accessibility.** Full keyboard play, WCAG 2.2 AA text contrast, reduced-motion, high-contrast, and text-size settings. Text that carries meaning is real HTML, not canvas text.

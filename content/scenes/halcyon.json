@@ -1,6 +1,6 @@
 {
   "id": "halcyon",
-  "credit": "[PLACEHOLDER] engineering layout",
+  "credit": "Fair Weather art",
   "width": 1600,
   "height": 900,
   "hills": [
@@ -63,16 +63,48 @@
       ]
     }
   ],
-  "depth": { "horizon": 92, "reference": 800, "far": 0.8, "near": 1.0 },
-  "sea": { "horizon": 44, "shore": 26, "sun": [1000, 16] },
+  "depth": {
+    "horizon": 92,
+    "reference": 800,
+    "far": 0.8,
+    "near": 1.0
+  },
+  "sea": {
+    "horizon": 44,
+    "shore": 26,
+    "sun": [1000, 16]
+  },
   "benchSpots": [
-    { "id": "wisp-rise", "x": 540, "y": 330 },
-    { "id": "sea-edge", "x": 700, "y": 660 },
-    { "id": "east-meadow", "x": 1250, "y": 520 }
+    {
+      "id": "wisp-rise",
+      "x": 540,
+      "y": 330
+    },
+    {
+      "id": "sea-edge",
+      "x": 700,
+      "y": 660
+    },
+    {
+      "id": "east-meadow",
+      "x": 1250,
+      "y": 520
+    }
   ],
   "cameras": {
-    "halcyon-wide": { "x": 800, "y": 450, "zoom": 1 },
-    "sea": { "x": 800, "y": 760, "zoom": 2 },
-    "wisp-close": { "follow": "wisp", "zoom": 2.5 }
+    "halcyon-wide": {
+      "x": 800,
+      "y": 450,
+      "zoom": 1
+    },
+    "sea": {
+      "x": 800,
+      "y": 760,
+      "zoom": 2
+    },
+    "wisp-close": {
+      "follow": "wisp",
+      "zoom": 2.5
+    }
   }
 }

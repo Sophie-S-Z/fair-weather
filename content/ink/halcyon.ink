@@ -1,19 +1,20 @@
 === halcyon_intro ===
-A calm meadow lies over a mirror sea. Wisp sits alone. #placeholder
+A calm meadow lies over a mirror sea, where nothing runs out, and Wisp sits alone at the edge of it.
 -> END
 
 === halcyon_home ===
-Wisp chooses to come home with you. #placeholder
+Wisp gets up, looks once at the calm sea, and walks home with you.
 -> END
 
 === halcyon_stay ===
-Wisp chooses to stay in Halcyon, and gives you its seed to plant in Kith. #placeholder
+Wisp chooses to stay, and presses its seed into your hands to plant in Kith.
+It is not a sad choice, only a far one.
 -> END
 
 === halcyon_postcard ===
-Which postcard will you send home? #placeholder
+A bird of the mirror sea will carry one card to Kith. Which one?
 -> END
 
 === halcyon_sent ===
-The postcard flies home to Kith. #placeholder
+The card drifts away over the still water, toward home.
 -> END

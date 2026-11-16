@@ -56,8 +56,8 @@
 
 <section aria-label="Hold still">
   <p>
-    [PLACEHOLDER] The village shivers in the dark. Hold still for five seconds. Do not move the pointer, and
-    do not press a key.
+    The village shivers in the dark, and nothing you do will warm it. Hold still for five seconds. Do not move
+    the pointer, and do not press a key.
   </p>
   <div class="meter">
     <label for="stillness">Stillness</label>

@@ -22,12 +22,12 @@
     if (done) return;
     if (!poppable(id)) {
       wobbling = id;
-      said = `[PLACEHOLDER] ${displayName(id)}'s bubble wobbles and stays.`;
+      said = `${displayName(id)}'s bubble wobbles and stays. That grudge is still too heavy to pop.`;
       return;
     }
     const at = floating.indexOf(id);
     popped = [...popped, id];
-    said = `[PLACEHOLDER] ${displayName(id)}'s grudge pops and drifts away.`;
+    said = `${displayName(id)}'s grudge pops and drifts away, and the sleeper turns over.`;
     if (floating.every((b) => !poppable(b))) end();
     // The popped button is gone, so focus moves to the bubble now in its place, or to Moss's.
     void tick().then(() => {
@@ -44,8 +44,8 @@
 <section aria-label="Dream bubbles">
   <p>
     {bubbles.length === 0
-      ? '[PLACEHOLDER] The village sleeps, and no grudge floats tonight.'
-      : '[PLACEHOLDER] Grudges float over the sleepers. Pop them with a soft touch.'}
+      ? 'The village sleeps, and no grudge floats tonight.'
+      : 'Grudges float over the sleepers like bubbles. Pop them with a soft touch.'}
   </p>
   <div class="bubbles" bind:this={list}>
     {#each floating as id (id)}

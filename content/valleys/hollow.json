@@ -11,11 +11,11 @@
       "id": "clipping",
       "label": "A clipping with the hero's face"
     },
-    "drawingAlt": "[PLACEHOLDER] A printing press under a big lens. The page it prints shows your face.",
+    "drawingAlt": "A printing press under a big lens. The page it prints shows your face.",
     "locals": [
-      "[PLACEHOLDER] The gazette only prints a quarrel.",
-      "[PLACEHOLDER] Nobody reads about a kind day.",
-      "[PLACEHOLDER] Quill is tired of the press."
+      "The gazette only prints a quarrel. Kind days do not sell.",
+      "Nobody reads about a kind day. I had one yesterday, and nobody asked.",
+      "Quill is tired of the press, but Quill keeps turning the handle."
     ]
   },
   "title": "Hearsay Hollow",
@@ -87,31 +87,39 @@
   "exit": {
     "onBeat": "hollow_sent"
   },
-  "feeling": "[PLACEHOLDER] Exposure, temptation",
+  "feeling": "Exposure, temptation",
   "notes": [
     {
-      "title": "[PLACEHOLDER] You were this sky",
-      "science": "[PLACEHOLDER] In Part 1 your light was the attention, and what you lit grew.",
-      "limits": "[PLACEHOLDER] Here the sky looks only for drama, and it prints one story a day.",
-      "counter": "[PLACEHOLDER] Attention can also lift a kind act.",
-      "question": "[PLACEHOLDER] What did you shine on in Kith?",
+      "title": "You were this sky",
+      "science": "In Part 1 your light was the attention, and whatever you lit grew.",
+      "limits": "Here the sky looks only for drama, and it prints one story a day.",
+      "counter": "Attention can also lift a kind act into view.",
+      "question": "What did you shine on in Kith?",
       "sources": [
         {
-          "label": "We Become What We Behold, announcement",
-          "url": "https://www.patreon.com/ncase/posts/new-game-we-what-7030991"
+          "label": "Emotion Shapes the Diffusion of Moralized Content, Brady and others, 2017",
+          "url": "https://doi.org/10.1073/pnas.1618923114"
+        },
+        {
+          "label": "Moral Outrage in the Digital Age, Crockett, 2017",
+          "url": "https://doi.org/10.1038/s41562-017-0213-3"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] What the gazette prints",
-      "science": "[PLACEHOLDER] A sky that lights only quarrels makes quarrels look common.",
-      "limits": "[PLACEHOLDER] Real news has many reasons for what it covers.",
-      "counter": "[PLACEHOLDER] Some papers print the quiet stories too.",
-      "question": "[PLACEHOLDER] What never makes the front page?",
+      "title": "What the gazette prints",
+      "science": "A paper that prints only quarrels makes quarrels look common. Online, false news and angry news travel further than true, calm news.",
+      "limits": "Real news has many reasons for what it covers.",
+      "counter": "Some papers print the quiet stories too, and people read them.",
+      "question": "What never makes the front page?",
       "sources": [
         {
-          "label": "We Become What We Behold, announcement",
-          "url": "https://www.patreon.com/ncase/posts/new-game-we-what-7030991"
+          "label": "The Spread of True and False News Online, Vosoughi, Roy and Aral, 2018",
+          "url": "https://doi.org/10.1126/science.aap9559"
+        },
+        {
+          "label": "Out-Group Animosity Drives Engagement on Social Media, Rathje, Van Bavel and van der Linden, 2021",
+          "url": "https://doi.org/10.1073/pnas.2024292118"
         }
       ]
     }

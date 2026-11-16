@@ -184,36 +184,45 @@
   "exit": {
     "onTwist": true
   },
-  "feeling": "[PLACEHOLDER] Guilt, a story that got away",
+  "feeling": "Guilt, a story that got away",
   "diary": {
     "krit": [
-      "[PLACEHOLDER] Last winter I was so hungry that I kept the berries Moss gave me, and I still think about it."
+      "Last winter I was so hungry that I kept the berries Moss gave me. I still taste them, and not in a good way.",
+      "Every dusk I leave a seed by Bell's stump. Bell thinks the wind brings them. Let it."
     ]
   },
   "notes": [
     {
-      "title": "[PLACEHOLDER] Complex contagion",
-      "science": "[PLACEHOLDER] Some ideas spread only when several friends carry them.",
-      "limits": "[PLACEHOLDER] Each creature here has one number for how easily it is swayed.",
-      "counter": "[PLACEHOLDER] Simple contagion, one contact at a time, explains other cases better.",
-      "question": "[PLACEHOLDER] Why do some rumors stall at the edge of a group?",
+      "title": "A rumor needs company",
+      "science": "Some ideas spread only after several friends carry them. One telling is not enough, so a rumor can stall at the edge of a group.",
+      "limits": "Each creature here has one number for how easily a story sways it.",
+      "counter": "Other things spread from a single contact, like a cold or a catchy tune.",
+      "question": "Where did the rumor stop, and why there?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Complex Contagions and the Weakness of Long Ties, Centola and Macy, 2007",
+          "url": "https://doi.org/10.1086/521848"
+        },
+        {
+          "label": "The Spread of Behavior in an Online Social Network Experiment, Centola, 2010",
+          "url": "https://doi.org/10.1126/science.1185231"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Who gets hurt",
-      "science": "[PLACEHOLDER] A rumor costs the one it is about, who often never hears it.",
-      "limits": "[PLACEHOLDER] The sim does not show how Krit feels about it.",
-      "counter": "[PLACEHOLDER] Some say gossip also keeps a group honest.",
-      "question": "[PLACEHOLDER] Can a rumor be taken back?",
+      "title": "Who gets hurt",
+      "science": "A rumor costs the one it is about, and that one often never hears it. Krit only notices that fewer creatures share.",
+      "limits": "The sim records Krit's warmth, not Krit's hurt.",
+      "counter": "Some studies find that gossip also keeps a group honest, because cheaters fear being talked about.",
+      "question": "Can a rumor be taken back?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "The Virtues of Gossip, Feinberg and others, 2012",
+          "url": "https://doi.org/10.1037/a0026650"
+        },
+        {
+          "label": "Gossip in Evolutionary Perspective, Dunbar, 2004",
+          "url": "https://doi.org/10.1037/1089-2680.8.2.100"
         }
       ]
     }

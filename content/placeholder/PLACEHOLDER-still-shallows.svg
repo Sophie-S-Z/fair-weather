@@ -1,9 +1,0 @@
-<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The still version's picture of Lily Shallows: lily pads on a still pond. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
-  <g fill="none" stroke="#2b2b2b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="160" cy="120" rx="150" ry="70" />
-    <ellipse cx="90" cy="100" rx="30" ry="12" />
-    <ellipse cx="220" cy="96" rx="30" ry="12" />
-    <ellipse cx="160" cy="150" rx="30" ry="12" />
-  </g>
-</svg>

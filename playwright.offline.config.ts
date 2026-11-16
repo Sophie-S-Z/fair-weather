@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The offline test runs over the build of `vite build --mode development` (the production build
-// refuses placeholders): build first, then `npm run test:offline`. PW_CHROMIUM_PATH points at the
+// The offline test runs over the production build: `npm run build` first, then `npm run test:offline`. PW_CHROMIUM_PATH points at the
 // preinstalled Chromium in the cloud container (ADR 0008).
 const executablePath = process.env['PW_CHROMIUM_PATH'];
 

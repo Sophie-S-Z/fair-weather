@@ -11,11 +11,11 @@
       "id": "reed-whistle",
       "label": "A reed whistle"
     },
-    "drawingAlt": "[PLACEHOLDER] Lily pads on a still pond. On each pad, frogs sing one song.",
+    "drawingAlt": "Lily pads on a still pond. On each pad, the frogs sing one song.",
     "locals": [
-      "[PLACEHOLDER] I hop to a pad where they sing my song.",
-      "[PLACEHOLDER] Each pad sings one song now.",
-      "[PLACEHOLDER] Pell sings the old song alone."
+      "I hop to a pad where they sing my song. One or two like me, that is all I want.",
+      "Each pad sings one song now. Nobody planned it.",
+      "Pell sings the old song alone, the one with all the parts."
     ]
   },
   "title": "Lily Shallows",
@@ -87,14 +87,14 @@
   "exit": {
     "onBeat": "shallows_sent"
   },
-  "feeling": "[PLACEHOLDER] Belonging, mixing",
+  "feeling": "Belonging, mixing",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Small wishes, big walls",
-      "science": "[PLACEHOLDER] Frogs that want only a few like them still end up on pads of one song.",
-      "limits": "[PLACEHOLDER] Frogs are not people, and songs are not who you are.",
-      "counter": "[PLACEHOLDER] A small wish for variety undoes the walls.",
-      "question": "[PLACEHOLDER] What did each frog want?",
+      "title": "Small wishes, big walls",
+      "science": "Frogs that want only a few neighbors like them still end up on pads of one song. Small wishes add up to big walls.",
+      "limits": "Frogs are not people, and a song is not who you are. Models like this one predict more sorting than real cities show.",
+      "counter": "Real segregation also has causes this pond leaves out: laws, lending, jobs, and money. People built many of those walls on purpose.",
+      "question": "What did each frog want, and what did the pond get?",
       "sources": [
         {
           "label": "Parable of the Polygons, Vi Hart and Nicky Case",
@@ -103,19 +103,31 @@
         {
           "label": "Dynamic Models of Segregation, Thomas Schelling, 1971",
           "url": "https://doi.org/10.1080/0022250X.1971.9989794"
+        },
+        {
+          "label": "Understanding the Social Context of the Schelling Segregation Model, Clark and Fossett, 2008",
+          "url": "https://doi.org/10.1073/pnas.0708155105"
+        },
+        {
+          "label": "The Color of Law, Richard Rothstein, 2017",
+          "url": "https://en.wikipedia.org/wiki/The_Color_of_Law"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] A second song",
-      "science": "[PLACEHOLDER] A frog who knows two songs fits on more pads.",
-      "limits": "[PLACEHOLDER] Learning is slower in a real town.",
-      "counter": "[PLACEHOLDER] Some groups keep their song on purpose.",
-      "question": "[PLACEHOLDER] Whose song did you learn?",
+      "title": "A second song",
+      "science": "A frog that knows two songs fits on more pads. In the model, a small wish for some variety takes the walls down again.",
+      "limits": "Learning a song is fast here. In a real town, change is slower.",
+      "counter": "Some groups keep their song on purpose, to keep it alive.",
+      "question": "Whose song did you learn?",
       "sources": [
         {
           "label": "Parable of the Polygons, Vi Hart and Nicky Case",
           "url": "https://ncase.me/polygons/"
+        },
+        {
+          "label": "Schelling's Spatial Proximity Model of Segregation Revisited, Pancs and Vriend, 2007",
+          "url": "https://doi.org/10.1016/j.jpubeco.2006.03.008"
         }
       ]
     }

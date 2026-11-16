@@ -76,9 +76,9 @@ describe('validateContent', () => {
     const { errors } = validateContent(root);
     expect(errors.some((e) => e.startsWith('bad.json:'))).toBe(true);
   });
-  test('reports a chapter whose still image has no file, and accepts the scene placeholder', () => {
+  test("reports a chapter whose still image has no file, and accepts the scene's still", () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
-    for (const dir of ['chapters', 'scenes', 'placeholder'])
+    for (const dir of ['chapters', 'scenes', 'stills'])
       mkdirSync(join(root, 'content', dir), { recursive: true });
     const copy = (from: string): void => {
       writeFileSync(join(root, 'content', from), readFileSync(join(repoRoot, 'content', from), 'utf8'));
@@ -86,10 +86,8 @@ describe('validateContent', () => {
     copy('chapters/ch0.json');
     copy('scenes/kith-meadow.json');
     const missing = validateContent(root).errors.filter((e) => e.includes('still image'));
-    expect(missing).toEqual([
-      'ch0.json: still image PLACEHOLDER-still-kith-meadow has no file content/stills/PLACEHOLDER-still-kith-meadow.svg or content/placeholder/PLACEHOLDER-still-kith-meadow.svg',
-    ]);
-    copy('placeholder/PLACEHOLDER-still-kith-meadow.svg');
+    expect(missing).toEqual(['ch0.json: still image kith-meadow has no file content/stills/kith-meadow.svg']);
+    copy('stills/kith-meadow.svg');
     expect(validateContent(root).errors.filter((e) => e.includes('still image'))).toEqual([]);
   });
   test("accepts a chapter's own still in content/stills and reports one with no file", () => {
@@ -101,7 +99,7 @@ describe('validateContent', () => {
     const chapter = { ...(JSON.parse(read('chapters/ch0.json')) as object), still: 'meadow-dawn' };
     writeFileSync(join(root, 'content', 'chapters', 'ch0.json'), JSON.stringify(chapter));
     expect(validateContent(root).errors.filter((e) => e.includes('still image'))).toEqual([
-      'ch0.json: still image meadow-dawn has no file content/stills/meadow-dawn.svg or content/placeholder/meadow-dawn.svg',
+      'ch0.json: still image meadow-dawn has no file content/stills/meadow-dawn.svg',
     ]);
     writeFileSync(
       join(root, 'content', 'stills', 'meadow-dawn.svg'),
@@ -173,10 +171,10 @@ describe('validateContent', () => {
     const root = mkdtempSync(join(tmpdir(), 'fw-content-'));
     mkdirSync(join(root, 'content', 'chapters'), { recursive: true });
     mkdirSync(join(root, 'content', 'scenes'), { recursive: true });
-    mkdirSync(join(root, 'content', 'placeholder'), { recursive: true });
+    mkdirSync(join(root, 'content', 'stills'), { recursive: true });
     const read = (path: string): string => readFileSync(join(repoRoot, 'content', path), 'utf8');
     writeFileSync(join(root, 'content', 'scenes', 'kith-meadow.json'), read('scenes/kith-meadow.json'));
-    const still = 'placeholder/PLACEHOLDER-still-kith-meadow.svg';
+    const still = 'stills/kith-meadow.svg';
     writeFileSync(join(root, 'content', still), read(still));
     const chapter = JSON.parse(read('chapters/ch1.json')) as {
       scene: string;

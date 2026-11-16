@@ -53,31 +53,31 @@
   "exit": {
     "onBeat": "i3_end"
   },
-  "feeling": "[PLACEHOLDER] Play, a small hello",
+  "feeling": "Play, a small hello",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Rhythm and greeting",
-      "science": "[PLACEHOLDER] Shared rhythm can make strangers feel closer.",
-      "limits": "[PLACEHOLDER] A tapped beat is a tiny stand-in for a song.",
-      "counter": "[PLACEHOLDER] Some say closeness comes first and the rhythm follows.",
-      "question": "[PLACEHOLDER] Does a greeting need words at all?",
+      "title": "In time together",
+      "science": "Moving in time with someone can make you trust them more. In one study, people who sang or walked in step cooperated more afterward.",
+      "limits": "A tapped beat is a tiny stand-in for a song.",
+      "counter": "Some say closeness comes first and the rhythm follows.",
+      "question": "Does a greeting need words at all?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Synchrony and Cooperation, Wiltermuth and Heath, 2009",
+          "url": "https://doi.org/10.1111/j.1467-9280.2008.02253.x"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Turn taking",
-      "science": "[PLACEHOLDER] Taking turns is one of the first things infants learn with others.",
-      "limits": "[PLACEHOLDER] The game counts beats, not feelings.",
-      "counter": "[PLACEHOLDER] Turn taking can also be a ritual with no warmth in it.",
-      "question": "[PLACEHOLDER] When does a habit become a bond?",
+      "title": "Taking turns",
+      "science": "In ten languages from around the world, people waited about the same short gap, near a fifth of a second, before taking their turn in talk.",
+      "limits": "The game counts beats, not feelings.",
+      "counter": "Turn taking can also be a ritual with no warmth in it.",
+      "question": "When does a habit become a bond?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Universals and Cultural Variation in Turn-Taking in Conversation, Stivers and others, 2009",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/19553212/"
         }
       ]
     }

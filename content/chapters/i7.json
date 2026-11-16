@@ -53,18 +53,18 @@
   "exit": {
     "onBeat": "i7_end"
   },
-  "feeling": "[PLACEHOLDER] Longing, a word in the path",
+  "feeling": "Longing, a word in the path",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Paths and places",
-      "science": "[PLACEHOLDER] People often walk back toward the places they knew.",
-      "limits": "[PLACEHOLDER] The path here is drawn by hand; nothing in the sim walks it.",
-      "counter": "[PLACEHOLDER] Some say people leave for good and never look back.",
-      "question": "[PLACEHOLDER] What would your path spell?",
+      "title": "The pull of a place",
+      "science": "People grow attached to places, and that pull can bring them back long after they leave.",
+      "limits": "The path here is drawn by hand. Nothing in the sim walks it.",
+      "counter": "Some leave for good and never look back.",
+      "question": "What would your path spell?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Place Attachment: How Far Have We Come in the Last 40 Years?, Lewicka, 2011",
+          "url": "https://doi.org/10.1016/j.jenvp.2010.10.001"
         }
       ]
     }

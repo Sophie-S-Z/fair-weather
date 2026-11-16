@@ -314,8 +314,8 @@ test('a drawing that does not load is tried three times, then its scene still on
   expect(order).toHaveLength(4);
   expect(order[1]).toBe(`${order[0] ?? ''}${order[0]?.includes('?') ? '&' : '?'}retry=1`);
   expect(order[2]).toBe(`${order[0] ?? ''}${order[0]?.includes('?') ? '&' : '?'}retry=2`);
-  expect(order[0]).toMatch(/PLACEHOLDER-journal-fen\.svg/);
-  expect(order[3]).toMatch(/PLACEHOLDER-still-fen\.svg$/);
+  expect(order[0]).toMatch(/journal\/fen\.svg/);
+  expect(order[3]).toMatch(/stills\/fen\.svg$/);
   const size = pngSize(await download.path());
   expect(size.signature).toBe(PNG_SIGNATURE);
   expect(size.width).toBe(1080);

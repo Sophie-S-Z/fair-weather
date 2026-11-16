@@ -11,11 +11,11 @@
       "id": "starling-feather",
       "label": "A starling feather"
     },
-    "drawingAlt": "[PLACEHOLDER] Reeds at dusk. A flock of starlings rises from the water.",
+    "drawingAlt": "Reeds at dusk. A flock of starlings rises from the water, and the reflection shows more birds than the sky.",
     "locals": [
-      "[PLACEHOLDER] The flock goes up when enough of us go up.",
-      "[PLACEHOLDER] The water shows more birds in the sky than there are.",
-      "[PLACEHOLDER] Tove has never left the reeds."
+      "The flock goes up when enough of us go up. Not before.",
+      "The water shows more birds in the sky than there are. Do not believe the water.",
+      "Tove has never left the reeds. Tove says the reeds are enough."
     ]
   },
   "title": "Murmuration Fen",
@@ -87,31 +87,39 @@
   "exit": {
     "onBeat": "fen_sent"
   },
-  "feeling": "[PLACEHOLDER] Loneliness, belonging",
+  "feeling": "Loneliness, belonging",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Complex contagion",
-      "science": "[PLACEHOLDER] Some things spread only when several neighbors do them first, not just one.",
-      "limits": "[PLACEHOLDER] Each starling here counts only its seven nearest birds.",
-      "counter": "[PLACEHOLDER] Some ideas spread from one friend alone.",
-      "question": "[PLACEHOLDER] What would you do only once enough friends did it?",
+      "title": "Enough neighbors",
+      "science": "Some things spread only when several neighbors do them first. One bird lifting off is not enough to lift the flock.",
+      "limits": "Each starling here counts only its seven nearest birds. Real starlings track about that many, and they also see the shape of the whole flock.",
+      "counter": "Some ideas spread from one friend alone.",
+      "question": "What would you do only once enough friends did it?",
       "sources": [
         {
-          "label": "The Wisdom and/or Madness of Crowds",
-          "url": "https://ncase.me/crowds/"
+          "label": "Interaction Ruling Animal Collective Behavior, Ballerini and others, 2008",
+          "url": "https://doi.org/10.1073/pnas.0711437105"
+        },
+        {
+          "label": "The Spread of Behavior in an Online Social Network Experiment, Centola, 2010",
+          "url": "https://doi.org/10.1126/science.1185231"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] The majority illusion",
-      "science": "[PLACEHOLDER] When the best-known birds fly, it can look as if most birds fly.",
-      "limits": "[PLACEHOLDER] The water's picture here is one simple weighting.",
-      "counter": "[PLACEHOLDER] Often what looks common really is common.",
-      "question": "[PLACEHOLDER] Who do you see most, and are they like everyone else?",
+      "title": "The majority illusion",
+      "science": "When the best-known birds fly, it can look as if most birds fly. The birds with the most ties are seen by the most others.",
+      "limits": "The water's picture here uses one simple weighting.",
+      "counter": "Often what looks common is common.",
+      "question": "Who do you see most, and are they like everyone else?",
       "sources": [
         {
-          "label": "The Wisdom and/or Madness of Crowds",
-          "url": "https://ncase.me/crowds/"
+          "label": "The Majority Illusion in Social Networks, Lerman, Yan and Wu, 2016",
+          "url": "https://doi.org/10.1371/journal.pone.0147617"
+        },
+        {
+          "label": "Why Your Friends Have More Friends Than You Do, Feld, 1991",
+          "url": "https://doi.org/10.1086/229693"
         }
       ]
     }

@@ -56,31 +56,31 @@
   "exit": {
     "onBeat": "i5_end"
   },
-  "feeling": "[PLACEHOLDER] Calm, floating",
+  "feeling": "Calm, floating",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Sleep and memory",
-      "science": "[PLACEHOLDER] Sleep helps the brain keep some of the day and drop the rest.",
-      "limits": "[PLACEHOLDER] The bubbles are a picture, not a model of dreams.",
-      "counter": "[PLACEHOLDER] How much dreams matter for memory is still argued.",
-      "question": "[PLACEHOLDER] What would a creature here dream about?",
+      "title": "Sleep keeps some of the day",
+      "science": "During sleep, the brain keeps some of the day's memories and lets others go.",
+      "limits": "The bubbles are a picture, not a model of dreams.",
+      "counter": "How much dreams matter for memory is still argued.",
+      "question": "What would a creature here dream about?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Sleep-Dependent Memory Consolidation, Stickgold, 2005",
+          "url": "https://doi.org/10.1038/nature04286"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Rest",
-      "science": "[PLACEHOLDER] Rest changes how we judge others the next day.",
-      "limits": "[PLACEHOLDER] Nothing in the sim changes while they sleep here.",
-      "counter": "[PLACEHOLDER] Some say rest only hides a grudge for a while.",
-      "question": "[PLACEHOLDER] Does a night make a quarrel smaller?",
+      "title": "A night between",
+      "science": "Sleep changes how we feel about the day. People who miss sleep react more strongly to bad news the next morning.",
+      "limits": "Nothing in the sim changes while the creatures sleep here.",
+      "counter": "Some say a night only hides a grudge for a while.",
+      "question": "Does a night make a quarrel smaller?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "Overnight Therapy? The Role of Sleep in Emotional Brain Processing, Walker and van der Helm, 2009",
+          "url": "https://doi.org/10.1037/a0016570"
         }
       ]
     }

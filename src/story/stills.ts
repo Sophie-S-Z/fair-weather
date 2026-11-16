@@ -8,16 +8,16 @@ import type { Chapter, Note } from './schema.ts';
 export interface StillPage {
   id: string;
   title: string;
-  /** The id of the still image: the chapter's `still`, or its scene's placeholder. */
+  /** The id of the still image: the chapter's `still`, or its scene's. */
   still: string;
   /** Every line of the Ink knots the chapter's beats play, in beat order. */
   lines: string[];
   notes: Note[];
 }
 
-/** The still image id of a scene, until an artist draws one per chapter (ADR 0010). */
+/** The still image id of a scene: the scene's own picture, `content/stills/<scene>.svg`. */
 export function sceneStill(scene: string): string {
-  return `PLACEHOLDER-still-${scene}`;
+  return scene;
 }
 
 /**

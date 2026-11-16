@@ -274,15 +274,9 @@ describe('the journey between valleys', () => {
   });
 
   test('saying reads the value and the strength', () => {
-    expect(saying({ value: 0.3, strength: 0.5 })).toBe(
-      '[PLACEHOLDER] Most here say [PLACEHOLDER] you share.',
-    );
-    expect(saying({ value: -0.3, strength: 0.2 })).toBe(
-      '[PLACEHOLDER] Some here say [PLACEHOLDER] you keep what you have.',
-    );
-    expect(saying({ value: 0.29, strength: 0.19 })).toBe(
-      '[PLACEHOLDER] A few here say [PLACEHOLDER] they cannot tell what you will do.',
-    );
+    expect(saying({ value: 0.3, strength: 0.5 })).toBe('Most here say you share what you have.');
+    expect(saying({ value: -0.3, strength: 0.2 })).toBe('Some here say you keep what you have.');
+    expect(saying({ value: 0.29, strength: 0.19 })).toBe('A few here say they cannot tell what you will do.');
   });
 
   test('JourneySchema round-trips a journey', () => {

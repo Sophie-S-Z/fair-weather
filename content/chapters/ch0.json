@@ -103,35 +103,39 @@
   "exit": {
     "onBeat": "pim_looks_up"
   },
-  "feeling": "[PLACEHOLDER] Wonder",
+  "feeling": "Wonder",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Why a first look matters",
-      "science": "[PLACEHOLDER] Attention starts the trust game: a creature that looks up can be answered.",
-      "limits": "[PLACEHOLDER] Pim looking up is a model rule, not proof of awareness.",
-      "counter": "[PLACEHOLDER] Some say trust starts from habit, not from a first look.",
-      "question": "[PLACEHOLDER] How much does the first answer shape the rest?",
+      "title": "A bid is small",
+      "science": "A bid is any small reach for attention: a look, a wave, a sigh. In Gottman's lab, couples who stayed together turned toward each other's bids far more often than couples who split.",
+      "limits": "Those figures come from watching couples, so they show a link and not a cause. Pim is a few rules, not a partner.",
+      "counter": "Bids between strangers, or between a creature and its sky, may follow other rules.",
+      "question": "Did you notice Pim's first look before you did anything?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] Gottman Institute on bids",
+          "label": "Gottman Institute on bids",
           "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+        },
+        {
+          "label": "Simply Psychology on the limits of the bid research",
+          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] A bid is small",
-      "science": "[PLACEHOLDER] A glance or a wave is a bid for connection.",
-      "limits": "[PLACEHOLDER] The bid research rests on a few studies of couples.",
-      "counter": "[PLACEHOLDER] Bids may matter less between strangers than between partners.",
-      "question": "[PLACEHOLDER] Is a wave at the sky a bid at all?",
+      "title": "Seeing a mind",
+      "science": "People read motion as a mind very fast. In a 1944 film, two triangles and a circle moved about, and nearly everyone who watched it told a story about a bully.",
+      "limits": "Pim looks up because a rule tells it to. The game borrows your habit of seeing a mind there.",
+      "counter": "Seeing a mind where there is none can also mislead us about storms, machines, and luck.",
+      "question": "What told you that Pim was alive?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] Gottman Institute on bids",
-          "url": "https://www.gottman.com/blog/little-things-make-break-relationship/"
+          "label": "An Experimental Study of Apparent Behavior, Heider and Simmel, 1944",
+          "url": "https://doi.org/10.2307/1416950"
         },
         {
-          "label": "[PLACEHOLDER] Simply Psychology on the limits of the bid research",
-          "url": "https://www.simplypsychology.org/bird-test-predict-relationship-satisfaction.html"
+          "label": "On Seeing Human, Epley, Waytz and Cacioppo, 2007",
+          "url": "https://doi.org/10.1037/0033-295X.114.4.864"
         }
       ]
     }

@@ -1,6 +1,6 @@
 {
   "id": "hollow",
-  "credit": "[PLACEHOLDER] engineering layout",
+  "credit": "Fair Weather art",
   "width": 1600,
   "height": 900,
   "hills": [
@@ -68,15 +68,43 @@
     [800, 474, 799, 536, 800, 597, 802, 658, 805, 719, 809, 780, 814, 840, 820, 900]
   ],
   "squares": [[800, 420, 110, 62]],
-  "depth": { "horizon": 100, "reference": 600, "far": 0.8, "near": 1.08 },
+  "depth": {
+    "horizon": 100,
+    "reference": 600,
+    "far": 0.8,
+    "near": 1.08
+  },
   "benchSpots": [
-    { "id": "press-square", "x": 870, "y": 450 },
-    { "id": "south-lane", "x": 720, "y": 640 },
-    { "id": "west-lane", "x": 560, "y": 330 }
+    {
+      "id": "press-square",
+      "x": 870,
+      "y": 450
+    },
+    {
+      "id": "south-lane",
+      "x": 720,
+      "y": 640
+    },
+    {
+      "id": "west-lane",
+      "x": 560,
+      "y": 330
+    }
   ],
   "cameras": {
-    "hollow-wide": { "x": 800, "y": 450, "zoom": 1 },
-    "press": { "x": 800, "y": 400, "zoom": 2 },
-    "quill-close": { "follow": "quill", "zoom": 2.5 }
+    "hollow-wide": {
+      "x": 800,
+      "y": 450,
+      "zoom": 1
+    },
+    "press": {
+      "x": 800,
+      "y": 400,
+      "zoom": 2
+    },
+    "quill-close": {
+      "follow": "quill",
+      "zoom": 2.5
+    }
   }
 }

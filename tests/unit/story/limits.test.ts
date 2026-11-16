@@ -29,11 +29,11 @@ test('the first four items hold spec 19.1 in its words, with no tag', () => {
   }
 });
 
-test('the one further item is a tagged placeholder for the writer', () => {
+test('the one further item says what the model leaves out, with no placeholder', () => {
   const rest = MODEL_LIMITS.items.slice(4);
   expect(rest).toHaveLength(1);
-  expect(rest[0]?.heading).toContain('[PLACEHOLDER]');
-  expect(rest[0]?.text).toContain('[PLACEHOLDER]');
+  expect(rest[0]?.heading).toBe('What the model leaves out');
+  expect(`${rest[0]?.heading ?? ''} ${rest[0]?.text ?? ''}`).not.toContain('PLACEHOLDER');
 });
 
 test('only sources that are already in content/ are used', () => {

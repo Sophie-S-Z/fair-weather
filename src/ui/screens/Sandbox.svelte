@@ -178,11 +178,11 @@
   const nameOf = (id: string): string => travelerName(id, travelers);
   /** The picked creature's diary (ADR 0015 item 9): a traveler's opens with the memories it brought. */
   // Read again at each drawn frame (the tick test is always true), as the run writes the diary.
-  const pickedDiary = $derived.by(() =>
-    picked && runner && rw.drawnTick >= 0
-      ? runner.memories(picked).map((m) => memoryText(m, DIARY, undefined, picked))
-      : [],
-  );
+  const pickedDiary = $derived.by(() => {
+    const writer = picked;
+    if (!writer || !runner || rw.drawnTick < 0) return [];
+    return runner.memories(writer).map((m) => memoryText(m, DIARY, undefined, writer));
+  });
   const pointing = $derived(POINT_TOOLS.has(tool));
   /** The tool, and what it would act on: the cursor's nearest spot and creature, or the picked creature; then a mark. */
   const statusLine = $derived(

@@ -75,33 +75,32 @@
    */
   const HINT_VERBS = [...WORLD_VERBS, 'listen', 'peek', 'zoom', 'rewind'] as const;
   const HINTS: Record<(typeof HINT_VERBS)[number], string> = {
-    wake: '[PLACEHOLDER] Pick a sleeper with Tab or a click, then press Enter to wake it.',
-    respond: '[PLACEHOLDER] When Pim waves, press G, H, or R, then Enter to answer the sky.',
-    place: '[PLACEHOLDER] Choose a spot with the arrow keys or a click, then press Enter to set a bench.',
-    shine:
-      '[PLACEHOLDER] Move the spot with the arrow keys or a click, then press Enter to shine the sun there.',
-    whisper: '[PLACEHOLDER] Pick a creature, then press Enter to whisper to it about another.',
+    wake: 'Pick a sleeper with Tab or a click, then press Enter to wake it.',
+    respond: 'When Pim waves, press G, H, or R, then Enter to answer the sky.',
+    place: 'Choose a spot with the arrow keys or a click, then press Enter to set a bench.',
+    shine: 'Move the spot with the arrow keys or a click, then press Enter to shine the sun there.',
+    whisper: 'Pick a creature, then press Enter to whisper to it about another.',
     thread:
-      '[PLACEHOLDER] Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
-    fog: '[PLACEHOLDER] Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
-    blow: '[PLACEHOLDER] Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
-    walk: '[PLACEHOLDER] Press Enter to walk to the spot, or pick a creature and press W to wave at it.',
+      'Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
+    fog: 'Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
+    blow: 'Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
+    walk: 'Press Enter to walk to the spot, or pick a creature and press W to wave at it.',
     manner:
-      '[PLACEHOLDER] Press G, H, or R to choose how your hero answers, and O or K to give or keep. A Seedcarrier plants a gift with L.',
-    join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
-    pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
-    keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
-    stepDown: '[PLACEHOLDER] Press Enter to step down into the fog, or to stay on high ground.',
-    vote: '[PLACEHOLDER] Choose a spot for the rain cloud. Once, you may propose a new way to count the votes.',
-    sing: '[PLACEHOLDER] Pick a frog. Press L to learn its song, or Enter to sing yours to it.',
-    rain: '[PLACEHOLDER] Press Enter to rain on the bushes near the spot.',
-    path: '[PLACEHOLDER] Press Enter at one end of a path, then at the other.',
-    welcome: '[PLACEHOLDER] Light the gate for newcomers, or darken it.',
-    zoom: '[PLACEHOLDER] Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
-    peek: '[PLACEHOLDER] Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
+      'Press G, H, or R to choose how your hero answers, and O or K to give or keep. A Seedcarrier plants a gift with L.',
+    join: 'Press Enter to fly with the flock, or to land.',
+    pose: 'Press Enter to pose for the gazette.',
+    keepsake: 'Pick a creature, then press Enter to give it a keepsake.',
+    stepDown: 'Press Enter to step down into the fog, or to stay on high ground.',
+    vote: 'Choose a spot for the rain cloud. Once, you may propose a new way to count the votes.',
+    sing: 'Pick a frog. Press L to learn its song, or Enter to sing yours to it.',
+    rain: 'Press Enter to rain on the bushes near the spot.',
+    path: 'Press Enter at one end of a path, then at the other.',
+    welcome: 'Light the gate for newcomers, or darken it.',
+    zoom: 'Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
+    peek: 'Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
     rewind:
-      '[PLACEHOLDER] In the Cosmos, move the Rewind slider to look back; each mark is a friendship that ended. Back to now returns.',
-    listen: '[PLACEHOLDER] Press Listen to hear the next verse of the story.',
+      'In the Cosmos, move the Rewind slider to look back; each mark is a friendship that ended. Back to now returns.',
+    listen: 'Press Listen to hear the next verse of the story.',
   };
   const VIEW_NAMES: Record<ViewName, string> = {
     meadow: 'The meadow',
@@ -134,11 +133,11 @@
     away: 'away',
   };
   /** Said when the player answers the sky and no one is waving at it (the runner sends nothing). */
-  const NO_BID = '[PLACEHOLDER] Nobody is waving at the sky right now.';
+  const NO_BID = 'Nobody is waving at the sky right now.';
   /** How long the ghost hand stays, in milliseconds. */
   const GHOST_MS = 4000;
-  const VISITOR_COMES = '[PLACEHOLDER] A quiet visitor walks in and sits down to rest.';
-  const VISITOR_GOES = '[PLACEHOLDER] The visitor left a feather. It is kept in the Book of Skies.';
+  const VISITOR_COMES = 'A quiet visitor walks in and sits down to rest.';
+  const VISITOR_GOES = 'The visitor left a feather. It is kept in the Book of Skies.';
 
   let sceneEl: HTMLElement;
   let trayEl: HTMLElement | undefined = $state();

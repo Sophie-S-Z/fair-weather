@@ -114,7 +114,7 @@
         >
           <kbd>{i + 1}</kbd>
           {tool === 'place' ? PLACE_LABELS[placeKind] : TOOL_LABELS[tool]}{used.includes(tool)
-            ? ' ([PLACEHOLDER] used)'
+            ? ' (used)'
             : ''}
         </button>
       </span>

@@ -61,30 +61,38 @@
   "exit": {
     "onBeat": "ch10_ask"
   },
-  "feeling": "[PLACEHOLDER] Reckoning",
+  "feeling": "Reckoning",
   "notes": [
     {
-      "title": "[PLACEHOLDER] Stories about weather",
-      "science": "[PLACEHOLDER] People tell stories to make sense of forces they cannot see.",
-      "limits": "[PLACEHOLDER] The myth here is built from what the player did.",
-      "counter": "[PLACEHOLDER] Some say a myth hides more than it shows.",
-      "question": "[PLACEHOLDER] What story would you tell about your own weather?",
+      "title": "Stories about weather",
+      "science": "People tell stories to explain forces they cannot see, and they give those forces faces and moods.",
+      "limits": "This myth is built from what you did, chosen by a few rules. It is not a reading of your heart.",
+      "counter": "Some say a myth hides as much as it shows.",
+      "question": "Did the story sound like you?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
-          "url": "https://ncase.me/trust/words.html"
+          "label": "On Seeing Human, Epley, Waytz and Cacioppo, 2007",
+          "url": "https://doi.org/10.1037/0033-295X.114.4.864"
+        },
+        {
+          "label": "An Experimental Study of Apparent Behavior, Heider and Simmel, 1944",
+          "url": "https://doi.org/10.2307/1416950"
         }
       ]
     },
     {
-      "title": "[PLACEHOLDER] Being seen",
-      "science": "[PLACEHOLDER] Learning how others saw you can change what you do next.",
-      "limits": "[PLACEHOLDER] The creatures only tell what the sim recorded.",
-      "counter": "[PLACEHOLDER] Some say we can never see ourselves as others do.",
-      "question": "[PLACEHOLDER] Did the story sound like you?",
+      "title": "Being seen",
+      "science": "Hearing how others saw you can change what you do next. Kith tells you what it remembers.",
+      "limits": "The creatures only tell what the sim recorded.",
+      "counter": "We often judge others by their acts and ourselves by our intentions, so their story and yours can both be fair.",
+      "question": "What would you do again?",
       "sources": [
         {
-          "label": "[PLACEHOLDER] The Evolution of Trust, full text",
+          "label": "The Intuitive Psychologist and His Shortcomings, Ross, 1977",
+          "url": "https://doi.org/10.1016/S0065-2601(08)60357-3"
+        },
+        {
+          "label": "The Evolution of Trust, Nicky Case",
           "url": "https://ncase.me/trust/words.html"
         }
       ]

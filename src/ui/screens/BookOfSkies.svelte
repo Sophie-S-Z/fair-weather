@@ -72,7 +72,9 @@
     <p>Feathers from the Quiet Visitor: {feathers}</p>
   {/if}
   {#if pages.length === 0}
-    <p>[PLACEHOLDER] No year is written here yet. When a year ends, its sky story is kept here.</p>
+    <p>
+      No year is written here yet. When a year ends, the creatures tell its sky story, and it is kept here.
+    </p>
   {/if}
   {#each pages as page (page.year)}
     <article aria-labelledby="year-{page.year}">

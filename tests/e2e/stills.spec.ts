@@ -352,7 +352,7 @@ test('a sandbox whose WebGL context fails to start says so and goes back to the 
 // The journal's drawing of the Fen, written with the dev journey hook as in exports.spec.ts.
 // Not the dev server's `?import` module of the same file, which the page needs to start.
 const DRAWING = (url: URL): boolean =>
-  url.pathname.endsWith('/PLACEHOLDER-journal-fen.svg') && !url.searchParams.has('import');
+  url.pathname.endsWith('/journal/fen.svg') && !url.searchParams.has('import');
 
 /** Opens the Fen's journal with its drawing failing `failures` times; the timers run on the page clock. */
 async function openFenJournal(page: Page, failures: number): Promise<{ requests: () => number }> {
@@ -410,12 +410,12 @@ test('a journal drawing that fails twice and then loads shows the drawing', asyn
   const drawing = await openFenJournal(page, 2);
   await untilShown(page);
   expect(drawing.requests()).toBe(3);
-  expect((await shown(page)).src).toMatch(/PLACEHOLDER-journal-fen\.svg\?retry=2$/);
+  expect((await shown(page)).src).toMatch(/journal\/fen\.svg\?retry=2$/);
 });
 
 test('a journal drawing that always fails shows the still of its scene', async ({ page }) => {
   const drawing = await openFenJournal(page, Infinity);
   await untilShown(page);
   expect(drawing.requests()).toBe(3);
-  expect((await shown(page)).src).toMatch(/PLACEHOLDER-still-fen\.svg$/);
+  expect((await shown(page)).src).toMatch(/stills\/fen\.svg$/);
 });

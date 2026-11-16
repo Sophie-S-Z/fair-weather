@@ -22,22 +22,21 @@
     if (open) return;
     if (i === shared) {
       open = true;
-      answer = `[PLACEHOLDER] ${left} and ${right} both tap it back, and the door opens.`;
+      answer = `${left} and ${right} both tap it back, and the frost on the door melts open.`;
       finish(String(i));
     } else if (LEFT.includes(i)) {
-      answer = `[PLACEHOLDER] ${left} taps it back. ${right} stays quiet.`;
+      answer = `${left} taps it back. ${right} stays quiet.`;
     } else if (RIGHT.includes(i)) {
-      answer = `[PLACEHOLDER] ${right} taps it back. ${left} stays quiet.`;
+      answer = `${right} taps it back. ${left} stays quiet.`;
     } else {
-      answer = '[PLACEHOLDER] Nobody taps it back.';
+      answer = 'Nobody taps it back.';
     }
   }
 </script>
 
 <section aria-label="Rhythms at the door">
   <p>
-    [PLACEHOLDER] {left} and {right} sit on each side of a frosted door. Tap a rhythm, and find the one that both
-    tap back.
+    {left} and {right} sit on each side of a frosted door. Tap a rhythm, and find the one that both tap back.
   </p>
   <div class="rhythms">
     {#each RHYTHMS as rhythm, i (i)}

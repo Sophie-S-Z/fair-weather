@@ -91,6 +91,9 @@
     join: '[PLACEHOLDER] Press Enter to fly with the flock, or to land.',
     pose: '[PLACEHOLDER] Press Enter to pose for the gazette.',
     keepsake: '[PLACEHOLDER] Pick a creature, then press Enter to give it a keepsake.',
+    stepDown: '[PLACEHOLDER] Press Enter to step down into the fog, or to stay on high ground.',
+    vote: '[PLACEHOLDER] Choose a spot for the rain cloud. Once, you may propose a new way to count the votes.',
+    sing: '[PLACEHOLDER] Pick a frog. Press L to learn its song, or Enter to sing yours to it.',
     rain: '[PLACEHOLDER] Press Enter to rain on the bushes near the spot.',
     path: '[PLACEHOLDER] Press Enter at one end of a path, then at the other.',
     welcome: '[PLACEHOLDER] Light the gate for newcomers, or darken it.',
@@ -847,6 +850,7 @@
           heroKind: () => next?.hero?.kind ?? null,
           heroBerries: () => heroBerries(next),
           heroFlying: () => next?.pack?.id === 'fen' && next.pack.flying.includes('hero'),
+          pack: () => next?.pack ?? null,
           keepsakes: () => next?.hero?.keepsakes ?? [],
         };
         offs.push(game.input.createKeyboard(sceneEl, ctx));
@@ -1107,6 +1111,9 @@
                   onGive={(id: string) => {
                     if (picked !== null && picked !== 'hero') act({ verb: 'keepsake', to: picked, item: id });
                   }}
+                  pack={live?.pack ?? null}
+                  picked={picked === null || picked === 'hero' ? null : { id: picked, name: nameOf(picked) }}
+                  onAct={act}
                 />
               {/if}
             </div>

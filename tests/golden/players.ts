@@ -117,6 +117,78 @@ export const givesToWisp = (keepsake: boolean) => (): ScriptedPlayer => {
   };
 };
 
+const MEADOW = { x: 1450, y: 450 };
+
+/**
+ * Foglight's player: sets the manner toward and give, walks to Brume every 20 ticks until Brume
+ * follows, then to the meadow, and sends the first postcard. With `stepsDown`, it steps down at
+ * once; without, it never does, so Brume never follows.
+ */
+export const befriendsBrume = (stepsDown: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  let ready = false;
+  let headed = false;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      ready ||=
+        runner.verb({ verb: 'manner', reply: 'toward', gift: 'give' }) &&
+        (!stepsDown || runner.verb({ verb: 'stepDown', on: true }));
+      const following = lite.pack?.id === 'foglight' && lite.pack.following;
+      if (following) {
+        if (!headed) headed = runner.verb({ verb: 'walk', ...MEADOW });
+      } else if (tick >= next && runner.verb({ verb: 'walk', to: 'brume' })) next = tick + 20;
+    },
+  };
+};
+
+/**
+ * The Council's player: votes for Rootstep, and with `proposes`, proposes approval once the first
+ * tally is in. Sends the first postcard.
+ */
+export const votesAtCouncil = (proposes: boolean) => (): ScriptedPlayer => {
+  let voted = false;
+  let proposed = false;
+  return {
+    onPrompt: firstPostcard,
+    onTick(_tick, runner, lite) {
+      voted ||= runner.verb({ verb: 'vote', spot: 'rootstep' });
+      const tallied = lite.pack?.id === 'council' && lite.pack.winner !== null;
+      if (proposes && tallied && !proposed) proposed = runner.verb({ verb: 'propose', rule: 'approval' });
+    },
+  };
+};
+
+/**
+ * The Shallows' player: after watching the pond for a minute, it learns Pell's song, then
+ * each day walks to the first one-song frog of another song in creature order and sings to it,
+ * until shallows.varietyAt frogs know two songs. Without `sings`, it learns and never sings. Sends the
+ * first postcard.
+ */
+export const singsAtShallows = (sings: boolean) => (): ScriptedPlayer => {
+  let next = 0;
+  return {
+    onPrompt: firstPostcard,
+    onTick(tick, runner, lite) {
+      const pond = lite.pack?.id === 'shallows' ? lite.pack : null;
+      if (!pond || tick < next) return;
+      next = tick + 10;
+      if (pond.heroSong === null) {
+        if (tick < 60 * tuning.sim.stepsPerSecond) return;
+        runner.verb({ verb: 'walk', to: 'pell' });
+        runner.verb({ verb: 'learn', from: 'pell' });
+        return;
+      }
+      const song = pond.heroSong;
+      if (!sings || pond.variety || pond.sangToday) return;
+      const target = Object.entries(pond.songs).find(([, s]) => s.length === 1 && !s.includes(song));
+      if (!target) return;
+      runner.verb({ verb: 'walk', to: target[0] });
+      runner.verb({ verb: 'sing', to: target[0] });
+    },
+  };
+};
+
 /** The homecoming's player: walks to Pim every 20 ticks until they have met, then to the first bench. */
 const walksToPimThenBench = (): ScriptedPlayer => {
   let next = 0;
@@ -239,6 +311,9 @@ export const PLAYERS = {
   bridge: finishes(heroResult('lantern', 'Test')),
   fen: walksToTove(true),
   hollow: walksToSquare(true),
+  foglight: befriendsBrume(true),
+  council: votesAtCouncil(true),
+  shallows: singsAtShallows(true),
   halcyon: givesToWisp(true),
   home: walksToPimThenBench,
 } satisfies Record<string, () => ScriptedPlayer>;

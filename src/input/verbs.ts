@@ -16,18 +16,24 @@ export function keyboardTools(unlocked: readonly Verb[]): WorldVerb[] {
   return unlocked.filter((v): v is WorldVerb => WORLD_VERB_SET.has(v));
 }
 
-/** The bench spot nearest to (x, y), or the point itself when the scene has no bench spots. */
-export function snapToBench(p: Point, spots: readonly BenchSpot[]): Point {
-  let best: Point = p;
+/** The point of `points` nearest `at`, the first on a tie; undefined for none. */
+export function nearest<T extends Point>(points: readonly T[], at: Point): T | undefined {
+  let best: T | undefined;
   let bestD = Infinity;
-  for (const s of spots) {
-    const d = (s.x - p.x) * (s.x - p.x) + (s.y - p.y) * (s.y - p.y);
+  for (const s of points) {
+    const d = (s.x - at.x) * (s.x - at.x) + (s.y - at.y) * (s.y - at.y);
     if (d < bestD) {
       bestD = d;
-      best = { x: s.x, y: s.y };
+      best = s;
     }
   }
   return best;
+}
+
+/** The bench spot nearest to (x, y), or the point itself when the scene has no bench spots. */
+export function snapToBench(p: Point, spots: readonly BenchSpot[]): Point {
+  const s = nearest(spots, p);
+  return s ? { x: s.x, y: s.y } : p;
 }
 
 /** The point clamped into the nearest water rectangle, or null with no water. */

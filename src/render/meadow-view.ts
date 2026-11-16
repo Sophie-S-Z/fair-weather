@@ -29,6 +29,7 @@ import {
   PERCHED_HEIGHT,
   type StarlingLook,
 } from './starling.ts';
+import { cellUnder, drawCouncil, drawPads, drawSongs, drawTerraces, drawVeil } from './stage2.ts';
 import { drawStems, drawValleyGround, drawWaterSurface, REED_FRONT } from './valley.ts';
 
 /** A villager's height in scene units. Other bodies are sized to a villager's area (see bodyHeight). */
@@ -497,6 +498,8 @@ function drawPress(g: Graphics, { x, y }: Structure, palette: Palette, w: number
  * Points round a small shape's outline. Pixi gives a circle of radius r about 18 sqrt(r) points,
  * and a Graphics over 200 vertices cannot batch, so props use plain polygons and stay in the batch.
  */
+/** A frog's song marks float this far over its head. */
+const SONG_LIFT = 14;
 const GLOW_POINTS = 16;
 const DEW_POINTS = 5;
 const CAP_POINTS = 12;
@@ -702,6 +705,8 @@ export function createMeadowView(
   firstPalette: Palette,
   options: {
     lensRadius: number;
+    /** How many cells the hero sees in Foglight (foglight.sight), and a Kite-rider (foglight.kiteSight). */
+    sight: { plain: number; kite: number };
     cast: Map<string, Cast>;
     gate: { x: number; y: number };
   },
@@ -721,6 +726,13 @@ export function createMeadowView(
    */
   const flockNear = new Graphics({ label: 'flock-near' });
   const lensRing = new Graphics({ label: 'lens-ring', visible: false });
+  /** A Stage 2 valley's ground (terraces, stakes and cloud, pads), its sight veil, and the frogs' songs. */
+  const valleyGround = new Graphics({ label: 'valley-ground' });
+  const veil = new Graphics({ label: 'veil' });
+  const songMarks = new Graphics({ label: 'songs' });
+  /** What the valley ground and the veil were drawn for; '' redraws them. */
+  let groundKey = '';
+  let veilKey = '';
   const actors = new Container({ sortableChildren: true });
   let light = createLight(palette, options.lensRadius);
   let fog = createWash(palette.fog, scene.width);
@@ -735,12 +747,15 @@ export function createMeadowView(
     ground,
     shadows,
     land,
+    valleyGround,
     deckShadows,
     flock,
     light.graphics,
     lensRing,
     actors,
+    songMarks,
     fog.sprite,
+    veil,
     heat.sprite,
     cursor,
   );
@@ -906,7 +921,7 @@ export function createMeadowView(
         lensRing.clear().circle(0, 0, options.lensRadius).stroke({ color: palette.accent, width: w });
         for (const { g } of props.values()) g.destroy();
         props.clear();
-        landKey = mushroomKey = '';
+        landKey = mushroomKey = groundKey = veilKey = '';
       }
       const paths = next.structures.filter((s) => s.kind === 'path');
       const gateKey = gateLamp ? next.gateDark : null;
@@ -968,6 +983,32 @@ export function createMeadowView(
         mushroomKey = `${String(m.x)},${String(m.y)},${String(m.drops)}`;
         drawMushroom(mushroom, m, palette, w);
         mushroom.zIndex = m.y;
+      }
+      const pack = next.pack;
+      const groundFor =
+        pack?.id === 'foglight'
+          ? pack.heights.join()
+          : pack?.id === 'council'
+            ? JSON.stringify([pack.spots, pack.heroVote, pack.winner])
+            : pack?.id === 'shallows'
+              ? JSON.stringify(pack.pads)
+              : '';
+      if (groundFor !== groundKey) {
+        groundKey = groundFor;
+        valleyGround.clear();
+        if (pack?.id === 'foglight') drawTerraces(valleyGround, pack, scene.width, palette, w);
+        else if (pack?.id === 'council') drawCouncil(valleyGround, pack, palette, w);
+        else if (pack?.id === 'shallows') drawPads(valleyGround, pack, palette, w);
+      }
+      // Foglight's hero sees foglight.sight cells round it, a Kite-rider more (ADR 0015 item 3).
+      const seer = pack?.id === 'foglight' ? next.creatures.find((c) => c.id === 'hero') : undefined;
+      const steps = next.hero?.kind === 'kite' ? options.sight.kite : options.sight.plain;
+      const cell = pack?.id === 'foglight' && seer ? cellUnder(pack, scene.width, seer.x, seer.y) : null;
+      const sightKey = cell ? `${cell.join()},${String(steps)}` : '';
+      if (sightKey !== veilKey) {
+        veilKey = sightKey;
+        veil.clear();
+        if (pack?.id === 'foglight' && cell) drawVeil(veil, pack, scene.width, cell, steps, palette);
       }
       light.update(next.light);
       // In Hearsay Hollow the drama sky is the lens (ADR 0013 item 6).
@@ -1070,6 +1111,14 @@ export function createMeadowView(
             : bodyColor(palette.paper, palette.warmth, c.shell.color);
         const fogHere = fogUnder(next.fog, scene.width, c.x, c.y - h / 2);
         entry.view.update(c.shell, seconds, settings.reducedMotion, fogHere, { body, widthScale });
+      }
+      // Over each frog's head, the songs it knows; over the hero's, the song it learned.
+      songMarks.clear();
+      if (pack?.id === 'shallows') {
+        for (const d of drawn) {
+          const songs = d.id === 'hero' ? (pack.heroSong ? [pack.heroSong] : []) : (pack.songs[d.id] ?? []);
+          if (songs.length > 0) drawSongs(songMarks, songs, d.x, d.y - d.height - SONG_LIFT, palette, w);
+        }
       }
       // The flock, in one Graphics: reflections, then each grounded bird's shadow, then the
       // grounded birds farthest first, then the fliers. A grounded bird nearer than a body it

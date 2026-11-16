@@ -31,6 +31,8 @@ const FEED_BYTES = 1024;
 /** The longest whole URL the Share panel offers as a link; past it, a file. */
 export const LINK_CHARS = 2000;
 export const VALLEY_FILE = 'fair-weather-valley.fairweather';
+/** The most link ids a link's lineage holds (ADR 0015 item 10). */
+export const MAX_LINEAGE = 16;
 
 export interface SeedLink {
   v: 1;
@@ -41,6 +43,8 @@ export interface SeedLink {
   script: { tick: number; list: Command[] }[];
   /** The tick the link was made at. */
   tick: number;
+  /** The ids of the links it was remixed from, oldest first (ADR 0015 item 10); an M4 link has none. */
+  from?: string[];
 }
 
 const { brushRadius, brushAmount } = tuning.fog;
@@ -83,6 +87,8 @@ const LinkCommandSchema = CommandSchema.superRefine((c, ctx) => {
 });
 
 const tick = z.number().int().nonnegative();
+/** A link's id: 8 hex digits (linkId). */
+export const LinkIdSchema = z.string().regex(/^[0-9a-f]{8}$/);
 
 /**
  * A link, strict at every level (ADR 0014 item 7), with SandboxSetupSchema's closed id sets and only
@@ -97,6 +103,8 @@ export const SeedLinkSchema = z
     setup: SandboxSetupSchema,
     script: z.array(z.strictObject({ tick, list: z.array(LinkCommandSchema) })).max(MAX_LINK_LISTS),
     tick: tick.max(MAX_LINK_TICKS),
+    // At least one id, so a link without a lineage has one form: no `from`.
+    from: z.array(LinkIdSchema).min(1).max(MAX_LINEAGE).exactOptional(),
   })
   .superRefine((link, ctx) => {
     let last = 0;
@@ -124,14 +132,19 @@ export const SeedLinkSchema = z
 
 /** `v1.<data>`; throws when the link fails SeedLinkSchema or its JSON is past MAX_LINK_BYTES. */
 export async function encodeLink(link: SeedLink): Promise<string> {
-  const json = new TextEncoder().encode(JSON.stringify(SeedLinkSchema.parse(link)));
-  if (json.byteLength > MAX_LINK_BYTES)
+  const json = JSON.stringify(SeedLinkSchema.parse(link));
+  if (new TextEncoder().encode(json).byteLength > MAX_LINK_BYTES)
     throw new Error(`A link holds at most ${String(MAX_LINK_BYTES)} bytes`);
+  return pack('v1.', json);
+}
+
+/** `prefix` and the URL-safe base64, without padding, of the browser's deflate-raw over `json`. */
+export async function pack(prefix: string, json: string): Promise<string> {
   const deflated = new Blob([json]).stream().pipeThrough(new CompressionStream('deflate-raw'));
   const bytes = new Uint8Array(await new Response(deflated).arrayBuffer());
   let binary = '';
   for (const b of bytes) binary += String.fromCharCode(b);
-  return `v1.${btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}`;
+  return `${prefix}${btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}`;
 }
 
 /**
@@ -170,33 +183,62 @@ async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<string | null> {
 }
 
 /**
- * The link in `text` (a fragment without its `#`, or a valley file's line), or null when it is
- * longer than MAX_LINK_TEXT, has no `v1.` prefix, is not URL-safe base64, does not inflate, has
- * bytes after the deflate end, inflates past MAX_LINK_BYTES (reading stops there), is not JSON,
- * fails SeedLinkSchema, is not the JSON encodeLink writes for it, or was made under another tuning
- * hash. Never throws. It does not build the scenario: the caller must treat a throw from
- * `sandboxScenario` (a bench density past the scene's spots, land that checkLand refuses) as a
- * broken link too.
+ * The JSON text `pack` made `text` from, or null when `text` is longer than `maxText`, has no
+ * `prefix`, is not URL-safe base64, does not inflate, has bytes after the deflate end, or inflates
+ * past MAX_LINK_BYTES (reading stops there). Never throws.
  */
-export async function decodeLink(text: string, tuningHash: string): Promise<SeedLink | null> {
+export async function unpack(text: string, prefix: string, maxText: number): Promise<string | null> {
   try {
-    if (text.length > MAX_LINK_TEXT || !text.startsWith('v1.')) return null;
-    const data = text.slice(3);
+    if (text.length > maxText || !text.startsWith(prefix)) return null;
+    const data = text.slice(prefix.length);
     if (!/^[A-Za-z0-9_-]+$/.test(data) || data.length % 4 === 1) return null;
     const binary = atob(data.replaceAll('-', '+').replaceAll('_', '/'));
     const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
     const json = await inflate(bytes);
     // The stream must end at its last byte: without that byte it must not inflate, so no bytes (and
     // no words in the base64) can ride after the deflate end, which some engines ignore.
-    if (json === null || (await inflate(bytes.subarray(0, -1))) !== null) return null;
-    const parsed = SeedLinkSchema.safeParse(JSON.parse(json));
-    // Canonical: only the JSON encodeLink writes, so no duplicate key or spacing can carry text.
-    if (!parsed.success || JSON.stringify(parsed.data) !== json) return null;
-    return parsed.data.tuning === tuningHash ? parsed.data : null;
+    return json === null || (await inflate(bytes.subarray(0, -1))) !== null ? null : json;
   } catch {
     return null;
   }
 }
+
+/**
+ * The JSON `json` holds when it passes `schema` and is the JSON JSON.stringify writes for what it
+ * parses to, so no duplicate key or spacing can carry text; else null. Never throws.
+ */
+export function canonical<T>(json: string, schema: z.ZodType<T>): T | null {
+  try {
+    const parsed = schema.safeParse(JSON.parse(json));
+    return parsed.success && JSON.stringify(parsed.data) === json ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The link in `text` (a fragment without its `#`, or a valley file's line), or null when it does
+ * not unpack (MAX_LINK_TEXT, `v1.`), is not JSON, fails SeedLinkSchema, is not the JSON encodeLink
+ * writes for it, or was made under another tuning hash. Never throws. It does not build the
+ * scenario: the caller must treat a throw from `sandboxScenario` (a bench density past the scene's
+ * spots, land that checkLand refuses) as a broken link too.
+ */
+export async function decodeLink(text: string, tuningHash: string): Promise<SeedLink | null> {
+  const json = await unpack(text, 'v1.', MAX_LINK_TEXT);
+  const link = json === null ? null : canonical(json, SeedLinkSchema);
+  return link?.tuning === tuningHash ? link : null;
+}
+
+/** A link's id (ADR 0015 item 10): the first 8 hex digits of 32-bit FNV-1a over its text. */
+export function linkId(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, '0');
+}
+
+/** The lineage a run opened from `link` (whose text is `text`) carries: its own, then its id. */
+export const lineageOf = (link: SeedLink, text: string): string[] =>
+  [...(link.from ?? []), linkId(text)].slice(-MAX_LINEAGE);
 
 /**
  * Whether the whole URL is short enough to share as a link (ADR 0014 item 7). `limit` is LINK_CHARS

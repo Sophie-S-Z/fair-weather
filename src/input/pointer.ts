@@ -52,13 +52,14 @@ export function createPointer(
       tool === 'fog' ||
       tool === 'blow' ||
       tool === 'rain' ||
-      tool === 'path'
+      tool === 'path' ||
+      tool === 'vote'
     ) {
       ctx.moveCursor(scene);
     } else {
       ctx.select(pick(at.x, at.y).creature);
-      // A reply, a manner, or a keepsake goes with its buttons; a click on the scene only picks.
-      if (tool === 'respond' || tool === 'manner' || tool === 'keepsake') return;
+      // A reply, a manner, a keepsake, or a step down goes with its buttons; a click on the scene only picks.
+      if (tool === 'respond' || tool === 'manner' || tool === 'keepsake' || tool === 'stepDown') return;
     }
     useTool(ctx, scene, shift, EAST);
   };

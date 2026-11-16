@@ -567,7 +567,16 @@ test('the myth tells only this year: five gusts show behind a toggle, and the ne
   // skipped through to the end, from which the title is reached.
   await listen.click();
   await listen.click();
-  for (const name of ['The Bridge', 'Murmuration Fen', 'Hearsay Hollow', 'Halcyon', 'The Homecoming']) {
+  for (const name of [
+    'The Bridge',
+    'Murmuration Fen',
+    'Hearsay Hollow',
+    'Foglight Heights',
+    'Toadstool Council',
+    'Lily Shallows',
+    'Halcyon',
+    'The Homecoming',
+  ]) {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
     await page.getByRole('button', { name: 'Skip chapter' }).click();
   }
@@ -829,9 +838,12 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
 
 // M3.16: each valley's first screen after the Fen, reached by skipping, and the end of the journey.
 // A test for each screen, as Part 1's chapters have: on software rendering a valley draws about once
-// a second, so its load and its axe scan take seconds each, and all four in one test outlast it.
+// a second, so its load and its axe scan take seconds each, and all of them in one test outlast it.
 const AFTER_FEN = [
   ['Hearsay Hollow', 'The press runs by the square'],
+  ['Foglight Heights', 'Fog fills the low ground'],
+  ['Toadstool Council', 'The council votes at dusk'],
+  ['Lily Shallows', 'Each frog wants only a few pad-mates'],
   ['Halcyon', 'A calm meadow lies over a mirror sea'],
   ['The Homecoming', 'You walk back over the ridge'],
 ] as const;

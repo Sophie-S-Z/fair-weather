@@ -227,7 +227,8 @@ test('Continue in Halcyon rebuilds Kith to the same average warmth as the run th
   // The run that saved: main.ts sends each leg when its valley ends, with the postcard it sent.
   const unbroken = kithHost(scenario);
   unbroken.leg(kithLeg(0, ChapterSchema.parse(fenJson).valley?.postcards[0] ?? null, home));
-  unbroken.leg(kithLeg(1, null, home)); // Hollow was skipped: no postcard, still its days
+  // Hollow and the three Stage 2 valleys were skipped: no postcard, still their days.
+  for (const i of [1, 2, 3, 4]) unbroken.leg(kithLeg(i, null, home));
   const saved = unbroken.lite();
 
   // Halcyon's autosave, a reload, and Continue.
@@ -237,7 +238,7 @@ test('Continue in Halcyon rebuilds Kith to the same average warmth as the run th
   const journey = loaded?.journey;
   if (!journey) throw new Error('no journey in the save');
   const legs = kithLegsBefore(journey, 'halcyon', home);
-  expect(legs).toHaveLength(2);
+  expect(legs).toHaveLength(5);
   const rebuilt = kithHost(kithScenario(bridge, home, base, journey.kithStart));
   for (const l of legs) rebuilt.leg(l);
 
@@ -247,8 +248,8 @@ test('Continue in Halcyon rebuilds Kith to the same average warmth as the run th
   const unnudged = kithHost(scenario);
   for (const l of legs) unnudged.leg({ ...l, commands: [] });
   expect(unnudged.lite()).not.toEqual(saved);
-  // Before the homecoming every Stage 1 valley is replayed; before Fen, none.
-  expect(kithLegsBefore(journey, 'home', home)).toHaveLength(3);
+  // Before the homecoming every valley is replayed; before Fen, none.
+  expect(kithLegsBefore(journey, 'home', home)).toHaveLength(6);
   expect(kithLegsBefore(journey, 'fen', home)).toEqual([]);
 });
 

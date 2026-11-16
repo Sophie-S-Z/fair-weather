@@ -40,5 +40,8 @@ INCLUDE ch10.ink
 INCLUDE bridge.ink
 INCLUDE fen.ink
 INCLUDE hollow.ink
+INCLUDE foglight.ink
+INCLUDE council.ink
+INCLUDE shallows.ink
 INCLUDE halcyon.ink
 INCLUDE home.ink

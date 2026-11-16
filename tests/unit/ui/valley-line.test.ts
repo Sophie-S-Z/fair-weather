@@ -57,6 +57,43 @@ describe('valleyLine', () => {
       spoken: 'The gazette: Fennel is on the front page.',
     });
   });
+  it('Foglight: whether Brume follows and whether the hero steps down', () => {
+    const fog = { id: 'foglight' as const, cols: 16, heights: [], meadow: 9, guide: 'brume' };
+    expect(valleyLine(world({ ...fog, following: false, stepDown: false }), displayName)?.text).toBe(
+      'Brume stays on its hill. You keep to high ground.',
+    );
+    expect(valleyLine(world({ ...fog, following: true, stepDown: true }), displayName)?.text).toBe(
+      'Brume walks with you. You step down into the fog.',
+    );
+  });
+  it("Council: the rule, the hero's vote, and the last winner", () => {
+    const council = { id: 'council' as const, spots: [], proposed: null };
+    expect(
+      valleyLine(world({ ...council, rule: 'plurality', heroVote: null, winner: null }), displayName)?.text,
+    ).toBe('The council counts by plurality. The council votes at dusk.');
+    expect(
+      valleyLine(
+        world({ ...council, rule: 'runoff', heroVote: 'dry-hollow', winner: 'mossbank' }),
+        displayName,
+      )?.text,
+    ).toBe(
+      'The council counts by instant runoff. You vote for Dry hollow. The cloud last rained on Mossbank.',
+    );
+  });
+  it("Shallows: how alike the pads are, spoken in steps of 10%, and the hero's song", () => {
+    const pond = {
+      id: 'shallows' as const,
+      pads: [],
+      padOf: {},
+      songs: {},
+      sangToday: false,
+      variety: false,
+    };
+    expect(valleyLine(world({ ...pond, heroSong: 'old', sorting: 0.87 }), displayName)).toEqual({
+      text: "On the pads, 87% of a frog's pad-mates sing its song. You sing the old song.",
+      spoken: "On the pads, about 90% of a frog's pad-mates sing its song. You sing the old song.",
+    });
+  });
   it('nothing in Halcyon or a world without a pack', () => {
     expect(valleyLine(world({ id: 'halcyon', chose: null }), displayName)).toBeNull();
     expect(valleyLine(lite([['pim']], []), displayName)).toBeNull();

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
+import { SANDBOX_BASES } from '../../golden/run-sandbox.ts';
 import fenJson from '../../../content/scenarios/fen.json';
 import halcyonJson from '../../../content/scenarios/halcyon.json';
-import hollowJson from '../../../content/scenarios/hollow.json';
 import m0Json from '../../../content/scenarios/m0.json';
 import sceneJson from '../../../content/scenes/kith-meadow.json';
 import tuningJson from '../../../content/tuning.json';
@@ -14,22 +14,20 @@ import {
   GUST_REACH,
   KNOBS,
   KNOB_IDS,
+  MAX_CARDS,
   MAX_ENTRIES,
   SandboxSetupSchema,
   createSandboxRunner,
+  knobText,
   knobValue,
   sandboxScenario,
   sandboxTuning,
 } from '../../../src/story/sandbox.ts';
 import type { KnobId, SandboxSetup } from '../../../src/story/sandbox.ts';
+import type { Traveler } from '../../../src/story/traveler.ts';
 
 const base: Tuning = tuningJson;
-const bases = {
-  kith: m0Json as Scenario,
-  fen: fenJson as Scenario,
-  hollow: hollowJson as Scenario,
-  halcyon: halcyonJson as Scenario,
-};
+const bases = SANDBOX_BASES;
 const spots = sceneJson.benchSpots;
 const knob = (id: KnobId) => {
   const k = KNOBS.find((x) => x.id === id);
@@ -171,6 +169,47 @@ test('a fen setup keeps the fen pack and has no hero; halcyon gets kithWarmth 0'
   expect(halcyon.season).toBe('summer');
 });
 
+test('knobText shows a named knob by name and an unset knob to two places', () => {
+  expect(knobText(knob('votingRule'), undefined)).toBe('Plurality');
+  expect(knobText(knob('votingRule'), 2)).toBe('Instant runoff');
+  expect(knobText(knob('minShare'), undefined)).toBe('0.33');
+  expect(knobText(knob('minShare'), 4)).toBe('0.2');
+  expect(knobText(knob('snailSight'), 1)).toBe('2');
+});
+
+test('the Stage 2 knobs set sight, the voting rule, and the frog shares; maxShare turns the variety rule on', () => {
+  const t = sandboxTuning(setup({ valley: 'foglight', knobs: { snailSight: 2 } }), base);
+  expect(t.foglight.sight).toBe(3);
+  const council = build({ valley: 'council', knobs: { votingRule: 3 } });
+  expect(council.pack?.id === 'council' && council.pack.rule).toBe('score');
+  const shares = sandboxTuning(setup({ valley: 'shallows', knobs: { minShare: 6, maxShare: 2 } }), base);
+  expect([shares.shallows.minShare, shares.shallows.maxShare]).toEqual([0.3, 0.6]);
+  const pond = (knobs: SandboxSetup['knobs']) => {
+    const p = build({ valley: 'shallows', knobs }).pack;
+    return p?.id === 'shallows' && p.variety === true;
+  };
+  expect(pond({})).toBe(false);
+  expect(pond({ maxShare: 8 })).toBe(true);
+});
+
+test('rule cards come into the scenario as copies; none leaves the field unset; the schema takes at most MAX_CARDS', () => {
+  expect(build().cards).toBeUndefined();
+  expect(build({ cards: [] }).cards).toBeUndefined();
+  const cards = [{ when: 'hungry', then: 'keep' }] as const satisfies SandboxSetup['cards'];
+  const s = setup({ cards: [...cards] });
+  const scenario = sandboxScenario(s, bases, spots);
+  expect(scenario.cards).toEqual(cards);
+  expect(scenario.cards).not.toBe(s.cards);
+  expect(SandboxSetupSchema.parse(s)).toEqual(s);
+  const many = setup({
+    cards: Array.from({ length: MAX_CARDS + 1 }, () => ({ when: 'full', then: 'give' })),
+  });
+  expect(SandboxSetupSchema.safeParse(many).success).toBe(false);
+  expect(
+    SandboxSetupSchema.safeParse(setup({ cards: [{ when: 'kind', then: 'give' }] } as never)).success,
+  ).toBe(false);
+});
+
 test('the setup schema refuses a knob index out of range and a structure id with a space', () => {
   const good = setup({
     knobs: { giftValue: 6, seasonLength: 0 },
@@ -259,8 +298,11 @@ function runnerWith(s: SandboxSetup, water: WorldLite['water']) {
     requestHash: () => Promise.reject(new Error('no hash')),
   };
   const runner = createSandboxRunner(port, s);
-  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: { water } as unknown as WorldLite });
-  return { runner, sent };
+  const emit = (m: FromWorker) => {
+    for (const cb of listeners) cb(m);
+  };
+  emit({ t: 'snapshot', tick: 1, lite: { water } as unknown as WorldLite });
+  return { runner, sent, emit };
 }
 
 test("the runner refuses a bench or bush in Halcyon's water, so the setup a rule change builds still starts", () => {
@@ -402,4 +444,29 @@ test('a runner that reads a script counts its structures and bushes toward MAX_E
   expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
   runner.setPlaceKind('bush');
   expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+});
+
+test('a welcomed traveler stands at the gate; a challenge takes none; the runner opens its diary with its memories', () => {
+  const brume: Traveler = {
+    home: 'brume',
+    dials: { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.1 },
+    shell: { tightness: 0.2, bristle: 0.1, color: 0.4, softness: 0.6 },
+    skyWarmth: 0,
+    memories: [{ key: 'leave' }],
+  };
+  const s = setup({ travelers: [brume] });
+  expect(SandboxSetupSchema.parse(s)).toEqual(s);
+  const c = build({ travelers: [brume] }).creatures.at(-1);
+  expect(c).toMatchObject({ id: 'traveler-1', name: 'Brume', speciesId: 'snail', x: base.scene.gateX });
+  expect(SandboxSetupSchema.safeParse(setup({ travelers: [brume], challenge: 'bell' })).success).toBe(false);
+  const { runner, emit } = runnerWith(s, []);
+  expect(runner.memories('traveler-1')).toEqual([{ key: 'leave' }]);
+  expect(runner.memories('pim')).toEqual([]);
+  emit({
+    t: 'events',
+    tick: 2,
+    list: [{ t: 'bid', from: 'pim', to: 'traveler-1', reply: 'toward', seenAs: 'toward' }],
+  });
+  emit({ t: 'snapshot', tick: 2, lite: { water: [] } as unknown as WorldLite });
+  expect(runner.memories('pim')).toEqual([{ key: 'bid.toward', other: 'traveler-1' }]);
 });

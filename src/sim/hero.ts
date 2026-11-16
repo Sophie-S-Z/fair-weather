@@ -6,7 +6,7 @@ import type { BidReply, Bush, Creature, GiftMove, HeroKind, World } from './type
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { clamp, dist2 } from './math.ts';
-import { canMeet, giftCost } from './packs/index.ts';
+import { canMeet, giftCost, speedFactor } from './packs/index.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 /** True when `c` is the hero of a world that has one. */
@@ -86,9 +86,13 @@ export function heroFogFactor(world: World, c: Creature, t: Tuning): number {
   return kind === 'lantern' ? t.knack.lanternFog : kind === 'glassling' ? 0 : 1;
 }
 
-/** Top speed: move.speed, × knack.kiteSpeed for a Kite-rider (ADR 0013 item 3). */
+/**
+ * Top speed: move.speed, × knack.kiteSpeed for a Kite-rider (ADR 0013 item 3), × the pack's
+ * speedFactor (ADR 0015 item 2).
+ */
 export function topSpeed(world: World, c: Creature, t: Tuning): number {
-  return isHero(world, c) && world.hero?.kind === 'kite' ? t.move.speed * t.knack.kiteSpeed : t.move.speed;
+  const kite = isHero(world, c) && world.hero?.kind === 'kite' ? t.knack.kiteSpeed : 1;
+  return t.move.speed * kite * speedFactor(world, c, t);
 }
 
 /**

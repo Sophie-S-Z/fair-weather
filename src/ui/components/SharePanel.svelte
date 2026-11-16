@@ -1,11 +1,16 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import type { KeptLink } from '../../persist/profile.ts';
+  import { remixTree } from '../remix-tree.ts';
+  import type { RemixNode } from '../remix-tree.ts';
   import { readValleyFile, saveFile } from '../save-file.ts';
   import { trapFocus } from '../trap-focus.ts';
 
   let {
     shared,
     valleyFile,
+    kept,
+    valleyName,
     onOpen,
     onClose,
   }: {
@@ -17,7 +22,10 @@
       | { kind: 'tooBig' };
     /** The name a valley file saves under, and the most bytes of one that the game reads. */
     valleyFile: { name: string; maxBytes: number };
-    /** Opens the `v1.<data>` text of a valley file the player picked. */
+    /** The links the player made or opened, oldest first, for the remix tree (ADR 0015 item 10). */
+    kept: readonly KeptLink[];
+    valleyName: (valley: KeptLink['valley']) => string;
+    /** Opens the `v1.<data>` text of a valley file the player picked, or of a kept link. */
     onOpen: (text: string) => void;
     onClose: () => void;
   } = $props();
@@ -25,6 +33,7 @@
   let card: HTMLElement;
   /** The line under Copy the link, in a status region. */
   let copied = $state('');
+  const tree = $derived(remixTree(kept));
 
   // Focus moves in on open, and back to where it was (the Share button) on close.
   onMount(() => {
@@ -106,6 +115,40 @@
     {:else}
       <p>This valley holds too many changes for a link. Start the valley again to share it.</p>
     {/if}
+    {#snippet branch(nodes: RemixNode[])}
+      <ul>
+        {#each nodes as { link, children } (link.id)}
+          {@const what = `${valleyName(link.valley)}, day ${String(link.day + 1)}`}
+          <li>
+            <span class="node">
+              {what}
+              <button
+                type="button"
+                aria-label="Open {what}"
+                onclick={() => {
+                  onOpen(link.text);
+                }}>Open</button
+              >
+            </span>
+            {#if children.length > 0}
+              {@render branch(children)}
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/snippet}
+    {#if kept.length > 0}
+      <section class="tree" aria-labelledby="tree-title">
+        <h3 id="tree-title">Remix tree</h3>
+        {#if tree.own.length > 0}
+          {@render branch(tree.own)}
+        {/if}
+        {#if tree.others.length > 0}
+          <p>A valley someone else made</p>
+          {@render branch(tree.others)}
+        {/if}
+      </section>
+    {/if}
     <div class="open">
       <label for="share-open">Open a valley file</label>
       <input id="share-open" type="file" accept=".fairweather" onchange={pick} />
@@ -151,6 +194,31 @@
     background: var(--bg);
     border: 2px solid var(--muted);
     border-radius: 0.4rem;
+  }
+  .tree {
+    align-self: stretch;
+    max-height: 14rem;
+    overflow-y: auto;
+  }
+  h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1em;
+  }
+  .tree ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    list-style: none;
+    border-left: 1px solid var(--muted);
+  }
+  .tree > ul {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .node {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2rem;
   }
   .open {
     display: flex;

@@ -5,10 +5,19 @@ import { parseTuning } from '../../src/sim/tuning.ts';
 import { inRect } from '../../src/sim/land.ts';
 import { step } from '../../src/sim/step.ts';
 import type { Command, Rect, Scenario, Season, World } from '../../src/sim/types.ts';
-import { DIAL_KEYS, HERO, HERO_KINDS } from '../../src/sim/types.ts';
+import {
+  CARD_THENS,
+  CARD_WHENS,
+  DIAL_KEYS,
+  HERO,
+  HERO_KINDS,
+  SONGS,
+  VOTING_RULES,
+} from '../../src/sim/types.ts';
 import { createWorld } from '../../src/sim/world.ts';
 
 export const tuning = parseTuning(tuningJson);
+const PROPOSALS = VOTING_RULES.filter((r) => r !== 'plurality');
 
 const SEASONS: Season[] = ['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'];
 const unit = fc.double({ min: 0, max: 1, noNaN: true });
@@ -42,9 +51,13 @@ const heroArb: fc.Arbitrary<NonNullable<Scenario['hero']>> = fc.record({
  * Half the scenarios have a hero. Two fifths have no pack. A fifth are in Murmuration Fen: some
  * creatures are starlings, some of the ids (and an unknown one) are restless, and some have a fixed
  * threshold. A fifth are in Hearsay Hollow, and a fifth in Halcyon, where the seeker is any id (or
- * an unknown one), Kith's warmth is any, and the hero holds two keepsakes. A quarter are sandbox
- * worlds, with 1 to 4 days a season, any base fog, any of the network switches, and no hero, as in
- * the sandbox (ADR 0014 items 1 and 3).
+ * an unknown one), Kith's warmth is any, and the hero holds two keepsakes. The same share each are
+ * in Foglight Heights (any map, meadow, and guide; some creatures snails), Toadstool Council (four
+ * spots; some creatures toadstools, voting from any point, under any rule), and Lily Shallows (two
+ * or three pads; some creatures frogs, taking turns on the pads, with one or two songs each, the
+ * variety rule sometimes on). A quarter are sandbox worlds, with 1 to 4 days a season, any base fog,
+ * any of the network switches, up to three rule cards, and no hero, as in the sandbox (ADR 0014
+ * items 1 and 3, ADR 0015 item 8).
  */
 export const scenarioArb: fc.Arbitrary<Scenario> = fc
   .record({
@@ -84,6 +97,39 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
       restless: fc.subarray(ids),
       fixed: fc.dictionary(fc.constantFrom(...ids), unit, { maxKeys: 3 }),
     });
+    const cells =
+      Math.ceil(tuning.scene.width / tuning.foglight.cell) *
+      Math.ceil(tuning.scene.height / tuning.foglight.cell);
+    const height = fc.integer({ min: 0, max: 9 });
+    const foglight = fc.record({
+      foglight: fc.record({
+        heights: fc.array(height, { minLength: cells, maxLength: cells }),
+        meadow: height,
+        guide: id,
+      }),
+      snails: fc.subarray(ids),
+    });
+    const spot = (i: number) =>
+      fc.record({ id: fc.constant(`spot-${String(i)}`), x: sx, y: sy, wet: unit, far: unit });
+    const council = fc.record({
+      council: fc.record({
+        spots: fc.tuple(spot(0), spot(1), spot(2), spot(3)),
+        prefs: fc.dictionary(fc.constantFrom(...ids), fc.record({ wet: unit, far: unit })),
+        rule: fc.constantFrom(...VOTING_RULES),
+      }),
+      toadstools: fc.subarray(ids),
+    });
+    const shallows = fc.record({
+      shallows: fc.record({
+        pads: fc.integer({ min: 2, max: 3 }),
+        frogs: fc.subarray(ids),
+        songs: fc.array(fc.subarray([...SONGS], { minLength: 1, maxLength: 2 }), {
+          minLength: ids.length,
+          maxLength: ids.length,
+        }),
+        variety: fc.boolean(),
+      }),
+    });
     return fc
       .record({
         ties: fc.array(fc.record({ a: id, b: id, ab: sideArb, ba: sideArb }), { maxLength: 8 }),
@@ -103,6 +149,10 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
                 },
                 { requiredKeys: [] },
               ),
+              cards: fc.array(
+                fc.record({ when: fc.constantFrom(...CARD_WHENS), then: fc.constantFrom(...CARD_THENS) }),
+                { maxLength: 3 },
+              ),
             }),
           },
         ),
@@ -114,6 +164,9 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
             weight: 1,
             arbitrary: fc.record({ seeker: id, kithWarmth: fc.double({ min: -1, max: 1, noNaN: true }) }),
           },
+          { weight: 1, arbitrary: foglight },
+          { weight: 1, arbitrary: council },
+          { weight: 1, arbitrary: shallows },
         ),
       })
       .map(({ ties, hero, sandbox, pack }): Scenario => {
@@ -124,6 +177,40 @@ export const scenarioArb: fc.Arbitrary<Scenario> = fc
             : { ...scenario, ties };
         if (!pack) return out;
         if (pack === 'hollow') return { ...out, pack: { id: 'hollow' } };
+        const species = (among: readonly string[], speciesId: string) =>
+          out.creatures.map((c) => (among.includes(c.id) ? { ...c, speciesId } : c));
+        if ('foglight' in pack)
+          return {
+            ...out,
+            creatures: species(pack.snails, 'snail'),
+            pack: { id: 'foglight', ...pack.foglight },
+          };
+        if ('council' in pack)
+          return {
+            ...out,
+            creatures: species(pack.toadstools, 'toadstool'),
+            pack: { id: 'council', ...pack.council, spots: [...pack.council.spots] },
+          };
+        if ('shallows' in pack) {
+          const { frogs, songs, variety } = pack.shallows;
+          const pads = Array.from({ length: pack.shallows.pads }, (_, i) => ({
+            id: `pad-${String(i)}`,
+            x: 200 + i * 500,
+            y: 450,
+          }));
+          // Frogs take turns on the pads, so none holds more than shallows.padCap of 12 creatures.
+          const on = frogs.filter((f) => f !== 'nobody');
+          return {
+            ...out,
+            pack: {
+              id: 'shallows',
+              pads,
+              padOf: Object.fromEntries(on.map((f, i) => [f, pads[i % pads.length]?.id ?? 'pad-0'])),
+              songs: Object.fromEntries(on.map((f, i) => [f, songs[i] ?? ['reed']])),
+              ...(variety ? { variety: true as const } : {}),
+            },
+          };
+        }
         if ('seeker' in pack) {
           const keepsakes = ['feather', 'acorn'];
           return {
@@ -198,6 +285,14 @@ export function commandArb(ids: readonly string[]): fc.Arbitrary<Command> {
         fc.record({ verb: fc.constant('join' as const), on: fc.boolean() }),
         fc.record({ verb: fc.constant('pose' as const) }),
         fc.record({ verb: fc.constant('keepsake' as const), to: id, item: fc.constant('feather') }),
+        fc.record({ verb: fc.constant('stepDown' as const), on: fc.boolean() }),
+        fc.record({
+          verb: fc.constant('vote' as const),
+          spot: fc.constantFrom('spot-0', 'spot-3', 'nowhere'),
+        }),
+        fc.record({ verb: fc.constant('propose' as const), rule: fc.constantFrom(...PROPOSALS) }),
+        fc.record({ verb: fc.constant('learn' as const), from: id }),
+        fc.record({ verb: fc.constant('sing' as const), to: id }),
       ),
     }),
     fc.record({ t: fc.constant('nudge' as const), dial: fc.constantFrom(...DIAL_KEYS), amount: num(-1, 1) }),

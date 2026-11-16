@@ -1,0 +1,8 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. Foglight's key moment for the journal: two snails on the meadow above the fog. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100" width="160" height="100">
+  <g fill="none" stroke="#2b2b2b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 90 Q 80 20 160 20" />
+    <path d="M 0 80 Q 40 74 80 80" stroke-dasharray="4 6" />
+    <circle cx="120" cy="18" r="6" />
+  </g>
+</svg>

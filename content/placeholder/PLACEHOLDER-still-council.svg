@@ -1,0 +1,8 @@
+<!-- PLACEHOLDER: hand-authored for engineering; replace with designer art. The still version's picture of the Toadstool Council: a ring of toadstools under one rain cloud. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+  <g fill="none" stroke="#2b2b2b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="160" cy="150" rx="120" ry="34" />
+    <path d="M 110 40 q 20 -26 50 -10 q 30 -16 50 10 q 16 20 -10 26 l -90 0 q -26 -6 0 -26 z" />
+    <path d="M 130 80 l -6 14 M 160 80 l -6 14 M 190 80 l -6 14" />
+  </g>
+</svg>

@@ -1,9 +1,10 @@
 // Verb types for story and input (ADR 0011 item 4). One source: the verb tuples.
-import type { BidReply, GiftMove } from '../sim/types.ts';
+import type { BidReply, GiftMove, VotingRule } from '../sim/types.ts';
 
 /**
  * Verbs that act on the world: the only tray tools (ADR 0012 item 8). Part 2 adds the hero's
- * (ADR 0013 items 2 to 7), and the sandbox rain, paths, and the gate (ADR 0014 item 5).
+ * (ADR 0013 items 2 to 7, ADR 0015 item 6), and the sandbox rain, paths, and the gate (ADR 0014
+ * item 5).
  */
 export const WORLD_VERBS = [
   'wake',
@@ -19,6 +20,9 @@ export const WORLD_VERBS = [
   'join',
   'pose',
   'keepsake',
+  'stepDown',
+  'vote',
+  'sing',
   'rain',
   'path',
   'welcome',
@@ -31,8 +35,8 @@ export type MindVerb = (typeof MIND_VERBS)[number];
 export type Verb = (typeof VERBS)[number];
 
 /**
- * `walk` with `to` is a wave. `plant` (the Seedcarrier's knack, ADR 0013 item 3) is no verb of its
- * own: it is unlocked with `manner`.
+ * `walk` with `to` is a wave. `plant` (the Seedcarrier's knack, ADR 0013 item 3), `propose`, and
+ * `learn` (ADR 0015 item 6) are no verbs of their own: `manner`, `vote`, and `sing` unlock them.
  */
 export type VerbInput =
   | { verb: 'wake'; who: string }
@@ -50,9 +54,17 @@ export type VerbInput =
   | { verb: 'join'; on: boolean }
   | { verb: 'pose' }
   | { verb: 'keepsake'; to: string; item: string }
+  | { verb: 'stepDown'; on: boolean }
+  | { verb: 'vote'; spot: string }
+  | { verb: 'propose'; rule: Exclude<VotingRule, 'plurality'> }
+  | { verb: 'sing'; to: string }
+  | { verb: 'learn'; from: string }
   | { verb: 'rain'; x: number; y: number }
   | { verb: 'path'; x: number; y: number; x2: number; y2: number }
   | { verb: 'welcome'; on: boolean };
 
-/** The verb that unlocks an input: `manner` for `plant`, else its own. */
-export const unlockingVerb = (v: VerbInput): Verb => (v.verb === 'plant' ? 'manner' : v.verb);
+const UNLOCKED_BY = { plant: 'manner', propose: 'vote', learn: 'sing' } as const;
+
+/** The verb that unlocks an input: `manner` for `plant`, `vote` for `propose`, `sing` for `learn`, else its own. */
+export const unlockingVerb = (v: VerbInput): Verb =>
+  v.verb === 'plant' || v.verb === 'propose' || v.verb === 'learn' ? UNLOCKED_BY[v.verb] : v.verb;

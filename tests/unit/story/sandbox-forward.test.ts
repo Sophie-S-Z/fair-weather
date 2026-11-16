@@ -2,15 +2,11 @@
 // fast-forward, and the runner reads the forward's steps, so its challenge state is the one the
 // same steps give live.
 import { expect, test } from 'vitest';
+import { SANDBOX_BASES } from '../../golden/run-sandbox.ts';
 import kithScene from '../../../content/scenes/kith-meadow.json';
-import m0Json from '../../../content/scenarios/m0.json';
-import fenJson from '../../../content/scenarios/fen.json';
-import hollowJson from '../../../content/scenarios/hollow.json';
-import halcyonJson from '../../../content/scenarios/halcyon.json';
 import tuningJson from '../../../content/tuning.json';
 import type { FromWorker, SimPort, ToWorker, WorldLite } from '../../../src/sim-host/protocol.ts';
 import { createWorkerCore } from '../../../src/sim-host/worker-core.ts';
-import type { Scenario } from '../../../src/sim/types.ts';
 import type { ChallengeId } from '../../../src/story/challenges.ts';
 import { feedsTheValley } from '../../golden/sandbox-players.ts';
 import {
@@ -21,12 +17,7 @@ import {
 } from '../../../src/story/sandbox.ts';
 import type { SandboxRunner, SandboxSetup } from '../../../src/story/sandbox.ts';
 
-const BASES = {
-  kith: m0Json as Scenario,
-  fen: fenJson as Scenario,
-  hollow: hollowJson as Scenario,
-  halcyon: halcyonJson as Scenario,
-};
+const BASES = SANDBOX_BASES;
 const NO_CLOCK = { now: () => 0, every: () => () => undefined };
 type Run = ReturnType<typeof runOn>;
 /** The steps of the reported forward `run` got last. */

@@ -1,0 +1,123 @@
+{
+  "id": "shallows",
+  "kind": "valley",
+  "scenario": "shallows",
+  "palette": "shallows",
+  "valley": {
+    "pack": "shallows",
+    "guide": "pell",
+    "postcards": ["listening", "generosity"],
+    "keepsake": {
+      "id": "reed-whistle",
+      "label": "A reed whistle"
+    },
+    "drawingAlt": "[PLACEHOLDER] Lily pads on a still pond. On each pad, frogs sing one song.",
+    "locals": [
+      "[PLACEHOLDER] I hop to a pad where they sing my song.",
+      "[PLACEHOLDER] Each pad sings one song now.",
+      "[PLACEHOLDER] Pell sings the old song alone."
+    ]
+  },
+  "title": "Lily Shallows",
+  "season": "summer",
+  "scene": "shallows",
+  "dayLengthSeconds": 180,
+  "carry": false,
+  "verbs": ["walk", "sing", "manner", "zoom", "peek"],
+  "newVerb": "sing",
+  "overrides": {},
+  "beats": [
+    {
+      "id": "shallows_start",
+      "trigger": {
+        "at": 0
+      },
+      "actions": [
+        {
+          "ink": "shallows_intro"
+        }
+      ]
+    },
+    {
+      "id": "shallows_mixed",
+      "trigger": {
+        "twist": true
+      },
+      "actions": [
+        {
+          "ink": "shallows_mixed"
+        },
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "shallows_card",
+      "trigger": {
+        "closeCall": true
+      },
+      "actions": [
+        {
+          "postcard": true
+        }
+      ]
+    },
+    {
+      "id": "shallows_sent",
+      "trigger": {
+        "postcard": true
+      },
+      "actions": [
+        {
+          "ink": "shallows_sent"
+        }
+      ]
+    }
+  ],
+  "twist": {
+    "id": "pondMixes",
+    "withinDays": 3,
+    "retryArrange": ["pell", "frog-1"],
+    "retries": 0
+  },
+  "reads": [],
+  "writes": [],
+  "variants": [],
+  "exit": {
+    "onBeat": "shallows_sent"
+  },
+  "feeling": "[PLACEHOLDER] Belonging, mixing",
+  "notes": [
+    {
+      "title": "[PLACEHOLDER] Small wishes, big walls",
+      "science": "[PLACEHOLDER] Frogs that want only a few like them still end up on pads of one song.",
+      "limits": "[PLACEHOLDER] Frogs are not people, and songs are not who you are.",
+      "counter": "[PLACEHOLDER] A small wish for variety undoes the walls.",
+      "question": "[PLACEHOLDER] What did each frog want?",
+      "sources": [
+        {
+          "label": "Parable of the Polygons, Vi Hart and Nicky Case",
+          "url": "https://ncase.me/polygons/"
+        },
+        {
+          "label": "Dynamic Models of Segregation, Thomas Schelling, 1971",
+          "url": "https://doi.org/10.1080/0022250X.1971.9989794"
+        }
+      ]
+    },
+    {
+      "title": "[PLACEHOLDER] A second song",
+      "science": "[PLACEHOLDER] A frog who knows two songs fits on more pads.",
+      "limits": "[PLACEHOLDER] Learning is slower in a real town.",
+      "counter": "[PLACEHOLDER] Some groups keep their song on purpose.",
+      "question": "[PLACEHOLDER] Whose song did you learn?",
+      "sources": [
+        {
+          "label": "Parable of the Polygons, Vi Hart and Nicky Case",
+          "url": "https://ncase.me/polygons/"
+        }
+      ]
+    }
+  ]
+}

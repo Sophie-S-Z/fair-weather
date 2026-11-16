@@ -1,6 +1,6 @@
 // World setup and tie helpers (ADRs 0002, 0004, 0005, ADR 0013 items 1, 4 to 6, and 8, ADR 0014
 // items 1 to 4).
-import type { Creature, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
+import type { Creature, PackState, Scenario, Shell, Side, Structure, Tie, World } from './types.ts';
 import { HERO } from './types.ts';
 import type { Tuning } from './tuning.ts';
 import { ticksPerDay } from './tuning.ts';
@@ -147,27 +147,77 @@ export function createWorld(seed: number, tuning: Tuning, scenario: Scenario): W
   if (scenario.seasonDays !== undefined) world.seasonDays = scenario.seasonDays;
   if (scenario.baseFog !== undefined) world.fields.fog.fill(scenario.baseFog);
   if (scenario.network) world.network = { ...scenario.network };
+  if (scenario.cards) world.cards = scenario.cards.map((c) => ({ ...c }));
   if (scenario.pack) {
     // The pack's setup draws from the world's PRNG, so a scenario without `pack` takes no draw
-    // (ADR 0013 item 4). The Hollow's drama sky starts at the scene center (item 6).
-    const p = scenario.pack;
-    world.pack =
-      p.id === 'fen'
-        ? { id: 'fen', thresholds: { ...p.fixed }, flying: [], restless: [...p.restless], heroFlying: false }
-        : p.id === 'hollow'
-          ? {
-              id: 'hollow',
-              sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
-              drama: [],
-              fame: {},
-              front: null,
-            }
-          : { id: 'halcyon', kithWarmth: p.kithWarmth, seeker: p.seeker, given: false, chose: null };
+    // (ADR 0013 item 4).
+    world.pack = packState(scenario.pack, tuning);
     const rng = createRng(world.rngState);
     PACKS[world.pack.id].setup(world, tuning, rng);
     world.rngState = rng.state();
   }
   return world;
+}
+
+/**
+ * A pack's state at setup, from the scenario's (ADR 0013 item 4, ADR 0015 items 3 to 5), before the
+ * pack's own setup: the Hollow's drama sky at the scene center (ADR 0013 item 6), the Foglight map's
+ * width in cells, and the council's rule (plurality without one).
+ */
+function packState(p: NonNullable<Scenario['pack']>, tuning: Tuning): PackState {
+  switch (p.id) {
+    case 'fen':
+      return {
+        id: 'fen',
+        thresholds: { ...p.fixed },
+        flying: [],
+        restless: [...p.restless],
+        heroFlying: false,
+      };
+    case 'hollow':
+      return {
+        id: 'hollow',
+        sky: { x: tuning.scene.width / 2, y: tuning.scene.height / 2 },
+        drama: [],
+        fame: {},
+        front: null,
+      };
+    case 'halcyon':
+      return { id: 'halcyon', kithWarmth: p.kithWarmth, seeker: p.seeker, given: false, chose: null };
+    case 'foglight':
+      return {
+        id: 'foglight',
+        cols: Math.ceil(tuning.scene.width / tuning.foglight.cell),
+        heights: [...p.heights],
+        meadow: p.meadow,
+        guide: p.guide,
+        following: false,
+        stepDown: false,
+      };
+    case 'council':
+      return {
+        id: 'council',
+        spots: p.spots.map((x) => ({ ...x })),
+        prefs: Object.fromEntries(Object.entries(p.prefs).map(([k, v]) => [k, { ...v }])),
+        rule: p.rule ?? 'plurality',
+        proposed: null,
+        heard: false,
+        heroVote: null,
+        winner: null,
+      };
+    case 'shallows':
+      return {
+        id: 'shallows',
+        pads: p.pads.map((x) => ({ ...x })),
+        padOf: { ...p.padOf },
+        slotOf: {},
+        songs: Object.fromEntries(Object.entries(p.songs).map(([k, v]) => [k, [...v]])),
+        heroSong: null,
+        sangOn: null,
+        variety: p.variety === true,
+        settled: false,
+      };
+  }
 }
 
 /** The two ids sorted by code unit and joined with `|` (ADR 0002). */

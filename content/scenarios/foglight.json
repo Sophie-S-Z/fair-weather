@@ -1,0 +1,270 @@
+{
+  "valleyId": "foglight",
+  "season": "spring",
+  "creatures": [
+    {
+      "id": "brume",
+      "speciesId": "snail",
+      "name": "Brume",
+      "x": 455,
+      "y": 455,
+      "berries": 3,
+      "dials": {
+        "opener": 0.5,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-1",
+      "speciesId": "snail",
+      "name": "Snail 1",
+      "x": 150,
+      "y": 150,
+      "berries": 3,
+      "dials": {
+        "opener": 0.42000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-2",
+      "speciesId": "snail",
+      "name": "Snail 2",
+      "x": 250,
+      "y": 750,
+      "berries": 3,
+      "dials": {
+        "opener": 0.44,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-3",
+      "speciesId": "snail",
+      "name": "Snail 3",
+      "x": 550,
+      "y": 250,
+      "berries": 3,
+      "dials": {
+        "opener": 0.46,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-4",
+      "speciesId": "snail",
+      "name": "Snail 4",
+      "x": 650,
+      "y": 550,
+      "berries": 3,
+      "dials": {
+        "opener": 0.48000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-5",
+      "speciesId": "snail",
+      "name": "Snail 5",
+      "x": 750,
+      "y": 150,
+      "berries": 3,
+      "dials": {
+        "opener": 0.4,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-6",
+      "speciesId": "snail",
+      "name": "Snail 6",
+      "x": 750,
+      "y": 750,
+      "berries": 3,
+      "dials": {
+        "opener": 0.42000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-7",
+      "speciesId": "snail",
+      "name": "Snail 7",
+      "x": 850,
+      "y": 350,
+      "berries": 3,
+      "dials": {
+        "opener": 0.44,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-8",
+      "speciesId": "snail",
+      "name": "Snail 8",
+      "x": 950,
+      "y": 650,
+      "berries": 3,
+      "dials": {
+        "opener": 0.46,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-9",
+      "speciesId": "snail",
+      "name": "Snail 9",
+      "x": 1050,
+      "y": 250,
+      "berries": 3,
+      "dials": {
+        "opener": 0.48000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-10",
+      "speciesId": "snail",
+      "name": "Snail 10",
+      "x": 1050,
+      "y": 850,
+      "berries": 3,
+      "dials": {
+        "opener": 0.4,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-11",
+      "speciesId": "snail",
+      "name": "Snail 11",
+      "x": 1250,
+      "y": 50,
+      "berries": 3,
+      "dials": {
+        "opener": 0.42000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-12",
+      "speciesId": "snail",
+      "name": "Snail 12",
+      "x": 1250,
+      "y": 450,
+      "berries": 3,
+      "dials": {
+        "opener": 0.44,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-13",
+      "speciesId": "snail",
+      "name": "Snail 13",
+      "x": 1350,
+      "y": 850,
+      "berries": 3,
+      "dials": {
+        "opener": 0.46,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    },
+    {
+      "id": "snail-14",
+      "speciesId": "snail",
+      "name": "Snail 14",
+      "x": 1450,
+      "y": 150,
+      "berries": 3,
+      "dials": {
+        "opener": 0.48000000000000004,
+        "forgiveness": 0.5,
+        "memory": 0.5,
+        "ear": 0.5,
+        "wanderlust": 0.1
+      }
+    }
+  ],
+  "bushes": [
+    {
+      "id": "bush-1",
+      "x": 436,
+      "y": 468,
+      "berries": 10
+    },
+    {
+      "id": "bush-4",
+      "x": 180,
+      "y": 640,
+      "berries": 5
+    },
+    {
+      "id": "bush-2",
+      "x": 1050,
+      "y": 450,
+      "berries": 5
+    },
+    {
+      "id": "bush-3",
+      "x": 1450,
+      "y": 300,
+      "berries": 5
+    }
+  ],
+  "structures": [],
+  "pack": {
+    "id": "foglight",
+    "heights": [
+      1, 1, 1, 1, 1, 1, 1, 0, 1, 5, 6, 6, 6, 6, 6, 6, 1, 2, 2, 2, 2, 2, 1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 2, 3,
+      3, 3, 3, 1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 2, 3, 4, 4, 4, 1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 2, 3, 4, 5, 4,
+      1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 2, 3, 4, 4, 4, 1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 2, 3, 3, 3, 3, 1, 0, 1,
+      5, 6, 7, 8, 9, 9, 9, 1, 2, 2, 2, 2, 2, 1, 0, 1, 5, 6, 7, 8, 9, 9, 9, 1, 1, 1, 1, 1, 1, 1, 0, 1, 5, 6, 6,
+      6, 6, 6, 6
+    ],
+    "meadow": 9,
+    "guide": "brume"
+  }
+}

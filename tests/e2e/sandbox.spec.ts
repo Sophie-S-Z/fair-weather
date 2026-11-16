@@ -579,3 +579,50 @@ test('Stop the challenge goes back to the valley, knobs, and bench from before i
   await expect.poll(async () => (await run(page))?.lite.day).toBe(0);
   expect(await structures(page)).toEqual(placed);
 });
+
+test("a picked creature's traveler code welcomes it at the gate, and Send home takes it out", async ({
+  page,
+}) => {
+  await open(page);
+  // Whisper names the picked creature in the status line.
+  await page.keyboard.press('8');
+  await page.keyboard.press('Tab');
+  await expect(status(page)).toContainText('Picked: ');
+  await page.getByText('Population', { exact: true }).click();
+  const make = page.getByRole('button', { name: /^Make .+'s traveler code$/ });
+  const name = /^Make (.+)'s traveler code$/.exec((await make.textContent()) ?? '')?.[1] ?? '';
+  await make.click();
+  const code = await page.getByLabel(`${name}'s traveler code`).inputValue();
+  expect(code).toMatch(/^t1\.[A-Za-z0-9_-]+$/);
+  const box = page.getByLabel('Welcome a traveler');
+  await box.fill('t1.broken');
+  await page.getByRole('button', { name: 'Welcome' }).click();
+  await expect(page.getByText('That code does not open.')).toBeVisible();
+  await box.fill(code);
+  await page.getByRole('button', { name: 'Welcome' }).click();
+  await expect
+    .poll(async () => (await run(page))?.lite.creatures.some((c) => c.id === 'traveler-1'))
+    .toBe(true);
+  expect((await run(page))?.lite.day).toBe(0);
+  await page.getByRole('button', { name: `Send ${name} home` }).click();
+  await expect
+    .poll(async () => (await run(page))?.lite.creatures.some((c) => c.id === 'traveler-1'))
+    .toBe(false);
+});
+
+test('a rule card starts the run again, and the Rules panel holds at most three', async ({ page }) => {
+  await open(page);
+  await page.getByText('Rules', { exact: true }).click();
+  const add = page.getByRole('button', { name: 'Add a rule card' });
+  for (let i = 1; i <= 3; i++) {
+    await add.click();
+    await expect(page.getByLabel(`Card ${String(i)}: when a creature is`)).toBeVisible();
+    await expect(add).toBeEnabled({ enabled: i < 3 });
+  }
+  await page.getByLabel('Card 2: it').selectOption('give');
+  await expect(page.getByLabel('Card 2: it')).toHaveValue('give');
+  await page.getByRole('button', { name: 'Remove card 1' }).click();
+  await expect(page.getByLabel('Card 3: when a creature is')).toHaveCount(0);
+  await expect(page.getByLabel('Card 1: it')).toHaveValue('give');
+  await expect(add).toBeFocused();
+});

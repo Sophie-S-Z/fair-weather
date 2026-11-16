@@ -7,8 +7,10 @@ import type { Point } from './helpers.ts';
 // its T3 player plays it (tests/golden/players.ts PLAYERS, whose runs the valley T3 counts): the Fen
 // walks to Tove every 20 ticks and joins the flock from dusk to dawn; the Hollow walks to the press
 // and poses once a day; Halcyon walks to Wisp every 20 ticks and, after three gifts, gives Wisp the
-// Fen's feather; the homecoming walks to Pim until they have met, then to the first bench. Every
-// postcard is the first one; every journal page is closed at once.
+// Fen's feather; the homecoming walks to Pim until they have met, then to the first bench. The
+// three Stage 2 valleys are left alone, as a player who never finds their tools: the close call
+// opens each postcard when the valley's window ends (ADR 0015, review focus 1). Every postcard is
+// the first one; every journal page is closed at once.
 //
 // In the scene both runs use the keys (Tab picks a creature, W waves at it): a moving creature can
 // be found by pointer only by clicking across the canvas, which at ?fast=10 cannot keep up with a
@@ -45,6 +47,9 @@ const CURSOR_STEP = 20;
 const INTRO: Record<string, string> = {
   'Murmuration Fen': 'Starlings sit in the reeds',
   'Hearsay Hollow': 'The press runs by the square',
+  'Foglight Heights': 'Fog fills the low ground',
+  'Toadstool Council': 'The council votes at dusk',
+  'Lily Shallows': 'Each frog wants only a few pad-mates',
   Halcyon: 'A calm meadow lies over a mirror sea',
   'The Homecoming': 'You walk back over the ridge',
 };
@@ -466,7 +471,14 @@ for (const mode of ['mouse', 'keyboard'] as const) {
     const verse = page.locator('main.end h2 + p');
     await expect(verse).toHaveText(/\S/);
     await expect(verse).not.toContainText('{');
-    expect(played.journals).toEqual(['Murmuration Fen', 'Hearsay Hollow', 'Halcyon']);
+    expect(played.journals).toEqual([
+      'Murmuration Fen',
+      'Hearsay Hollow',
+      'Foglight Heights',
+      'Toadstool Council',
+      'Lily Shallows',
+      'Halcyon',
+    ]);
     // Two moves wait on meetings the run does not arrange: the hero meets Wisp at most once a day,
     // and Wisp chooses by the third dusk, so a day without a meeting leaves no time for the feather
     // (1 of 6 runs); meeting Pim before the homecoming's twist depends on Kith's live carry.
@@ -491,6 +503,9 @@ for (const mode of ['mouse', 'keyboard'] as const) {
     expect(journey?.pages.map((p) => [p.valley, p.postcard])).toEqual([
       ['fen', 'generosity'],
       ['hollow', 'patience'],
+      ['foglight', 'patience'],
+      ['council', 'listening'],
+      ['shallows', 'listening'],
       ['halcyon', 'generosity'],
     ]);
     expect(journey?.keepsakes).toContainEqual({ id: 'starling-feather', given });

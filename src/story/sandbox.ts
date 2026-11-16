@@ -2,23 +2,50 @@
 // the scenario a setup starts from, and the runner that sends the player's tools and checks its
 // challenge.
 import { z } from 'zod';
-import fenJson from '../../content/scenarios/fen.json' with { type: 'json' };
-import halcyonJson from '../../content/scenarios/halcyon.json' with { type: 'json' };
-import hollowJson from '../../content/scenarios/hollow.json' with { type: 'json' };
-import m0Json from '../../content/scenarios/m0.json' with { type: 'json' };
 import type { ForwardStep, SimPort, WorldLite } from '../sim-host/protocol.ts';
-import type { Command, NetworkSwitches, Rect, Scenario, SimEvent, Structure, Tuning } from '../sim/types.ts';
+import type {
+  CardThen,
+  CardWhen,
+  Command,
+  NetworkSwitches,
+  Rect,
+  RuleCard,
+  Scenario,
+  SimEvent,
+  Structure,
+  Tuning,
+  VotingRule,
+} from '../sim/types.ts';
 import { DIALS_SHAPE, SHELL_SHAPE, applyCarry } from './carry.ts';
 import { characters } from './journey.ts';
 import { CHALLENGES, CHALLENGE_IDS, applyStart, createChallengeCheck } from './challenges.ts';
 import type { ChallengeId, ChallengeState } from './challenges.ts';
 import type { Carry } from './carry.ts';
 import { verbCommand } from './chapter-runner.ts';
+import { diaryMemories } from './diary.ts';
+import type { Memory } from './diary.ts';
+import {
+  BASE_CREATURES,
+  MAX_MEMORIES,
+  MAX_TRAVELERS,
+  TravelerSchema,
+  travelerCreature,
+  travelerId,
+} from './traveler.ts';
+import type { Traveler } from './traveler.ts';
 import { chapterTicksPerDay, checkLand, inRect, offLand } from './scenario.ts';
 import { tuning } from './tuning.ts';
 import type { VerbInput } from './verbs.ts';
 
-export const SANDBOX_VALLEYS = ['kith', 'fen', 'hollow', 'halcyon'] as const;
+export const SANDBOX_VALLEYS = [
+  'kith',
+  'fen',
+  'hollow',
+  'foglight',
+  'council',
+  'shallows',
+  'halcyon',
+] as const;
 export const PANELS = ['population', 'rules', 'weather', 'network'] as const;
 export { CHALLENGE_IDS };
 export type { ChallengeId };
@@ -39,13 +66,18 @@ export const KNOB_IDS = [
   'skyKeep',
   'skyAway',
   'giftWarmth',
+  'snailSight',
+  'votingRule',
+  'minShare',
+  'maxShare',
 ] as const;
 export type KnobId = (typeof KNOB_IDS)[number];
 
 /**
  * A knob (ADR 0014 item 2): `low` and `step` in hundredths, index 0 to `steps` (for bench density,
  * the scene's bench spot count), and `unset`, the value it shows while the setup leaves it unset.
- * `valley` null shows it in every valley.
+ * `valley` null shows it in every valley. A knob with `names` shows the name at each index, not
+ * its number (ADR 0015 item 7).
  */
 export interface Knob {
   id: KnobId;
@@ -56,7 +88,11 @@ export interface Knob {
   step: number;
   steps: number | 'benchSpots';
   unset: number;
+  names?: readonly string[];
 }
+
+/** The council's rules in the Voting rule knob's order (ADR 0015 item 7). */
+const RULE_ORDER = ['plurality', 'approval', 'runoff', 'score'] as const satisfies readonly VotingRule[];
 
 export const KNOBS: readonly Knob[] = [
   {
@@ -189,11 +225,82 @@ export const KNOBS: readonly Knob[] = [
     steps: 10,
     unset: 0.2,
   },
+  {
+    id: 'snailSight',
+    label: 'How far snails see',
+    panel: 'rules',
+    valley: 'foglight',
+    low: 100,
+    step: 100,
+    steps: 2,
+    unset: 1,
+  },
+  {
+    id: 'votingRule',
+    label: 'Voting rule',
+    panel: 'rules',
+    valley: 'council',
+    low: 0,
+    step: 100,
+    steps: 3,
+    unset: 0,
+    names: ['Plurality', 'Approval', 'Instant runoff', 'Score'],
+  },
+  {
+    id: 'minShare',
+    label: 'Frogs want at least this many like them',
+    panel: 'rules',
+    valley: 'shallows',
+    low: 0,
+    step: 5,
+    steps: 10,
+    unset: 1 / 3,
+  },
+  {
+    id: 'maxShare',
+    label: 'Frogs leave a pad this alike',
+    panel: 'rules',
+    valley: 'shallows',
+    low: 50,
+    step: 5,
+    steps: 10,
+    unset: 0.9,
+  },
 ];
 const KNOB = Object.fromEntries(KNOBS.map((k) => [k.id, k])) as Record<KnobId, Knob>;
 
 /** The knob's value at `index`, the same double as its decimal in every engine. */
 export const knobValue = (knob: Knob, index: number): number => (knob.low + index * knob.step) / 100;
+
+/**
+ * What a knob shows: its name at `index` for a knob with names, else its value; while it is unset
+ * (`index` undefined), its unset value to two places (1/3 shows as 0.33).
+ */
+export function knobText(knob: Knob, index: number | undefined): string {
+  const at = index ?? Math.round((knob.unset * 100 - knob.low) / knob.step);
+  if (knob.names) return knob.names[at] ?? '';
+  return String(index === undefined ? Math.round(knob.unset * 100) / 100 : knobValue(knob, at));
+}
+
+/** The most rule cards a sandbox holds (ADR 0015 item 8). */
+export const MAX_CARDS = 3;
+/** Each card state's words, "When a creature is …" (ADR 0015 item 8): what it is now, never who it is. */
+export const CARD_WHEN_LABELS: Record<CardWhen, string> = {
+  hungry: 'hungry',
+  full: 'full',
+  lonely: 'lonely',
+  liked: 'liked',
+};
+/** Each card move's words, "… it …". */
+export const CARD_THEN_LABELS: Record<CardThen, string> = {
+  toward: 'turns toward a bid',
+  away: 'turns away from a bid',
+  against: 'turns against a bid',
+  give: 'gives a gift',
+  keep: 'keeps its berries',
+};
+const cardWhens = Object.keys(CARD_WHEN_LABELS) as [CardWhen, ...CardWhen[]];
+const cardThens = Object.keys(CARD_THEN_LABELS) as [CardThen, ...CardThen[]];
 
 /** The four advanced switches (ADR 0014 item 3), as the Network panel labels them. */
 export interface Switches {
@@ -223,19 +330,22 @@ export interface SandboxSetup {
   structures: Structure[];
   /** The bushes the player placed, which a rule change keeps; each starts empty. */
   bushes: { id: string; x: number; y: number }[];
+  /** The rule cards, first match first (ADR 0015 item 8); a link without them has none. */
+  cards?: RuleCard[];
+  /** The welcomed travelers, at most MAX_TRAVELERS (ADR 0015 item 9); a link without them has none. */
+  travelers?: Traveler[];
 }
 
 /** The most entries in any of a setup's arrays: Kith's 30 creatures have 435 ties. */
 export const MAX_ENTRIES = 1000;
 /** A placed structure's or bush's id, in the sim's own `<kind>-<n>` form. */
 const STRUCTURE_ID = /^(bench|bush|bridge|lantern|path)-[0-9]{1,6}$/;
-/** The creatures of the four sandbox valleys' bases (Kith's is m0). */
-const BASE_CREATURE_IDS: ReadonlySet<string> = new Set(
-  [m0Json, fenJson, hollowJson, halcyonJson].flatMap((s) => s.creatures.map((c) => c.id)),
-);
-/** A base creature, or a newcomer in the sim's own `newcomer-<n>` form: a closed set of ids. */
+/**
+ * A base creature, a newcomer in the sim's own `newcomer-<n>` form, or a welcomed traveler
+ * (`traveler-1` to `traveler-3`): a closed set of ids.
+ */
 export const isCreatureId = (id: string): boolean =>
-  BASE_CREATURE_IDS.has(id) || /^newcomer-[0-9]{1,6}$/.test(id);
+  BASE_CREATURES.has(id) || /^newcomer-[0-9]{1,6}$/.test(id) || /^traveler-[1-3]$/.test(id);
 /**
  * The longest gust a sandbox link holds, and the runner sends: twice the scene's width and height,
  * so a drag that starts in the scene may end up to one scene size past its far edge.
@@ -312,6 +422,11 @@ export const SandboxSetupSchema = z
       )
       .max(MAX_ENTRIES),
     bushes: z.array(z.strictObject({ id: structureId, x, y })).max(MAX_ENTRIES),
+    cards: z
+      .array(z.strictObject({ when: z.enum(cardWhens), then: z.enum(cardThens) }))
+      .max(MAX_CARDS)
+      .exactOptional(),
+    travelers: z.array(TravelerSchema).max(MAX_TRAVELERS).exactOptional(),
   })
   .superRefine((s, ctx) => {
     if (s.kith !== null && s.valley !== 'kith')
@@ -323,8 +438,11 @@ export const SandboxSetupSchema = z
     const ids = [...s.structures, ...s.bushes].map((x) => x.id);
     if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'An id is used twice' });
     if (s.challenge !== null) {
-      if (s.valley !== 'kith' || s.kith !== null)
-        ctx.addIssue({ code: 'custom', message: 'A challenge starts from a new Kith, with no carry' });
+      if (s.valley !== 'kith' || s.kith !== null || (s.travelers?.length ?? 0) > 0)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A challenge starts from a new Kith, with no carry and no travelers',
+        });
       const limit = CHALLENGES[s.challenge].start.bridgeLimit;
       if (limit !== undefined && bridgesIn(s.structures) > limit)
         ctx.addIssue({
@@ -376,6 +494,9 @@ export function sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning {
   t.hollow.drama.keep = value('skyKeep') ?? t.hollow.drama.keep;
   t.hollow.drama.away = value('skyAway') ?? t.hollow.drama.away;
   t.halcyon.giftWarmthMultiplier = value('giftWarmth') ?? t.halcyon.giftWarmthMultiplier;
+  t.foglight.sight = value('snailSight') ?? t.foglight.sight;
+  t.shallows.minShare = value('minShare') ?? t.shallows.minShare;
+  t.shallows.maxShare = value('maxShare') ?? t.shallows.maxShare;
   return t;
 }
 
@@ -384,9 +505,11 @@ export function sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning {
  * is `m0`) with the Kith carry, spring for Kith, a sandbox day, the season length, the fog level,
  * the network switches, one Ear for all while Mixed thresholds is off, a bench at each of the first
  * bench density `benchSpots`, then the setup's structures, and last the challenge's start. A valley
- * keeps its pack, Halcyon's with `kithWarmth` 0, and the sandbox has no hero. Throws when the bench
- * density is past the scene's spot count, on a challenge start that names a creature the valley
- * lacks, and on land that checkLand refuses.
+ * keeps its pack, Halcyon's with `kithWarmth` 0, the council's with the Voting rule knob's rule, and
+ * the Shallows' with the variety rule on once Frogs leave a pad this alike is set (ADR 0015 item 7);
+ * the setup's rule cards come along, the travelers stand at the gate, and the sandbox has no hero.
+ * Throws when the bench density is past the scene's spot count, on a challenge start that names a
+ * creature the valley lacks, and on land that checkLand refuses.
  */
 export function sandboxScenario(
   setup: SandboxSetup,
@@ -421,6 +544,11 @@ export function sandboxScenario(
   s.bushes.push(...setup.bushes.map((b) => ({ ...b, berries: 0 })));
   delete s.hero;
   if (s.pack?.id === 'halcyon') s.pack.kithWarmth = 0;
+  const rule = setup.knobs.votingRule;
+  if (s.pack?.id === 'council' && rule !== undefined) s.pack.rule = RULE_ORDER[rule] ?? 'plurality';
+  if (s.pack?.id === 'shallows' && setup.knobs.maxShare !== undefined) s.pack.variety = true;
+  if (setup.cards && setup.cards.length > 0) s.cards = setup.cards.map((c) => ({ ...c }));
+  setup.travelers?.forEach((t, i) => s.creatures.push(travelerCreature(t, i)));
   if (setup.challenge) applyStart(s, CHALLENGES[setup.challenge].start);
   checkLand(s);
   return s;
@@ -466,6 +594,12 @@ export interface SandboxRunner {
    * Call it before the next live snapshot.
    */
   forwarded(steps: readonly ForwardStep[], script: readonly { tick: number; list: Command[] }[]): void;
+  /**
+   * `id`'s memories now, oldest first, at most MAX_MEMORIES (ADR 0015 item 9): a traveler's from its
+   * code, then each diary line the run's events wrote for it, live and in a forward that reports
+   * its steps (an opened link's diaries start at its tick, unless it is a challenge's).
+   */
+  memories(id: string): readonly Memory[];
   /** Whether Pim's dance was sent in this run, by the runner or in an opened link's script. */
   danced(): boolean;
   /**
@@ -492,8 +626,18 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
   // The events of the step whose snapshot comes next (the worker posts them first).
   let events: readonly SimEvent[] = [];
   const challengeListeners = new Set<(s: ChallengeState) => void>();
-  /** One step for the check: its world and its events. */
+  const memories = new Map<string, Memory[]>(
+    (setup.travelers ?? []).map((t, i) => [travelerId(i), t.memories.map((m) => ({ ...m }))]),
+  );
+  /** One step: its events go to the diaries, then its world and its events to the check. */
   const judge = (lite: WorldLite, seen: readonly SimEvent[]): void => {
+    for (const e of seen)
+      for (const { id, ...m } of diaryMemories(e)) {
+        const list = memories.get(id) ?? [];
+        list.push(m);
+        if (list.length > MAX_MEMORIES) list.shift();
+        memories.set(id, list);
+      }
     if (!check || state !== 'open') return;
     state = check.step(lite, seen);
     if (state !== 'open') for (const cb of [...challengeListeners]) cb(state);
@@ -570,6 +714,7 @@ export function createSandboxRunner(port: SimPort, setup: SandboxSetup): Sandbox
         if (last) judge(last, s.events);
       }
     },
+    memories: (id) => memories.get(id) ?? [],
     danced: () => danced,
     startDance() {
       if (!ready || danced || setup.challenge !== 'bell') return false;

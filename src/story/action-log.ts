@@ -54,6 +54,8 @@ const DIAL_SET: Record<DialKey, true> = {
   wanderlust: true,
 };
 const DIALS = Object.keys(DIAL_SET) as [DialKey, ...DialKey[]];
+/** The rules the hero may propose in Toadstool Council (ADR 0015 item 4). */
+const proposal = z.enum(['approval', 'runoff', 'score']);
 
 /**
  * Every command shape (sim/types.ts Command). `walk` has two shapes, which a discriminated union
@@ -92,6 +94,11 @@ export const CommandSchema = z.union([
         z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
         z.strictObject({ verb: z.literal('pose') }),
         z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
+        z.strictObject({ verb: z.literal('stepDown'), on: z.boolean() }),
+        z.strictObject({ verb: z.literal('vote'), spot: str }),
+        z.strictObject({ verb: z.literal('propose'), rule: proposal }),
+        z.strictObject({ verb: z.literal('learn'), from: str }),
+        z.strictObject({ verb: z.literal('sing'), to: str }),
       ]),
     }),
     z.strictObject({
@@ -128,6 +135,11 @@ const VerbInputSchema = z.union([
     z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
     z.strictObject({ verb: z.literal('pose') }),
     z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
+    z.strictObject({ verb: z.literal('stepDown'), on: z.boolean() }),
+    z.strictObject({ verb: z.literal('vote'), spot: str }),
+    z.strictObject({ verb: z.literal('propose'), rule: proposal }),
+    z.strictObject({ verb: z.literal('learn'), from: str }),
+    z.strictObject({ verb: z.literal('sing'), to: str }),
   ]),
 ]) satisfies z.ZodType<VerbInput>;
 

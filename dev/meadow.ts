@@ -6,8 +6,9 @@
 // break into dashes. ?heat=1 moves the lens and shows the heat map of every snapshot.
 // ?valley=fen plays Murmuration Fen in its scene and palette, with Tove in focus: a Lantern-bearer
 // walks to Tove and joins the flock at dusk, and the frame is drawn just after the flock goes up.
-// ?valley=hollow and ?valley=halcyon play Hearsay Hollow and Halcyon by day, with their guide in
-// focus and a Lantern-bearer at the guide's side. ?sandbox=1 plays Kith as a sandbox, with two paths
+// ?valley=hollow, halcyon, foglight, council, and shallows play that valley by day, with its guide
+// in focus and a Lantern-bearer at the guide's side; in the council it votes for Rootstep, and in
+// the Shallows it learns Pell's song. ?sandbox=1 plays Kith as a sandbox, with two paths
 // and the gate dark. body[data-calls] is the WebGL draw-call count of the frame.
 import { Application } from 'pixi.js';
 import tuningJson from '../content/tuning.json';
@@ -25,6 +26,15 @@ import hollowJson from '../content/valleys/hollow.json';
 import halcyonSceneJson from '../content/scenes/halcyon.json';
 import halcyonScenarioJson from '../content/scenarios/halcyon.json';
 import halcyonJson from '../content/valleys/halcyon.json';
+import foglightSceneJson from '../content/scenes/foglight.json';
+import foglightScenarioJson from '../content/scenarios/foglight.json';
+import foglightJson from '../content/valleys/foglight.json';
+import councilSceneJson from '../content/scenes/council.json';
+import councilScenarioJson from '../content/scenarios/council.json';
+import councilJson from '../content/valleys/council.json';
+import shallowsSceneJson from '../content/scenes/shallows.json';
+import shallowsScenarioJson from '../content/scenarios/shallows.json';
+import shallowsJson from '../content/valleys/shallows.json';
 import { createMeadowView } from '../src/render/meadow-view.ts';
 import type { WorldLite } from '../src/sim-host/protocol.ts';
 import { SceneSchema } from '../src/render/scene.ts';
@@ -55,6 +65,9 @@ const valleys = {
   fen: { chapter: fenJson, scene: fenSceneJson, scenario: fenScenarioJson },
   hollow: { chapter: hollowJson, scene: hollowSceneJson, scenario: hollowScenarioJson },
   halcyon: { chapter: halcyonJson, scene: halcyonSceneJson, scenario: halcyonScenarioJson },
+  foglight: { chapter: foglightJson, scene: foglightSceneJson, scenario: foglightScenarioJson },
+  council: { chapter: councilJson, scene: councilSceneJson, scenario: councilScenarioJson },
+  shallows: { chapter: shallowsJson, scene: shallowsSceneJson, scenario: shallowsScenarioJson },
 };
 const valleyId = params.get('valley');
 const valley = valleyId && valleyId in valleys ? valleys[valleyId as keyof typeof valleys] : null;
@@ -89,7 +102,9 @@ if (land === 'brook') scenario.mushroom = BROOK_MUSHROOM;
 // The sim runs on this thread here: the snapshot must be the same every load.
 const world = createWorld(SEED, tuning, scenario);
 const setup: Command[] = valley
-  ? []
+  ? valleyId === 'council'
+    ? [{ t: 'local', verb: { verb: 'vote', spot: 'rootstep' } }]
+    : []
   : [
       { t: 'shine', x: 820, y: 330 },
       { t: 'paintFog', x: 1300, y: 700, r: 180, amount: 0.9 },
@@ -129,6 +144,8 @@ while (world.tick < tick - 1) {
       at += ticks;
     }
   }
+  if (valleyId === 'shallows' && world.tick === DAY_TICK - 2)
+    cmds.push({ t: 'local', verb: { verb: 'learn', from: 'pell' } });
   step(world, cmds, tuning);
   if (heat) snapshots.push(toLite(world, tuning));
 }
@@ -173,6 +190,7 @@ const settings: Settings = {
 };
 const view = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
+  sight: { plain: tuning.foglight.sight, kite: tuning.foglight.kiteSight },
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });

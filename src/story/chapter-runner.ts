@@ -8,7 +8,6 @@
 // returns false. The exit resolves on a snapshot taken after the step that applied the last
 // command the chapter sent (its `accepted` tick), so written flags read a world that has applied
 // every command the chapter sent before it.
-import diaryJson from '../../content/diary.json';
 import type { FromWorker, SimPort, WorldLite } from '../sim-host/protocol.ts';
 import type { Command, DialKey, Dials, SimEvent } from '../sim/types.ts';
 import { YEAR_EVENTS } from './action-log.ts';
@@ -16,7 +15,7 @@ import type { ActionLog, HeroEvent, YearEvent } from './action-log.ts';
 import { parseBeatTag } from './beat-tags.ts';
 import type { BeatAction } from './beat-tags.ts';
 import { creature, measureBet } from './bets.ts';
-import { DiarySchema, diaryLines } from './diary.ts';
+import { DIARY, diaryLines } from './diary.ts';
 import { DEFAULT_FLAGS, FLAG_KEYS } from './flags.ts';
 import type { FlagKey, Flags } from './flags.ts';
 import type { InkRunner } from './ink.ts';
@@ -91,7 +90,6 @@ export function assertStoryCommand(cmd: Command): void {
   if (!STORY_COMMANDS.has(cmd.t)) throw new Error(`The story may not send '${cmd.t}'`);
 }
 
-const DIARY = DiarySchema.parse(diaryJson);
 /** A diary keeps a creature's last 20 events (spec 9.1). */
 const DIARY_LENGTH = 20;
 
@@ -137,6 +135,11 @@ export function verbCommand(
     case 'join':
     case 'pose':
     case 'keepsake':
+    case 'stepDown':
+    case 'vote':
+    case 'propose':
+    case 'sing':
+    case 'learn':
       return { t: 'local', verb: v };
     case 'rain':
       return { t: 'rain', x: v.x, y: v.y };
@@ -151,7 +154,7 @@ export function verbCommand(
 const isHeroEvent = (e: SimEvent): e is HeroEvent =>
   (e.t === 'bid' || e.t === 'gift') && (e.from === 'hero' || e.to === 'hero');
 
-/** The creature an event beat's `who` matches; undefined for a lit meeting or the mushroom, which have no one actor. */
+/** The creature an event beat's `who` matches; undefined for an event with no one actor (a lit meeting, the mushroom, a tally, the pond). */
 function actor(e: SimEvent): string | undefined {
   switch (e.t) {
     case 'bid':
@@ -165,6 +168,10 @@ function actor(e: SimEvent): string | undefined {
       return e.to; // the hero always gives it
     case 'lit':
     case 'mushroom':
+    case 'tally':
+    case 'heard':
+    case 'variety':
+    case 'settled':
       return undefined;
     default:
       return e.who;

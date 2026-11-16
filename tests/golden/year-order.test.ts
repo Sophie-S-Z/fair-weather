@@ -15,5 +15,15 @@ test("main.ts's chapter list follows CHAPTER_ORDER, then the bridge, the valleys
     .map((v) => v.trim())
     .filter((v) => v !== '') // a trailing comma
     .map((v) => file.get(v));
-  expect(list).toEqual([...CHAPTER_ORDER, 'bridge', 'fen', 'hollow', 'halcyon', 'home']);
+  expect(list).toEqual([
+    ...CHAPTER_ORDER,
+    'bridge',
+    'fen',
+    'hollow',
+    'foglight',
+    'council',
+    'shallows',
+    'halcyon',
+    'home',
+  ]);
 });

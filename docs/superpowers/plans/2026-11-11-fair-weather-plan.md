@@ -2136,6 +2136,53 @@ Per-task self-consistency:
 
 ---
 
+## Milestone M5: Stage 2 (three more valleys and the Stage 2 features)
+
+Exit check: T3 passes for Foglight Heights, Toadstool Council, Lily Shallows, Halcyon, and the homecoming with the six-valley journey (`npm run test:t3`); hero balance (ADR 0015 item 11) passes for the three new valleys; T5 passes (ADR 0015 item 12); T2 passes with the new packs, cards, and travelers in its arbitraries; the auto-player and a keyboard-only player play from the bridge through all six valleys to "The End" in Chromium; the sandbox opens each new valley, a rule card, a traveler, and a remixed link; axe-core finds no serious or critical issue on any new screen or card. The golden hash stays `c29d2fa4dbda4dcf`. Every M4 check still passes. ADR 0015 holds every M5 ruling on a spec gap. Then run superpowers:verification-before-completion and superpowers:requesting-code-review, and report to the user. The human playtest of each hero in each new valley (T11) is the user's step after the exit check.
+
+Scope: the three Stage 2 rule packs and their verbs, scenarios, scenes, palettes, configs, Ink, and placeholder rigs (snail, toadstool) and drawings; the six-valley journey and Kith split; three sandbox modes; rule cards; travelers by code; the remix tree. M5 adds no screen but the cards and panels named here.
+
+### M5 file structure
+
+| Path | Responsibility |
+| --- | --- |
+| `src/sim/packs/index.ts`, `move.ts`, `hero.ts` (modify) | The three new pack questions (ADR 0015 item 2) |
+| `src/sim/packs/foglight.ts`, `council.ts`, `shallows.ts` | The three packs (ADR 0015 items 3 to 5) |
+| `src/sim/cards.ts`; `meeting.ts` (modify) | Rule cards in a meeting (item 8) |
+| `src/sim/types.ts`, `world.ts`, `tuning.ts`, `content/tuning.json`, `src/sim-host/protocol.ts`, `lite.ts`, `src/story/action-log.ts`, `tests/property/arbitraries.ts` (modify) | Types, setup, snapshots, commands |
+| `src/story/journey.ts`, `verbs.ts`, `schema.ts`, `twists.ts`, `chapter-runner.ts`, `sandbox.ts` (modify) | The six-valley journey, the local verbs, the twists, the modes, cards, and travelers |
+| `src/persist/seed-link.ts`, `traveler.ts`, `profile.ts` (modify, create) | Lineage, traveler codes, kept links |
+| `src/render/meadow-view.ts`, `valley.ts`, `scene.ts` (modify) | Terraced heights and the fog veil, the council's cloud and spots, the pond and its pads |
+| `src/ui/components/ToolTray.svelte`, `SandboxPanel.svelte`, `SharePanel.svelte`, `RuleCards.svelte`, `TravelerCard.svelte`, `RemixTree.svelte`; `src/ui/valley-line.ts`, `src/input/keyboard.ts` | Tools, panels, and lines |
+| `content/scenarios/`, `scenes/`, `palettes/`, `valleys/`, `ink/` for `foglight`, `council`, `shallows`; `content/placeholder/PLACEHOLDER-snail.svg`, `PLACEHOLDER-toadstool.svg`, journal and still drawings; rigs | Data (ADR 0010 placeholders) |
+| `tests/golden/valley-foglight*.test.ts`, `valley-council*.test.ts`, `valley-shallows*.test.ts`, `tests/science/shallows.test.ts` | T3, hero balance, T5 |
+
+### Tasks
+
+Each task follows the M3 form: write the failing tests, see them fail, implement, run `npm test && npm run test:prop && npm run typecheck && npm run lint`, commit.
+
+- **M5.1 Pack questions.** `steered`, `mayStep`, `speedFactor` in `packs/index.ts`; `move.ts` asks them; tests show a world without a pack draws as before and the golden hash holds.
+- **M5.2 Foglight Heights pack** (ADR 0015 item 3). Tests: a snail climbs to the highest cell within one step and stops on a local peak; ties; the fog by height; the hero cannot step down without `stepDown`; Brume follows only with trust and while the hero steps down near it; the half speed; `brumeClimbs`.
+- **M5.3 Toadstool Council pack** (item 4). Tests: each rule on the four-spot layout (plurality C, approval A, runoff A, score B, the compromise); voter ties; the hero's ballot; the cloud's rain; `propose` once; the council's ±0.1 and the Glassling's ±0.15; toadstools never walk.
+- **M5.4 Lily Shallows pack** (item 5). Tests: share and unhappiness, a lone frog is content, pad capacity and slots, one draw per hop in creature order, `learn` and `sing`, the variety rule at 3, `settled` once, `sorting`.
+- **M5.5 Story wiring.** Verbs `stepDown`, `vote`, `sing` in `verbs.ts`, the runner's verb map, `CommandSchema`, twist ids and checks, the six-valley `KITH_VALLEYS` and `kithDays`, the event triggers `follow`, `tally`, `settled`, `variety`.
+- **M5.6 to M5.8 The three valleys' content and calibration** (items 14 to 16): scenario, scene, palette, config, Ink, players in `tests/golden/players.ts`, T3, control, and hero balance files. Each step's numbers go into ADR 0015.
+- **M5.9 T5** (item 12).
+- **M5.10 Journey and homecoming.** Six Kith legs, the regenerated home carry, Halcyon and home T3 again, the e2e journey through six valleys.
+- **M5.11 Render and UI.** Terraced heights, the fog veil with the Kite-rider's wider sight, the council's cloud and spot stakes, the pond, pads, and hopping frogs; the three tool cards; valley lines; keys; placeholder rigs and drawings; visual baselines.
+- **M5.12 Sandbox modes and rule cards** (items 7 and 8), with `cards` in the setup, the link, the scenario, and the property run.
+- **M5.13 Travelers** (item 9): `src/persist/traveler.ts` encode and decode with the seed link's strictness, the setup's `travelers`, the Soul diary, and the Population panel card.
+- **M5.14 The remix tree** (item 10): lineage in links and the sandbox, kept links in the profile, the Share panel's tree.
+
+### M5 Review Focus
+
+1. **A hero stuck on a hill.** A player in Foglight who never finds Step down must still reach the postcard: the close call opens it when the window ends. Owner: M5.6's control run.
+2. **A pond that never settles.** With the variety rule on, frogs may hop forever; the sim must stay deterministic and cheap. Owner: M5.4's "one draw per hop" test and the property run.
+3. **A code from a stranger.** A traveler code or link must never carry free text or an id outside the closed sets. Owner: M5.13's decode tests, mirroring `decodeLink`'s.
+4. **An M4 link.** A link without `from`, `cards`, or `travelers` must still decode when its tuning hash matches. Owner: M5.12 and M5.14's old-link tests.
+
+---
+
 ## Milestones M2 to M5 (outline)
 
 Each milestone gets a detailed plan, in the same format, after the one before it passes its exit check. The M2, M3, and M4 detailed plans are above.

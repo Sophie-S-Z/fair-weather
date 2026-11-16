@@ -113,6 +113,7 @@ const settings: Settings = {
 };
 const meadow = createMeadowView(app, scene, rigs, palette, {
   lensRadius: tuning.light.lensRadius,
+  sight: { plain: tuning.foglight.sight, kite: tuning.foglight.kiteSight },
   cast,
   gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
 });

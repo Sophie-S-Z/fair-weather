@@ -23,6 +23,9 @@ import ch10 from '../content/chapters/ch10.json';
 import bridge from '../content/chapters/bridge.json';
 import fen from '../content/valleys/fen.json';
 import hollow from '../content/valleys/hollow.json';
+import foglight from '../content/valleys/foglight.json';
+import council from '../content/valleys/council.json';
+import shallows from '../content/valleys/shallows.json';
 import halcyon from '../content/valleys/halcyon.json';
 import home from '../content/valleys/home.json';
 import inkStory from '../content/ink/main.ink';
@@ -65,8 +68,11 @@ import {
   decodeLink,
   encodeLink,
   fitsInLink,
+  lineageOf,
+  linkId,
 } from './persist/seed-link.ts';
 import type { BookPage } from './persist/profile.ts';
+import { decodeTraveler, encodeTraveler } from './persist/traveler.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimHost } from './sim-host/host.ts';
@@ -102,11 +108,13 @@ import {
   createSandboxRunner,
   cutNote,
   DEFAULT_SWITCHES,
+  SANDBOX_TICKS_PER_DAY,
   SANDBOX_VALLEYS,
   sandboxScenario,
   sandboxTuning,
 } from './story/sandbox.ts';
 import type { SandboxRunner, SandboxSetup, SandboxValley } from './story/sandbox.ts';
+import { travelerOf } from './story/traveler.ts';
 import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
 import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
@@ -228,6 +236,9 @@ const chapters = [
   bridge,
   fen,
   hollow,
+  foglight,
+  council,
+  shallows,
   halcyon,
   home,
 ].map((c) => ChapterSchema.parse(c));
@@ -254,12 +265,18 @@ const SANDBOX_BASES: Record<SandboxValley, Scenario> = {
   kith: scenarioNamed('m0'),
   fen: scenarioNamed('fen'),
   hollow: scenarioNamed('hollow'),
+  foglight: scenarioNamed('foglight'),
+  council: scenarioNamed('council'),
+  shallows: scenarioNamed('shallows'),
   halcyon: scenarioNamed('halcyon'),
 };
 const SANDBOX_SCENES: Record<SandboxValley, string> = {
   kith: firstScene.id,
   fen: 'fen',
   hollow: 'hollow',
+  foglight: 'foglight',
+  council: 'council',
+  shallows: 'shallows',
   halcyon: 'halcyon',
 };
 /** The creatures of m0, the only ones the Kith the profile keeps holds (ADR 0014 item 1). */
@@ -450,6 +467,8 @@ let sandboxRun: {
   lite: WorldLite | null;
   tick: number;
   notes: { tick: number; text: string }[];
+  /** Its lineage, which its links hold as `from` (ADR 0015 item 10). */
+  from: string[];
 } | null = null;
 /** Rejects the sandbox start that waits for its first snapshot, with why; null when none waits. */
 let startWaiting: ((why: string) => void) | null = null;
@@ -557,6 +576,7 @@ let sandboxStops = 0;
 function beginSandbox(
   setup: SandboxSetup,
   scenario: Scenario,
+  from: string[],
   acted: boolean,
   go: (runner: SandboxRunner, fail: (why: string) => void) => void,
 ): Promise<SandboxRunner> {
@@ -574,7 +594,7 @@ function beginSandbox(
     endRunGiveUp?.();
     // Before the init, so the runner sees the run's first snapshot.
     const runner = createSandboxRunner(port, setup);
-    const run = { runner, made, lite: null, tick: 0, notes: [] };
+    const run = { runner, made, lite: null, tick: 0, notes: [], from };
     sandboxRun = run;
     const offs: (() => void)[] = [];
     const settle = (): void => {
@@ -631,7 +651,7 @@ const linkChars = import.meta.env.DEV && devLinkChars > 0 ? Math.min(devLinkChar
  */
 const sandboxLink = oneAtATime(async function (
   pause: boolean = true,
-): Promise<{ kind: 'link'; text: string } | { kind: 'tooOld' } | { kind: 'tooBig' }> {
+): Promise<{ kind: 'link'; text: string; tick: number } | { kind: 'tooOld' } | { kind: 'tooBig' }> {
   const run = sandboxRun;
   if (!run) throw new Error('No sandbox run to share');
   if (pause) speedControl.player(0);
@@ -648,8 +668,16 @@ const sandboxLink = oneAtATime(async function (
   if (tick > MAX_LINK_TICKS) return { kind: 'tooOld' };
   const script = host.log().filter((e) => e.tick < tick);
   try {
-    const text = await encodeLink({ v: 1, tuning: tuningHash, setup: run.runner.setup, script, tick });
-    return { kind: 'link', text };
+    const from = run.from.length > 0 ? { from: run.from } : {};
+    const text = await encodeLink({
+      v: 1,
+      tuning: tuningHash,
+      setup: run.runner.setup,
+      script,
+      tick,
+      ...from,
+    });
+    return { kind: 'link', text, tick };
   } catch {
     return { kind: 'tooBig' }; // past MAX_LINK_LISTS lists or MAX_LINK_BYTES of JSON
   }
@@ -750,12 +778,26 @@ document.addEventListener('visibilitychange', () => {
     });
 });
 /**
+ * Keeps a link the player made or opened for the remix tree (ADR 0015 item 10), when it fits in a
+ * link; a failed keep leaves the tree as it was.
+ */
+async function keepLink(text: string, from: string[], valley: SandboxValley, tick: number): Promise<void> {
+  if (text.length > LINK_CHARS) return;
+  const day = Math.floor(tick / SANDBOX_TICKS_PER_DAY);
+  try {
+    await (await profileReady).keepLink({ id: linkId(text), from, valley, day, text });
+  } catch (e) {
+    console.error(e);
+  }
+}
+/**
  * Opens a link's `v1.<data>` text with `notes` as a new run (ADR 0014 item 7), or null for an old
  * or broken link, a setup that cannot be built included. The worker runs the script in one
  * forward to the tick before the link's, and the lists of that tick and the last step live, so
- * the run's first snapshot is at the link's tick; the run waits there, paused.
+ * the run's first snapshot is at the link's tick; the run waits there, paused. An opened link (not
+ * the player's own save, `own`) joins the remix tree, and the run's lineage ends with its id.
  */
-async function openSandbox(text: string, notes: readonly { tick: number; text: string }[]) {
+async function openSandbox(text: string, notes: readonly { tick: number; text: string }[], own = false) {
   const stops = sandboxStops;
   const link = await decodeLink(text, tuningHash);
   if (!link) return null;
@@ -775,7 +817,8 @@ async function openSandbox(text: string, notes: readonly { tick: number; text: s
   if (sandboxStops !== stops || sandboxRun !== run)
     throw new Error('The sandbox stopped or changed while the valley opened');
   const before = Math.max(link.tick - 1, 0);
-  const runner = await beginSandbox(link.setup, scenario, false, (r, fail) => {
+  const from = own ? (link.from ?? []) : lineageOf(link, text);
+  const runner = await beginSandbox(link.setup, scenario, from, false, (r, fail) => {
     speedControl.runner(0);
     // A challenge's check reads the forward's steps (its events and season turns).
     host.fastForward(before, link.script, link.setup.challenge !== null).then(
@@ -792,6 +835,7 @@ async function openSandbox(text: string, notes: readonly { tick: number; text: s
     );
   });
   if (sandboxRun?.runner === runner) sandboxRun.notes = notes.map((n) => ({ ...n }));
+  if (!own) void keepLink(text, link.from ?? [], link.setup.valley, link.tick);
   return runner;
 }
 
@@ -833,8 +877,10 @@ const game: GameService = {
       } catch (e) {
         return Promise.reject(e instanceof Error ? e : new Error(String(e)));
       }
-      // A start from a run (a rule change, a challenge) is the player's act.
-      return beginSandbox(setup, scenario, sandboxRun !== null, () => {
+      // A start from a run (a rule change, a challenge) is the player's act. A run of the same seed
+      // (a rule change) keeps the lineage; a new valley or a challenge has a new seed and none.
+      const from = sandboxRun?.runner.setup.seed === setup.seed ? sandboxRun.from : [];
+      return beginSandbox(setup, scenario, from, sandboxRun !== null, () => {
         // A run starts at 1x (ADR 0014 item 1); the sandbox runner sets no speed of its own.
         speedControl.runner(1);
         speedControl.player(1);
@@ -865,13 +911,24 @@ const game: GameService = {
       sandboxRun.notes = notes;
     },
     async share() {
+      const run = sandboxRun;
       const link = await sandboxLink();
       if (link.kind !== 'link') return link;
       // The page's own address with no query: a dev query is not part of the valley.
       const url = `${location.origin}${location.pathname}#${link.text}`;
-      return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link.text };
+      if (!fitsInLink(url, linkChars)) return { kind: 'file', text: link.text };
+      if (run) await keepLink(link.text, run.from, run.runner.setup.valley, link.tick);
+      return { kind: 'link', url };
     },
+    keptLinks: async () => (await profileReady).links(),
     open: (text) => openSandbox(text, []),
+    async travelerCode(id) {
+      const run = sandboxRun;
+      const c = run?.lite?.creatures.find((x) => x.id === id);
+      const t = c && run && travelerOf(c, run.runner.memories(id), run.runner.setup.travelers ?? []);
+      return t ? encodeTraveler(t) : null;
+    },
+    readTraveler: decodeTraveler,
     // One at a time, so a second Save does not take the first one's pause for the player's speed.
     postcard: oneAtATime(async (caption: string) => {
       const stage = recording;
@@ -892,7 +949,7 @@ const game: GameService = {
       const profile = await profileReady;
       const save = await profile.sandbox();
       if (!save) return null;
-      const runner = await openSandbox(save.link, save.notes);
+      const runner = await openSandbox(save.link, save.notes, true);
       // A save that no longer opens (an older build's) is not offered again.
       if (!runner) await profile.dropSandbox(save.link);
       return runner;
@@ -973,6 +1030,7 @@ const game: GameService = {
     let scene = firstScene;
     const view = createMeadowView(app, scene, rigs, palette, {
       lensRadius: tuning.light.lensRadius,
+      sight: { plain: tuning.foglight.sight, kite: tuning.foglight.kiteSight },
       cast,
       gate: { x: tuning.scene.gateX, y: tuning.scene.gateY },
     });

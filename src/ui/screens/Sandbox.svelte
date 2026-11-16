@@ -3,16 +3,23 @@
   import type { Writable } from 'svelte/store';
   import type { InputContext } from '../../input/keyboard.ts';
   import type { WorldLite } from '../../sim-host/protocol.ts';
-  import type { Command, Season } from '../../sim/types.ts';
+  import type { CardThen, CardWhen, Command, RuleCard, Season } from '../../sim/types.ts';
   import { outcome } from '../../story/challenges.ts';
   import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
-  import { displayName } from '../../story/names.ts';
+  import { DIARY, memoryText } from '../../story/diary.ts';
+  import { MAX_TRAVELERS, travelerName } from '../../story/traveler.ts';
+  import type { Traveler } from '../../story/traveler.ts';
+  import type { KeptLink } from '../../persist/profile.ts';
   import {
     DEFAULT_SWITCHES,
+    CARD_THEN_LABELS,
+    CARD_WHEN_LABELS,
     KNOBS,
+    MAX_CARDS,
     SANDBOX_TICKS_PER_DAY,
     SANDBOX_TOOLS,
     TOOL_PANEL,
+    knobText,
   } from '../../story/sandbox.ts';
   import type {
     Knob,
@@ -30,6 +37,7 @@
   import PostcardExport from '../components/PostcardExport.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
   import SharePanel from '../components/SharePanel.svelte';
+  import TravelerPanel from '../components/TravelerPanel.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
@@ -116,6 +124,8 @@
   /** What Share gave while the Share panel is open, or null. */
   type Shared = Awaited<ReturnType<GameService['sandbox']['share']>>;
   let shared: Shared | null = $state.raw(null);
+  /** The remix tree's links, read as Share opens its panel. */
+  let kept: readonly KeptLink[] = $state.raw([]);
   /** Whether the postcard dialog is open (ADR 0014 item 8). */
   let postcard = $state(false);
   let cursor = $state({ x: 0, y: 0 });
@@ -163,18 +173,26 @@
           : 'A new valley'
         : (valleyChapter(setup.valley)?.title ?? setup.valley),
   );
+  const travelers = $derived(setup?.travelers ?? []);
+  /** How a creature reads here: a traveler by its home's name. */
+  const nameOf = (id: string): string => travelerName(id, travelers);
+  /** The picked creature's diary (ADR 0015 item 9): a traveler's opens with the memories it brought. */
+  // Read again at each drawn frame (the tick test is always true), as the run writes the diary.
+  const pickedDiary = $derived.by(() =>
+    picked && runner && rw.drawnTick >= 0 ? runner.memories(picked).map((m) => memoryText(m, DIARY)) : [],
+  );
   const pointing = $derived(POINT_TOOLS.has(tool));
   /** The tool, and what it would act on: the cursor's nearest spot and creature, or the picked creature; then a mark. */
   const statusLine = $derived(
     [
       `Tool: ${TOOL_LABELS[tool]}`,
       pointing
-        ? spotLine(spotName(cursor), nearby === null ? null : displayName(nearby))
+        ? spotLine(spotName(cursor), nearby === null ? null : nameOf(nearby))
         : picked
-          ? `Picked: ${displayName(picked)}`
+          ? `Picked: ${nameOf(picked)}`
           : '',
       tool === 'path' && pathFrom ? `Path from ${spotName(pathFrom)}` : '',
-      tool === 'thread' && threadFrom ? `Thread from ${displayName(threadFrom)}` : '',
+      tool === 'thread' && threadFrom ? `Thread from ${nameOf(threadFrom)}` : '',
       rw.at === null ? '' : 'Rewound: the tools wait for Back to now',
       // Also here, so a folded card does not hide it.
       outcome(setup?.challenge ?? null, challengeState) ?? '',
@@ -191,6 +209,7 @@
         knob: k,
         index: stepOf(k),
         max: k.steps === 'benchSpots' ? (stage?.benchSpots.length ?? 0) : k.steps,
+        text: knobText(k, setup?.knobs[k.id]),
         why:
           k.id === 'gossipThreshold' && setup?.switches.mixed !== false
             ? 'Turn off Mixed thresholds to give all creatures one threshold.'
@@ -353,6 +372,9 @@
     whisperCard = null;
     speedNow = game.currentSpeed();
     loop.start();
+    // A control the new setup took away (a removed card, a traveler sent home) gives the focus to `from`.
+    await tick();
+    if (document.activeElement === document.body) from?.focus();
     // The run's first snapshot came before the start resolved: an opened link waits paused there.
     const first = game.sandbox.snapshot();
     if (first) show(first.lite, first.tick);
@@ -360,11 +382,11 @@
   const startOf = (s: SandboxSetup) => () => game.sandbox.start(s);
 
   /**
-   * A knob or a switch changed: the run starts again from day 0, keeping what the player placed
+   * A knob, a switch, or a rule card changed: the run starts again from day 0, keeping what the player placed
    * (ADR 0014 item 2). `undo` puts the control back when the start fails.
    */
   function restart(
-    change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'>,
+    change: Partial<Pick<SandboxSetup, 'knobs' | 'switches' | 'cards' | 'travelers'>>,
     undo: () => void,
     from: HTMLElement,
   ): void {
@@ -403,6 +425,38 @@
       },
       input,
     );
+  }
+
+  /** The travelers changed (ADR 0015 item 9): the run starts again, with the focus back on the code box. */
+  function setTravelers(next: Traveler[]): void {
+    const box = document.getElementById('traveler-paste');
+    if (box) restart({ travelers: next }, () => undefined, box);
+  }
+  async function welcome(code: string): Promise<boolean> {
+    const t = await game.sandbox.readTraveler(code);
+    if (t) setTravelers([...travelers, t]);
+    return t !== null;
+  }
+
+  const WHENS = Object.keys(CARD_WHEN_LABELS) as CardWhen[];
+  const THENS = Object.keys(CARD_THEN_LABELS) as CardThen[];
+  /** The setup's rule cards: a link without them has none. */
+  const cards = $derived(setup?.cards ?? []);
+  /** The Add button, which gets the focus when Remove takes its own row away. */
+  let addCard = $state<HTMLButtonElement>();
+  /** Card `i`'s `part` changed to the select's value (ADR 0015 item 8); a start that fails puts it back. */
+  function setCard(i: number, part: 'when' | 'then', select: HTMLSelectElement): void {
+    const card = cards[i];
+    if (!card) return;
+    const before = card[part];
+    restart(
+      { cards: cards.with(i, { ...card, [part]: select.value }) },
+      () => (select.value = before),
+      select,
+    );
+  }
+  function setCards(next: RuleCard[]): void {
+    if (addCard) restart({ cards: next }, () => undefined, addCard);
   }
 
   /** Opens a valley from the start choice: the gate's lamp, then the run (its scene comes with it, the palette with its first snapshot). */
@@ -476,7 +530,9 @@
   /** Share pauses the run and opens the Share panel with what it gave (ADR 0014 item 7). */
   async function share(): Promise<void> {
     try {
-      shared = await game.sandbox.share();
+      const s = await game.sandbox.share();
+      kept = await game.sandbox.keptLinks();
+      shared = s;
     } catch (e) {
       console.error(e);
       notice = 'The game could not share the valley.';
@@ -622,6 +678,7 @@
           heroKind: () => null,
           heroBerries: () => 0,
           heroFlying: () => false,
+          pack: () => null,
           keepsakes: () => [],
         };
         offs.push(game.input.createKeyboard(sceneEl, ctx));
@@ -737,6 +794,22 @@
               <input type="checkbox" checked={gateLit} onchange={setGate} />
               Light the gate for newcomers
             </label>
+            <TravelerPanel
+              picked={picked === null ? null : { id: picked, name: nameOf(picked) }}
+              diary={pickedDiary}
+              travelers={travelers.map((t) => nameOf(t.home))}
+              max={MAX_TRAVELERS}
+              off={locked
+                ? 'Wait for the valley to start.'
+                : setup.challenge
+                  ? 'A challenge starts with no travelers.'
+                  : null}
+              makeCode={(id: string) => game.sandbox.travelerCode(id)}
+              {welcome}
+              remove={(i: number) => {
+                setTravelers(travelers.toSpliced(i, 1));
+              }}
+            />
           </SandboxPanel>
           <SandboxPanel
             title={PANEL_TITLES.rules}
@@ -750,6 +823,58 @@
             {tool}
             onTool={pickTool}
           >
+            <fieldset class="choices">
+              <legend>Rule cards</legend>
+              {#each cards as card, i (i)}
+                <div class="card">
+                  <span>When a creature is</span>
+                  <select
+                    aria-label="Card {i + 1}: when a creature is"
+                    value={card.when}
+                    disabled={locked}
+                    onchange={(e) => {
+                      setCard(i, 'when', e.currentTarget);
+                    }}
+                  >
+                    {#each WHENS as w (w)}
+                      <option value={w}>{CARD_WHEN_LABELS[w]}</option>
+                    {/each}
+                  </select>
+                  <span>it</span>
+                  <select
+                    aria-label="Card {i + 1}: it"
+                    value={card.then}
+                    disabled={locked}
+                    onchange={(e) => {
+                      setCard(i, 'then', e.currentTarget);
+                    }}
+                  >
+                    {#each THENS as t (t)}
+                      <option value={t}>{CARD_THEN_LABELS[t]}</option>
+                    {/each}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Remove card {i + 1}"
+                    disabled={locked}
+                    onclick={() => {
+                      setCards(cards.toSpliced(i, 1));
+                    }}>Remove</button
+                  >
+                </div>
+              {:else}
+                <p class="line">With no cards, each creature follows its own dials.</p>
+              {/each}
+              <button
+                type="button"
+                bind:this={addCard}
+                disabled={locked || cards.length >= MAX_CARDS}
+                onclick={() => {
+                  setCards([...cards, { when: 'hungry', then: 'keep' }]);
+                }}>Add a rule card</button
+              >
+              <p class="line">In a meeting, the first card that fits a creature sets its move.</p>
+            </fieldset>
             <p class="line">When you change a rule, the valley starts again from its first day.</p>
             <button type="button" onclick={openLimits}>Where this model is wrong</button>
           </SandboxPanel>
@@ -865,6 +990,8 @@
     <SharePanel
       {shared}
       valleyFile={game.sandbox.valleyFile}
+      {kept}
+      valleyName={(v: SandboxValley) => (v === 'kith' ? 'Kith' : (valleyChapter(v)?.title ?? v))}
       onOpen={openText}
       onClose={() => (shared = null)}
     />
@@ -877,7 +1004,7 @@
     <WhisperCard
       target={whisperCard.target}
       others={whisperCard.others}
-      label={displayName}
+      label={nameOf}
       onWhisper={whisper}
       onCancel={() => (whisperCard = null)}
     />
@@ -941,6 +1068,21 @@
   }
   .line {
     margin: 0;
+  }
+  /* A rule card reads as one sentence, and wraps between its parts. */
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem;
+    border: 1px solid var(--fg);
+    border-radius: 0.4rem;
+  }
+  .card select,
+  .card button {
+    min-height: 1.75rem;
+    font: inherit;
   }
   /* Under the scene, between the panels and the time controls. */
   .timeline {

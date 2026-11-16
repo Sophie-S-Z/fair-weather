@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import {
   LINK_CHARS,
+  MAX_LINEAGE,
   MAX_LINK_BYTES,
   MAX_LINK_LISTS,
   MAX_LINK_TEXT,
@@ -10,6 +11,8 @@ import {
   decodeLink,
   encodeLink,
   fitsInLink,
+  lineageOf,
+  linkId,
 } from '../../../src/persist/seed-link.ts';
 import type { SeedLink } from '../../../src/persist/seed-link.ts';
 import type { FromWorker, SimPort, WorldLite } from '../../../src/sim-host/protocol.ts';
@@ -465,4 +468,27 @@ test('the runner refuses an off-scene point and clamps a path, so its sends alwa
   const text = await encodeLink(link({ script: [{ tick: 1, list: sent }], tick: 2 }));
   expect(await decodeLink(text, HASH)).not.toBeNull();
   runner.dispose();
+});
+
+test('linkId is 32-bit FNV-1a in 8 hex digits; a lineage keeps the last MAX_LINEAGE ids', () => {
+  expect(linkId('')).toBe('811c9dc5');
+  expect(linkId('a')).toBe('e40c292c');
+  expect(linkId('v1.abc')).toMatch(/^[0-9a-f]{8}$/);
+  const long = Array.from({ length: MAX_LINEAGE }, (_, i) => i.toString(16).padStart(8, '0'));
+  const lineage = lineageOf(link({ from: long }), 'v1.x');
+  expect(lineage).toHaveLength(MAX_LINEAGE);
+  expect(lineage.at(-1)).toBe(linkId('v1.x'));
+  expect(lineage[0]).toBe(long[1]);
+  expect(lineageOf(link(), 'v1.x')).toEqual([linkId('v1.x')]);
+});
+
+test('a link with a lineage round-trips; an empty or long lineage and a bad id are refused; an M4 link still opens', async () => {
+  const from = { from: ['0badf00d', 'deadbeef'] };
+  expect(await decodeLink(await encodeLink(link(from)), HASH)).toEqual(link(from));
+  const ids = (n: number) => Array.from({ length: n }, () => '0badf00d');
+  for (const bad of [[], ids(MAX_LINEAGE + 1), ['0BADF00D'], ['my-friend']])
+    expect(SeedLinkSchema.safeParse(link({ from: bad })).success, JSON.stringify(bad)).toBe(false);
+  expect(SeedLinkSchema.safeParse(link({ from: ids(MAX_LINEAGE) })).success).toBe(true);
+  expect('from' in link()).toBe(false);
+  expect(await decodeLink(await encodeLink(link()), HASH)).toEqual(link());
 });

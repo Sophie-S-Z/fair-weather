@@ -28,6 +28,24 @@ const cases = [
     maxCalls: 12,
   },
   {
+    name: 'foglight-day',
+    query: '?valley=foglight',
+    what: 'in Foglight Heights by day, with its terraces, the fog, the veil past sight, and Brume in focus',
+    maxCalls: 12,
+  },
+  {
+    name: 'council-day',
+    query: '?valley=council',
+    what: "in the Toadstool Council by day, with its stakes, the hero's vote, and Ambry in focus",
+    maxCalls: 12,
+  },
+  {
+    name: 'shallows-day',
+    query: '?valley=shallows',
+    what: "in Lily Shallows by day, with its pads, each frog's songs, and Pell in focus",
+    maxCalls: 12,
+  },
+  {
     name: 'meadow-sandbox',
     query: '?sandbox=1',
     what: 'in the sandbox, with two paths and the gate dark',

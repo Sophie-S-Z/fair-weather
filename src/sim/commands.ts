@@ -8,6 +8,7 @@ import { clamp, dist2 } from './math.ts';
 import { isHero, plantGift } from './hero.ts';
 import { inWater } from './land.ts';
 import { PACKS } from './packs/index.ts';
+import { rain } from './rain.ts';
 import { byId, ensureTie, side } from './world.ts';
 
 const REPLIES: readonly BidReply[] = ['toward', 'away', 'against'];
@@ -104,16 +105,6 @@ function walk(world: World, cmd: Extract<Command, { t: 'walk' }>, t: Tuning): vo
     hero.goalX = clamp(cmd.x, 0, t.scene.width);
     hero.goalY = clamp(cmd.y, 0, t.scene.height);
     world.hero.waveTo = null;
-  }
-}
-
-/** Every bush within rain.radius of (x, y) gains rain.berries, up to bush.limit (ADR 0014 item 5). */
-function rain(world: World, x: number, y: number, t: Tuning): void {
-  const r2 = t.rain.radius * t.rain.radius;
-  for (const b of world.bushes) {
-    if (dist2(b.x, b.y, x, y) <= r2 && b.berries < t.bush.limit) {
-      b.berries = Math.min(b.berries + t.rain.berries, t.bush.limit);
-    }
   }
 }
 

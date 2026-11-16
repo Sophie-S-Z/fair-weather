@@ -86,7 +86,10 @@
         "Gave {other} a berry. Don't know why. Don't ask.",
         "Gave {other} one. Counted the rest twice."
       ],
-      "gift.gave.keep": ["Kept mine from {other}. Winter remembers who didn't.", "{other} wanted it. Kept it. Mine. Probably."],
+      "gift.gave.keep": [
+        "Kept mine from {other}. Winter remembers who didn't.",
+        "{other} wanted it. Kept it. Mine. Probably."
+      ],
       "gift.got.give": [
         "{other} gave me a berry. What does {other} want?",
         "{other} gave me one. Ate it fast, before it could turn into a trick."

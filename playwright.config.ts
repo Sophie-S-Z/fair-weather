@@ -44,7 +44,16 @@ export default defineConfig({
       use: e2eChromium,
       dependencies: ['e2e'],
     },
-    { name: 'e2e-firefox', testDir: 'tests/e2e', use: devices['Desktop Firefox'] },
+    {
+      name: 'e2e-firefox',
+      testDir: 'tests/e2e',
+      // Headless Firefox on a machine with no GPU blocks WebGL on its software renderer, and the
+      // sandbox needs WebGL.
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+      },
+    },
     { name: 'e2e-webkit', testDir: 'tests/e2e', use: devices['Desktop Safari'] },
     { name: 'visual', testDir: 'tests/visual', use: chromium },
     {

@@ -424,7 +424,9 @@ test('a link says it is opening, and a worker that cannot run says the valley co
   // No worker at all: the open fails, and the line says so.
   await page.unroute('**/src/sim-host/worker.ts*');
   await page.route('**/src/sim-host/worker.ts*', (route) => route.abort());
-  await page.goto('/');
+  // From another page: at the game's own address the link changes only the fragment, and the page
+  // then loads again on its own, in the middle of the wait below.
+  await page.goto('about:blank');
   await page.goto(url);
   await untilStatus(page, 'could not open', 'The valley could not open. Go back to the title to try again.');
 });

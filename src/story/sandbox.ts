@@ -340,7 +340,10 @@ export interface SandboxSetup {
 export const MAX_ENTRIES = 1000;
 /** A placed structure's or bush's id, in the sim's own `<kind>-<n>` form. */
 const STRUCTURE_ID = /^(bench|bush|bridge|lantern|path)-[0-9]{1,6}$/;
-/** A base creature, a newcomer in the sim's own `newcomer-<n>` form, or a welcomed traveler: a closed set of ids. */
+/**
+ * A base creature, a newcomer in the sim's own `newcomer-<n>` form, or a welcomed traveler
+ * (`traveler-1` to `traveler-3`): a closed set of ids.
+ */
 export const isCreatureId = (id: string): boolean =>
   BASE_CREATURES.has(id) || /^newcomer-[0-9]{1,6}$/.test(id) || /^traveler-[1-3]$/.test(id);
 /**
@@ -504,9 +507,9 @@ export function sandboxTuning(setup: SandboxSetup, base: Tuning): Tuning {
  * bench density `benchSpots`, then the setup's structures, and last the challenge's start. A valley
  * keeps its pack, Halcyon's with `kithWarmth` 0, the council's with the Voting rule knob's rule, and
  * the Shallows' with the variety rule on once Frogs leave a pad this alike is set (ADR 0015 item 7);
- * the setup's rule cards come along, the travelers stand at the gate, and the sandbox has no hero. Throws when the bench
- * density is past the scene's spot count, on a challenge start that names a creature the valley
- * lacks, and on land that checkLand refuses.
+ * the setup's rule cards come along, the travelers stand at the gate, and the sandbox has no hero.
+ * Throws when the bench density is past the scene's spot count, on a challenge start that names a
+ * creature the valley lacks, and on land that checkLand refuses.
  */
 export function sandboxScenario(
   setup: SandboxSetup,
@@ -593,7 +596,8 @@ export interface SandboxRunner {
   forwarded(steps: readonly ForwardStep[], script: readonly { tick: number; list: Command[] }[]): void;
   /**
    * `id`'s memories now, oldest first, at most MAX_MEMORIES (ADR 0015 item 9): a traveler's from its
-   * code, then each diary line the run's events wrote for it, live and in a forward.
+   * code, then each diary line the run's events wrote for it, live and in a forward that reports
+   * its steps (an opened link's diaries start at its tick, unless it is a challenge's).
    */
   memories(id: string): readonly Memory[];
   /** Whether Pim's dance was sent in this run, by the runner or in an opened link's script. */

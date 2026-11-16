@@ -6,7 +6,9 @@
   import type { CardThen, CardWhen, Command, RuleCard, Season } from '../../sim/types.ts';
   import { outcome } from '../../story/challenges.ts';
   import type { ChallengeId, ChallengeState } from '../../story/challenges.ts';
-  import { displayName } from '../../story/names.ts';
+  import { DIARY, memoryText } from '../../story/diary.ts';
+  import { MAX_TRAVELERS, travelerName } from '../../story/traveler.ts';
+  import type { Traveler } from '../../story/traveler.ts';
   import {
     DEFAULT_SWITCHES,
     CARD_THEN_LABELS,
@@ -34,6 +36,7 @@
   import PostcardExport from '../components/PostcardExport.svelte';
   import SandboxPanel from '../components/SandboxPanel.svelte';
   import SharePanel from '../components/SharePanel.svelte';
+  import TravelerPanel from '../components/TravelerPanel.svelte';
   import TimeControls from '../components/TimeControls.svelte';
   import TimelineStrip from '../components/TimelineStrip.svelte';
   import WhisperCard from '../components/WhisperCard.svelte';
@@ -167,18 +170,26 @@
           : 'A new valley'
         : (valleyChapter(setup.valley)?.title ?? setup.valley),
   );
+  const travelers = $derived(setup?.travelers ?? []);
+  /** How a creature reads here: a traveler by its home's name. */
+  const nameOf = (id: string): string => travelerName(id, travelers);
+  /** The picked creature's diary (ADR 0015 item 9): a traveler's opens with the memories it brought. */
+  // Read again at each drawn frame (the tick test is always true), as the run writes the diary.
+  const pickedDiary = $derived.by(() =>
+    picked && runner && rw.drawnTick >= 0 ? runner.memories(picked).map((m) => memoryText(m, DIARY)) : [],
+  );
   const pointing = $derived(POINT_TOOLS.has(tool));
   /** The tool, and what it would act on: the cursor's nearest spot and creature, or the picked creature; then a mark. */
   const statusLine = $derived(
     [
       `Tool: ${TOOL_LABELS[tool]}`,
       pointing
-        ? spotLine(spotName(cursor), nearby === null ? null : displayName(nearby))
+        ? spotLine(spotName(cursor), nearby === null ? null : nameOf(nearby))
         : picked
-          ? `Picked: ${displayName(picked)}`
+          ? `Picked: ${nameOf(picked)}`
           : '',
       tool === 'path' && pathFrom ? `Path from ${spotName(pathFrom)}` : '',
-      tool === 'thread' && threadFrom ? `Thread from ${displayName(threadFrom)}` : '',
+      tool === 'thread' && threadFrom ? `Thread from ${nameOf(threadFrom)}` : '',
       rw.at === null ? '' : 'Rewound: the tools wait for Back to now',
       // Also here, so a folded card does not hide it.
       outcome(setup?.challenge ?? null, challengeState) ?? '',
@@ -358,6 +369,9 @@
     whisperCard = null;
     speedNow = game.currentSpeed();
     loop.start();
+    // A control the new setup took away (a removed card, a traveler sent home) gives the focus to `from`.
+    await tick();
+    if (document.activeElement === document.body) from?.focus();
     // The run's first snapshot came before the start resolved: an opened link waits paused there.
     const first = game.sandbox.snapshot();
     if (first) show(first.lite, first.tick);
@@ -369,7 +383,7 @@
    * (ADR 0014 item 2). `undo` puts the control back when the start fails.
    */
   function restart(
-    change: Pick<SandboxSetup, 'knobs'> | Pick<SandboxSetup, 'switches'> | Pick<SandboxSetup, 'cards'>,
+    change: Partial<Pick<SandboxSetup, 'knobs' | 'switches' | 'cards' | 'travelers'>>,
     undo: () => void,
     from: HTMLElement,
   ): void {
@@ -408,6 +422,17 @@
       },
       input,
     );
+  }
+
+  /** The travelers changed (ADR 0015 item 9): the run starts again, with the focus back on the code box. */
+  function setTravelers(next: Traveler[]): void {
+    const box = document.getElementById('traveler-paste');
+    if (box) restart({ travelers: next }, () => undefined, box);
+  }
+  async function welcome(code: string): Promise<boolean> {
+    const t = await game.sandbox.readTraveler(code);
+    if (t) setTravelers([...travelers, t]);
+    return t !== null;
   }
 
   const WHENS = Object.keys(CARD_WHEN_LABELS) as CardWhen[];
@@ -764,6 +789,22 @@
               <input type="checkbox" checked={gateLit} onchange={setGate} />
               Light the gate for newcomers
             </label>
+            <TravelerPanel
+              picked={picked === null ? null : { id: picked, name: nameOf(picked) }}
+              diary={pickedDiary}
+              travelers={travelers.map((t) => nameOf(t.home))}
+              max={MAX_TRAVELERS}
+              off={locked
+                ? 'Wait for the valley to start.'
+                : setup.challenge
+                  ? 'A challenge starts with no travelers.'
+                  : null}
+              makeCode={(id: string) => game.sandbox.travelerCode(id)}
+              {welcome}
+              remove={(i: number) => {
+                setTravelers(travelers.toSpliced(i, 1));
+              }}
+            />
           </SandboxPanel>
           <SandboxPanel
             title={PANEL_TITLES.rules}
@@ -956,7 +997,7 @@
     <WhisperCard
       target={whisperCard.target}
       others={whisperCard.others}
-      label={displayName}
+      label={nameOf}
       onWhisper={whisper}
       onCancel={() => (whisperCard = null)}
     />
@@ -1034,6 +1075,7 @@
   .card select,
   .card button {
     min-height: 1.75rem;
+    font: inherit;
   }
   /* Under the scene, between the panels and the time controls. */
   .timeline {

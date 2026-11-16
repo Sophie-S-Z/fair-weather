@@ -9,6 +9,7 @@ import type { nextView, ViewName } from '../input/zoom.ts';
 import type { MythPage } from '../myth/grammar.ts';
 import type { RgbaFrame } from '../persist/gif.ts';
 import type { PageBlock } from '../persist/page-image.ts';
+import type { Traveler } from '../story/traveler.ts';
 import type { Band } from '../render/cosmos-view.ts';
 import type { BookPage } from '../persist/profile.ts';
 import type { MeadowView } from '../render/meadow-view.ts';
@@ -150,6 +151,13 @@ export interface SandboxService {
    * no longer opens is dropped, so it is not offered again.
    */
   openSaved(): Promise<SandboxRunner | null>;
+  /**
+   * The traveler code of creature `id` in the run now (ADR 0015 item 9), or null without a snapshot,
+   * for a creature not in it, and for one with no home valley (a newcomer).
+   */
+  travelerCode(id: string): Promise<string | null>;
+  /** The traveler a pasted code holds, or null for a code that does not open. */
+  readTraveler(text: string): Promise<Traveler | null>;
   /**
    * Keeps the run now as the sandbox save (its link and notes) when the player acted (a command or
    * a start from the run, such as a rule change) since the start choice or an open, then stops the

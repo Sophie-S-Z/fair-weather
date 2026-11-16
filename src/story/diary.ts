@@ -2,6 +2,7 @@
 // templates in content/diary.json. `{other}` is the other creature's display name, and for the
 // hero the player's name.
 import { z } from 'zod';
+import diaryJson from '../../content/diary.json' with { type: 'json' };
 import type { SimEvent } from '../sim/types.ts';
 import { displayName } from './names.ts';
 
@@ -19,28 +20,44 @@ export const DiarySchema = z.strictObject({
   dance: line,
 });
 export type Diary = z.infer<typeof DiarySchema>;
+/** The diary templates in content/diary.json. */
+export const DIARY: Diary = DiarySchema.parse(diaryJson);
+
+/** A diary line as its template key and the other creature it names, if any (ADR 0015 item 9). */
+export interface Memory {
+  key: keyof Diary;
+  other?: string;
+}
 
 /**
- * A bid writes the bidder's line, from the reply as the bidder saw it; a gift writes the giver's
- * own move and the receiver's view of it; leave, return, and dance write one line. Other events
- * write none. `heroName` names the hero; without it, the hero reads as its id does.
+ * The memories `e` writes, each with the creature whose diary takes it. A bid writes the bidder's,
+ * from the reply as the bidder saw it; a gift writes the giver's own move and the receiver's view
+ * of it; leave, return, and dance write one memory with no other. Other events write none.
  */
-export function diaryLines(e: SimEvent, diary: Diary, heroName?: string): { id: string; text: string }[] {
-  const fill = (key: keyof Diary, other: string): string =>
-    diary[key].replaceAll('{other}', other === 'hero' && heroName ? heroName : displayName(other));
+export function diaryMemories(e: SimEvent): (Memory & { id: string })[] {
   switch (e.t) {
     case 'bid':
-      return [{ id: e.from, text: fill(`bid.${e.seenAs}`, e.to) }];
+      return [{ id: e.from, key: `bid.${e.seenAs}`, other: e.to }];
     case 'gift':
       return [
-        { id: e.from, text: fill(`gift.gave.${e.move}`, e.to) },
-        { id: e.to, text: fill(`gift.got.${e.seenAs}`, e.from) },
+        { id: e.from, key: `gift.gave.${e.move}`, other: e.to },
+        { id: e.to, key: `gift.got.${e.seenAs}`, other: e.from },
       ];
     case 'leave':
     case 'return':
     case 'dance':
-      return [{ id: e.who, text: diary[e.t] }];
+      return [{ id: e.who, key: e.t }];
     default:
       return [];
   }
 }
+
+/** `m`'s line: `{other}` is the other's display name, and the hero's `heroName` when given. */
+export const memoryText = (m: Memory, diary: Diary, heroName?: string): string =>
+  m.other === undefined
+    ? diary[m.key]
+    : diary[m.key].replaceAll('{other}', m.other === 'hero' && heroName ? heroName : displayName(m.other));
+
+/** The lines `e` writes (diaryMemories), each with the creature whose diary takes it. */
+export const diaryLines = (e: SimEvent, diary: Diary, heroName?: string): { id: string; text: string }[] =>
+  diaryMemories(e).map((m) => ({ id: m.id, text: memoryText(m, diary, heroName) }));

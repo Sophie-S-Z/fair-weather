@@ -24,6 +24,7 @@ import {
   sandboxTuning,
 } from '../../../src/story/sandbox.ts';
 import type { KnobId, SandboxSetup } from '../../../src/story/sandbox.ts';
+import type { Traveler } from '../../../src/story/traveler.ts';
 
 const base: Tuning = tuningJson;
 const bases = SANDBOX_BASES;
@@ -297,8 +298,11 @@ function runnerWith(s: SandboxSetup, water: WorldLite['water']) {
     requestHash: () => Promise.reject(new Error('no hash')),
   };
   const runner = createSandboxRunner(port, s);
-  for (const cb of listeners) cb({ t: 'snapshot', tick: 1, lite: { water } as unknown as WorldLite });
-  return { runner, sent };
+  const emit = (m: FromWorker) => {
+    for (const cb of listeners) cb(m);
+  };
+  emit({ t: 'snapshot', tick: 1, lite: { water } as unknown as WorldLite });
+  return { runner, sent, emit };
 }
 
 test("the runner refuses a bench or bush in Halcyon's water, so the setup a rule change builds still starts", () => {
@@ -440,4 +444,29 @@ test('a runner that reads a script counts its structures and bushes toward MAX_E
   expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
   runner.setPlaceKind('bush');
   expect(runner.verb({ verb: 'place', x: 50, y: 50 })).toBe(false);
+});
+
+test('a welcomed traveler stands at the gate; a challenge takes none; the runner opens its diary with its memories', () => {
+  const brume: Traveler = {
+    home: 'brume',
+    dials: { opener: 0.5, forgiveness: 0.5, memory: 0.5, ear: 0.5, wanderlust: 0.1 },
+    shell: { tightness: 0.2, bristle: 0.1, color: 0.4, softness: 0.6 },
+    skyWarmth: 0,
+    memories: [{ key: 'leave' }],
+  };
+  const s = setup({ travelers: [brume] });
+  expect(SandboxSetupSchema.parse(s)).toEqual(s);
+  const c = build({ travelers: [brume] }).creatures.at(-1);
+  expect(c).toMatchObject({ id: 'traveler-1', name: 'Brume', speciesId: 'snail', x: base.scene.gateX });
+  expect(SandboxSetupSchema.safeParse(setup({ travelers: [brume], challenge: 'bell' })).success).toBe(false);
+  const { runner, emit } = runnerWith(s, []);
+  expect(runner.memories('traveler-1')).toEqual([{ key: 'leave' }]);
+  expect(runner.memories('pim')).toEqual([]);
+  emit({
+    t: 'events',
+    tick: 2,
+    list: [{ t: 'bid', from: 'pim', to: 'traveler-1', reply: 'toward', seenAs: 'toward' }],
+  });
+  emit({ t: 'snapshot', tick: 2, lite: { water: [] } as unknown as WorldLite });
+  expect(runner.memories('pim')).toEqual([{ key: 'bid.toward', other: 'traveler-1' }]);
 });

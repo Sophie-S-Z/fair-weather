@@ -70,6 +70,7 @@ import {
   fitsInLink,
 } from './persist/seed-link.ts';
 import type { BookPage } from './persist/profile.ts';
+import { decodeTraveler, encodeTraveler } from './persist/traveler.ts';
 import { createSlots } from './persist/slots.ts';
 import { createSimHost } from './sim-host/host.ts';
 import type { SimHost } from './sim-host/host.ts';
@@ -110,6 +111,7 @@ import {
   sandboxTuning,
 } from './story/sandbox.ts';
 import type { SandboxRunner, SandboxSetup, SandboxValley } from './story/sandbox.ts';
+import { travelerOf } from './story/traveler.ts';
 import { buildScenario, chapterStart, chosenOverrides } from './story/scenario.ts';
 import type { ChapterStart, JourneyStart } from './story/scenario.ts';
 import { ChapterSchema } from './story/schema.ts';
@@ -884,6 +886,13 @@ const game: GameService = {
       return fitsInLink(url, linkChars) ? { kind: 'link', url } : { kind: 'file', text: link.text };
     },
     open: (text) => openSandbox(text, []),
+    async travelerCode(id) {
+      const run = sandboxRun;
+      const c = run?.lite?.creatures.find((x) => x.id === id);
+      const t = c && run && travelerOf(c, run.runner.memories(id), run.runner.setup.travelers ?? []);
+      return t ? encodeTraveler(t) : null;
+    },
+    readTraveler: decodeTraveler,
     // One at a time, so a second Save does not take the first one's pause for the player's speed.
     postcard: oneAtATime(async (caption: string) => {
       const stage = recording;

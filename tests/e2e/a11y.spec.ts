@@ -259,7 +259,9 @@ test.describe('the interludes, each played by keyboard alone', () => {
     await page.getByRole('dialog', { name: 'A bet' }).getByRole('button').first().click({ timeout: 30_000 });
     await page.keyboard.press('z');
     const panel = page.getByRole('region', { name: 'Who is friends with whom' });
-    await expect(panel.getByRole('listitem').filter({ hasText: /^Moss: .*, [1-9]\d* scars?/ })).toBeVisible({
+    await expect(
+      panel.getByRole('listitem').filter({ hasText: /^Old Moss: .*, [1-9]\d* scars?/ }),
+    ).toBeVisible({
       timeout: 40_000,
     });
     // Chapter 5 ends on its own when its twist fires, so the skip checks the heading in the same task.
@@ -270,7 +272,7 @@ test.describe('the interludes, each played by keyboard alone', () => {
     });
     const activity = page.getByRole('region', { name: 'Dream bubbles' });
     const bubbles = activity.getByRole('button', { name: /bubble$/ });
-    const moss = activity.getByRole('button', { name: "Pop Moss's bubble" });
+    const moss = activity.getByRole('button', { name: "Pop Old Moss's bubble" });
     await expect(moss).toBeVisible();
     expect(await seriousViolations(page)).toEqual([]);
     // The coldest grudges float, six at most, and Moss's is one of them.
@@ -280,11 +282,11 @@ test.describe('the interludes, each played by keyboard alone', () => {
     // wobbles and stays, and Tab moves past it.
     const left = [...names];
     let at = 0;
-    while (left.some((n) => n !== "Pop Moss's bubble")) {
+    while (left.some((n) => n !== "Pop Old Moss's bubble")) {
       const name = left[at] ?? '';
       await expect(activity.getByRole('button', { name, exact: true })).toBeFocused();
       await page.keyboard.press('Enter');
-      if (name === "Pop Moss's bubble") {
+      if (name === "Pop Old Moss's bubble") {
         await expect(activity.getByRole('status')).toHaveText(/Moss's bubble wobbles and stays/);
         await page.keyboard.press('Tab');
         at += 1;
@@ -801,7 +803,7 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   await expect(page.getByRole('heading', { level: 1, name: 'Murmuration Fen' })).toBeVisible();
   const scene = page.getByRole('application', { name: 'The meadow' });
   await expect(scene).toBeFocused();
-  await expect(page.locator('.beat-line')).toContainText('Starlings sit in the reeds');
+  await expect(page.locator('.beat-line')).toContainText('Starlings crowd the reeds of Murmuration Fen');
   // Walk: Tab to Tove, then W waves, so the hero walks to her bed; then Join (3) and Enter. Space
   // pauses while Tab looks for Tove among the starlings: under load the Tabs can take longer than
   // the 20 s to dusk at ?fast=20, when Tove may fly without the hero and the card takes the keys.
@@ -819,7 +821,7 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
   await expect(pause).toHaveAttribute('aria-pressed', 'false');
   const card = page.getByRole('dialog', { name: 'A postcard home' });
   await expect(card).toBeVisible({ timeout: 240_000 });
-  await expect(card).toContainText('Which postcard will you send home?');
+  await expect(card).toContainText('The starlings will carry one postcard home to Kith. Which one?');
   await expect(card.getByRole('button')).toHaveText(['Generosity', 'Wandering']);
   await expect(card.getByRole('button').first()).toBeFocused();
   expect(await seriousViolations(page)).toEqual([]);
@@ -840,10 +842,10 @@ test('in the Fen, waving at Tove and joining the flock brings the postcard card;
 // A test for each screen, as Part 1's chapters have: on software rendering a valley draws about once
 // a second, so its load and its axe scan take seconds each, and all of them in one test outlast it.
 const AFTER_FEN = [
-  ['Hearsay Hollow', 'The press runs by the square'],
-  ['Foglight Heights', 'Fog fills the low ground'],
-  ['Toadstool Council', 'The council votes at dusk'],
-  ['Lily Shallows', 'Each frog wants only a few pad-mates'],
+  ['Hearsay Hollow', 'In Hearsay Hollow the press never stops'],
+  ['Foglight Heights', 'Fog fills the low ground of Foglight Heights'],
+  ['Toadstool Council', 'The Toadstool Council votes at dusk'],
+  ['Lily Shallows', 'Each frog of Lily Shallows wants only a few pad-mates'],
   ['Halcyon', 'A calm meadow lies over a mirror sea'],
   ['The Homecoming', 'You walk back over the ridge'],
 ] as const;

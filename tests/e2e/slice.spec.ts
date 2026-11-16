@@ -74,7 +74,7 @@ test('chapter 3: one bench, the tray shows it used, and a reply with no wave get
   await expect(live(page)).toContainText('A crooked tree'); // the runner takes verbs after a snapshot
   const bench = page.getByRole('group', { name: 'Tools' }).getByRole('button', { name: /Bench/ });
   await page.keyboard.press('Enter');
-  await expect(live(page)).toContainText('A bench sits under the tree');
+  await expect(live(page)).toContainText('Now there is a bench under the tree');
   await expect(bench).toContainText('used');
   await page.keyboard.press('2');
   await page.keyboard.press('Enter');
@@ -138,7 +138,7 @@ test('the notes drawer opens with a button, takes focus, and closes with Escape'
   await expect(notes).toHaveAttribute('aria-expanded', 'true');
   const panel = page.getByRole('region', { name: 'Margin notes' });
   await expect(panel).toBeFocused();
-  await expect(panel).toContainText('Why a first look matters');
+  await expect(panel).toContainText('A bid is small');
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();
   await expect(notes).toBeFocused();
@@ -444,7 +444,7 @@ test('a keyboard-only run finishes chapters 0 to 3', async ({ page }) => {
   await expect(page.getByText('Bench spot: under crooked tree')).toBeVisible();
   await expect(live(page)).toContainText('A crooked tree'); // the runner takes verbs after a snapshot
   await page.keyboard.press('Enter');
-  await expect(live(page)).toContainText('A bench sits under the tree');
+  await expect(live(page)).toContainText('Now there is a bench under the tree');
   await expect(interlude(page)).toBeVisible({ timeout: 300_000 });
 });
 

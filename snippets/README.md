@@ -14,6 +14,25 @@ Each file in `share/` is one self-contained HTML page. It needs no server and no
 | `borrowed-light.html`      | Philosophy: Aquinas, a light you did not make   | Lantern, Glim, Moss, Bell, Kite |
 | `new-plan.html`            | Making: the goal can change while you make      | Pim                             |
 
+### Meet the cast
+
+One loop for each of the twelve creatures. Each loop shows the creature's temper with one small joke.
+
+| File              | Creature               | Joke                                                                          |
+| ----------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `meet-pim.html`   | Pim, kind              | Pim breaks a cookie and gives you half.                                       |
+| `meet-krit.html`  | Krit, grabby           | Krit stacks cookies on its head until the tower falls.                        |
+| `meet-echo.html`  | Echo, copycat          | Echo copies each bounce of a ball, a beat late.                               |
+| `meet-moss.html`  | Moss, sleepy           | A leaf lands on Moss, Moss sneezes, and goes back to sleep.                   |
+| `meet-bell.html`  | Bell, vain             | The reflection in the mirror blinks on its own.                               |
+| `meet-quill.html` | Quill, thinks too hard | Questions multiply until one idea clears them, and then a new question comes. |
+| `meet-tove.html`  | Tove, nervous          | Tove feels safe next to some rocks, and follows one when it rolls away.       |
+| `meet-gulp.html`  | Gulp, always hungry    | Gulp catches a fly, and the next fly comes.                                   |
+| `meet-inch.html`  | Inch, slow             | A whole day goes by, and Inch moves a tiny bit.                               |
+| `meet-cap.html`   | Cap, loud              | One shout, and a party of little mushrooms grows up.                          |
+| `meet-kite.html`  | Kite, gossip           | The news never stops, and each piece floats off.                              |
+| `meet-glim.html`  | Glim, honest           | Glim is glass, so you can see each feeling inside.                            |
+
 The style follows the small inline loops in Ralph Ammer's essays and in Bao To's "Creative autonomy": one sentence, one drawing, one surprise. All art and text here are original.
 
 ## Save a snippet

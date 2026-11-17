@@ -5,6 +5,8 @@ import { canvasPoints, pausedFrames, sent, tabTo, tap } from './helpers.ts';
 // multiplies every sim speed, so a whole chapter 0 to 3 run takes minutes.
 
 const live = (page: Page) => page.locator('[aria-live="polite"]');
+/** The Try this line over the tools. */
+const guide = (page: Page) => page.locator('#guide');
 const scene = (page: Page) => page.getByRole('application', { name: 'The meadow' });
 const dev = (page: Page) =>
   page.evaluate(
@@ -17,7 +19,7 @@ test('Begin starts chapter 0 and its first lines are in the beat line', async ({
   await page.goto('/');
   await page.getByRole('button', { name: 'Begin' }).click();
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
-  await expect(live(page)).toContainText('press Enter to wake it');
+  await expect(guide(page)).toContainText('Click a sleeping creature to wake it');
   await expect(live(page)).toContainText('The dawn touches the meadow');
   await expect(scene(page)).toBeFocused();
 });
@@ -32,7 +34,9 @@ test('by keyboard: wake in chapter 0, then a slow reply still finishes chapter 1
   await tabTo(page, 'Pim');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Chapter 1' })).toBeVisible({ timeout: 20_000 });
-  await expect(live(page)).toContainText('When Pim waves');
+  await expect(guide(page)).toContainText('When Pim waves');
+  // Chapter 0 ends on the step that brings its last line, so that line stays above chapter 1's.
+  await expect(live(page)).toContainText('Then Pim looks straight up');
   // Past the 6 s window: the first bid gets the automatic away, and Pim bids again.
   await page.waitForTimeout(7_000);
   await page.keyboard.press('h');
@@ -244,7 +248,7 @@ test('Continue is enabled after a chapter has started, and resumes it', async ({
   await expect(cont).toBeEnabled();
   await cont.click();
   await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
-  await expect(live(page)).toContainText('press Enter to wake it');
+  await expect(guide(page)).toContainText('Click a sleeping creature to wake it');
 });
 
 /** The chapter id of the autosave in IndexedDB, or null. */

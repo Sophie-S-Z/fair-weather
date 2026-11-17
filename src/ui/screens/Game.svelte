@@ -74,32 +74,36 @@
    * chapter brings two, listen, and the mind verbs. The bet card is its own prompt.
    */
   const HINT_VERBS = [...WORLD_VERBS, 'listen', 'peek', 'zoom', 'rewind'] as const;
+  /**
+   * One line for each verb: the mouse or touch way first, then the keys. A world verb's line stays
+   * over the tools until the player uses it once; the other lines go in the story strip.
+   */
   const HINTS: Record<(typeof HINT_VERBS)[number], string> = {
-    wake: 'Pick a sleeper with Tab or a click, then press Enter to wake it.',
-    respond: 'When Pim waves, press G, H, or R, then Enter to answer the sky.',
-    place: 'Choose a spot with the arrow keys or a click, then press Enter to set a bench.',
-    shine: 'Move the spot with the arrow keys or a click, then press Enter to shine the sun there.',
-    whisper: 'Pick a creature, then press Enter to whisper to it about another.',
+    wake: 'Click a sleeping creature to wake it. Keys: Tab picks a creature, and Enter wakes it.',
+    respond: 'When Pim waves, answer the sky with Glow back, Hold still, or Rumble. Keys: G, H, or R.',
+    place: 'Click a spot in the meadow to set a bench there. Keys: the arrow keys and Enter.',
+    shine: 'Click the meadow to shine the sun there. Keys: the arrow keys and Enter.',
+    whisper: 'Click a creature, then choose who to whisper about. Keys: Tab and Enter.',
     thread:
-      'Pick a creature and press Enter, then pick another and press Enter to tie or cut a thread. Escape lets go.',
-    fog: 'Press Enter to paint fog at the spot, or Shift+Enter to clear it.',
-    blow: 'Press Enter to blow a gust the way the arrow keys last pointed, or drag across the meadow.',
-    walk: 'Press Enter to walk to the spot, or pick a creature and press W to wave at it.',
+      'Click one creature, then another, to tie or cut a thread between them. Keys: Tab and Enter. Escape lets go.',
+    fog: 'Click the meadow to paint fog there. Shift and click clears it. Keys: Enter, or Shift+Enter.',
+    blow: 'Drag across the meadow to blow a gust that way. Keys: the arrow keys, then Enter.',
+    walk: 'Click the ground to walk there, or click a creature to wave at it. Keys: Enter walks, W waves.',
     manner:
-      'Press G, H, or R to choose how your hero answers, and O or K to give or keep. A Seedcarrier plants a gift with L.',
-    join: 'Press Enter to fly with the flock, or to land.',
-    pose: 'Press Enter to pose for the gazette.',
-    keepsake: 'Pick a creature, then press Enter to give it a keepsake.',
-    stepDown: 'Press Enter to step down into the fog, or to stay on high ground.',
-    vote: 'Choose a spot for the rain cloud. Once, you may propose a new way to count the votes.',
-    sing: 'Pick a frog. Press L to learn its song, or Enter to sing yours to it.',
-    rain: 'Press Enter to rain on the bushes near the spot.',
-    path: 'Press Enter at one end of a path, then at the other.',
-    welcome: 'Light the gate for newcomers, or darken it.',
-    zoom: 'Press Z to zoom out to who is friends with whom, and X to zoom back in. A wheel or a pinch works too.',
-    peek: 'Pick a creature, then press P to peek under the hood at its numbers. The Diary and notes drawer shows them too.',
+      'Choose how your hero answers with the buttons: G, H, or R, and O to give or K to keep. A Seedcarrier plants a gift with L.',
+    join: 'Click the meadow, or press Enter, to fly with the flock or to land.',
+    pose: 'Click the meadow, or press Enter, to pose for the gazette.',
+    keepsake: 'Click a creature, then choose a keepsake to give it.',
+    stepDown: 'Choose to step down into the fog or to stay on high ground.',
+    vote: 'Click a spot for the rain cloud. One time, you can propose a new way to count the votes.',
+    sing: 'Click a frog to sing your song to it. Pick a frog and press L to learn its song.',
+    rain: 'Click near the bushes to rain on them. Keys: Enter.',
+    path: 'Click one end of a path, then the other end. You can also drag.',
+    welcome: 'Light the gate for newcomers, or make it dark.',
+    zoom: 'Press Z, or scroll or pinch, to zoom out and see who is friends with whom. X zooms back in.',
+    peek: 'Pick a creature, then press P to see its numbers. The Diary and notes drawer shows them too.',
     rewind:
-      'In the Cosmos, move the Rewind slider to look back; each mark is a friendship that ended. Back to now returns.',
+      'In the Cosmos, move the Rewind slider to look back. Each mark is a friendship that ended. Back to now returns.',
     listen: 'Press Listen to hear the next verse of the story.',
   };
   const VIEW_NAMES: Record<ViewName, string> = {
@@ -152,12 +156,13 @@
   let placed = 0;
   let reply: BidReply = $state('toward');
   /** The chapter's story lines, hints, and results, in order; new ones are announced. */
-  let lines: { id: number; text: string; reveal: boolean }[] = $state([]);
+  let lines: { id: number; text: string }[] = $state([]);
   let lineId = 0;
-  /** How long a bet's answer stays into the next chapter. */
-  const REVEAL_MS = 8000;
-  /** Takes the last chapter's answer off the lines; cleared by the next chapter and on unmount. */
-  let revealTimer: ReturnType<typeof setTimeout> | undefined;
+  /** How many of the last chapter's lines stay into the next chapter, and for how long. */
+  const CARRY_LINES = 3;
+  const CARRY_MS = 8000;
+  /** Takes the last chapter's lines off the strip; cleared by the next chapter and on unmount. */
+  let carryTimer: ReturnType<typeof setTimeout> | undefined;
   let bet: { question: string; options: string[] } | null = $state(null);
   /** The open postcard card: a valley's choice of postcard home (ADR 0013 item 9). */
   let postcard: { question: string; options: PostcardType[] } | null = $state(null);
@@ -369,15 +374,26 @@
     return lite?.creatures.find((c) => c.id === 'hero')?.berries ?? 0;
   }
 
-  function say(text: string, reveal = false): void {
-    lines = [...lines, { id: (lineId += 1), text, reveal }];
+  /** The world verbs the player used at least once since the game opened: their guide line goes. */
+  let tried: ReadonlySet<Verb> = $state.raw(new Set());
+  /** What to try now: the active tool's line, until the player uses that tool once. */
+  const guide = $derived(
+    tool !== null && tool in HINTS && !tried.has(tool) && !chapter?.activity && rw.at === null
+      ? HINTS[tool as keyof typeof HINTS]
+      : '',
+  );
+
+  function say(text: string): void {
+    lines = [...lines, { id: (lineId += 1), text }];
   }
 
   function act(v: VerbInput): void {
     hints.activity();
     if (!runner || rw.at !== null) return;
     if (runner.verb(v)) {
-      hints.used(unlockingVerb(v));
+      const verb = unlockingVerb(v);
+      hints.used(verb);
+      if (!tried.has(verb)) tried = new Set([...tried, verb]);
       if (v.verb === 'place') {
         placed += 1;
         if (placed === chapter?.place.limit) used = [...used, 'place'];
@@ -487,7 +503,7 @@
       bet = { question: p.question, options: p.options };
     } else if (p.kind === 'reveal') {
       betRunning = false;
-      say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`, true);
+      say(`Your guess: ${displayName(p.answer)}. The answer: ${displayName(p.result)}.`);
     } else {
       postcard = { question: p.question, options: p.options };
     }
@@ -578,13 +594,13 @@
     visited = false;
     due = false;
     wait.activity();
-    // The last chapter's lines do not belong to this one. A bet's answer can end a chapter, so when
-    // it is the newest line it stays a short time to be read, and then goes.
-    clearTimeout(revealTimer);
-    const answer = lines.at(-1);
-    lines = answer?.reveal ? [answer] : [];
-    if (answer?.reveal)
-      revealTimer = setTimeout(() => (lines = lines.filter((l) => l.id !== answer.id)), REVEAL_MS);
+    // A chapter can end on the step that brings its last lines (a bet's answer, a look up at the
+    // sky), so its last lines stay a short time to be read, above the new chapter's, and then go.
+    clearTimeout(carryTimer);
+    const carried = new Set(lines.slice(-CARRY_LINES).map((l) => l.id));
+    lines = lines.filter((l) => carried.has(l.id));
+    if (carried.size > 0)
+      carryTimer = setTimeout(() => (lines = lines.filter((l) => !carried.has(l.id))), CARRY_MS);
     // An activity starts on this chapter's own first snapshot, when the runner takes its finish.
     // The host drops every message from the last chapter's worker once startChapter posts init
     // (host.ts connect), and only a microtask passes between that post and here, so no old world
@@ -618,9 +634,9 @@
     const known = new Set(game.chapters.slice(0, i).flatMap((c) => c.verbs));
     for (const v of HINT_VERBS) {
       if (!chapter.verbs.includes(v) || known.has(v)) continue;
-      say(HINTS[v]);
-      // The ghost hand taps a tray tool, so only the world verbs get one.
+      // A tray tool's line is the guide over the tools, and it gets the ghost hand too.
       if ((WORLD_VERBS as readonly string[]).includes(v)) hints.unlock(v);
+      else say(HINTS[v]);
     }
     r.done.then(
       (out) => {
@@ -885,7 +901,7 @@
       runner = null;
       loop.stop();
       clearTimeout(ghostTimer);
-      clearTimeout(revealTimer);
+      clearTimeout(carryTimer);
       for (const off of offs) off();
       window.removeEventListener('keydown', activity);
       window.removeEventListener('pointerdown', activity);
@@ -917,7 +933,7 @@
       class="scene"
       role="application"
       aria-label={VIEW_NAMES[view]}
-      aria-describedby="scene-help"
+      aria-describedby={guide ? 'guide scene-help' : 'scene-help'}
       tabindex="0"
       bind:this={sceneEl}
       style:top="{String(sceneTop)}px"
@@ -1041,6 +1057,9 @@
             <!-- Always rendered, so a screen reader announces each change of the pick or bench spot. -->
             <p class="status" class:empty={!status} role="status">{status}</p>
             <ValleyLine lite={shown} label={nameOf} />
+            {#if guide}
+              <p class="guide" id="guide"><span class="guide-label">Try this</span> {guide}</p>
+            {/if}
             <div bind:this={trayEl}>
               {#if chapter?.activity}
                 <!-- The activity stands in for the tool tray; Escape from the scene reaches its first control. -->
@@ -1119,6 +1138,7 @@
           </div>
           <ChapterRibbon chapters={game.chapters} current={index} onSkip={() => runner?.skip()} />
           <div class="time">
+            <button type="button" onclick={openHelp}>How to play</button>
             <TimeControls
               speed={speedNow}
               disabled={betRunning || rw.at !== null}
@@ -1141,7 +1161,7 @@
   {:else if limits}
     <ModelLimits modal onBack={closeLimits} />
   {:else if help}
-    <HelpSheet rows={helpRows} onClose={closeHelp} />
+    <HelpSheet rows={helpRows} intro onClose={closeHelp} />
   {:else if journal}
     <Journal
       entries={journal.entries}
@@ -1300,6 +1320,24 @@
     position: absolute;
     right: 0.75rem;
     bottom: 3.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  /* What to try now: over the tools, in the accent, until the player uses the tool once. */
+  .guide {
+    max-width: min(36rem, calc(100vw - 1.5rem));
+    margin: 0;
+    padding: 0.4rem 0.9rem;
+    background: var(--bg);
+    border: 2px dashed var(--accent);
+    border-radius: 0.6rem;
+    text-align: center;
+  }
+  .guide-label {
+    font-weight: bold;
+    color: var(--accent);
   }
   /*
    * A short landscape screen, such as a phone on its side: the time controls share a row with the

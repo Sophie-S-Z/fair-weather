@@ -66,9 +66,9 @@ test.describe('the help sheet', () => {
     const scene = await startGame(page);
     await expect.poll(() => lastSpeed(page)).toBe(1);
     await page.keyboard.press('?');
-    const help = page.getByRole('dialog', { name: 'Keys' });
+    const help = page.getByRole('dialog', { name: 'How to play' });
     await expect(help).toBeVisible();
-    await expect(help.getByRole('heading', { name: 'Keys' })).toBeFocused();
+    await expect(help.getByRole('heading', { name: 'How to play' })).toBeFocused();
     await expect(help.getByRole('row', { name: /Tab Move to the next creature/ })).toBeVisible();
     await expect(help.getByRole('row', { name: /^B Book of Skies/ })).toBeVisible();
     await expect(help.getByRole('row', { name: /Move to the tools/ })).toBeVisible();
@@ -88,10 +88,23 @@ test.describe('the help sheet', () => {
     await startGame(page);
     await page.getByRole('button', { name: 'Diary and notes' }).focus();
     await page.keyboard.press('?');
-    await expect(page.getByRole('dialog', { name: 'Keys' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'How to play' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', { name: 'Keys' })).toBeHidden();
+    await expect(page.getByRole('dialog', { name: 'How to play' })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Diary and notes' })).toBeFocused();
+  });
+
+  test('How to play opens the same sheet from a button, with the sim paused', async ({ page }) => {
+    await startGame(page);
+    await expect.poll(() => lastSpeed(page)).toBe(1);
+    await page.getByRole('button', { name: 'How to play' }).click();
+    const help = page.getByRole('dialog', { name: 'How to play' });
+    await expect(help).toContainText('Choose a tool at the bottom of the screen.');
+    await expect(help.getByRole('row', { name: /Tab Move to the next creature/ })).toBeVisible();
+    await expect.poll(() => lastSpeed(page)).toBe(0);
+    await help.getByRole('button', { name: 'Close' }).click();
+    await expect(help).toBeHidden();
+    await expect.poll(() => lastSpeed(page)).toBe(1);
   });
 
   test('the Settings screen says that ? shows the keys', async ({ page }) => {
@@ -103,7 +116,7 @@ test.describe('the help sheet', () => {
   test('Close gives focus back, and Tab stays inside the sheet', async ({ page }) => {
     const scene = await startGame(page);
     await page.keyboard.press('?');
-    const help = page.getByRole('dialog', { name: 'Keys' });
+    const help = page.getByRole('dialog', { name: 'How to play' });
     await expect(help).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(help.getByRole('button', { name: 'Close' })).toBeFocused();
@@ -633,7 +646,7 @@ test.describe('on a phone', () => {
     await startGame(page);
     expect(await seriousViolations(page)).toEqual([]);
     await page.keyboard.press('?');
-    const help = page.getByRole('dialog', { name: 'Keys' });
+    const help = page.getByRole('dialog', { name: 'How to play' });
     await expect(help).toBeVisible();
     const sheet = await box(page, '[role="dialog"]');
     expect(sheet?.left).toBe(0);

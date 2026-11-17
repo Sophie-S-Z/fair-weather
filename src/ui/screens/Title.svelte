@@ -28,6 +28,10 @@
 </script>
 
 <h1>Fair Weather</h1>
+<p class="lede">
+  A story game in two parts. You are the weather over a small valley for one year. Press Begin, and the game
+  shows you each step.
+</p>
 <p role="status" class="notice">{notice}</p>
 <nav aria-label="Main menu">
   <button type="button" onclick={onBegin}>Begin</button>
@@ -48,6 +52,11 @@
 </nav>
 
 <style>
+  .lede {
+    max-width: 32rem;
+    margin: -0.5rem 0 1.25rem;
+    color: var(--muted);
+  }
   nav {
     display: flex;
     flex-direction: column;

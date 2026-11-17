@@ -11,11 +11,8 @@ import flagsJson from '../content/flags.json';
 import ch6Json from '../content/chapters/ch6.json';
 import meadowJson from '../content/scenes/kith-meadow.json';
 import carryJson from '../tests/golden/carry/ch6.json';
-import { CastSchema, type Cast } from '../src/render/cast.ts';
 import { createCosmosView, valleyTop, type Band } from '../src/render/cosmos-view.ts';
-import { rigs } from '../src/rigs.ts';
 import { CREATURE_HEIGHT, createMeadowView } from '../src/render/meadow-view.ts';
-import { PaletteSchema } from '../src/render/palette.ts';
 import { SceneSchema } from '../src/render/scene.ts';
 import { createSoulView } from '../src/render/soul-view.ts';
 import { friendshipBreaks, sampleTimeline, type TimelinePoint } from '../src/render/timeline.ts';
@@ -29,6 +26,7 @@ import { parseFlags } from '../src/story/flags.ts';
 import { buildScenario } from '../src/story/scenario.ts';
 import { ChapterSchema } from '../src/story/schema.ts';
 import type { Settings } from '../src/ui/settings.ts';
+import { cast, countDrawCalls, paletteFor, rigs } from './meadow-setup.ts';
 
 const W = 1280;
 const H = 720;
@@ -37,21 +35,8 @@ const TICKS = 1200;
 /** As main.ts samples the timeline. */
 const TIMELINE_EVERY = 10;
 
-const castFiles = import.meta.glob<unknown>('../content/cast/*.json', { eager: true, import: 'default' });
-const cast = new Map<string, Cast>(
-  Object.values(castFiles).map((json) => {
-    const c = CastSchema.parse(json);
-    return [c.id, c];
-  }),
-);
-const paletteFiles = import.meta.glob<unknown>('../content/palettes/*.json', {
-  eager: true,
-  import: 'default',
-});
 const chapter = ChapterSchema.parse(ch6Json);
-const palette = PaletteSchema.parse(
-  Object.values(paletteFiles).find((json) => (json as { id: string }).id === chapter.season),
-);
+const palette = paletteFor(chapter.season);
 const scene = SceneSchema.parse(meadowJson);
 const params = new URLSearchParams(location.search);
 const which = params.get('view') === 'soul' ? 'soul' : 'cosmos';
@@ -87,15 +72,7 @@ await app.init({
 });
 document.body.appendChild(app.canvas);
 
-const gl = (app.renderer as unknown as { gl: WebGL2RenderingContext }).gl;
-let calls = 0;
-for (const name of ['drawElements', 'drawArrays'] as const) {
-  const original = gl[name].bind(gl) as (...a: unknown[]) => void;
-  (gl as unknown as Record<string, unknown>)[name] = (...a: unknown[]): void => {
-    calls += 1;
-    original(...a);
-  };
-}
+const drawCalls = countDrawCalls(app);
 
 const settings: Settings = {
   textScale: 1,
@@ -126,5 +103,5 @@ if (which === 'cosmos') {
   soul.update(prev, settings, soulId, { right: 0, bottom: 0 });
 }
 app.render();
-document.body.dataset['calls'] = String(calls);
+document.body.dataset['calls'] = String(drawCalls.calls());
 document.body.dataset['ready'] = '1';

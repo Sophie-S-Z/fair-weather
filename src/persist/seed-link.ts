@@ -15,6 +15,7 @@ import {
 } from '../story/sandbox.ts';
 import type { SandboxSetup } from '../story/sandbox.ts';
 import { tuning } from '../story/tuning.ts';
+import { hashTuning } from './format.ts';
 
 /** 100 days of the sandbox's day length. */
 export const MAX_LINK_TICKS = 100 * SANDBOX_TICKS_PER_DAY;
@@ -229,12 +230,8 @@ export async function decodeLink(text: string, tuningHash: string): Promise<Seed
   return link?.tuning === tuningHash ? link : null;
 }
 
-/** A link's id (ADR 0015 item 10): the first 8 hex digits of 32-bit FNV-1a over its text. */
-export function linkId(text: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
-  return h.toString(16).padStart(8, '0');
-}
+/** A link's id (ADR 0015 item 10): 32-bit FNV-1a over its text in 8 hex digits, as hashTuning. */
+export const linkId = (text: string): string => hashTuning(text);
 
 /** The lineage a run opened from `link` (whose text is `text`) carries: its own, then its id. */
 export const lineageOf = (link: SeedLink, text: string): string[] =>

@@ -57,6 +57,18 @@ const DIALS = Object.keys(DIAL_SET) as [DialKey, ...DialKey[]];
 /** The rules the hero may propose in Toadstool Council (ADR 0015 item 4). */
 const proposal = z.enum(['approval', 'runoff', 'score']);
 
+/** The local verb shapes (sim/types.ts LocalVerb): a `local` command's verb, and verb inputs too. */
+const LOCAL_VERB_SHAPES = [
+  z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
+  z.strictObject({ verb: z.literal('pose') }),
+  z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
+  z.strictObject({ verb: z.literal('stepDown'), on: z.boolean() }),
+  z.strictObject({ verb: z.literal('vote'), spot: str }),
+  z.strictObject({ verb: z.literal('propose'), rule: proposal }),
+  z.strictObject({ verb: z.literal('learn'), from: str }),
+  z.strictObject({ verb: z.literal('sing'), to: str }),
+] as const;
+
 /**
  * Every command shape (sim/types.ts Command). `walk` has two shapes, which a discriminated union
  * cannot hold, so they sit beside it.
@@ -90,16 +102,7 @@ export const CommandSchema = z.union([
     z.strictObject({ t: z.literal('plant') }),
     z.strictObject({
       t: z.literal('local'),
-      verb: z.discriminatedUnion('verb', [
-        z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
-        z.strictObject({ verb: z.literal('pose') }),
-        z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
-        z.strictObject({ verb: z.literal('stepDown'), on: z.boolean() }),
-        z.strictObject({ verb: z.literal('vote'), spot: str }),
-        z.strictObject({ verb: z.literal('propose'), rule: proposal }),
-        z.strictObject({ verb: z.literal('learn'), from: str }),
-        z.strictObject({ verb: z.literal('sing'), to: str }),
-      ]),
+      verb: z.discriminatedUnion('verb', LOCAL_VERB_SHAPES),
     }),
     z.strictObject({
       t: z.literal('nudge'),
@@ -132,14 +135,7 @@ const VerbInputSchema = z.union([
     z.strictObject({ verb: z.literal('blow'), ...at, dx: num, dy: num }),
     z.strictObject({ verb: z.literal('manner'), reply, gift: move }),
     z.strictObject({ verb: z.literal('plant') }),
-    z.strictObject({ verb: z.literal('join'), on: z.boolean() }),
-    z.strictObject({ verb: z.literal('pose') }),
-    z.strictObject({ verb: z.literal('keepsake'), to: str, item: str }),
-    z.strictObject({ verb: z.literal('stepDown'), on: z.boolean() }),
-    z.strictObject({ verb: z.literal('vote'), spot: str }),
-    z.strictObject({ verb: z.literal('propose'), rule: proposal }),
-    z.strictObject({ verb: z.literal('learn'), from: str }),
-    z.strictObject({ verb: z.literal('sing'), to: str }),
+    ...LOCAL_VERB_SHAPES,
   ]),
 ]) satisfies z.ZodType<VerbInput>;
 

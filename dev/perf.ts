@@ -22,6 +22,7 @@ import {
   BROOK_WATER,
   BROOK_PLACEMENTS,
   cast,
+  countDrawCalls,
   paletteFor,
   rigs,
   SANDBOX_SETUP,
@@ -77,16 +78,7 @@ await app.init(
 app.canvas.style.display = 'block';
 document.body.appendChild(app.canvas);
 
-// Pixi 8 has no draw-call counter: count the WebGL2 draw calls per frame.
-const gl = (app.renderer as unknown as { gl: WebGL2RenderingContext }).gl;
-let calls = 0;
-for (const name of ['drawElements', 'drawArrays', 'drawElementsInstanced', 'drawArraysInstanced'] as const) {
-  const original = gl[name].bind(gl) as (...a: unknown[]) => void;
-  (gl as unknown as Record<string, unknown>)[name] = (...a: unknown[]): void => {
-    calls += 1;
-    original(...a);
-  };
-}
+const drawCalls = countDrawCalls(app);
 
 /** Puts the creatures where a snapshot pair says, `t` of the way from `prev` to `next`. */
 let draw: (prev: WorldLite | null, next: WorldLite, t: number, now: number) => void;
@@ -179,9 +171,9 @@ function frame(now: number): void {
     const t = prev ? Math.min(1, (now - lastAt) / interval) : 1;
     draw(prev, last, t, now);
   }
-  calls = 0;
+  drawCalls.reset();
   app.render();
-  if (measuring) maxCalls = Math.max(maxCalls, calls);
+  if (measuring) maxCalls = Math.max(maxCalls, drawCalls.calls());
   if (now - first < WARMUP_MS + seconds * 1000) {
     requestAnimationFrame(frame);
     return;

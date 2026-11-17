@@ -8,9 +8,6 @@ import { dist2 } from '../math.ts';
 import { isHero } from './hero-tie.ts';
 import type { RulePack } from './index.ts';
 
-/** The frogs' species. */
-export const FROG = 'frog';
-
 /**
  * A pad's eight slots, as unit offsets from its center: x in slot units, y squashed to the pad's
  * oval on the ground. A frog takes the lowest free one.

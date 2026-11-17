@@ -10,8 +10,5 @@ const chromium = {
 export default defineConfig({
   webServer: { command: 'npx vite --port 5179 --strictPort', port: 5179 },
   use: { baseURL: 'http://localhost:5179', trace: 'off' },
-  projects: [
-    { name: 'e2e', testDir: 'tests/e2e', use: chromium },
-    { name: 'visual', testDir: 'tests/visual', use: chromium },
-  ],
+  projects: [{ name: 'e2e', testDir: 'tests/e2e', use: chromium }],
 });

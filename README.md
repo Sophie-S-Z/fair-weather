@@ -1,12 +1,10 @@
 # Fair Weather
 
-Fair Weather is a story game for the browser. It is about small one-line ink creatures, trust, and the worlds that shape them.
+Fair Weather is a toybox for the browser. Twelve small one-line ink creatures live on a table. You carry them, poke them, tie them together with yarn, and give them silly props from a drawer.
 
-- **Part 1, A Year in Kith.** You are the weather over one valley for one year. Sunlight, fog, wind, rain, and the seasons are your tools. Each tool holds one idea from game theory or network science. At the end, the creatures tell a myth about the sky. Your actions make the myth.
-- **Part 2, Elsewhither.** You fall as rain and pick a hero. You walk through other valleys to find Wisp, a lost friend. Each valley runs on a different social rule.
-- **Sandbox.** After the story, each rule becomes a tool.
+Some actions start a known effect from game theory, psychology, philosophy, or network science. A short, funny scene plays, and you get a sticker. The sticker book gives a riddle for each sticker that you did not find yet. Each sticker opens a page with small looping animations that explain the idea.
 
-The game runs only in the browser. After the first load, it works offline. It has no accounts and no cookies.
+The game runs only in the browser. After the first load, it works offline. It has no accounts and no cookies. It keeps your stickers in `localStorage`.
 
 ## Prerequisites
 
@@ -49,7 +47,7 @@ nvm use
 
 2. Open http://localhost:5173 in your browser.
 
-The `dev/` folder holds check pages for the art and the engine. The dev server shows them at `/dev/<name>.html`, for example http://localhost:5173/dev/cast.html.
+You can play with a pointer or with the keyboard. Settings, How to play shows the controls.
 
 ## Build for production
 
@@ -71,58 +69,33 @@ The build stops with an error if any file still refers to placeholder content (`
 
 ## Check the code
 
-| Command                    | What it does                                |
-| -------------------------- | ------------------------------------------- |
-| `npm run lint`             | Runs ESLint and the Prettier check.         |
-| `npm run format`           | Formats all files with Prettier.            |
-| `npm run typecheck`        | Runs the TypeScript and Svelte type checks. |
-| `npm run validate-content` | Checks the files in `content/`.             |
+| Command             | What it does                                        |
+| ------------------- | --------------------------------------------------- |
+| `npm run lint`      | Runs ESLint and the Prettier check.                 |
+| `npm run format`    | Formats all files with Prettier.                    |
+| `npm run typecheck` | Runs the TypeScript and Svelte type checks.         |
+| `npm run rig`       | Makes a rig in `content/rigs/` from a creature SVG. |
 
 ## Run the tests
 
-### Unit tests
+| Command                | What it does                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `npm test`             | Runs the unit tests. They play each discovery on a table and check the result.    |
+| `npm run test:e2e`     | Runs the browser tests in Chromium. They start their own dev server on port 5179. |
+| `npm run test:offline` | Checks that the toybox opens with no network. Run `npm run build` first.          |
 
-| Command             | What it does                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| `npm test`          | Runs the unit and golden tests. This takes about 30 seconds.                                    |
-| `npm run test:prop` | Runs the property tests. These take about 2 minutes.                                            |
-| `npm run test:t3`   | Runs the long golden tests for chapters, valleys, and the sandbox. These take about 30 minutes. |
-
-### Browser tests
-
-The browser tests use Playwright. They start their own dev server on port 5179.
-
-1. Install the Playwright browsers once:
-
-   ```sh
-   npx playwright install chromium firefox webkit
-   ```
-
-   On Linux, add `--with-deps` to also install the system libraries.
-
-2. Run the tests in Chromium:
-
-   ```sh
-   npx playwright test --project=e2e --project=e2e-year
-   ```
-
-| Command                | What it does                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `npm run test:e2e`     | Runs all browser tests in Chromium, Firefox, and WebKit, and the visual tests. |
-| `npm run test:offline` | Checks that the game starts with no network. Run `npm run build` first.        |
-| `npm run test:perf`    | Measures the frame rate. Set `PERF_HEADED=1` to show the browser window.       |
-
-The visual tests compare screenshots with baselines from one Chromium build. On a different machine, small changes in the render can make them fail.
-
-To use a Chromium that is already on your machine, set `PW_CHROMIUM_PATH` to its path.
+The browser tests use Playwright. Install Chromium once with `npx playwright install chromium`. On Linux, add `--with-deps` to also install the system libraries. To use a Chromium that is already on your machine, set `PW_CHROMIUM_PATH` to its path.
 
 ## Project layout
 
-| Folder     | What it holds                                                        |
-| ---------- | -------------------------------------------------------------------- |
-| `src/`     | The game code. `src/sim` is the simulation. It runs in a Web Worker. |
-| `content/` | The story script, the art, and the data. It holds no logic.          |
-| `tests/`   | The unit, golden, property, browser, offline, and performance tests. |
-| `tools/`   | The build plugins, the content check, and the rig tool.              |
-| `docs/`    | The design spec, the plans, and the decision records (`docs/adr/`).  |
-| `dev/`     | The check pages for the dev server.                                  |
+| Folder        | What it holds                                                                    |
+| ------------- | -------------------------------------------------------------------------------- |
+| `src/toy`     | The table state, the commands, the scene director, and the twelve discoveries.   |
+| `src/render`  | The ink line renderer and the Pixi.js view of the table.                         |
+| `src/ui`      | The Svelte controls, the drawer, the sticker book, and the lesson pages.         |
+| `src/audio`   | The creature chirps and the sticker sound.                                       |
+| `src/persist` | The saved stickers.                                                              |
+| `content/`    | The creature drawings, their rigs, and the sticker book text. It holds no logic. |
+| `tests/`      | The unit, browser, and offline tests.                                            |
+| `tools/`      | The build plugins, the placeholder guard, and the rig tool.                      |
+| `docs/`       | The design, the plan, and the decision records (`docs/adr/`).                    |

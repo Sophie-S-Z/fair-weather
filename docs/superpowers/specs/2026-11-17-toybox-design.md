@@ -67,11 +67,11 @@ Twelve creatures. Each uses a different drawing that already has a rig. Each has
 | Bell | bell | Vain. | Mirror |
 | Quill | quill | Thinks too hard. Asks questions. | Philosophy commentator |
 | Tove | tove | Nervous. Joins any crowd. | Conformity |
-| Frog | frog | Always hungry. | Berry bush |
-| Snail | snail | Slow. Holds grudges. | Grudge in the cookie game |
-| Toadstool | toadstool | Loud and popular. | Network hub |
+| Gulp | frog | Always hungry. | Berry bush |
+| Inch | snail | Slow. Holds grudges. | Grudge in the cookie game |
+| Cap | toadstool | Loud and popular. | Network hub |
 | Kite | kite | Gossip. | Whisper chain |
-| Glassling | glassling | Honest and fragile. | Twin box |
+| Glim | glassling | Honest and fragile. | Twin box |
 
 The other 16 drawings stay in `content/creatures` for later use.
 
@@ -79,7 +79,7 @@ Creatures do not speak words. They speak in picture bubbles (a cookie, a heart, 
 
 ## 6. The table
 
-One screen. A wooden-ish paper table seen from the front, with a low horizon, like the current Meadow but smaller and closer. The friendship map is drawn on the table: each tie is an ink string between two creatures, sagging with distance. A tie has a strength from 0 to 1 that sets its thickness.
+One screen. A wooden-ish paper table seen from the front, with a low horizon, like the current Meadow but smaller and closer. The friendship map is drawn on the table: each tie is an ink string between two creatures, sagging with distance.
 
 Player actions:
 
@@ -118,8 +118,8 @@ Each discovery has a trigger (a check on the table state), a scene (a short scri
 ### Game theory
 
 1. **The Cookie Standoff** (prisoner's dilemma). Trigger: a cookie placed between two creatures. Each one shares or grabs by temper. Both share: the cookie splits and both blush. One grabs: the grabber gets it all and the other glares. Both grab: the cookie crumbles to dust and both stare at the crumbs. The sticker unlocks on the first both-grab result, or on the third cookie of any result. Riddle: "Two hungry friends, one cookie." Lesson: each one does better alone by grabbing, but when both grab, both lose.
-2. **Copy That** (repeated game, tit for tat). Trigger: Echo plays the cookie game three times with the same partner. Echo shares first, then copies the partner's last move. With Krit, the result goes sour. With Pim, it stays sweet. With Snail, one mistake starts a grudge that never ends. Riddle: "Feed the copycat three times." Lesson: in a game that repeats, kindness that copies back can win, and one grudge can lock a pair in a feud.
-3. **The Last Berry** (tragedy of the commons). Trigger: four or more creatures near the berry bush. Each takes "just one more". Frog takes two. The bush goes bare and wilts. With a tie between all eaters, they take turns, and the bush lives. Riddle: "One bush, many mouths." Lesson: a shared thing can vanish when each takes a little more, and trust between the takers can save it.
+2. **Copy That** (repeated game, tit for tat). Trigger: Echo plays the cookie game three times with the same partner. Echo shares first, then copies the partner's last move. With Krit, the result goes sour. With Pim, it stays sweet. With Inch, one mistake starts a grudge that never ends. Riddle: "Feed the copycat three times." Lesson: in a game that repeats, kindness that copies back can win, and one grudge can lock a pair in a feud.
+3. **The Last Berry** (tragedy of the commons). Trigger: four or more creatures near the berry bush. Each takes "just one more". Gulp takes two. The bush goes bare and wilts. With a tie between all eaters, they take turns, and the bush lives. Riddle: "One bush, many mouths." Lesson: a shared thing can vanish when each takes a little more, and trust between the takers can save it.
 
 ### Psychology
 
@@ -137,7 +137,7 @@ Each discovery has a trigger (a check on the table state), a scene (a short scri
 
 10. **Telephone** (rumor spread). Trigger: the player pokes Kite twice fast (a whisper) while Kite has a chain of ties four long. The bubble moves along each string and changes at each step: a cookie becomes a crown, then a storm, then a monster. Riddle: "Whisper to one, ask the last." Lesson: a message that passes through many people changes at each step.
 11. **The Only Bridge** (weak ties). Trigger: two groups of three or more creatures linked by one tie, and the player snips it. The bubbles that flowed across stop, and each group drifts and grows bored. Riddle: "Snip the one string that holds two." Lesson: thin links between groups carry news that close friends cannot.
-12. **Your Friends Have More Friends** (friendship paradox). Trigger: Toadstool has five or more ties, and the player picks a creature with one tie to Toadstool. A count bubble over each friend shows that the friend has more ties. The picked creature droops. Riddle: "Count your friend's friends." Lesson: most people's friends have more friends than they do, because popular people show up in many friend lists.
+12. **Your Friends Have More Friends** (friendship paradox). Trigger: Cap has four or more ties, and the player picks a creature with one tie to Cap. A count bubble over each friend shows that the friend has more ties. The picked creature droops. Riddle: "Count your friend's friends." Lesson: most people's friends have more friends than they do, because popular people show up in many friend lists.
 
 ## 9. The sticker book
 
@@ -199,7 +199,7 @@ Everything else in `src/sim`, `src/sim-host`, `src/story`, `src/myth`, most of `
 
 - **Content rules.** ADR 0016 stays in force: Claude writes and draws the final content, and the placeholder build guard stays.
 - **Math.** The strict math rule of ADR 0001 applied to the old simulation, which needed the same result in every browser. The toybox saves only the sticker list, so `src/toy` may use `Math.sin` and `Math.exp` for springs and wobble. It still uses one seeded RNG and no clock reads inside `step`, so tests can replay a table. A new ADR records this.
-- **Cookie choices.** Each temper gives a share chance (Pim 0.95, Echo copies, Krit 0.1, others between). The seeded RNG rolls it. A poke on a creature during a cookie scene makes it grab by accident. This is how the player can cause Snail's grudge.
+- **Cookie choices.** Each temper gives a share chance (Pim 0.95, Echo copies, Krit 0.1, others between). The seeded RNG rolls it. A poke on a creature during a cookie scene makes it grab by accident. This is how the player can cause Inch's grudge.
 - **Twin box copy.** The copy lives only for the scene. At the end, the two copies hug and merge back into one. It never joins the ties or the keyboard order.
 - **Offline.** The service worker and the offline test stay. They are small and they work.
 

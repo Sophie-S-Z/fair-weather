@@ -6,6 +6,10 @@ Some actions start a known effect from game theory, psychology, philosophy, or n
 
 The game runs only in the browser. After the first load, it works offline. It has no accounts and no cookies. It keeps your stickers in `localStorage`.
 
+## Snippets
+
+The folder `snippets/` holds small looping animations of the creatures, one idea each. Each one is a single HTML file that you can share, and it can save itself as a PNG, a GIF, or a video. See `snippets/README.md`.
+
 ## Prerequisites
 
 - Node.js 22.18 or later. The file `.nvmrc` gives the major version (22).

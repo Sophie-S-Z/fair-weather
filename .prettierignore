@@ -8,3 +8,4 @@ dist/
 content/rigs/*.rig.json
 tests/golden/carry/
 .claude/
+snippets/share/

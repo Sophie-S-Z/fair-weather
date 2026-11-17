@@ -46,6 +46,7 @@ export default tseslint.config(
       '.superpowers/',
       'docs/',
       '.claude/',
+      'snippets/share/',
     ],
   },
   js.configs.recommended,

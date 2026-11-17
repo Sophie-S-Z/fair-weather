@@ -168,7 +168,7 @@ export function creature(json: unknown): (ctx: Ctx, pose: Pose, t: number) => vo
 // ---- Bubbles and icons ----
 
 export type Icon =
-  'cookie' | 'crown' | 'storm' | 'monster' | 'heart' | 'question' | 'star' | 'flower' | 'circle';
+  'cookie' | 'crown' | 'storm' | 'monster' | 'heart' | 'question' | 'bang' | 'star' | 'flower' | 'circle';
 
 const stroke = (ctx: Ctx, width = 2.2): void => {
   ctx.lineWidth = width;
@@ -281,6 +281,16 @@ const ICONS: Record<Icon, (ctx: Ctx) => void> = {
     stroke(ctx, 3);
     ctx.beginPath();
     ctx.arc(0, 10, 2, 0, Math.PI * 2);
+    ctx.fillStyle = COLOR.ink;
+    ctx.fill();
+  },
+  bang: (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(0, -11);
+    ctx.lineTo(0, 3);
+    stroke(ctx, 4);
+    ctx.beginPath();
+    ctx.arc(0, 10, 2.4, 0, Math.PI * 2);
     ctx.fillStyle = COLOR.ink;
     ctx.fill();
   },

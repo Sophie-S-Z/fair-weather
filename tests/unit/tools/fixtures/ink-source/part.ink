@@ -1,3 +1,0 @@
-=== k ===
-Hello. #placeholder
--> END

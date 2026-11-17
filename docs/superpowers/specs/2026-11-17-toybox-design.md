@@ -137,7 +137,7 @@ Each discovery has a trigger (a check on the table state), a scene (a short scri
 
 10. **Telephone** (rumor spread). Trigger: the player pokes Kite twice fast (a whisper) while Kite has a chain of ties four long. The bubble moves along each string and changes at each step: a cookie becomes a crown, then a storm, then a monster. Riddle: "Whisper to one, ask the last." Lesson: a message that passes through many people changes at each step.
 11. **The Only Bridge** (weak ties). Trigger: two groups of three or more creatures linked by one tie, and the player snips it. The bubbles that flowed across stop, and each group drifts and grows bored. Riddle: "Snip the one string that holds two." Lesson: thin links between groups carry news that close friends cannot.
-12. **Your Friends Have More Friends** (friendship paradox). Trigger: Cap has four or more ties, and the player picks a creature with one tie to Cap. A count bubble over each friend shows that the friend has more ties. The picked creature droops. Riddle: "Count your friend's friends." Lesson: most people's friends have more friends than they do, because popular people show up in many friend lists.
+12. **Your Friends Have More Friends** (friendship paradox). Trigger: the player pokes a creature with one tie, and that friend has four or more ties. Cap is the easy hub. A count bubble over each friend shows that the friend has more ties. The picked creature droops. Riddle: "Count your friend's friends." Lesson: most people's friends have more friends than they do, because popular people show up in many friend lists.
 
 ## 9. The sticker book
 

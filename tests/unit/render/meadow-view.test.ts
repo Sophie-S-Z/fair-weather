@@ -1629,3 +1629,27 @@ test("the Hollow's drama sky is the lens, ringed in the accent, and its press is
   // The press stands taller than a bench (20 units) on the same bench rules.
   expect(graphicsIn(app, 'press').getLocalBounds().minY).toBeLessThan(400 - 40);
 });
+
+test("a new scene after a Stage 2 valley clears that valley's ground", () => {
+  const app = fakeApp(800, 450);
+  const view = createMeadowView(app, scene, rigs, palette, options);
+  const pond: WorldLite = {
+    ...snapshot([['pim', 400, 400]]),
+    pack: {
+      id: 'shallows',
+      pads: [{ id: 'pad-1', x: 300, y: 300 }],
+      padOf: {},
+      songs: {},
+      heroSong: null,
+      sangToday: false,
+      variety: false,
+      sorting: 0,
+    },
+  };
+  view.update(pond, pond, 1, settings);
+  expect(fillsOf(graphicsIn(app, 'valley-ground'))).not.toEqual([]);
+  view.setPalette(autumn);
+  const home = snapshot([['pim', 400, 400]]);
+  view.update(home, home, 1, settings);
+  expect(fillsOf(graphicsIn(app, 'valley-ground'))).toEqual([]);
+});

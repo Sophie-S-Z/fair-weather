@@ -16,7 +16,8 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
-    "rig": "node tools/svg-to-rig/cli.ts"
+    "rig": "node tools/svg-to-rig/cli.ts",
+    "snippets": "node snippets/build.ts"
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "5.3.0",

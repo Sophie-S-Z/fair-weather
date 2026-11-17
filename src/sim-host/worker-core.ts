@@ -80,23 +80,43 @@ export function createWorkerCore(
     }
   }
 
+  /** The steps the clock owes the running world, and when it last counted them. */
+  let owed = 0;
+  let last = 0;
+  /** Adds the steps owed since the last count, at `sim.stepsPerSecond × multiplier` a second. */
+  function count(t: Tuning): void {
+    const now = clock.now();
+    owed += ((now - last) * t.sim.stepsPerSecond * multiplier) / 1000;
+    last = now;
+  }
+
   function pace(): void {
     stopTimer?.();
     stopTimer = null;
     if (multiplier <= 0 || !world || !tuning || failed) return;
     const w = world;
     const t = tuning;
-    const rate = t.sim.stepsPerSecond * multiplier;
-    let last = clock.now();
-    let owed = 0;
-    stopTimer = clock.every(1000 / rate, () => {
-      const now = clock.now();
-      owed += ((now - last) * rate) / 1000;
-      last = now;
+    last = clock.now();
+    owed = 0;
+    stopTimer = clock.every(1000 / (t.sim.stepsPerSecond * multiplier), () => {
+      count(t);
       const n = Math.min(Math.floor(owed + 1e-9), MAX_CATCH_UP);
       owed = n === MAX_CATCH_UP ? 0 : owed - n;
       for (let i = 0; i < n; i++) if (!stepOnce(w, t)) break;
     });
+  }
+
+  /**
+   * While the world runs, a player's command steps at once and not at the next timer call, so its
+   * answer comes one step sooner. The step is taken from the steps owed (down to -1), so the
+   * pace stays the same: the timer skips the step that it would have taken.
+   */
+  function stepEarly(w: World, t: Tuning): void {
+    if (!stopTimer) return;
+    count(t);
+    if (owed < 0) return;
+    owed -= 1;
+    stepOnce(w, t);
   }
 
   /**
@@ -141,6 +161,7 @@ export function createWorkerCore(
         pending.push(...m.list);
         accepted.push({ tick: world.tick, list: m.list });
         post({ t: 'accepted', tick: world.tick, list: m.list });
+        stepEarly(world, tuning);
         return;
       case 'hash':
         post({ t: 'hash', tick: world.tick, value: hashWorld(world) });

@@ -153,6 +153,27 @@ test('speed 0 pauses stepping', () => {
   expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([1, 2, 3, 4]);
 });
 
+test('a command steps at once while the world runs, and the pace stays the same', () => {
+  const { send, got, clock } = directCore();
+  const span = 1000 / tuning.sim.stepsPerSecond;
+  send(initGolden);
+  // Paused: the command waits for a step.
+  send({ t: 'commands', list: [] });
+  expect(ofType(got, 'snapshot')).toHaveLength(0);
+  send({ t: 'speed', multiplier: 1 });
+  clock.tick(span);
+  expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([1]);
+  // A command steps the world now, before the next timer call.
+  send({ t: 'commands', list: [] });
+  expect(ofType(got, 'snapshot').map((m) => m.tick)).toEqual([1, 2]);
+  // A second command in the same span waits: one early step at most.
+  send({ t: 'commands', list: [] });
+  expect(ofType(got, 'snapshot')).toHaveLength(2);
+  // The timer skips the step it gave early, so ten spans still hold ten steps.
+  for (let i = 0; i < 9; i++) clock.tick(span);
+  expect(ofType(got, 'snapshot').at(-1)?.tick).toBe(10);
+});
+
 test('init resets the speed to 0, so a re-initialized core starts paused', () => {
   const { send, got, clock } = directCore();
   send(initGolden);

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { createRng } from '../../../src/sim/rng.ts';
+import { createRng } from '../../../src/toy/rng.ts';
 
 test('same seed gives the same 1,000 numbers', () => {
   const a = createRng(42);

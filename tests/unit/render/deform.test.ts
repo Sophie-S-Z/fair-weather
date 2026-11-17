@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import pimJson from '../../../content/rigs/pim.rig.json';
 import { RIG_POINTS, RigSchema } from '../../../src/render/line/rig.ts';
 import { BOIL_AMPLITUDE, BRISTLE_AMPLITUDE, boilFrameAt, deform } from '../../../src/render/line/deform.ts';
-import type { Shell } from '../../../src/sim/types.ts';
+import type { Shell } from '../../../src/render/line/shell.ts';
 
 const rig = RigSchema.parse(pimJson);
 const zero: Shell = { tightness: 0, bristle: 0, color: 0, softness: 0 };

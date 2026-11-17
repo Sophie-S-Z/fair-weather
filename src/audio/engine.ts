@@ -1,59 +1,74 @@
-import type { Season } from '../sim/types.ts';
-import type { SoundCue } from './event-sounds.ts';
-import { pitchFor, scaleTones } from './scale.ts';
 import { DEFAULT_TIMBRE, playNote, type Timbre } from './voices.ts';
 
-export interface EngineOptions {
-  /** A creature's voice and line length, if it is known. */
-  voice(who: string): { timbre: Timbre; lineLength: number } | undefined;
-  season(): Season;
+/** The table's key: C major pentatonic over two octaves, in Hz. */
+export const SCALE: readonly number[] = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21].map(
+  (step) => 261.63 * 2 ** (step / 12),
+);
+
+/** A creature's chirp shape: each mood is a short run of scale steps from the creature's own note. */
+export type Mood = 'happy' | 'sad' | 'angry' | 'surprised' | 'sleepy';
+const RUNS: Record<Mood, readonly number[]> = {
+  happy: [0, 2, 4],
+  sad: [2, 1, 0],
+  angry: [0, 0, 0],
+  surprised: [0, 4],
+  sleepy: [1, 0],
+};
+
+/** A small data cue; the engine plays it. */
+export type SoundCue = { kind: 'chirp'; who: string; mood: Mood } | { kind: 'pop' } | { kind: 'sticker' };
+
+export interface Voice {
+  timbre: Timbre;
+  /** Index into `SCALE` of the creature's own note. */
+  note: number;
 }
 
 export interface AudioEngine {
-  /** Sound is off until the first `setEnabled(true)`, which creates the context and plays the welcome chord once. */
+  /** Sound is off until the first `setEnabled(true)`, which creates the context. */
   setEnabled(on: boolean): void;
   play(cue: SoundCue): void;
-  /** Fog 0..1 muffles everything with a low-pass. */
-  setFog(amount: number): void;
 }
 
-const WELCOME: Timbre = { wave: 'sine', attack: 0.15, decay: 1.6 };
-/** One beat of a cue's rhythm, in seconds. */
-const BEAT = 0.2;
+/** One step of a run, in seconds. */
+const STEP = 0.09;
 
-export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOptions): AudioEngine {
+const tone = (i: number): number => SCALE[Math.max(0, Math.min(SCALE.length - 1, i))] ?? 261.63;
+
+export function createAudioEngine(
+  ctxFactory: () => AudioContext,
+  voice: (who: string) => Voice | undefined,
+): AudioEngine {
   let ctx: AudioContext | null = null;
-  let bus: BiquadFilterNode | null = null;
   let on = false;
-  let welcomed = false;
-  let fog = 0;
-
-  const applyFog = (): void => {
-    if (bus && ctx) bus.frequency.value = 12000 - fog * 11200;
-  };
 
   function play(cue: SoundCue): void {
-    if (!on || !ctx || !bus) return;
+    if (!on || !ctx) return;
     const t = ctx.currentTime;
-    const v = 'who' in cue ? opts.voice(cue.who) : undefined;
-    const timbre = v?.timbre ?? DEFAULT_TIMBRE;
-    const f = pitchFor(v?.lineLength ?? 3.5, opts.season());
+    const out = ctx.destination;
     switch (cue.kind) {
-      case 'harmony': {
-        const rhythm = cue.rhythm ?? [1];
-        for (let i = 0; i < rhythm.length; i++) {
-          if (rhythm[i] === 0) continue;
-          playNote(ctx, bus, f, timbre, t + i * BEAT);
-          playNote(ctx, bus, f * cue.ratio, timbre, t + i * BEAT);
-        }
+      case 'chirp': {
+        const v = voice(cue.who);
+        const base = v?.note ?? 4;
+        const timbre = v?.timbre ?? DEFAULT_TIMBRE;
+        RUNS[cue.mood].forEach((step, i) => {
+          playNote(ctx as AudioContext, out, tone(base + step), timbre, t + i * STEP, 0.08);
+        });
         break;
       }
-      case 'fade':
-        playNote(ctx, bus, f, { ...timbre, decay: timbre.decay * 2 }, t);
+      case 'pop':
+        playNote(ctx, out, tone(7), { wave: 'sine', attack: 0.005, decay: 0.12 }, t, 0.06);
         break;
-      case 'clash':
-        playNote(ctx, bus, f, timbre, t, 0.08);
-        playNote(ctx, bus, f * cue.ratio, timbre, t, 0.08);
+      case 'sticker':
+        [0, 2, 4, 5].forEach((i, k) => {
+          playNote(
+            ctx as AudioContext,
+            out,
+            tone(i + 3),
+            { wave: 'triangle', attack: 0.01, decay: 0.6 },
+            t + k * STEP,
+          );
+        });
         break;
     }
   }
@@ -62,29 +77,13 @@ export function createAudioEngine(ctxFactory: () => AudioContext, opts: EngineOp
     setEnabled(next) {
       on = next;
       if (next) {
-        if (!ctx) {
-          ctx = ctxFactory();
-          bus = ctx.createBiquadFilter();
-          bus.type = 'lowpass';
-          bus.connect(ctx.destination);
-          applyFog();
-        }
+        ctx ??= ctxFactory();
         void ctx.resume();
-        if (!welcomed) {
-          welcomed = true;
-          const tones = scaleTones(opts.season());
-          const t = ctx.currentTime;
-          for (const i of [0, 2, 3]) playNote(ctx, bus as BiquadFilterNode, tones[i] as number, WELCOME, t);
-        }
       } else if (ctx) {
         void ctx.suspend();
       }
     },
     play,
-    setFog(amount) {
-      fog = Math.min(1, Math.max(0, amount));
-      applyFog();
-    },
   };
 }
 

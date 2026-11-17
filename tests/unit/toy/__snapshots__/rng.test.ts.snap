@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`first five values for seed 0 match the stored vector 1`] = `
+[
+  0.5733975800685585,
+  0.23765396769158542,
+  0.10578142385929823,
+  0.2969988433178514,
+  0.2831040422897786,
+]
+`;

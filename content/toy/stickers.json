@@ -1,0 +1,171 @@
+{
+  "themes": [
+    { "id": "game", "title": "Game theory" },
+    { "id": "mind", "title": "Psychology" },
+    { "id": "big", "title": "Philosophy" },
+    { "id": "ties", "title": "Networks" }
+  ],
+  "stickers": [
+    {
+      "id": "standoff",
+      "theme": "game",
+      "title": "The cookie standoff",
+      "riddle": "Two hungry friends, one cookie.",
+      "art": { "cast": "krit", "prop": "cookie" },
+      "lesson": [
+        "Two creatures, one cookie. If both share, each gets half.",
+        "If one grabs and the other shares, the grabber gets the whole cookie.",
+        "So each one does better alone by grabbing. But when both grab, the cookie breaks and both lose. This trap is the prisoner's dilemma."
+      ],
+      "knob": "Pick the second player",
+      "tryThis": "Feed the copycat three times."
+    },
+    {
+      "id": "copycat",
+      "theme": "game",
+      "title": "Copy that",
+      "riddle": "Feed the copycat three times.",
+      "art": { "cast": "echo", "prop": "cookie" },
+      "lesson": [
+        "Echo shares the first cookie. After that, Echo does what its partner did last time.",
+        "Against a grabber, Echo grabs back, and nobody eats.",
+        "When a game repeats, a kind player who copies back can do very well. But one mistake can start a feud that never ends."
+      ],
+      "knob": "Pick Echo's partner",
+      "tryThis": "Give the berry bush to four strangers."
+    },
+    {
+      "id": "commons",
+      "theme": "game",
+      "title": "The last berry",
+      "riddle": "One bush, many mouths.",
+      "art": { "cast": "frog", "prop": "bush" },
+      "lesson": [
+        "Four strangers find one bush. Each takes just one more, and Gulp takes two.",
+        "Soon the bush is bare, and nobody gets berries tomorrow. This is the tragedy of the commons.",
+        "Friends who trust each other take turns, and the bush lives."
+      ],
+      "tryThis": "Put three creatures by the signpost."
+    },
+    {
+      "id": "lookup",
+      "theme": "mind",
+      "title": "Look up",
+      "riddle": "Three stare at nothing.",
+      "art": { "cast": "tove", "prop": "signpost" },
+      "lesson": [
+        "Three creatures stare where the sign points.",
+        "Others see them and join in. Nothing is there.",
+        "We copy a crowd to fit in, or because we think the crowd knows something. Sometimes the crowd copies nothing at all."
+      ],
+      "tryThis": "Drop someone in the puddle while friends watch."
+    },
+    {
+      "id": "bystander",
+      "theme": "mind",
+      "title": "Somebody should",
+      "riddle": "Everyone saw. Nobody moved.",
+      "art": { "cast": "moss", "prop": "puddle" },
+      "lesson": [
+        "With one friend near, help comes at once.",
+        "With many near, each one waits for someone else to act.",
+        "This is the bystander effect. When you see a problem, act as if you are the only one who can help."
+      ],
+      "knob": "Pick how many watch",
+      "tryThis": "Poke Bell, then walk Bell to the mirror."
+    },
+    {
+      "id": "spotlight",
+      "theme": "mind",
+      "title": "Nobody noticed",
+      "riddle": "A smudge, a mirror, and a panic.",
+      "art": { "cast": "bell", "prop": "mirror" },
+      "lesson": [
+        "Bell sees a smudge in the mirror and panics. Then Bell checks each friend.",
+        "Each friend is busy with their own thoughts.",
+        "We think others notice our flaws much more than they do. This is the spotlight effect."
+      ],
+      "tryThis": "Drop someone into the left twin box."
+    },
+    {
+      "id": "identity",
+      "theme": "big",
+      "title": "Which one is me?",
+      "riddle": "Two boxes, one friend, two friends.",
+      "art": { "cast": "glassling", "prop": "twins" },
+      "lesson": [
+        "Glim goes into the left box. Glim also comes out of the right box.",
+        "Both have the same body and the same memories. Both say they are the real Glim.",
+        "Philosophers still argue which one is you, and if the question has an answer at all."
+      ],
+      "tryThis": "Put creatures on both branches of the track."
+    },
+    {
+      "id": "lever",
+      "theme": "big",
+      "title": "The lever",
+      "riddle": "A lever, a cart, and a choice.",
+      "art": { "cast": "quill", "prop": "track" },
+      "lesson": [
+        "A toy cart rolls to a fork. Creatures sit on both branches.",
+        "You can pull the lever or leave it. Either way, someone is in the path.",
+        "Many people feel that pulling the lever is worse than leaving it, even when the results match. This puzzle is the trolley problem."
+      ],
+      "knob": "Set the lever",
+      "tryThis": "Light the lamp with two creatures behind the wall."
+    },
+    {
+      "id": "shadows",
+      "theme": "big",
+      "title": "Shadow show",
+      "riddle": "What do they see behind the wall?",
+      "art": { "cast": "moss", "prop": "lamp" },
+      "lesson": [
+        "One creature sees only the shadows on the screen, and loves them.",
+        "Then it meets a real creature that made a shadow. It turns back to the shadows.",
+        "Plato told a story of people who see only shadows. We can take a shadow for the world, and even like the shadow more."
+      ],
+      "tryThis": "Tie four creatures in a line, then poke Kite twice fast."
+    },
+    {
+      "id": "telephone",
+      "theme": "ties",
+      "title": "Telephone",
+      "riddle": "Whisper to one, ask the last.",
+      "art": { "cast": "kite", "prop": null },
+      "lesson": [
+        "Kite whispers about a cookie. Each friend passes it on, and it changes a little.",
+        "At the end of the chain, the cookie is a monster.",
+        "A story that passes through many people changes at each step. When you can, ask the first source."
+      ],
+      "knob": "Pick the chain length",
+      "tryThis": "Make two groups of three, joined by one string. Then snip that string."
+    },
+    {
+      "id": "bridge",
+      "theme": "ties",
+      "title": "The only bridge",
+      "riddle": "Snip the one string that holds two.",
+      "art": { "cast": "snail", "prop": null },
+      "lesson": [
+        "Two groups of friends meet through one string.",
+        "Cut that string, and news stops crossing between the groups.",
+        "Thin links between groups carry new news and new ideas. Sociologists call them weak ties, and they matter more than they look."
+      ],
+      "tryThis": "Tie four friends to Cap, and tie one more creature only to Cap. Then poke that one."
+    },
+    {
+      "id": "paradox",
+      "theme": "ties",
+      "title": "Your friends have more friends",
+      "riddle": "Count your friend's friends.",
+      "art": { "cast": "toadstool", "prop": null },
+      "lesson": [
+        "Pim has one friend, Cap. Cap has many friends.",
+        "A popular creature shows up in many friend lists, so it gets counted again and again.",
+        "So most people's friends have more friends than they do. It is math, not a sign that you are unloved. This is the friendship paradox."
+      ],
+      "tryThis": "You found them all? Start over and try new pairs and new props."
+    }
+  ]
+}

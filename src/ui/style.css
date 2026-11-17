@@ -1,0 +1,118 @@
+:root {
+  --ink: #2b2a28;
+  --paper: #fffdf8;
+  --sky: #e4edf0;
+  --floor: #f3ead6;
+  --berry: #c23a4e;
+  --gold: #f2c84b;
+  --muted: #55524c;
+  --edge: 2.5px;
+  --lift: 4px;
+  /* A paper scrap: slightly uneven corners, like cut by hand. */
+  --scrap: 18px 24px 16px 22px / 22px 16px 24px 18px;
+  font-size: calc(16px * var(--text-scale, 1));
+}
+
+:root[data-contrast='high'] {
+  --edge: 3.5px;
+  --muted: #2b2a28;
+  --sky: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--sky);
+  color: var(--ink);
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+/* A cut-out paper button with an ink edge and a hard ink shadow: it presses into the page. */
+.cutout {
+  background: var(--paper);
+  border: var(--edge) solid var(--ink);
+  border-radius: var(--scrap);
+  box-shadow: var(--lift) var(--lift) 0 var(--ink);
+  min-height: 2.75rem;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  transition:
+    transform 80ms ease-out,
+    box-shadow 80ms ease-out;
+}
+
+.cutout:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: calc(var(--lift) + 1px) calc(var(--lift) + 1px) 0 var(--ink);
+}
+
+.cutout:active,
+.cutout[aria-pressed='true'],
+.cutout[aria-checked='true'] {
+  transform: translate(calc(var(--lift) - 1px), calc(var(--lift) - 1px));
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.cutout[aria-pressed='true'],
+.cutout[aria-checked='true'] {
+  background: var(--gold);
+}
+
+:focus-visible {
+  outline: 3px solid var(--berry);
+  outline-offset: 3px;
+}
+
+.paper {
+  background: var(--paper);
+  border: var(--edge) solid var(--ink);
+  border-radius: var(--scrap);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+dialog {
+  color: var(--ink);
+  padding: 0;
+  max-width: min(60rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+}
+
+dialog::backdrop {
+  background: rgb(43 42 40 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cutout {
+    transition: none;
+  }
+}

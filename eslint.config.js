@@ -14,8 +14,9 @@ const allowedValueImports = {
 };
 const allModules = [...Object.keys(allowedValueImports), 'content'];
 
-const moduleBoundaryBlocks = Object.entries(allowedValueImports).map(([mod, allowed]) => {
+const moduleBoundaryBlocks = Object.entries(allowedValueImports).flatMap(([mod, allowed]) => {
   const banned = allModules.filter((m) => m !== mod && !allowed.includes(m));
+  if (banned.length === 0) return [];
   return {
     files: [`src/${mod}/**/*.{ts,svelte}`],
     rules: {
@@ -79,6 +80,11 @@ export default tseslint.config(
     },
   },
   ...moduleBoundaryBlocks,
+  {
+    // {@html} only ever shows the repo's own SVG drawings (src/ui/art.ts), never player text.
+    files: ['src/ui/**/*.svelte'],
+    rules: { 'svelte/no-at-html-tags': 'off' },
+  },
   {
     files: ['content/**/*.ts'],
     extends: [tseslint.configs.disableTypeChecked],

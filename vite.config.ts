@@ -5,5 +5,6 @@ import { placeholderGuard } from './tools/content-validate/placeholder-guard.ts'
 
 export default defineConfig({
   plugins: [svelte(), placeholderGuard(), swPlugin()],
-  build: { rolldownOptions: { input: 'index.html' } },
+  // Pixi.js alone is about 500 kB; the toybox ships as one offline bundle on purpose.
+  build: { rolldownOptions: { input: 'index.html' }, chunkSizeWarningLimit: 700 },
 });

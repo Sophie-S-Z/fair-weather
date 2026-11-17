@@ -1,4 +1,4 @@
-import type { Shell } from '../../sim/types.ts';
+import type { Shell } from './shell.ts';
 import { RIG_POINTS, type Rig } from './rig.ts';
 
 /** Boil offset per axis, in rig units. */

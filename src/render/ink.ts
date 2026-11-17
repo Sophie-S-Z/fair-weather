@@ -1,15 +1,14 @@
 import type { Graphics } from 'pixi.js';
-import type { Palette } from './palette.ts';
+import { PALETTE } from './palette.ts';
 
-/** Alphas for the far layer (spec 11.1 depth) and for faint marks such as tufts and planks. */
-export const FAR_ALPHA = 0.35;
+/** Alpha for faint marks such as grass tufts. */
 export const TUFT_ALPHA = 0.5;
-/** High contrast thickens every line by half again, on top of the bold default (spec 11.6). */
+/** High contrast thickens every line by half again. */
 export const HIGH_CONTRAST_WIDTH = 1.5;
 
 /** The bold scenery line: ink with round ends and joins. */
-export const inkStroke = (palette: Palette, width: number, alpha = 1) =>
-  ({ color: palette.ink, width, alpha, cap: 'round', join: 'round' }) as const;
+export const inkStroke = (width: number, alpha = 1) =>
+  ({ color: PALETTE.ink, width, alpha, cap: 'round', join: 'round' }) as const;
 
 /**
  * A dashed straight path from (x1, y1) to (x2, y2): `dash` drawn, then `gap` skipped, from the start.

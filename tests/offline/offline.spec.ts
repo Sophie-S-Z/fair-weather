@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
-// Offline after the first load (ADR 0014 item 12). Runs over a built, previewed game with the
+// Offline after the first load (ADR 0014 item 12). Runs over a built, previewed toybox with the
 // service worker registered.
 
 const errors = (page: Page): string[] => {
@@ -22,7 +22,7 @@ test('the built worker precaches every file in dist but itself and maps', () => 
   expect(list).toEqual(['/', ...files]);
 });
 
-test('after one load the game starts with the network off', async ({ page, context }) => {
+test('after one load the toybox opens with the network off', async ({ page, context }) => {
   const seen = errors(page);
   const failed: string[] = [];
   page.on('requestfailed', (r) => failed.push(r.url()));
@@ -35,16 +35,10 @@ test('after one load the game starts with the network off', async ({ page, conte
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible();
-  // The sim worker's script must come from the worker's cache, so a worker that is not precached
-  // cannot pass. The page reports a dedicated worker's script request (assets/worker-<hash>.js).
-  const workerScript = page.waitForResponse((r) => /\/worker-[^/]*\.js$/.test(r.url()));
-  await page.getByRole('button', { name: 'Begin' }).click();
-  expect((await workerScript).fromServiceWorker()).toBe(true);
-  await expect(page.getByRole('heading', { name: 'Chapter 0' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sticker book/ })).toBeVisible();
   await expect(page.locator('canvas').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Pim,/ })).toBeVisible();
   expect(failed).toEqual([]);
-  await expect(page.getByText('This browser cannot show the moving valley')).toHaveCount(0);
   expect(seen).toEqual([]);
 });
 
@@ -58,6 +52,6 @@ test('a page address with a query opens the cached page offline and keeps its qu
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
   await context.setOffline(true);
   await page.goto('/?v1.abc');
-  await expect(page.getByRole('button', { name: 'Begin' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Sticker book/ })).toBeVisible();
   expect(new URL(page.url()).search).toBe('?v1.abc');
 });

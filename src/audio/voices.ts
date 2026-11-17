@@ -1,18 +1,9 @@
-import { z } from 'zod';
-
-/** A species voice (`content/cast/<id>.json`, field `timbre`); the same files render reads for `scale`. */
-export const VoiceSchema = z.object({
-  id: z.string().min(1),
-  timbre: z.object({
-    wave: z.enum(['sine', 'triangle', 'square', 'sawtooth']),
-    /** Seconds to full volume. */
-    attack: z.number().positive(),
-    /** Seconds to fade out. */
-    decay: z.number().positive(),
-  }),
-});
-
-export type Timbre = z.infer<typeof VoiceSchema>['timbre'];
+/** One note's sound: the wave, then seconds to full volume and seconds to fade out. */
+export interface Timbre {
+  wave: OscillatorType;
+  attack: number;
+  decay: number;
+}
 
 export const DEFAULT_TIMBRE: Timbre = { wave: 'sine', attack: 0.01, decay: 0.8 };
 

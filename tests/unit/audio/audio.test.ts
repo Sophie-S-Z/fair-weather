@@ -1,48 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { createAudioEngine, enableOnGesture } from '../../../src/audio/engine.ts';
-import { soundFor } from '../../../src/audio/event-sounds.ts';
-import { pitchFor, scaleTones } from '../../../src/audio/scale.ts';
-import type { Season } from '../../../src/sim/types.ts';
-
-const seasons: Season[] = ['spring', 'summer', 'lateSummer', 'autumn', 'winter', 'thaw'];
+import { createAudioEngine, enableOnGesture, SCALE } from '../../../src/audio/engine.ts';
 
 class FakeCtx {
   currentTime = 0;
-  state = 'suspended';
   oscillators: { frequency: { value: number }; start: number }[] = [];
-  filters: { type: string; frequency: { value: number } }[] = [];
   destination = {};
   resumes = 0;
   suspends = 0;
   createOscillator() {
-    const o = {
-      type: '',
-      frequency: { value: 0 },
-      start: -1,
-      connect() {},
-      stop() {},
-    };
-    const rec = {
-      frequency: o.frequency,
-      get start() {
-        return o.start;
-      },
-    };
+    const rec = { type: '', frequency: { value: 0 }, start: -1, connect() {}, stop() {} };
     this.oscillators.push(rec);
-    return Object.assign(o, {
+    return Object.assign(rec, {
       start: (t: number) => {
-        o.start = t;
+        rec.start = t;
       },
     });
   }
   createGain() {
     const p = { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} };
     return { gain: p, connect() {} };
-  }
-  createBiquadFilter() {
-    const f = { type: '', frequency: { value: 0 }, connect() {} };
-    this.filters.push(f);
-    return f;
   }
   resume() {
     this.resumes += 1;
@@ -54,7 +30,6 @@ class FakeCtx {
   }
 }
 
-const voice = { timbre: { wave: 'sine' as const, attack: 0.01, decay: 0.5 }, lineLength: 3 };
 function setup() {
   const made: FakeCtx[] = [];
   const engine = createAudioEngine(
@@ -63,110 +38,38 @@ function setup() {
       made.push(c);
       return c as unknown as AudioContext;
     },
-    { voice: () => voice, season: () => 'spring' },
+    () => ({ timbre: { wave: 'sine', attack: 0.01, decay: 0.3 }, note: 2 }),
   );
   return { made, engine };
 }
 
-describe('pitchFor', () => {
-  it('returns only scale tones and never rises as the line grows', () => {
-    for (const s of seasons) {
-      const tones = scaleTones(s);
-      let prev = Infinity;
-      for (let len = 0; len <= 10; len += 0.25) {
-        const f = pitchFor(len, s);
-        expect(tones).toContain(f);
-        expect(f).toBeLessThanOrEqual(prev);
-        prev = f;
-      }
-      expect(pitchFor(-5, s)).toBe(tones[tones.length - 1]);
-      expect(pitchFor(99, s)).toBe(tones[0]);
-    }
-  });
-});
-
-describe('pitchFor values', () => {
-  it('gives the spring root for the shortest line and two octaves up for the longest', () => {
-    expect(pitchFor(2, 'spring')).toBeCloseTo(261.63 * Math.pow(2, 21 / 12), 2);
-    expect(pitchFor(5, 'spring')).toBeCloseTo(261.63, 2);
-  });
-});
-
-describe('soundFor', () => {
-  it('maps spec 11.5 events', () => {
-    const bid = (reply: 'toward' | 'away' | 'against') =>
-      soundFor({ t: 'bid', from: 'pim', to: 'krit', reply, seenAs: reply });
-    expect(bid('toward')).toMatchObject({ kind: 'harmony', who: 'pim' });
-    expect(bid('away')).toMatchObject({ kind: 'fade' });
-    expect(bid('against')).toMatchObject({ kind: 'clash' });
-    // Broken trust, forgiveness and warm cluster have no M1 sim source: null until M2 emits them.
-    expect(soundFor({ t: 'opinion', holder: 'a', about: 'b', value: -0.8 })).toBeNull();
-    expect(soundFor({ t: 'return', who: 'pim' })).toBeNull();
-    expect(soundFor({ t: 'arrive', who: 'pim' })).toBeNull();
-  });
-
-  it('plays a toward harmony in the greeting song rhythm once there is one (spec 6.4)', () => {
-    const toward = { t: 'bid', from: 'pim', to: 'krit', reply: 'toward', seenAs: 'toward' } as const;
-    expect(soundFor(toward, [1, 0, 1, 1])).toMatchObject({ kind: 'harmony', rhythm: [1, 0, 1, 1] });
-    expect(soundFor(toward)).not.toHaveProperty('rhythm');
-    expect(soundFor({ ...toward, reply: 'away', seenAs: 'away' }, [1, 0, 1, 1])).toEqual({
-      kind: 'fade',
-      who: 'pim',
-    });
-  });
-});
-
 describe('createAudioEngine', () => {
   it('makes no context while sound is off, and plays nothing', () => {
     const { made, engine } = setup();
-    engine.play({ kind: 'fade', who: 'pim' });
+    engine.play({ kind: 'pop' });
     engine.setEnabled(false);
     expect(made).toHaveLength(0);
   });
 
-  it('plays the welcome chord once, on the first unmute only', () => {
+  it('plays a chirp from the creature note, one step per tone', () => {
     const { made, engine } = setup();
     engine.setEnabled(true);
-    expect(made).toHaveLength(1);
-    expect(made[0]?.oscillators).toHaveLength(3);
+    const c = made[0] as FakeCtx;
+    engine.play({ kind: 'chirp', who: 'pim', mood: 'happy' });
+    expect(c.oscillators.map((o) => o.frequency.value)).toEqual([SCALE[2], SCALE[4], SCALE[6]]);
+    expect(c.oscillators[1]?.start).toBeGreaterThan(c.oscillators[0]?.start ?? 0);
+  });
+
+  it('keeps one context across mute and unmute, and plays nothing while muted', () => {
+    const { made, engine } = setup();
+    engine.setEnabled(true);
     engine.setEnabled(false);
+    engine.play({ kind: 'sticker' });
     engine.setEnabled(true);
     expect(made).toHaveLength(1);
-    expect(made[0]?.oscillators).toHaveLength(3);
+    expect(made[0]?.oscillators).toHaveLength(0);
     expect(made[0]?.suspends).toBe(1);
     expect(made[0]?.resumes).toBe(2);
-  });
-
-  it('plays cues only while on, with the voice pitch and a muffling filter for fog', () => {
-    const { made, engine } = setup();
-    engine.setEnabled(true);
-    const c = made[0] as FakeCtx;
-    c.currentTime = 2;
-    engine.play({ kind: 'harmony', who: 'pim', ratio: 1.5 });
-    const [a, b] = c.oscillators.slice(3);
-    expect(a?.start).toBe(2);
-    expect(a?.frequency.value).toBe(pitchFor(3, 'spring'));
-    expect(b?.frequency.value).toBeCloseTo(pitchFor(3, 'spring') * 1.5);
-    const clear = c.filters[0]?.frequency.value as number;
-    engine.setFog(1);
-    expect(c.filters[0]?.frequency.value).toBeLessThan(clear);
-    engine.setEnabled(false);
-    engine.play({ kind: 'fade', who: 'pim' });
-    expect(c.oscillators).toHaveLength(5);
-  });
-
-  it('plays a harmony with a rhythm on each tap beat, a rest skipped', () => {
-    const { made, engine } = setup();
-    engine.setEnabled(true);
-    const c = made[0] as FakeCtx;
-    c.currentTime = 2;
-    engine.play({ kind: 'harmony', who: 'pim', ratio: 1.5, rhythm: [1, 0, 1, 1] });
-    const starts = c.oscillators.slice(3).map((o) => o.start);
-    expect(starts).toHaveLength(6);
-    // Beats 0, 2, and 3 sound; beat 1 rests.
-    const beat = ((starts[2] ?? 0) - 2) / 2;
-    expect(beat).toBeGreaterThan(0);
-    expect(starts.map((t) => Math.round((t - 2) / beat))).toEqual([0, 0, 2, 2, 3, 3]);
   });
 });
 
@@ -177,10 +80,8 @@ describe('enableOnGesture', () => {
     enableOnGesture(engine, target, () => true);
     expect(made).toHaveLength(0);
     target.dispatchEvent(new Event('pointerdown'));
-    expect(made).toHaveLength(1);
     target.dispatchEvent(new Event('keydown'));
     expect(made).toHaveLength(1);
-    expect(made[0]?.oscillators).toHaveLength(3);
   });
 
   it('does nothing if sound was turned off before the gesture', () => {

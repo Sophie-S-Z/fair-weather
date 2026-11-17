@@ -1,5 +1,5 @@
 import { Container, Graphics, Mesh, MeshGeometry, Texture } from 'pixi.js';
-import type { Shell } from '../../sim/types.ts';
+import type { Shell } from './shell.ts';
 import { bodyCenter, boilFrameAt, deform, tighten } from './deform.ts';
 import { bodyColor, fillOutline } from './fill.ts';
 import { RIG_POINTS, type Rig } from './rig.ts';

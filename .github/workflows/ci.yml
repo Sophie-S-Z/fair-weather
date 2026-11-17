@@ -13,10 +13,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run test:prop
-      - run: npm run test:t3
-      - name: Validate content
-        run: npm run validate-content
       - name: Build (production; the placeholder guard fails it on any placeholder)
         run: npm run build
       - name: Install Playwright Chromium
@@ -24,44 +20,13 @@ jobs:
       # Offline play over the production build above.
       - name: Offline after the first load
         run: npm run test:offline
-      # Chromium e2e (axe, keyboard-only and auto-player runs); the cross-browser job below covers
-      # links and the worker. Visual stays a manual gate: its baselines are renders from the cloud
-      # container's Chromium build, not CI's.
       - name: E2E (Chromium)
-        run: npx playwright test --project=e2e --project=e2e-year
+        run: npm run test:e2e
       # Each failed test's page snapshot (error-context.md), to find the cause of a failure.
       - name: Keep the failed tests' results
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: test-results/
-          retention-days: 7
-
-  # The same seed and commands give the same state hash in every engine, so a seed link opens the
-  # same valley everywhere (ADR 0014 item 7). This job runs the link and worker tests in Firefox
-  # and WebKit, beside the main job.
-  cross-browser:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Install Playwright Firefox and WebKit
-        run: npx playwright install --with-deps firefox webkit
-      - name: Links and the worker in WebKit
-        run: npx playwright test --project=e2e-webkit tests/e2e/worker.spec.ts tests/e2e/share.spec.ts
-      # Headless Firefox on the runner gives no WebGL context, and the sandbox needs WebGL, so
-      # Firefox runs headed on a virtual screen.
-      - name: Links and the worker in Firefox
-        run: xvfb-run --auto-servernum npx playwright test --headed --project=e2e-firefox tests/e2e/worker.spec.ts tests/e2e/share.spec.ts
-      - name: Keep the failed tests' results
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-cross-browser
           path: test-results/
           retention-days: 7

@@ -21,7 +21,6 @@ describe('settings store', () => {
       highContrast: false,
       reducedMotion: false,
       sound: false,
-      analytics: false,
     });
   });
 
@@ -33,27 +32,17 @@ describe('settings store', () => {
     const { storage, box } = memory();
     const store = createSettingsStore(storage, false);
     store.update((s) => ({ ...s, textScale: 1.5, sound: true }));
-    expect(box.saved).toMatchObject({ textScale: 1.5, sound: true, analytics: false });
+    expect(box.saved).toMatchObject({ textScale: 1.5, sound: true });
   });
 
   it('loads saved values and falls back per field on bad data', () => {
-    const { storage } = memory({ textScale: 2, highContrast: true, sound: 'yes', analytics: 'on' });
+    const { storage } = memory({ textScale: 2, highContrast: true, sound: 'yes' });
     expect(get(createSettingsStore(storage, false))).toEqual({
       textScale: 1,
       highContrast: true,
       reducedMotion: false,
       sound: false,
-      analytics: false,
     });
-  });
-
-  it('keeps analytics true through save and load; an old save without it, or a false, reads false', () => {
-    const { storage, box } = memory();
-    createSettingsStore(storage, false).update((s) => ({ ...s, analytics: true }));
-    expect(box.saved?.analytics).toBe(true);
-    expect(get(createSettingsStore(memory({ ...box.saved }).storage, false)).analytics).toBe(true);
-    expect(get(createSettingsStore(memory({ textScale: 1 }).storage, false)).analytics).toBe(false);
-    expect(get(createSettingsStore(memory({ analytics: false }).storage, false)).analytics).toBe(false);
   });
 
   it('does not save until something changes, so the system default keeps applying', () => {

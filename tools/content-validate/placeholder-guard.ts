@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
-import { inkIncludes } from '../ink-plugin.ts';
 
 export const MARKERS = ['PLACEHOLDER-', '#placeholder', '[PLACEHOLDER]'] as const;
 
@@ -25,17 +23,10 @@ export function placeholderGuard(): Plugin {
     buildStart() {
       hits.length = 0;
     },
-    // Runs before the Ink plugin: compiled Ink JSON splits `#placeholder`, so the raw source
-    // (and every INCLUDEd file) is scanned here instead.
     transform: {
       order: 'pre',
       handler(code, id) {
-        if (!production) return;
-        scan(id, code);
-        const path = id.split('?')[0] ?? id;
-        if (path.endsWith('.ink')) {
-          for (const file of inkIncludes(code, path)) scan(file, readFileSync(file, 'utf8'));
-        }
+        if (production) scan(id, code);
       },
     },
     generateBundle(_options, bundle) {

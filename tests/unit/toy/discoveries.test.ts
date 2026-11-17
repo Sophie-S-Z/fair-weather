@@ -27,7 +27,7 @@ describe('the cookie standoff', () => {
       ['krit', 700, 660],
       ['frog', 900, 660],
     ]);
-    t.rng.next = () => 0.99;
+    Object.assign(t.rng, { next: () => 0.99 });
     const events = run(t, 12);
     expect(found(events)).toEqual(['standoff']);
     expect(t.props.find((q) => q.kind === 'cookie')).toBeUndefined();
@@ -46,7 +46,7 @@ describe('the cookie standoff', () => {
   it('a poke during the scene makes the creature grab by accident', () => {
     const t = table({ cast: [['pim', 700, 660]] });
     const pim = get(t, 'pim');
-    t.rng.next = () => 0;
+    Object.assign(t.rng, { next: () => 0 });
     expect(cookieMove(t, pim, pim, 0)).toBe('share');
     poke(t, 'pim');
     expect(cookieMove(t, pim, pim, t.time)).toBe('grab');

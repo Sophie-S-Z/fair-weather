@@ -10,6 +10,7 @@ export interface TableSetup {
   props?: readonly (readonly [PropKind, number, number])[];
   ties?: readonly (readonly [CastId, CastId])[];
   memory?: Record<string, Move>;
+  grudges?: readonly string[];
   wander?: boolean;
 }
 
@@ -71,7 +72,7 @@ export function createTable(setup: TableSetup): Table {
     scene: null,
     cool: {},
     memory: { ...setup.memory },
-    grudges: [],
+    grudges: [...(setup.grudges ?? [])],
     rounds: {},
     boxed: null,
     lastSnip: null,

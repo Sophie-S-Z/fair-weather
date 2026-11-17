@@ -4,8 +4,12 @@ import type { Critter, Discovery, Icon } from '../types.ts';
 import { nameOf } from './game-theory.ts';
 import { Script } from './script.ts';
 
-/** What the whisper turns into at each step along the chain. */
-const WHISPER: readonly Icon[] = ['cookie', 'crown', 'star', 'storm', 'monster', 'monster'];
+/** The longest chain a whisper travels. */
+const MAX_CHAIN = 6;
+/** What the whisper turns into between the first word (a cookie) and the last (a monster). */
+const DRIFT: readonly Icon[] = ['crown', 'star', 'storm'];
+const whisper = (i: number, n: number): Icon =>
+  i === 0 ? 'cookie' : i === n - 1 ? 'monster' : (DRIFT[(i - 1) % DRIFT.length] as Icon);
 /** The shortest chain (in creatures) that makes a game of telephone. */
 export const CHAIN = 4;
 
@@ -16,7 +20,7 @@ export const telephone: Discovery = {
     const kite = t.critters.find((c) => c.cast === 'kite');
     if (!kite || kite.pokes < 2 || t.time - kite.pokedAt > DOUBLE_POKE || !isFree(kite)) return null;
     kite.pokes = 0;
-    const path = longestPathFrom(t, kite.id, WHISPER.length)
+    const path = longestPathFrom(t, kite.id, MAX_CHAIN)
       .map((id) => critter(t, id))
       .filter((c): c is Critter => c !== undefined && isFree(c));
     if (path.length < CHAIN) return null;
@@ -25,7 +29,7 @@ export const telephone: Discovery = {
       const prev = path[i - 1];
       if (prev) sc.do({ do: 'face', who: c.id, to: prev.id });
       sc.do(
-        { do: 'say', who: c.id, icon: WHISPER[i] ?? 'monster', for: 1.6 },
+        { do: 'say', who: c.id, icon: whisper(i, path.length), for: 1.6 },
         { do: 'hop', who: c.id },
         { do: 'feel', who: c.id, mood: {}, chirp: i === 0 ? 'happy' : 'surprised' },
       );

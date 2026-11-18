@@ -59,6 +59,14 @@ The body drawings are in `content/creatures/`, and `kit/friends.ts` gives each o
 
 The style follows the small inline loops in Ralph Ammer's essays and in Bao To's "Creative autonomy": one sentence, one drawing, one surprise. All art and text here are original.
 
+### Comic page
+
+`who-took-the-cake.html` is one full comic page, 640 by 1000 pixels. It has seven panels and one round inset, in different sizes and shapes. Each panel plays its own short loop, and the whole page loops every 12 seconds. The page GIF uses 12.5 frames per second, so the file stays near 10 MB.
+
+Pim bakes a cake for the whole meadow and goes to get forks. When Pim comes back, the cake is gone. Detective Nib follows the crumbs and eats the best clue. Krit, Gulp, Tuck, and Hush stand in a lineup. Kite blames everyone, Echo repeats it a beat late, and Glim knows the truth but has a very small bubble. In the last panel, the meadow finds the cake: Inch carries it on its shell, very slowly, to the shade. All the cast is on the page except Cap.
+
+`kit/page.ts` lays out the panels, the gutters, and the caption boxes. A panel is a list of corners or a circle, a loop length that divides the page loop, and a `draw(ctx, t, w, h)` function.
+
 ## Save a snippet
 
 Open a file in a browser. Use the buttons under the drawing:

@@ -78,22 +78,43 @@ const nextTask = (): Promise<void> =>
     setTimeout(resolve, 0);
   });
 
-/** The GIF of one loop at 25 fps, at 1x size. */
-export async function makeGif(scene: Scene): Promise<Uint8Array<ArrayBuffer>[]> {
+/** Any looping drawing that the page can play and save: one snippet, or a whole comic page. */
+export interface Loop {
+  /** File name for downloads. */
+  id: string;
+  /** The text alternative of the drawing. */
+  label: string;
+  /** Size in logical pixels. */
+  width: number;
+  height: number;
+  /** Loop length; the drawing at `seconds` matches the drawing at 0. */
+  seconds: number;
+  /** The best still frame, for reduced motion. */
+  still: number;
+  /** GIF frames per second; 25 by default. */
+  gifFps?: number;
+  /** Draws the whole frame at time t, in logical pixels times `scale`. */
+  render(ctx: CanvasRenderingContext2D, t: number, scale: number): void;
+}
+
+/** The GIF of one loop at 1x size. */
+export async function makeGif(loop: Loop): Promise<Uint8Array<ArrayBuffer>[]> {
+  const { width, height } = loop;
+  const fps = loop.gifFps ?? GIF_FPS;
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('No 2D canvas.');
-  const frames = Math.round(scene.seconds * GIF_FPS);
+  const frames = Math.round(loop.seconds * fps);
   const pixels = (i: number): Uint8ClampedArray => {
-    render(ctx, scene, i / GIF_FPS, 1);
-    return ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
+    loop.render(ctx, i / fps, 1);
+    return ctx.getImageData(0, 0, width, height).data;
   };
   const samples: Uint8ClampedArray[] = [];
   for (let i = 0; i < frames; i += 5) samples.push(pixels(i));
   const palette = buildPalette(samples);
-  const gif = createGif(WIDTH, HEIGHT, palette, 100 / GIF_FPS);
+  const gif = createGif(width, height, palette, Math.round(100 / fps));
   for (let i = 0; i < frames; i++) {
     gif.add(indexFrame(pixels(i), palette));
     if (i % 10 === 9) await nextTask();
@@ -101,13 +122,28 @@ export async function makeGif(scene: Scene): Promise<Uint8Array<ArrayBuffer>[]> 
   return gif.finish();
 }
 
-/** Builds the page: the canvas plays the loop, and the buttons pause it or save it. */
+/** Builds the page for one snippet: the loop over the sky and floor, with its caption. */
 export function mount(scene: Scene): void {
+  play({
+    id: scene.id,
+    label: scene.caption,
+    width: WIDTH,
+    height: HEIGHT,
+    seconds: scene.seconds,
+    still: scene.still,
+    render: (ctx, t, scale) => {
+      render(ctx, scene, t, scale);
+    },
+  });
+}
+
+/** Plays a loop on a canvas, with buttons that pause it or save it. */
+export function play(loop: Loop): void {
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH * SCALE;
-  canvas.height = HEIGHT * SCALE;
+  canvas.width = loop.width * SCALE;
+  canvas.height = loop.height * SCALE;
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', scene.caption);
+  canvas.setAttribute('aria-label', loop.label);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('No 2D canvas.');
 
@@ -129,7 +165,7 @@ export function mount(scene: Scene): void {
   const fixed = Number.parseFloat(new URLSearchParams(location.search).get('t') ?? '');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let playing = !reduced && Number.isNaN(fixed);
-  let t = Number.isNaN(fixed) ? (reduced ? scene.still : 0) : fixed % scene.seconds;
+  let t = Number.isNaN(fixed) ? (reduced ? loop.still : 0) : fixed % loop.seconds;
   let last = performance.now();
   const play = button(playing ? 'Pause' : 'Play', () => {
     playing = !playing;
@@ -137,13 +173,13 @@ export function mount(scene: Scene): void {
   });
   button('Save PNG', () => {
     canvas.toBlob((blob) => {
-      if (blob) save([blob], 'image/png', `${scene.id}.png`);
+      if (blob) save([blob], 'image/png', `${loop.id}.png`);
     });
   });
   const gifButton = button('Save GIF', async () => {
     gifButton.disabled = true;
     status.textContent = 'Making the GIF…';
-    save(await makeGif(scene), 'image/gif', `${scene.id}.gif`);
+    save(await makeGif(loop), 'image/gif', `${loop.id}.gif`);
     status.textContent = 'GIF saved.';
     gifButton.disabled = false;
   });
@@ -161,7 +197,7 @@ export function mount(scene: Scene): void {
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = () => {
-        save(chunks, type, `${scene.id}.${type.startsWith('video/mp4') ? 'mp4' : 'webm'}`);
+        save(chunks, type, `${loop.id}.${type.startsWith('video/mp4') ? 'mp4' : 'webm'}`);
         status.textContent = 'Video saved.';
         videoButton.disabled = false;
       };
@@ -171,15 +207,15 @@ export function mount(scene: Scene): void {
       recorder.start();
       setTimeout(() => {
         recorder.stop();
-      }, scene.seconds * 1000);
+      }, loop.seconds * 1000);
     });
   }
 
   document.body.append(canvas, bar, status);
   const frame = (now: number): void => {
-    if (playing) t = (t + (now - last) / 1000) % scene.seconds;
+    if (playing) t = (t + (now - last) / 1000) % loop.seconds;
     last = now;
-    render(ctx, scene, t, SCALE);
+    loop.render(ctx, t, SCALE);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

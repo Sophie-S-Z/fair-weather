@@ -14,6 +14,7 @@ Each file in `share/` is one self-contained HTML page. It needs no server and no
 | `borrowed-light.html`      | Philosophy: Aquinas, a light you did not make   | Lantern, Glim, Moss, Bell, Kite |
 | `new-plan.html`            | Making: the goal can change while you make      | Pim                             |
 | `first-meeting.html`       | Friendship: a small gift helps a shy friend     | Nib, Hush                       |
+| `the-picnic.html`          | Comic: one cookie, seventeen friends            | Every creature but Cap          |
 
 ### Meet the cast
 

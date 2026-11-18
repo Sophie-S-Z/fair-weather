@@ -33,6 +33,30 @@ One loop for each of the twelve creatures. Each loop shows the creature's temper
 | `meet-kite.html`  | Kite, gossip           | The news never stops, and each piece floats off.                              |
 | `meet-glim.html`  | Glim, honest           | Glim is glass, so you can see each feeling inside.                            |
 
+### Meet the new friends
+
+Six new creatures live only in the snippets. Pim is their style guide: a round body, one ink line, two dot eyes, and soft blushes. Their shapes are plain and round on purpose. Each one is a cloud, a pudding, a mouse, a ghost, a seed, or a hedgehog, so no shape looks like a part of a person.
+
+| Creature | Shape                      | Temper           | Likes                        | Quirk                                              |
+| -------- | -------------------------- | ---------------- | ---------------------------- | -------------------------------------------------- |
+| Drift    | A small cloud              | Generous, dreamy | Dry buds, slow afternoons    | Each drop it gives away makes it lighter.          |
+| Dollop   | A dab of soft pudding      | Jolly, giggly    | Jokes, small visitors        | It laughs so hard that it shakes things off.       |
+| Nib      | A round field mouse        | Curious          | Shiny things, bubbles, holes | It must see everything from very near.             |
+| Hush     | A small sheet ghost        | Shy, sweet       | Bushes, quiet corners        | It hides when you look, then comes back to wave.   |
+| Sprig    | A seed with two new leaves | Eager, hopeful   | Sun, tall things, growing    | It stretches on tiptoe each morning.               |
+| Tuck     | A round hedgehog           | Grumpy, but soft | Being alone (it says)        | Its spikes go up when it fusses, and go soft fast. |
+
+| File               | Creature              | Joke                                                                |
+| ------------------ | --------------------- | ------------------------------------------------------------------- |
+| `meet-drift.html`  | Drift, generous       | Drift rains on a bud until it blooms, and floats off a bit higher.  |
+| `meet-dollop.html` | Dollop, jolly         | A ladybug climbs up, and Dollop giggles it right off.               |
+| `meet-nib.html`    | Nib, curious          | Nib leans in to see a soap bubble, and the bubble pops on its nose. |
+| `meet-hush.html`   | Hush, shy             | Hush ducks behind a bush when you look, then peeks out to say hi.   |
+| `meet-sprig.html`  | Sprig, eager          | Sprig cannot reach the flower, so the flower bends down to Sprig.   |
+| `meet-tuck.html`   | Tuck, grumpy but soft | Tuck fusses at a butterfly, then keeps very still so it can rest.   |
+
+The body drawings are in `content/creatures/`, and `kit/friends.ts` gives each one its colors and its resting mood.
+
 The style follows the small inline loops in Ralph Ammer's essays and in Bao To's "Creative autonomy": one sentence, one drawing, one surprise. All art and text here are original.
 
 ## Save a snippet

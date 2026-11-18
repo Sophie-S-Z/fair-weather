@@ -1,0 +1,10 @@
+<!-- Hush, a small sheet ghost with a wavy hem. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path id="line" fill="#fffdf8" stroke="#2b2a28" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    d="M 47 88 C 45.5 85 44.5 83.5 43.5 83.5 C 41 83.5 39.5 88 37 88 C 34.5 88 33.5 83.5 31 83.5 C 28.5 83.5 28 87.5 25.5 87.5 C 24 87.5 23.5 85 23.5 80 L 23.5 60 C 23.5 44 35 34 50 34 C 65 34 76.5 44 76.5 60 L 76.5 80 C 76.5 85 76 87.5 74.5 87.5 C 72 87.5 71.5 83.5 69 83.5 C 66.5 83.5 65.5 88 63 88 C 60.5 88 59 83.5 56.5 83.5 C 55.5 83.5 54.5 85 53 88" />
+  <circle id="eye-l" cx="44" cy="57" r="1.6" fill="#2b2a28" />
+  <circle id="eye-r" cx="56" cy="57" r="1.6" fill="#2b2a28" />
+  <circle id="blush" cx="62.5" cy="61" r="2.4" fill="#f2a39b" />
+  <line id="neck" x1="0" y1="62" x2="100" y2="62" />
+  <line id="base" x1="0" y1="86.5" x2="100" y2="86.5" />
+</svg>

@@ -5,7 +5,7 @@ import { RIG_POINTS, type Rig } from '../../src/render/line/rig.ts';
 import type { Shell } from '../../src/render/line/shell.ts';
 import { buildStrip, taperedWidth } from '../../src/render/line/strip.ts';
 import { PALETTE } from '../../src/render/palette.ts';
-import { CAST } from '../../src/toy/cast.ts';
+import { CAST, type Temper } from '../../src/toy/cast.ts';
 import type { CastId } from '../../src/toy/types.ts';
 
 type Ctx = CanvasRenderingContext2D;
@@ -88,13 +88,17 @@ const points = new Float32Array(RIG_POINTS * 2);
 const body = new Float32Array(RIG_POINTS * 2);
 const strip = new Float32Array(RIG_POINTS * 4);
 
+/** The part of a temper that sets how a creature looks. */
+export type Look = Pick<Temper, 'rest' | 'scale' | 'tint'>;
+
 /**
  * One toybox creature, drawn from its rig with the toybox deform (mood and the 12 fps boil).
  * The rig JSON comes from `content/rigs`, which the content tests already check.
+ * A creature outside the toybox cast gives its own `look`.
  */
-export function creature(json: unknown): (ctx: Ctx, pose: Pose, t: number) => void {
+export function creature(json: unknown, look?: Look): (ctx: Ctx, pose: Pose, t: number) => void {
   const rig = json as Rig;
-  const temper = rig.id in CAST ? CAST[rig.id as CastId] : undefined;
+  const temper = look ?? (rig.id in CAST ? CAST[rig.id as CastId] : undefined);
   const rest: Shell = temper?.rest ?? { tightness: 0, bristle: 0, color: 0, softness: 0.3 };
   const tint = temper?.tint ?? PALETTE.paper;
 

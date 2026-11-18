@@ -13,6 +13,7 @@ Each file in `share/` is one self-contained HTML page. It needs no server and no
 | `a-look-at-something.html` | Philosophy: Husserl, a look points at something | Quill                           |
 | `borrowed-light.html`      | Philosophy: Aquinas, a light you did not make   | Lantern, Glim, Moss, Bell, Kite |
 | `new-plan.html`            | Making: the goal can change while you make      | Pim                             |
+| `first-meeting.html`       | Friendship: a small gift helps a shy friend     | Nib, Hush                       |
 
 ### Meet the cast
 

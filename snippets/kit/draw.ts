@@ -390,3 +390,39 @@ export function dashed(ctx: Ctx, x1: number, y1: number, x2: number, y2: number,
   stroke(ctx, 2.4);
   ctx.restore();
 }
+
+/** The bush: [x offset, y offset, radius] of each round clump. */
+const CLUMPS = [
+  [-60, -17, 17],
+  [-34, -30, 22],
+  [0, -36, 24],
+  [34, -30, 22],
+  [60, -17, 17],
+  [-22, -14, 14],
+  [22, -14, 14],
+] as const;
+
+/**
+ * A round bush, 154 pixels wide and 60 tall, standing on the floor at (x, floor). `shake` rustles it.
+ * Strokes go first and fills second, so only the outside edge shows. The floor line closes the bottom.
+ */
+export function bush(ctx: Ctx, x: number, floor: number, shake = 0): void {
+  for (const pass of ['stroke', 'fill'] as const) {
+    if (pass === 'fill') {
+      ctx.fillStyle = COLOR.leaf;
+      ctx.fillRect(x - 60, floor - 18, 120, 18);
+    }
+    CLUMPS.forEach(([dx, dy, r], i) => {
+      ctx.beginPath();
+      ctx.arc(x + dx + shake * (i % 2 ? 1 : -1) * 4, floor + dy, r, 0, Math.PI * 2);
+      if (pass === 'stroke') {
+        ctx.lineWidth = 4.4;
+        ctx.strokeStyle = COLOR.ink;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = COLOR.leaf;
+        ctx.fill();
+      }
+    });
+  }
+}

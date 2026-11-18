@@ -23,7 +23,7 @@ export const ART_HEIGHT = 300;
 export const FLOOR = 238;
 const GIF_FPS = 25;
 const SCALE = 2;
-const FONT = '"Atkinson Hyperlegible", system-ui, sans-serif';
+export const FONT = '"Atkinson Hyperlegible", system-ui, sans-serif';
 
 /** One full frame at time t, in logical pixels times `scale`. */
 export function render(ctx: CanvasRenderingContext2D, scene: Scene, t: number, scale: number): void {

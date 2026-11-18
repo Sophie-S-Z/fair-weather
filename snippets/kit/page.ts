@@ -1,7 +1,7 @@
 // A comic page: panels of any shape on one sheet. Each panel plays its own short loop,
 // and the page loop is a whole number of each panel's loops, so the page loops too.
 import { COLOR } from './draw.ts';
-import { play } from './stage.ts';
+import { FONT, play } from './stage.ts';
 
 type Ctx = CanvasRenderingContext2D;
 export type Point = readonly [number, number];
@@ -32,7 +32,6 @@ export interface Page {
   panels: readonly Panel[];
 }
 
-const FONT = '"Atkinson Hyperlegible", system-ui, sans-serif';
 /** The paper ring around each panel; it cuts a gutter where an inset lies over another panel. */
 const RING = 14;
 

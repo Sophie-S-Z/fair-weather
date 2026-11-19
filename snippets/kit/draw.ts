@@ -331,14 +331,15 @@ export function icon(ctx: Ctx, name: Icon, x: number, y: number, s = 1): void {
 }
 
 /**
- * A round speech bubble centered on (x, y), with its tail toward (tx, ty), holding one icon.
+ * A round speech bubble centered on (x, y), with its tail toward (tx, ty).
+ * It holds one icon, or a small drawing centered on (0, 0) about 28 pixels across.
  * `s` scales the whole bubble, for pops.
  */
 export function bubble(
   ctx: Ctx,
   x: number,
   y: number,
-  name: Icon,
+  name: Icon | ((ctx: Ctx) => void),
   s = 1,
   tail: readonly [number, number] = [x - 12, y + 34],
 ): void {
@@ -350,7 +351,15 @@ export function bubble(
   ctx.lineTo(lerp(x, tail[0], s), lerp(y, tail[1], s));
   ctx.closePath();
   paint(ctx, COLOR.bubble);
-  icon(ctx, name, x, y, s * 0.95);
+  if (typeof name === 'string') {
+    icon(ctx, name, x, y, s * 0.95);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s * 0.95, s * 0.95);
+  name(ctx);
+  ctx.restore();
 }
 
 /** A soft ink line from (x1, y1) to (x2, y2) that sags by `sag` pixels, like yarn. */

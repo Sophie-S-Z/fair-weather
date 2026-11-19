@@ -57,3 +57,24 @@ test('Save GIF downloads a GIF that the browser can decode to the end', async ({
   expect(pixel.px.slice(0, 3)).toEqual([255, 253, 248]);
   await expect(page.getByRole('status')).toHaveText('GIF saved.');
 });
+
+test('a carousel steps one slide per tap, Next, or arrow key', async ({ page }) => {
+  await page.goto(pathToFileURL(join(share, 'somebody-should.html')).href);
+  const status = page.getByRole('status');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(status).toHaveText('Slide 2 of 9');
+  await page.getByRole('img').click();
+  await expect(status).toHaveText('Slide 3 of 9');
+  await page.getByRole('img').press('ArrowLeft');
+  await expect(status).toHaveText('Slide 2 of 9');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(status).toHaveText('Slide 9 of 9');
+});
+
+test('a clip turns its sound on and off', async ({ page }) => {
+  await page.goto(pathToFileURL(join(share, 'inch-deadline.html')).href);
+  const sound = page.getByRole('button', { name: 'Sound on' });
+  await sound.click();
+  await expect(page.getByRole('button', { name: 'Sound off' })).toBeVisible();
+});

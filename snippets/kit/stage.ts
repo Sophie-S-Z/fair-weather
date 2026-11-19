@@ -95,6 +95,17 @@ export interface Loop {
   gifFps?: number;
   /** Draws the whole frame at time t, in logical pixels times `scale`. */
   render(ctx: CanvasRenderingContext2D, t: number, scale: number): void;
+  /**
+   * Plays the sounds whose cues fall in the window [from, to) of loop time, into `out`.
+   * A loop with sound gets a Sound button, and its video carries the sound while the sound is on.
+   */
+  sound?(ac: AudioContext, out: AudioNode, from: number, to: number): void;
+  /**
+   * Start times of the slides, for a loop that the reader steps through (the first is 0).
+   * The player then holds at the end of each slide, and a tap, Next, or the arrow keys go on.
+   * The GIF and the video still play every slide in turn.
+   */
+  chapters?: readonly number[];
 }
 
 /** The GIF of one loop at 1x size. */
@@ -167,6 +178,7 @@ export function play(loop: Loop): void {
   let playing = !reduced && Number.isNaN(fixed);
   let t = Number.isNaN(fixed) ? (reduced ? loop.still : 0) : fixed % loop.seconds;
   let last = performance.now();
+  let recording = false;
   const play = button(playing ? 'Pause' : 'Play', () => {
     playing = !playing;
     play.textContent = playing ? 'Pause' : 'Play';
@@ -183,25 +195,51 @@ export function play(loop: Loop): void {
     status.textContent = 'GIF saved.';
     gifButton.disabled = false;
   });
-  const type = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find(
-    (m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m),
-  );
+  // Sound is off until the reader turns it on, and then the browser lets it start.
+  let audio: { ac: AudioContext; out: GainNode; tape: MediaStreamAudioDestinationNode } | null = null;
+  let sound = false;
+  if (loop.sound) {
+    const soundButton = button('Sound on', async () => {
+      if (!audio) {
+        const ac = new AudioContext();
+        const out = ac.createGain();
+        const tape = ac.createMediaStreamDestination();
+        out.connect(ac.destination);
+        out.connect(tape);
+        audio = { ac, out, tape };
+      }
+      sound = !sound;
+      if (sound) await audio.ac.resume();
+      soundButton.textContent = sound ? 'Sound off' : 'Sound on';
+    });
+  }
+  const types = [
+    ...(loop.sound ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus'] : []),
+    'video/mp4;codecs=avc1',
+    'video/webm;codecs=vp9',
+    'video/webm',
+  ];
+  const type = types.find((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m));
   if (type) {
     const videoButton = button('Save video', () => {
       videoButton.disabled = true;
       status.textContent = 'Recording one loop…';
-      const recorder = new MediaRecorder(canvas.captureStream(60), {
+      const stream = canvas.captureStream(60);
+      if (audio && sound) for (const track of audio.tape.stream.getAudioTracks()) stream.addTrack(track);
+      const recorder = new MediaRecorder(stream, {
         mimeType: type,
         videoBitsPerSecond: 6e6,
       });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => chunks.push(e.data);
       recorder.onstop = () => {
+        recording = false;
         save(chunks, type, `${loop.id}.${type.startsWith('video/mp4') ? 'mp4' : 'webm'}`);
         status.textContent = 'Video saved.';
         videoButton.disabled = false;
       };
       t = 0;
+      recording = true;
       playing = true;
       play.textContent = 'Pause';
       recorder.start();
@@ -211,9 +249,58 @@ export function play(loop: Loop): void {
     });
   }
 
+  // Slides: the reader steps through them, and each one holds at its end.
+  const chapters = loop.chapters ?? [];
+  const chapterAt = (time: number): number => chapters.findLastIndex((c) => c <= time);
+  const chapterEnd = (i: number): number => chapters[i + 1] ?? loop.seconds;
+  if (chapters.length > 0) {
+    const go = (step: number): void => {
+      const i = (chapterAt(t) + step + chapters.length) % chapters.length;
+      // With reduced motion, a slide opens on its last frame.
+      t = reduced ? chapterEnd(i) - 0.05 : (chapters[i] ?? 0);
+      status.textContent = `Slide ${String(i + 1)} of ${String(chapters.length)}`;
+    };
+    bar.prepend(
+      button('Back', () => {
+        go(-1);
+      }),
+    );
+    bar.append(
+      button('Next', () => {
+        go(1);
+      }),
+    );
+    canvas.tabIndex = 0;
+    canvas.style.cursor = 'pointer';
+    canvas.addEventListener('click', () => {
+      go(1);
+    });
+    canvas.addEventListener('keydown', (e) => {
+      const step = { ArrowRight: 1, ' ': 1, ArrowLeft: -1 }[e.key];
+      if (step === undefined) return;
+      e.preventDefault();
+      go(step);
+    });
+  }
+
   document.body.append(canvas, bar, status);
   const frame = (now: number): void => {
-    if (playing) t = (t + (now - last) / 1000) % loop.seconds;
+    if (playing) {
+      const from = t;
+      // The first frame can carry a time stamp from before the page set `last`.
+      const next = t + Math.max(0, now - last) / 1000;
+      t =
+        chapters.length > 0 && !recording
+          ? Math.min(next, chapterEnd(chapterAt(t)) - 0.001)
+          : next % loop.seconds;
+      if (audio && sound && loop.sound) {
+        if (t >= from) loop.sound(audio.ac, audio.out, from, t);
+        else {
+          loop.sound(audio.ac, audio.out, from, loop.seconds);
+          loop.sound(audio.ac, audio.out, 0, t);
+        }
+      }
+    }
     last = now;
     loop.render(ctx, t, SCALE);
     requestAnimationFrame(frame);

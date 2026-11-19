@@ -7,7 +7,7 @@ export const SCALE: readonly number[] = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21].map(
 
 /** A creature's chirp shape: each mood is a short run of scale steps from the creature's own note. */
 export type Mood = 'happy' | 'sad' | 'angry' | 'surprised' | 'sleepy';
-const RUNS: Record<Mood, readonly number[]> = {
+export const RUNS: Record<Mood, readonly number[]> = {
   happy: [0, 2, 4],
   sad: [2, 1, 0],
   angry: [0, 0, 0],
@@ -33,7 +33,7 @@ export interface AudioEngine {
 /** One step of a run, in seconds. */
 const STEP = 0.09;
 
-const tone = (i: number): number => SCALE[Math.max(0, Math.min(SCALE.length - 1, i))] ?? 261.63;
+export const tone = (i: number): number => SCALE[Math.max(0, Math.min(SCALE.length - 1, i))] ?? 261.63;
 
 export function createAudioEngine(
   ctxFactory: () => AudioContext,

@@ -1,6 +1,8 @@
 // Props and small motions that many comic scenes share: ground, crumbs, sweat, sleep, weather, and food.
 // Each prop is drawn in ink on the toybox palette, at about the size of a creature's head.
 import { arc, COLOR, easeBack, seg, wobble, type Pose } from './draw.ts';
+import { wrap } from './page.ts';
+import { FONT } from './stage.ts';
 
 type Ctx = CanvasRenderingContext2D;
 export type Point = readonly [number, number];
@@ -450,4 +452,56 @@ export function bigTree(
         ctx.fill();
       }
     });
+}
+
+/**
+ * A speech bubble with words, centered on (x, y), with its tail toward the speaker at (tx, ty).
+ * `s` scales it, for a pop in. Lines wrap at `width` pixels. Keep the words few.
+ */
+export function speech(
+  ctx: Ctx,
+  x: number,
+  y: number,
+  text: string,
+  tx: number,
+  ty: number,
+  s = 1,
+  width = 150,
+  size = 15,
+): void {
+  if (s <= 0) return;
+  ctx.save();
+  ctx.font = `bold ${String(size)}px ${FONT}`;
+  const lines = wrap(ctx, text, width);
+  const lead = Math.round(size * 1.25);
+  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 22;
+  const h = lines.length * lead + 14;
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  const [dx, dy] = [(tx - x) / s, (ty - y) / s];
+  // The tail leaves from the side of the box that faces the speaker.
+  const bx = Math.max(-w / 2 + 14, Math.min(w / 2 - 14, dx * 0.3));
+  const by = dy > 0 ? h / 2 : -h / 2;
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, 12);
+  ctx.moveTo(bx - 7, by);
+  ctx.lineTo(dx * 0.75, dy * 0.75);
+  ctx.lineTo(bx + 7, by);
+  ctx.fillStyle = COLOR.bubble;
+  ctx.fill();
+  ink(ctx, 2);
+  // Cover the box edge under the tail, so the tail joins the box.
+  ctx.beginPath();
+  ctx.moveTo(bx - 6, by);
+  ctx.lineTo(bx + 6, by);
+  ctx.strokeStyle = COLOR.bubble;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = COLOR.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  lines.forEach((l, i) => {
+    ctx.fillText(l, 0, -h / 2 + 7 + lead / 2 + i * lead);
+  });
+  ctx.restore();
 }

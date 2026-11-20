@@ -94,9 +94,40 @@ To open a snippet paused at a time, add `?t=` and the seconds to the address, fo
 
 5. Commit the scene and its file in `share/`. A unit test fails when `share/` does not match the scenes.
 
+To build only some scenes, give their names: `npm run snippets -- the-picnic look-up`.
+
+## Make a comic
+
+Four comic formats share one player. Each one follows the comics plan in the project files.
+
+| Format        | Kit               | Size              | How it plays                                                            |
+| ------------- | ----------------- | ----------------- | ----------------------------------------------------------------------- |
+| 4-panel strip | `kit/strip.ts`    | 540 by 675 (4:5)  | The panels open one by one. The full grid holds, then fades.            |
+| Carousel      | `kit/carousel.ts` | 540 by 675 (4:5)  | One beat per slide. A tap, Next, or the arrow keys go on.               |
+| Vertical clip | `kit/clip.ts`     | 540 by 960 (9:16) | Full acting with burned-in captions. Sound is off until you turn it on. |
+| Animated page | `kit/page.ts`     | 640 by 1000       | Each panel plays its own loop. Loops must divide the page loop.         |
+
+All four save at twice their size. The GIF of a comic plays at 12.5 frames per second.
+
+Rules for every comic:
+
+- Creatures talk only in picture bubbles. The narration is plain and short.
+- The still frame (reduced motion and the PNG) must carry the punch line.
+- The `label` tells the whole joke in plain words, for screen readers.
+
+To save the PNG, the GIF, and the video of some scenes in one step:
+
+```sh
+npm run snippets:export -- out the-picnic look-up
+```
+
 Shared code:
 
 - `kit/draw.ts` draws creatures, bubbles, icons, and yarn, and has the timing curves.
+- `kit/cast.ts` gives every creature by name, with its voice.
+- `kit/props.ts` draws the meadow, food, weather, and other props, and has small motions such as a blink.
+- `kit/sound.ts` turns a list of sound cues into chirps and soft effects.
 - `kit/stage.ts` draws the frame and the caption, and makes the buttons.
 - `kit/gif.ts` encodes the GIF.
 - `build.ts` bundles each scene into one HTML file.
+- `export.ts` saves the PNG, the GIF, and the video in a headless browser.

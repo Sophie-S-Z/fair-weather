@@ -29,6 +29,8 @@ export interface Page {
   seconds: number;
   still: number;
   gifFps: number;
+  /** The small line at the top right; 'FAIR WEATHER · PAGE 1' by default. */
+  folio?: string;
   panels: readonly Panel[];
 }
 
@@ -59,7 +61,7 @@ function outline(ctx: Ctx, panel: Panel): void {
 }
 
 /** Lines of `text` that fit in `width` pixels with the font that is set now. */
-function wrap(ctx: Ctx, text: string, width: number): string[] {
+export function wrap(ctx: Ctx, text: string, width: number): string[] {
   const lines: string[] = [];
   let line = '';
   for (const word of text.split(' ')) {
@@ -72,11 +74,12 @@ function wrap(ctx: Ctx, text: string, width: number): string[] {
   return [...lines, line];
 }
 
-/** A narration box: ink text on yellow, with a thin ink edge. */
-function caption(ctx: Ctx, { text, x, y, width }: NonNullable<Panel['caption']>): void {
-  ctx.font = `13px ${FONT}`;
+/** A narration box: ink text on yellow, with a thin ink edge. `size` is the font size in pixels. */
+export function caption(ctx: Ctx, { text, x, y, width }: NonNullable<Panel['caption']>, size = 13): void {
+  ctx.font = `${String(size)}px ${FONT}`;
   const lines = wrap(ctx, text, width - 14);
-  const height = lines.length * 16 + 10;
+  const lead = Math.round(size * 1.23);
+  const height = lines.length * lead + 10;
   ctx.fillStyle = COLOR.glow;
   ctx.fillRect(x, y, width, height);
   ctx.strokeStyle = COLOR.ink;
@@ -86,7 +89,7 @@ function caption(ctx: Ctx, { text, x, y, width }: NonNullable<Panel['caption']>)
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   lines.forEach((l, i) => {
-    ctx.fillText(l, x + 7, y + 7 + i * 16);
+    ctx.fillText(l, x + 7, y + 7 + i * lead);
   });
 }
 
@@ -103,7 +106,7 @@ function render(ctx: Ctx, page: Page, t: number, scale: number): void {
   ctx.textAlign = 'right';
   ctx.font = `bold 11px ${FONT}`;
   ctx.globalAlpha = 0.55;
-  ctx.fillText('FAIR WEATHER · PAGE 1', page.width - 20, 48);
+  ctx.fillText(page.folio ?? 'FAIR WEATHER · PAGE 1', page.width - 20, 48);
   ctx.globalAlpha = 1;
 
   for (const panel of page.panels) {

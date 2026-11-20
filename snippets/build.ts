@@ -1,5 +1,5 @@
 // Bundles each scene in snippets/scenes into one self-contained HTML file in snippets/share.
-// Run: npm run snippets
+// Run: npm run snippets, or npm run snippets -- the-picnic look-up to build only those scenes.
 import { readdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,11 +31,11 @@ async function bundle(entry: string): Promise<string> {
   return output.output[0].code.replace(/<\/script/gi, '<\\/script');
 }
 
-/** Each scene's HTML, by file name. */
-export async function buildSnippets(): Promise<Map<string, string>> {
+/** Each scene's HTML, by file name. `only` limits the build to those scene ids. */
+export async function buildSnippets(only: readonly string[] = []): Promise<Map<string, string>> {
   const files = new Map<string, string>();
   const entries = readdirSync(sceneDir)
-    .filter((f) => f.endsWith('.ts'))
+    .filter((f) => f.endsWith('.ts') && (only.length === 0 || only.includes(basename(f, '.ts'))))
     .sort();
   for (const file of entries) {
     const id = basename(file, '.ts');
@@ -50,5 +50,6 @@ export async function buildSnippets(): Promise<Map<string, string>> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  for (const [name, html] of await buildSnippets()) writeFileSync(join(shareDir, name), html);
+  for (const [name, html] of await buildSnippets(process.argv.slice(2)))
+    writeFileSync(join(shareDir, name), html);
 }
